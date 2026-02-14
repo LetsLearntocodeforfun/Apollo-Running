@@ -1,0 +1,216 @@
+:root {
+  --bg: #0f1419;
+  --bg-card: #1a2332;
+  --accent: #00c853;
+  --accent-dim: #00a843;
+  --text: #e8eaed;
+  --text-muted: #9aa0a6;
+  --border: #2d3748;
+  --strava: #fc4c02;
+  --garmin: #000;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+button {
+  cursor: pointer;
+  font: inherit;
+}
+
+a {
+  color: var(--accent);
+}
+
+input {
+  font: inherit;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  font-weight: 500;
+  transition: background 0.15s, transform 0.1s;
+}
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.btn-primary {
+  background: var(--accent);
+  color: #000;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-dim);
+}
+.btn-secondary {
+  background: var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover {
+  background: #3d4a5c;
+}
+
+.day-type-rest { color: var(--text-muted); }
+.day-type-run { color: var(--text); }
+.day-type-cross { color: var(--accent); }
+.day-type-race, .day-type-marathon { font-weight: 600; color: var(--accent); }
+
+/* Welcome / first-boot flow */
+.welcome-flow {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  background: var(--bg);
+}
+.welcome-card {
+  max-width: 560px;
+  width: 100%;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 2rem;
+}
+.welcome-overview {
+  max-width: 640px;
+}
+.welcome-title {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0 0 1rem;
+  color: var(--text);
+}
+.welcome-text {
+  color: var(--text-muted);
+  margin: 0 0 1rem;
+  line-height: 1.5;
+}
+.welcome-question {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+.welcome-hint {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+  line-height: 1.5;
+}
+.welcome-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+.welcome-btn {
+  min-width: 160px;
+}
+
+.plan-overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+.plan-overview-item {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg);
+}
+.plan-overview-header {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  padding: 1rem 1.25rem;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+}
+.plan-overview-header:hover {
+  background: rgba(255,255,255,0.04);
+}
+.plan-overview-name {
+  font-weight: 600;
+}
+.plan-overview-author {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+.plan-overview-meta {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-left: auto;
+}
+.plan-overview-chevron {
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+.plan-overview-body {
+  padding: 0 1.25rem 1.25rem;
+  border-top: 1px solid var(--border);
+}
+.plan-overview-desc {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 1rem 0;
+  line-height: 1.5;
+}
+.plan-overview-table-wrap {
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+.plan-overview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+.plan-overview-table th,
+.plan-overview-table td {
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.plan-overview-table th {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.start-date-row {
+  margin: 1.25rem 0;
+}
+.start-date-label {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+.start-date-input {
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 1rem;
+}

@@ -1,0 +1,13 @@
+{
+  "name": "apollo-api",
+  "version": "1.0.0",
+  "description": "Apollo Strava OAuth API for Azure Static Web Apps",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "dependencies": {
+    "@azure/functions": "^4.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

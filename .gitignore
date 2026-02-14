@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+api/node_modules/
+
+# Build output
+dist/
+dist-electron/
+release/
+
+# Local API secrets (do not commit)
+api/local.settings.json
+
+# Env files
+.env
+.env.local
+.env.*.local
+
+# IDE / OS
+.idea/
+.vscode/
+*.log
+.DS_Store
+Thumbs.db

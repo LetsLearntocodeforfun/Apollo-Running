@@ -1,0 +1,17 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": ["/api/*", "/assets/*", "/*.{css,scss,js,png,gif,ico,jpg,svg,woff2}"]
+  },
+  "routes": [
+    { "route": "/auth/*", "rewrite": "/index.html" }
+  ],
+  "responseOverrides": {
+    "404": { "rewrite": "/index.html", "statusCode": 200 }
+  },
+  "globalHeaders": {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "Referrer-Policy": "strict-origin-when-cross-origin"
+  }
+}
