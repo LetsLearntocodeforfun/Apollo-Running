@@ -353,7 +353,7 @@ export default function Settings() {
       <div className="card">
         <h3>Training plan</h3>
         <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
-          To change or pick a plan from the full library (Hal Higdon, Hanson&apos;s, FIRST), you can see the welcome screen again.
+          To change or pick a plan from the full library (Hal Higdon, Hanson&apos;s, Pfitzinger, Nike Run Club, FIRST) or rebuild a custom plan, you can see the welcome screen again.
         </p>
         <button
           type="button"

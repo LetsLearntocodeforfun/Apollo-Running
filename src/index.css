@@ -122,6 +122,35 @@ input {
   min-width: 160px;
 }
 
+.welcome-option-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.welcome-option-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  text-align: left;
+  padding: 0.9rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.welcome-option-card:hover {
+  border-color: var(--accent);
+  background: rgba(0, 200, 83, 0.08);
+}
+
+.welcome-option-card span {
+  font-size: 0.84rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
 .plan-overview-list {
   display: flex;
   flex-direction: column;
@@ -213,6 +242,12 @@ input {
   background: var(--bg);
   color: var(--text);
   font-size: 1rem;
+}
+
+.custom-builder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
 }
 
 /* ── Insights & coaching features ── */
