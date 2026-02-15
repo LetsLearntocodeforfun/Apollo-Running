@@ -42,17 +42,20 @@ var mainWindow = null;
 var oauthServer = null;
 var isDev = process.env.NODE_ENV !== 'production' || !app.isPackaged;
 function createWindow() {
+    var iconPath = path.join(__dirname, '..', 'public', 'assets', 'logo-256.png');
     mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
         minWidth: 900,
         minHeight: 600,
+        icon: iconPath,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             contextIsolation: true,
             nodeIntegration: false,
         },
         title: 'Apollo',
+        backgroundColor: '#0D1B2A',
     });
     if (isDev) {
         mainWindow.loadURL('http://localhost:5173');

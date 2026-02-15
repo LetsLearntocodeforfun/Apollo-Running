@@ -1,0 +1,249 @@
+/* ═══════════════════════════════════════════════════════════════
+   APOLLO DESIGN SYSTEM
+   Extracted from logo: Winged Apollo in Art Deco medallion
+   Colors: Rich golds, deep navys, soft teals, warm oranges
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Primary: Rich Gold (from logo body, wings, laurel) ── */
+  --apollo-gold: #D4A537;
+  --apollo-gold-light: #E8C05A;
+  --apollo-gold-dark: #B8892A;
+  --apollo-gold-dim: rgba(212, 165, 55, 0.15);
+  --apollo-gold-glow: rgba(212, 165, 55, 0.25);
+
+  /* ── Secondary: Deep Navy (from logo outlines, shadows) ── */
+  --apollo-navy: #0D1B2A;
+  --apollo-navy-light: #1B2D42;
+  --apollo-navy-mid: #152438;
+  --apollo-navy-card: #13243A;
+
+  /* ── Accent: Soft Teal (from logo background geometry) ── */
+  --apollo-teal: #5BB5B5;
+  --apollo-teal-light: #7ECECE;
+  --apollo-teal-dark: #3D9494;
+  --apollo-teal-dim: rgba(91, 181, 181, 0.12);
+
+  /* ── Warm Orange (from logo mid-tones) ── */
+  --apollo-orange: #E07B30;
+  --apollo-orange-light: #F09A50;
+  --apollo-orange-dim: rgba(224, 123, 48, 0.15);
+
+  /* ── Cream/Ivory (from logo highlights) ── */
+  --apollo-cream: #F5E6C8;
+  --apollo-cream-light: #FFF8ED;
+
+  /* ── Semantic Colors ── */
+  --color-success: #2ECC71;
+  --color-success-dim: rgba(46, 204, 113, 0.15);
+  --color-warning: #E8A838;
+  --color-warning-dim: rgba(232, 168, 56, 0.15);
+  --color-error: #E74C3C;
+  --color-error-dim: rgba(231, 76, 60, 0.12);
+  --color-info: #5BB5B5;
+  --color-info-dim: rgba(91, 181, 181, 0.12);
+
+  /* ── Backgrounds ── */
+  --bg: var(--apollo-navy);
+  --bg-card: var(--apollo-navy-card);
+  --bg-elevated: var(--apollo-navy-light);
+  --bg-hover: rgba(212, 165, 55, 0.06);
+  --bg-active: rgba(212, 165, 55, 0.10);
+  --bg-surface: rgba(255, 255, 255, 0.03);
+
+  /* ── Text ── */
+  --text: #ECE8E1;
+  --text-secondary: #B8B2A8;
+  --text-muted: #8A8478;
+  --text-gold: var(--apollo-gold);
+
+  /* ── Borders ── */
+  --border: rgba(212, 165, 55, 0.12);
+  --border-strong: rgba(212, 165, 55, 0.25);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+
+  /* ── Accent (backward-compatible) ── */
+  --accent: var(--apollo-gold);
+  --accent-dim: var(--apollo-gold-dark);
+
+  /* ── Brand colors ── */
+  --strava: #FC4C02;
+
+  /* ── Typography ── */
+  --font-display: 'Montserrat', 'Segoe UI', system-ui, sans-serif;
+  --font-body: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Consolas', monospace;
+
+  /* Font scale */
+  --text-xs: 0.75rem;
+  --text-sm: 0.85rem;
+  --text-base: 0.95rem;
+  --text-md: 1.05rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 1.85rem;
+  --text-3xl: 2.25rem;
+  --text-hero: 3rem;
+
+  /* Font weights */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --weight-extrabold: 800;
+
+  /* ── Spacing (8px base) ── */
+  --space-1: 0.25rem;   /* 4px */
+  --space-2: 0.5rem;    /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+
+  /* ── Border Radius ── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  /* ── Shadows ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.3), 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.4), 0 4px 8px rgba(0, 0, 0, 0.2);
+  --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.5), 0 8px 16px rgba(0, 0, 0, 0.3);
+  --shadow-gold: 0 4px 16px rgba(212, 165, 55, 0.2), 0 2px 4px rgba(212, 165, 55, 0.1);
+  --shadow-glow: 0 0 20px rgba(212, 165, 55, 0.15);
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.25s ease;
+  --transition-slow: 0.4s ease;
+  --transition-smooth: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* ── Z-Index ── */
+  --z-base: 1;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-overlay: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes pulseGold {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 165, 55, 0.3); }
+  50% { box-shadow: 0 0 0 8px rgba(212, 165, 55, 0); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes victoryBurst {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   DECORATIVE ELEMENTS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Art Deco top border accent */
+.apollo-border-top {
+  position: relative;
+}
+.apollo-border-top::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--apollo-gold-dark) 15%,
+    var(--apollo-gold) 50%,
+    var(--apollo-gold-dark) 85%,
+    transparent 100%
+  );
+}
+
+/* Subtle geometric pattern overlay */
+.apollo-pattern {
+  position: relative;
+}
+.apollo-pattern::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.02;
+  background-image: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(212, 165, 55, 0.5) 10px,
+    rgba(212, 165, 55, 0.5) 11px
+  );
+  pointer-events: none;
+}
+
+/* Gold gradient text */
+.apollo-text-gold {
+  background: linear-gradient(135deg, var(--apollo-gold-light) 0%, var(--apollo-gold) 50%, var(--apollo-orange) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Ornate divider */
+.apollo-divider {
+  height: 1px;
+  border: none;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    var(--border) 20%,
+    var(--border-strong) 50%,
+    var(--border) 80%,
+    transparent 100%
+  );
+  margin: var(--space-6) 0;
+}

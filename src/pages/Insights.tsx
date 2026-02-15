@@ -201,10 +201,10 @@ export default function Insights() {
   }
 
   const gradeColor = (grade: string) => {
-    if (grade.startsWith('A')) return '#00c853';
-    if (grade.startsWith('B')) return '#4FC3F7';
-    if (grade.startsWith('C')) return '#f0a030';
-    return '#f55';
+    if (grade.startsWith('A')) return 'var(--color-success)';
+    if (grade.startsWith('B')) return 'var(--apollo-teal)';
+    if (grade.startsWith('C')) return 'var(--color-warning)';
+    return 'var(--color-error)';
   };
 
   return (
@@ -212,7 +212,7 @@ export default function Insights() {
       <h1 className="page-title">Insights</h1>
 
       {/* Tab navigation */}
-      <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
         {(['overview', 'hr', 'recaps', 'settings'] as const).map((t) => (
           <button
             key={t}
@@ -238,9 +238,9 @@ export default function Insights() {
           {/* Race Day Countdown + Prediction hero card */}
           {activePlan && plan && (
             <div className="card" style={{
-              background: 'linear-gradient(135deg, rgba(0,200,83,0.12) 0%, rgba(0,100,200,0.08) 100%)',
-              borderColor: 'var(--accent)',
-              borderWidth: 2,
+              background: 'linear-gradient(135deg, rgba(212,165,55,0.08) 0%, rgba(91,181,181,0.05) 100%)',
+              borderColor: 'var(--apollo-gold)',
+              position: 'relative', overflow: 'hidden',
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                 <div>
@@ -272,7 +272,7 @@ export default function Insights() {
                 <div style={{ marginTop: '1.25rem' }}>
                   <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
                     <div>
-                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--accent)', lineHeight: 1 }}>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--apollo-gold)', lineHeight: 1, fontFamily: 'var(--font-display)' }}>
                         {prediction.marathonTimeFormatted}
                       </div>
                       <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Marathon</div>
@@ -293,8 +293,8 @@ export default function Insights() {
                     </div>
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <span>VDOT: <strong style={{ color: 'var(--text)' }}>{prediction.vdot}</strong></span>
-                    <span>Confidence: <strong style={{ color: 'var(--text)' }}>{prediction.confidence}%</strong></span>
+                    <span>VDOT: <strong style={{ color: 'var(--apollo-gold)' }}>{prediction.vdot}</strong></span>
+                    <span>Confidence: <strong style={{ color: 'var(--apollo-gold)' }}>{prediction.confidence}%</strong></span>
                     <span>Method: {prediction.method.replace(/_/g, ' ')}</span>
                     {prediction.previousMarathonTimeSec && prediction.previousMarathonTimeSec !== prediction.marathonTimeSec && (
                       <span>
@@ -321,7 +321,7 @@ export default function Insights() {
                   <ScoreGauge
                     score={adherence.score}
                     label="Training Adherence"
-                    color={adherence.score >= 80 ? '#00c853' : adherence.score >= 60 ? '#f0a030' : '#f55'}
+                    color={adherence.score >= 80 ? 'var(--color-success)' : adherence.score >= 60 ? 'var(--color-warning)' : 'var(--color-error)'}
                   />
                 )}
                 {readiness && (
@@ -335,7 +335,7 @@ export default function Insights() {
                   <ScoreGauge
                     score={adherence.distanceAdherence}
                     label="Distance Match"
-                    color={adherence.distanceAdherence >= 90 ? '#00c853' : adherence.distanceAdherence >= 70 ? '#4FC3F7' : '#f0a030'}
+                    color={adherence.distanceAdherence >= 90 ? 'var(--color-success)' : adherence.distanceAdherence >= 70 ? 'var(--apollo-teal)' : 'var(--color-warning)'}
                   />
                 )}
                 {adherence && (
@@ -343,7 +343,7 @@ export default function Insights() {
                     score={adherence.consistencyScore}
                     size={100}
                     label="Consistency"
-                    color={adherence.consistencyScore >= 80 ? '#00c853' : '#f0a030'}
+                    color={adherence.consistencyScore >= 80 ? 'var(--color-success)' : 'var(--color-warning)'}
                   />
                 )}
               </div>
@@ -359,8 +359,8 @@ export default function Insights() {
                   fontSize: '0.78rem',
                   padding: '0.15rem 0.5rem',
                   borderRadius: 999,
-                  background: adherence.rating === 'excellent' ? 'rgba(0,200,83,0.2)' : adherence.rating === 'good' ? 'rgba(79,195,247,0.2)' : 'rgba(240,160,48,0.2)',
-                  color: adherence.rating === 'excellent' ? 'var(--accent)' : adherence.rating === 'good' ? '#4FC3F7' : '#f0a030',
+                  background: adherence.rating === 'excellent' ? 'var(--color-success-dim)' : adherence.rating === 'good' ? 'var(--apollo-teal-dim)' : 'var(--color-warning-dim)',
+                  color: adherence.rating === 'excellent' ? 'var(--color-success)' : adherence.rating === 'good' ? 'var(--apollo-teal)' : 'var(--color-warning)',
                   fontWeight: 600,
                   textTransform: 'capitalize',
                 }}>{adherence.rating}</span>
@@ -427,7 +427,7 @@ export default function Insights() {
                       <div style={{
                         height: '100%', borderRadius: 4,
                         width: `${item.score}%`,
-                        background: item.score >= 80 ? 'var(--accent)' : item.score >= 60 ? '#f0a030' : '#f55',
+                        background: item.score >= 80 ? 'var(--apollo-gold)' : item.score >= 60 ? 'var(--color-warning)' : 'var(--color-error)',
                         transition: 'width 0.4s',
                       }} />
                     </div>
@@ -438,7 +438,7 @@ export default function Insights() {
 
               {readiness.strengths.length > 0 && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                  <strong style={{ fontSize: '0.88rem', color: 'var(--accent)' }}>What went well</strong>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--color-success)' }}>What went well</strong>
                   {readiness.strengths.map((s, i) => (
                     <p key={i} style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s}</p>
                   ))}
@@ -447,7 +447,7 @@ export default function Insights() {
 
               {readiness.improvements.length > 0 && (
                 <div style={{ marginBottom: '0.75rem' }}>
-                  <strong style={{ fontSize: '0.88rem', color: '#f0a030' }}>Areas to improve</strong>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--color-warning)' }}>Areas to improve</strong>
                   {readiness.improvements.map((s, i) => (
                     <p key={i} style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s}</p>
                   ))}
@@ -456,7 +456,7 @@ export default function Insights() {
 
               {readiness.nextWeekTips.length > 0 && (
                 <div>
-                  <strong style={{ fontSize: '0.88rem', color: '#4FC3F7' }}>Tips for next week</strong>
+                  <strong style={{ fontSize: '0.88rem', color: 'var(--apollo-teal)' }}>Tips for next week</strong>
                   {readiness.nextWeekTips.map((s, i) => (
                     <p key={i} style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s}</p>
                   ))}

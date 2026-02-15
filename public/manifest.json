@@ -1,9 +1,13 @@
 {
-  "name": "Apollo — Marathon Training",
+  "name": "Apollo — Legendary Marathon Training",
   "short_name": "Apollo",
-  "description": "All-in-one marathon training with popular plans, Strava & Garmin.",
+  "description": "Legendary marathon training companion. Popular plans, Strava sync, race predictions, and coaching insights.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0f1419",
-  "theme_color": "#00c853"
+  "background_color": "#0D1B2A",
+  "theme_color": "#D4A537",
+  "icons": [
+    { "src": "/assets/logo-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/logo-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
 }

@@ -10,12 +10,12 @@ import type { AdaptiveRecommendation, RecommendationOption } from '../types/reco
 /** Color mapping for recommendation scenarios */
 function scenarioColor(scenario: string): string {
   switch (scenario) {
-    case 'ahead_of_schedule': return '#00c853';
-    case 'behind_schedule': return '#f0a030';
-    case 'overtraining': return '#EF5350';
-    case 'inconsistent_execution': return '#4FC3F7';
-    case 'race_week_optimization': return '#AB47BC';
-    default: return 'var(--accent)';
+    case 'ahead_of_schedule': return 'var(--color-success)';
+    case 'behind_schedule': return 'var(--color-warning)';
+    case 'overtraining': return 'var(--color-error)';
+    case 'inconsistent_execution': return 'var(--apollo-teal)';
+    case 'race_week_optimization': return 'var(--apollo-gold)';
+    default: return 'var(--apollo-gold)';
   }
 }
 
@@ -70,11 +70,12 @@ function RecommendationCard({
       style={{
         background: 'var(--bg-card)',
         border: '1px solid var(--border)',
-        borderLeft: `4px solid ${color}`,
-        borderRadius: 12,
+        borderLeft: `3px solid ${color}`,
+        borderRadius: 'var(--radius-lg)',
         padding: '1.25rem 1.5rem',
         marginBottom: '0.75rem',
         animation: 'cardFadeIn 0.3s ease',
+        boxShadow: 'var(--shadow-sm)',
       }}
     >
       {/* Header */}
@@ -251,7 +252,7 @@ export default function AdaptiveRecommendations() {
         marginBottom: '0.75rem',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Coach Recommendations</h3>
+          <h3 style={{ margin: 0, fontSize: 'var(--text-md)', fontFamily: 'var(--font-display)', color: 'var(--apollo-gold)' }}>Coach Recommendations</h3>
           {badgeCount > 0 && (
             <span style={{
               display: 'inline-flex',
@@ -260,8 +261,8 @@ export default function AdaptiveRecommendations() {
               width: 22,
               height: 22,
               borderRadius: '50%',
-              background: 'var(--accent)',
-              color: '#000',
+              background: 'var(--apollo-gold)',
+              color: 'var(--apollo-navy)',
               fontSize: '0.75rem',
               fontWeight: 700,
             }}>
@@ -280,11 +281,13 @@ export default function AdaptiveRecommendations() {
             style={{
               background: 'none',
               border: '1px solid var(--border)',
-              borderRadius: 6,
-              color: 'var(--text-muted)',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--text-secondary)',
               fontSize: '0.78rem',
               padding: '0.3rem 0.6rem',
               cursor: analyzing ? 'default' : 'pointer',
+              fontFamily: 'var(--font-display)',
+              transition: 'all var(--transition-fast)',
             }}
           >
             Refresh
@@ -298,9 +301,9 @@ export default function AdaptiveRecommendations() {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'rgba(79,195,247,0.08)',
-          border: '1px solid rgba(79,195,247,0.2)',
-          borderRadius: 8,
+          background: 'var(--apollo-teal-dim)',
+          border: '1px solid rgba(91,181,181,0.2)',
+          borderRadius: 'var(--radius-md)',
           padding: '0.5rem 1rem',
           marginBottom: '0.75rem',
           fontSize: '0.85rem',
@@ -315,11 +318,12 @@ export default function AdaptiveRecommendations() {
               background: 'none',
               border: '1px solid var(--border)',
               borderRadius: 6,
-              color: '#4FC3F7',
+              color: 'var(--apollo-teal)',
               fontSize: '0.82rem',
               padding: '0.25rem 0.6rem',
               cursor: 'pointer',
               fontWeight: 600,
+              fontFamily: 'var(--font-display)',
             }}
           >
             Undo
@@ -329,12 +333,12 @@ export default function AdaptiveRecommendations() {
 
       {undoSuccess && (
         <div style={{
-          background: 'rgba(0,200,83,0.1)',
-          borderRadius: 8,
+          background: 'var(--color-success-dim)',
+          borderRadius: 'var(--radius-md)',
           padding: '0.5rem 1rem',
           marginBottom: '0.75rem',
           fontSize: '0.85rem',
-          color: 'var(--accent)',
+          color: 'var(--color-success)',
           fontWeight: 500,
         }}>
           Plan restored to original. Your training is back on track.

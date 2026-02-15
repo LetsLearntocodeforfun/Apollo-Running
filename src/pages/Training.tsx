@@ -56,7 +56,7 @@ const DayRow = memo(function DayRow({
   const isSynced = !!syncMeta;
   return (
     <>
-      <tr style={{ background: isToday ? 'rgba(0,200,83,0.12)' : isSynced ? 'rgba(0,200,83,0.05)' : undefined }}>
+      <tr style={{ background: isToday ? 'rgba(212,165,55,0.08)' : isSynced ? 'rgba(212,165,55,0.03)' : undefined, transition: 'background 0.2s' }}>
         <td style={{ padding: '0.5rem', width: 36 }}>
           {(day.type === 'run' || day.type === 'cross' || day.type === 'race' || day.type === 'marathon') ? (
             <input
@@ -64,50 +64,52 @@ const DayRow = memo(function DayRow({
               checked={completed}
               onChange={() => onToggle()}
               aria-label={`Mark ${day.label} complete`}
+              style={{ accentColor: 'var(--apollo-gold)', width: 16, height: 16 }}
             />
           ) : (
             <span style={{ color: 'var(--text-muted)' }}>—</span>
           )}
         </td>
-        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{DAY_NAMES[dayIndex]}</td>
-        <td style={{ padding: '0.5rem' }}>{dateStr}</td>
+        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>{DAY_NAMES[dayIndex]}</td>
+        <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{dateStr}</td>
         <td style={{ padding: '0.5rem' }}>
-          <span className={`day-type-${day.type}`}>{day.label}</span>
+          <span className={`day-type-${day.type}`} style={{ fontFamily: 'var(--font-display)', fontWeight: completed ? 600 : 400 }}>{day.label}</span>
           {day.distanceMi != null && (
-            <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: '0.9rem' }}>
+            <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: 'var(--text-sm)' }}>
               {day.distanceMi} mi ({miToKm(day.distanceMi)} km)
             </span>
           )}
           {isSynced && (
             <span style={{
               marginLeft: '0.5rem',
-              fontSize: '0.75rem',
-              background: 'rgba(0,200,83,0.2)',
-              color: 'var(--accent)',
-              padding: '0.15rem 0.5rem',
-              borderRadius: '999px',
+              fontSize: '0.72rem',
+              background: 'var(--apollo-gold-dim)',
+              color: 'var(--apollo-gold)',
+              padding: '0.12rem 0.5rem',
+              borderRadius: 'var(--radius-full)',
               fontWeight: 600,
+              fontFamily: 'var(--font-display)',
             }}>
               Synced
             </span>
           )}
         </td>
         <td style={{ padding: '0.5rem' }}>
-          {isToday ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Today</span> : null}
+          {isToday ? <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)' }}>Today</span> : null}
         </td>
       </tr>
       {isSynced && syncMeta && (
-        <tr style={{ background: isToday ? 'rgba(0,200,83,0.08)' : 'rgba(0,200,83,0.03)' }}>
+        <tr style={{ background: isToday ? 'rgba(212,165,55,0.05)' : 'rgba(212,165,55,0.02)' }}>
           <td colSpan={5} style={{ padding: '0.25rem 0.5rem 0.5rem 2.75rem' }}>
             <div style={{
               fontSize: '0.82rem',
-              color: 'var(--text-muted)',
+              color: 'var(--text-secondary)',
               display: 'flex',
               gap: '1rem',
               flexWrap: 'wrap',
               alignItems: 'center',
             }}>
-              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+              <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
                 {syncMeta.actualDistanceMi.toFixed(1)} mi
               </span>
               <span>{formatSyncPace(syncMeta.actualPaceMinPerMi)} pace</span>
@@ -204,12 +206,18 @@ export default function Training() {
 
       {!active ? (
         <>
-          <div className="card">
-            <h3>Choose a plan</h3>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
-              Pick a popular plan below, set your start date, and track each day as you complete it.
+          <div className="card" style={{
+            textAlign: 'center', padding: '2rem',
+            background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
+          }}>
+            <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--apollo-gold)', marginBottom: '0.75rem' }}>
+              Choose Your Path
+            </div>
+            <h3 style={{ fontSize: 'var(--text-lg)', margin: '0 0 0.5rem' }}>Select a Training Plan</h3>
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: 'var(--text-sm)' }}>
+              Pick a proven marathon plan, set your start date, and let the journey begin.
             </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', textAlign: 'left' }}>
               {BUILT_IN_PLANS.map((p) => (
                 <button
                   key={p.id}
@@ -217,41 +225,42 @@ export default function Training() {
                   className="plan-card"
                   onClick={() => setSelectedPlanId(p.id)}
                   style={{
-                    border: selectedPlanId === p.id ? '2px solid var(--accent)' : '1px solid var(--border)',
+                    border: selectedPlanId === p.id ? '2px solid var(--apollo-gold)' : '1px solid var(--border)',
                     textAlign: 'left',
-                    padding: '1rem',
-                    borderRadius: '12px',
-                    background: 'var(--bg-card)',
+                    padding: '1.25rem',
+                    borderRadius: 'var(--radius-lg)',
+                    background: selectedPlanId === p.id ? 'var(--apollo-gold-dim)' : 'var(--bg)',
                     color: 'var(--text)',
                     cursor: 'pointer',
+                    transition: 'all var(--transition-base)',
                   }}
                 >
-                  <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>{p.name}</div>
-                  <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{p.author}</div>
-                  <div style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>{p.description}</div>
+                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: '0.25rem' }}>{p.name}</div>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{p.author}</div>
+                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{p.description}</div>
                 </button>
               ))}
             </div>
           </div>
 
           {plan && (
-            <div className="card">
-              <h3>Start your plan</h3>
-              <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>
+            <div className="card" style={{ borderColor: 'var(--apollo-gold)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
+              <h3 style={{ color: 'var(--apollo-gold)' }}>Start Your Plan</h3>
+              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
                 <strong>{plan.name}</strong> — {plan.totalWeeks} weeks. Set the date of Week 1, Monday.
               </p>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Start date (Week 1 Mon)</span>
+                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Start date</span>
                   <input
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                    style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
                   />
                 </label>
                 <button type="button" className="btn btn-primary" onClick={handleStartPlan}>
-                  Start plan
+                  Begin Training
                 </button>
               </div>
             </div>
@@ -261,23 +270,29 @@ export default function Training() {
         <>
           {plan && (
             <>
-              <div className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+              {/* Plan header card */}
+              <div className="card" style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem',
+                background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
+                position: 'relative', overflow: 'hidden',
+              }}>
+                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent)' }} />
                 <div>
-                  <h3 style={{ margin: 0 }}>{plan.name} — {plan.author}</h3>
-                  <p style={{ color: 'var(--text-muted)', margin: '0.25rem 0 0', fontSize: '0.9rem' }}>
-                    Started {active.startDate} • {getCompletedCount(plan.id)} / {plan.totalWeeks * 7} days completed
+                  <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>{plan.name}</h3>
+                  <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
+                    by {plan.author} · Started {active.startDate} · <span style={{ color: 'var(--apollo-gold)', fontWeight: 600 }}>{getCompletedCount(plan.id)} / {plan.totalWeeks * 7} days</span>
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowPicker(true)}>Change plan</button>
-                  <button type="button" className="btn btn-secondary" onClick={handleClearPlan}>Clear plan</button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowPicker(true)} style={{ fontSize: 'var(--text-sm)' }}>Change</button>
+                  <button type="button" className="btn btn-ghost" onClick={handleClearPlan} style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Clear</button>
                 </div>
               </div>
 
               {showPicker && (
                 <div className="card">
-                  <h3>Switch plan</h3>
-                  <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>Starting a new plan will keep your completed days for the previous plan.</p>
+                  <h3>Switch Plan</h3>
+                  <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>Starting a new plan keeps your completed days for the previous plan.</p>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {BUILT_IN_PLANS.map((p) => (
                       <button
@@ -285,6 +300,7 @@ export default function Training() {
                         type="button"
                         className="btn btn-secondary"
                         onClick={() => { setSelectedPlanId(p.id); setStartDate(formatDateKey(new Date())); }}
+                        style={{ fontSize: 'var(--text-sm)' }}
                       >
                         {p.name}
                       </button>
@@ -297,87 +313,97 @@ export default function Training() {
                           type="date"
                           value={startDate}
                           onChange={(e) => setStartDate(e.target.value)}
-                          style={{ padding: '0.5rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                          style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
                         />
-                        <button type="button" className="btn btn-primary" onClick={handleStartPlan}>Switch & start</button>
+                        <button type="button" className="btn btn-primary" onClick={handleStartPlan} style={{ fontSize: 'var(--text-sm)' }}>Switch & Start</button>
                       </>
                     )}
-                    <button type="button" className="btn btn-secondary" onClick={() => setShowPicker(false)}>Cancel</button>
+                    <button type="button" className="btn btn-ghost" onClick={() => setShowPicker(false)} style={{ fontSize: 'var(--text-sm)' }}>Cancel</button>
                   </div>
                 </div>
               )}
 
+              {/* Week-by-week checklist */}
               <div className="card">
-                <h3>Day-by-day checklist</h3>
-                <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.9rem' }}>
-                  Check off each run, cross-training, or race day as you complete it. Rest days are for recovery.
-                </p>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <h3 style={{ margin: 0 }}>Week-by-Week Checklist</h3>
+                  <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+                    {plan.totalWeeks} Weeks
+                  </span>
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                   {plan.weeks.map((week) => {
                     const isExpanded = expandedWeek === week.weekNumber - 1;
+                    const completedInWeek = week.days.filter((_, di) => isDayCompleted(plan.id, week.weekNumber - 1, di)).length;
                     return (
-                      <div key={week.weekNumber} style={{ border: '1px solid var(--border)', borderRadius: '8px', overflow: 'hidden' }}>
+                      <div key={week.weekNumber} style={{
+                        border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden',
+                        transition: 'border-color var(--transition-base)',
+                        ...(isExpanded ? { borderColor: 'var(--border-strong)' } : {}),
+                      }}>
                         <button
                           type="button"
                           onClick={() => setExpandedWeek(expandedWeek === week.weekNumber - 1 ? null : week.weekNumber - 1)}
                           style={{
                             width: '100%',
-                            padding: '0.75rem 1rem',
+                            padding: '0.85rem 1rem',
                             display: 'flex',
                             justifyContent: 'space-between',
                             alignItems: 'center',
-                            background: 'var(--bg)',
+                            background: isExpanded ? 'var(--bg-hover)' : 'var(--bg)',
                             border: 'none',
                             color: 'var(--text)',
                             cursor: 'pointer',
-                            fontSize: '1rem',
+                            fontSize: 'var(--text-base)',
+                            fontFamily: 'var(--font-display)',
+                            fontWeight: 500,
                             gap: '0.5rem',
+                            transition: 'background var(--transition-fast)',
                           }}
                         >
-                          <span style={{ minWidth: '5rem' }}>Week {week.weekNumber}</span>
+                          <span style={{ minWidth: '5rem', fontWeight: 600 }}>Week {week.weekNumber}</span>
                           {(() => {
                             const wm = getWeeklyMileageSummary(plan.id, week.weekNumber - 1);
                             if (!wm || wm.actualMi === 0) return null;
                             const pct = wm.plannedMi > 0 ? Math.min((wm.actualMi / wm.plannedMi) * 100, 100) : 0;
-                            const barColor = wm.status === 'on_track' || wm.status === 'ahead' ? 'var(--accent)' : wm.status === 'behind' ? '#f0a030' : '#f55';
+                            const barColor = wm.status === 'on_track' || wm.status === 'ahead'
+                              ? 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold))'
+                              : wm.status === 'behind' ? 'var(--color-warning)' : 'var(--color-error)';
                             return (
                               <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                 <span style={{
-                                  flex: 1,
-                                  height: 6,
-                                  borderRadius: 3,
-                                  background: 'rgba(255,255,255,0.08)',
-                                  overflow: 'hidden',
+                                  flex: 1, height: 6, borderRadius: 3,
+                                  background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
                                 }}>
                                   <span style={{
-                                    display: 'block',
-                                    height: '100%',
-                                    width: `${pct}%`,
-                                    borderRadius: 3,
-                                    background: barColor,
-                                    transition: 'width 0.3s',
+                                    display: 'block', height: '100%', width: `${pct}%`,
+                                    borderRadius: 3, background: barColor,
+                                    transition: 'width 0.4s ease',
                                   }} />
                                 </span>
-                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                   {wm.actualMi.toFixed(1)}/{wm.plannedMi.toFixed(1)} mi
                                 </span>
                               </span>
                             );
                           })()}
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
-                            {week.days.filter((_, di) => isDayCompleted(plan.id, week.weekNumber - 1, di)).length} done
+                          <span style={{
+                            fontSize: '0.78rem', color: completedInWeek === 7 ? 'var(--color-success)' : 'var(--text-muted)',
+                            whiteSpace: 'nowrap', fontWeight: completedInWeek === 7 ? 600 : 400,
+                          }}>
+                            {completedInWeek === 7 ? '✓ Complete' : `${completedInWeek}/7`}
                           </span>
-                          <span>{isExpanded ? '▼' : '▶'}</span>
+                          <span style={{ color: 'var(--apollo-gold)', fontSize: '0.8rem', transition: 'transform var(--transition-fast)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
                         </button>
                         {isExpanded && (
-                          <div style={{ padding: '0 1rem 1rem' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                          <div style={{ padding: '0 1rem 1rem', animation: 'slideUp 0.2s ease' }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
                               <thead>
                                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
                                   <th style={{ textAlign: 'left', padding: '0.5rem', width: 36 }}></th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Day</th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Date</th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem' }}>Workout</th>
+                                  <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Day</th>
+                                  <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Date</th>
+                                  <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Workout</th>
                                   <th style={{ textAlign: 'left', padding: '0.5rem', width: 80 }}></th>
                                 </tr>
                               </thead>
@@ -420,23 +446,34 @@ export default function Training() {
         </>
       )}
 
-      <div className="card" style={{ background: 'rgba(0,200,83,0.08)', borderColor: 'var(--accent)' }}>
+      {/* Smart Auto-Sync Card */}
+      <div className="card" style={{
+        background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
+        borderColor: stravaConnected ? 'var(--apollo-teal-dark)' : 'var(--border)',
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: stravaConnected ? 'var(--apollo-teal)' : 'var(--border)',
+      }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          Smart Auto-Sync
+          <span style={{ color: 'var(--apollo-teal)' }}>Smart Auto-Sync</span>
           {stravaConnected && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 500 }}>Active</span>
+            <span style={{
+              fontSize: '0.72rem', background: 'var(--apollo-teal-dim)',
+              color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
+              borderRadius: 'var(--radius-full)', fontWeight: 600,
+              fontFamily: 'var(--font-display)',
+            }}>Active</span>
           )}
         </h3>
         {!stravaConnected ? (
-          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+          <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 'var(--text-sm)' }}>
             Connect <strong>Strava</strong> in Settings to automatically sync your runs with the training plan.
           </p>
         ) : (
           <div>
-            <p style={{ color: 'var(--text-muted)', margin: '0 0 0.75rem', fontSize: '0.9rem' }}>
-              Your Strava runs are automatically matched to plan days. Distance, pace, and weekly mileage are analyzed after every sync.
+            <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.75rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+              Your Strava runs are automatically matched to plan days. Distance, pace, and weekly mileage analyzed after every sync.
               {lastSync && (
-                <span style={{ marginLeft: '0.5rem' }}>
+                <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)' }}>
                   Last synced: {new Date(lastSync).toLocaleTimeString()}
                 </span>
               )}
@@ -446,27 +483,27 @@ export default function Training() {
               className="btn btn-primary"
               onClick={handleSync}
               disabled={syncing}
-              style={{ marginBottom: syncResults.length > 0 ? '0.75rem' : 0 }}
+              style={{ marginBottom: syncResults.length > 0 ? '0.75rem' : 0, fontSize: 'var(--text-sm)' }}
             >
-              {syncing ? 'Syncing…' : 'Sync now'}
+              {syncing ? 'Syncing…' : 'Sync Now'}
             </button>
             {syncResults.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem' }}>
                 {syncResults.map((r, i) => (
                   <div
                     key={i}
                     style={{
-                      background: 'rgba(0,200,83,0.1)',
-                      borderRadius: '8px',
-                      padding: '0.75rem 1rem',
-                      fontSize: '0.88rem',
+                      background: 'var(--apollo-gold-dim)',
+                      borderRadius: 'var(--radius-sm)',
+                      padding: '0.65rem 1rem',
+                      fontSize: 'var(--text-sm)',
                       lineHeight: 1.5,
                     }}
                   >
-                    <div style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: '0.25rem' }}>
+                    <div style={{ fontWeight: 600, color: 'var(--apollo-gold)', marginBottom: '0.15rem', fontFamily: 'var(--font-display)' }}>
                       {r.isNew ? 'Auto-completed' : 'Updated'}: Week {r.weekIndex + 1}, {DAY_NAMES[r.dayIndex]} — {r.plannedDay.label}
                     </div>
-                    <div style={{ color: 'var(--text)' }}>{r.feedback}</div>
+                    <div style={{ color: 'var(--text-secondary)' }}>{r.feedback}</div>
                   </div>
                 ))}
               </div>

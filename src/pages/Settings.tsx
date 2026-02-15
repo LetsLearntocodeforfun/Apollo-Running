@@ -142,17 +142,35 @@ export default function Settings() {
   return (
     <div>
       <h1 className="page-title">Settings</h1>
-      {message && <div className="card" style={{ background: 'rgba(0,200,83,0.15)', borderColor: 'var(--accent)' }}>{message}</div>}
-      {error && <div className="card" style={{ background: 'rgba(255,80,80,0.15)', borderColor: '#f55' }}>{error}</div>}
+      {message && (
+        <div className="card" style={{ background: 'var(--color-success-dim)', borderColor: 'var(--color-success)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
+          <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>{message}</span>
+        </div>
+      )}
+      {error && (
+        <div className="card" style={{ background: 'var(--color-error-dim)', borderColor: 'var(--color-error)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
+          <span style={{ color: 'var(--color-error)', fontWeight: 600 }}>Error:</span> {error}
+        </div>
+      )}
 
-      <div className="card">
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: stravaConnected ? 'var(--strava)' : 'var(--border)',
+      }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ color: 'var(--strava)' }}>Strava</span>
-          {stravaConnected && <span style={{ fontSize: '0.85rem', color: 'var(--accent)' }}>• Connected</span>}
+          {stravaConnected && (
+            <span style={{
+              fontSize: '0.72rem', background: 'rgba(252,76,2,0.12)',
+              color: 'var(--strava)', padding: '0.15rem 0.6rem',
+              borderRadius: 'var(--radius-full)', fontWeight: 600,
+              fontFamily: 'var(--font-display)',
+            }}>Connected</span>
+          )}
         </h3>
         {isWeb() ? (
           <>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
               Connect your Strava account to sync activities. You’ll be redirected to Strava to authorize.
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
@@ -167,8 +185,8 @@ export default function Settings() {
           </>
         ) : (
           <>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
-              Create an app at <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer">strava.com/settings/api</a> to get Client ID and Client Secret. Use Authorization Callback Domain: <code>127.0.0.1</code> (or leave default).
+            <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+              Create an app at <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer">strava.com/settings/api</a> to get Client ID and Client Secret. Use Authorization Callback Domain: <code style={{ background: 'var(--bg-surface)', padding: '0.1rem 0.4rem', borderRadius: 4 }}>127.0.0.1</code> (or leave default).
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '400px' }}>
               <input
@@ -176,14 +194,14 @@ export default function Settings() {
                 placeholder="Strava Client ID"
                 value={stravaClientId}
                 onChange={(e) => setStravaClientId(e.target.value)}
-                style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
               />
               <input
                 type="password"
                 placeholder="Strava Client Secret"
                 value={stravaSecret}
                 onChange={(e) => setStravaSecret(e.target.value)}
-                style={{ padding: '0.5rem 0.75rem', borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                style={{ padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
               />
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                 <button type="button" onClick={saveStravaCredentials} className="btn btn-secondary">Save credentials</button>
@@ -200,12 +218,22 @@ export default function Settings() {
         )}
       </div>
 
-      <div className="card">
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: garminConnected ? 'var(--color-success)' : 'var(--border)',
+      }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           Garmin Connect
-          {garminConnected && <span style={{ fontSize: '0.85rem', color: 'var(--accent)' }}>• Connected</span>}
+          {garminConnected && (
+            <span style={{
+              fontSize: '0.72rem', background: 'var(--color-success-dim)',
+              color: 'var(--color-success)', padding: '0.15rem 0.6rem',
+              borderRadius: 'var(--radius-full)', fontWeight: 600,
+              fontFamily: 'var(--font-display)',
+            }}>Connected</span>
+          )}
         </h3>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
           Garmin uses the <strong>Garmin Connect Developer Program</strong>. Apply at <a href="https://developer.garmin.com/gc-developer-program/" target="_blank" rel="noopener noreferrer">developer.garmin.com</a>. Once approved you get Activity API, Health API, Training API, and Courses API. This app includes the structure; full OAuth 2.0 + PKCE can be added when you have keys.
         </p>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '400px' }}>
@@ -233,9 +261,12 @@ export default function Settings() {
       </div>
 
       {/* ── Coaching & Insights ── */}
-      <div className="card">
-        <h3>Coaching & Insights</h3>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: 'var(--apollo-teal)',
+      }}>
+        <h3 style={{ color: 'var(--apollo-teal)' }}>Coaching & Insights</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
           Configure your daily recap and weekly Race Day Readiness notifications.
         </p>
 
@@ -353,9 +384,12 @@ export default function Settings() {
       </div>
 
       {/* ── Adaptive Training Recommendations ── */}
-      <div className="card">
-        <h3>Adaptive Training Recommendations</h3>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: 'var(--apollo-gold)',
+      }}>
+        <h3 style={{ color: 'var(--apollo-gold)' }}>Adaptive Training Recommendations</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
           Apollo analyzes your Strava data and plan progress to suggest intelligent adjustments — like reducing mileage when you're overtraining or leveling up when you're ahead of schedule.
         </p>
 
@@ -420,8 +454,8 @@ export default function Settings() {
       </div>
 
       <div className="card">
-        <h3>Training plan</h3>
-        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+        <h3>Training Plan</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
           To change or pick a plan from the full library (Hal Higdon, Hanson&apos;s, Pfitzinger, Nike Run Club, FIRST) or rebuild a custom plan, you can see the welcome screen again.
         </p>
         <button
