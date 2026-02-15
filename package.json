@@ -16,7 +16,8 @@
   "dependencies": {
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.22.0"
+    "react-router-dom": "^6.22.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.55",
@@ -34,8 +35,17 @@
   "build": {
     "appId": "com.apollo.marathon",
     "productName": "Apollo",
-    "directories": { "output": "release" },
-    "files": ["dist/**/*", "dist-electron/**/*"],
-    "win": { "target": ["nsis"] }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
   }
 }

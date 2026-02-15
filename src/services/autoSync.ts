@@ -23,6 +23,7 @@ import { calculateRacePrediction, calculateTrainingAdherence } from './racePredi
 import { generateCurrentWeekReadiness } from './weeklyReadiness';
 import { generateDailyRecap } from './dailyRecap';
 import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveTraining';
+import { storeActivities } from './analyticsService';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -189,6 +190,9 @@ export async function runAutoSync(): Promise<SyncResult[]> {
   } catch {
     return [];
   }
+
+  // Store all fetched activities for analytics
+  try { storeActivities(activities); } catch { /* non-critical */ }
 
   const runActivities = activities.filter(isRunActivity);
   const results: SyncResult[] = [];

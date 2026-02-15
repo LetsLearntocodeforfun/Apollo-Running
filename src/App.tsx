@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, NavLink, useLocation } from 'react-router
 import './App.css';
 import Dashboard from './pages/Dashboard';
 import Training from './pages/Training';
+import Analytics from './pages/Analytics';
 import Settings from './pages/Settings';
 import Activities from './pages/Activities';
 import Insights from './pages/Insights';
@@ -37,6 +38,9 @@ function AppShell() {
           <NavLink to="/training" className={({ isActive }) => (isActive ? 'active' : '')}>
             <span className="nav-icon">⚡</span> Training Plan
           </NavLink>
+          <NavLink to="/analytics" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <span className="nav-icon">📈</span> Analytics
+          </NavLink>
           <NavLink to="/activities" className={({ isActive }) => (isActive ? 'active' : '')}>
             <span className="nav-icon">🏅</span> Activities
           </NavLink>
@@ -53,6 +57,7 @@ function AppShell() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/training" element={<Training />} />
+            <Route path="/analytics" element={<Analytics />} />
             <Route path="/activities" element={<Activities />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="/settings" element={<Settings />} />
