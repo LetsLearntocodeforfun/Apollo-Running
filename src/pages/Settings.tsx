@@ -19,6 +19,7 @@ import {
   WEEKDAY_NAMES,
 } from '../services/coachingPreferences';
 import { getHRProfile, setHRProfile as saveHRProfile } from '../services/heartRate';
+import { getAdaptivePreferences, setAdaptivePreferences } from '../services/adaptiveTraining';
 
 export default function Settings() {
   const [stravaClientId, setStravaClientId] = useState('');
@@ -34,6 +35,7 @@ export default function Settings() {
   const [coachPrefs, setCoachPrefs] = useState(getCoachingPreferences());
   const [hrMax, setHrMax] = useState(String(getHRProfile().maxHR));
   const [hrResting, setHrResting] = useState(String(getHRProfile().restingHR));
+  const [adaptivePrefs, setAdaptivePrefsState] = useState(getAdaptivePreferences());
 
   const showMessage = useCallback((text: string, ms = 3000) => {
     if (messageTimeoutRef.current != null) {
@@ -347,6 +349,73 @@ export default function Settings() {
               >Save</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* ── Adaptive Training Recommendations ── */}
+      <div className="card">
+        <h3>Adaptive Training Recommendations</h3>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+          Apollo analyzes your Strava data and plan progress to suggest intelligent adjustments — like reducing mileage when you're overtraining or leveling up when you're ahead of schedule.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 480 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={adaptivePrefs.enabled}
+              onChange={(e) => {
+                const next = { ...adaptivePrefs, enabled: e.target.checked };
+                setAdaptivePreferences(next);
+                setAdaptivePrefsState(next);
+                showMessage('Adaptive recommendations ' + (e.target.checked ? 'enabled' : 'disabled') + '.');
+              }}
+              style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+            />
+            <span style={{ fontWeight: 500 }}>Enable Adaptive Recommendations</span>
+          </label>
+
+          {adaptivePrefs.enabled && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Frequency</span>
+                <select
+                  value={adaptivePrefs.frequency}
+                  onChange={(e) => {
+                    const next = { ...adaptivePrefs, frequency: e.target.value as 'daily' | 'weekly' | 'before_key_workouts' };
+                    setAdaptivePreferences(next);
+                    setAdaptivePrefsState(next);
+                  }}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.9rem' }}
+                >
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="before_key_workouts">Before Key Workouts</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Aggressiveness</span>
+                <select
+                  value={adaptivePrefs.aggressiveness}
+                  onChange={(e) => {
+                    const next = { ...adaptivePrefs, aggressiveness: e.target.value as 'conservative' | 'balanced' | 'aggressive' };
+                    setAdaptivePreferences(next);
+                    setAdaptivePrefsState(next);
+                  }}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.9rem' }}
+                >
+                  <option value="conservative">Conservative — fewer, gentler suggestions</option>
+                  <option value="balanced">Balanced — default sensitivity</option>
+                  <option value="aggressive">Aggressive — more proactive suggestions</option>
+                </select>
+              </div>
+
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: 0, lineHeight: 1.4 }}>
+                Recommendations use your Strava sync data, plan completion rate, readiness scores, and pace trends. No data leaves your device.
+              </p>
+            </>
+          )}
         </div>
       </div>
 

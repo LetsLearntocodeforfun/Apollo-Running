@@ -10,6 +10,8 @@ import { getSavedPrediction, getSavedAdherence, type RacePrediction, type Traini
 import { getLatestReadinessScore, type ReadinessScore } from '../services/weeklyReadiness';
 import { generateTodayRecap, type DailyRecap } from '../services/dailyRecap';
 import { isDailyRecapDue, markDailyRecapShown, isWeeklyRecapDue, markWeeklyRecapShown } from '../services/coachingPreferences';
+import AdaptiveRecommendations from '../components/AdaptiveRecommendations';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 function formatDistance(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
@@ -258,6 +260,13 @@ export default function Dashboard() {
           )}
           <Link to="/training" className="btn btn-primary">Open training plan</Link>
         </div>
+      )}
+
+      {/* ── Adaptive Training Recommendations ── */}
+      {plan && activePlan && stravaConnected && (
+        <ErrorBoundary>
+          <AdaptiveRecommendations />
+        </ErrorBoundary>
       )}
 
       {stravaConnected && (

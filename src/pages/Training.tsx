@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, memo } from 'react';
 import { BUILT_IN_PLANS, getPlanById, type PlanDay } from '../data/plans';
 import {
   getActivePlan,
@@ -30,7 +30,8 @@ function formatSyncPace(paceMinPerMi: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
-function DayRow({
+/** Single day row in the training plan checklist. Memoized to avoid re-renders on sibling changes. */
+const DayRow = memo(function DayRow({
   planId: _planId,
   weekIndex: _weekIndex,
   dayIndex,
@@ -126,7 +127,7 @@ function DayRow({
       )}
     </>
   );
-}
+});
 
 export default function Training() {
   const [active, setActiveState] = useState<ActivePlan | null>(() => getActivePlan());

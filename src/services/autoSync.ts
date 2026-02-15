@@ -22,6 +22,7 @@ import { buildHRDataFromStrava, upsertActivityHR } from './heartRate';
 import { calculateRacePrediction, calculateTrainingAdherence } from './racePrediction';
 import { generateCurrentWeekReadiness } from './weeklyReadiness';
 import { generateDailyRecap } from './dailyRecap';
+import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveTraining';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -46,16 +47,19 @@ export interface WeeklyMileage {
 
 const METERS_TO_MILES = 0.000621371;
 
+/** Convert meters to miles. */
 function metersToMiles(m: number): number {
   return m * METERS_TO_MILES;
 }
 
+/** Calculate pace in minutes per mile from raw distance/time. */
 function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
   if (!distanceMeters || !movingTimeSec) return 0;
   const miles = metersToMiles(distanceMeters);
   return (movingTimeSec / 60) / miles;
 }
 
+/** Format pace as "M:SS/mi" string. */
 function formatPaceMinPerMi(paceMinPerMi: number): string {
   if (!paceMinPerMi) return '—';
   const totalSec = Math.round(paceMinPerMi * 60);
@@ -274,11 +278,12 @@ export async function runAutoSync(): Promise<SyncResult[]> {
     }
   }
 
-  // ── Post-sync: update race prediction, adherence, readiness, and daily recap ──
+  // ── Post-sync: update race prediction, adherence, readiness, daily recap, and adaptive recommendations ──
   try { calculateRacePrediction(); } catch { /* non-critical */ }
   try { calculateTrainingAdherence(); } catch { /* non-critical */ }
   try { generateCurrentWeekReadiness(); } catch { /* non-critical */ }
   try { generateDailyRecap(); } catch { /* non-critical */ }
+  try { expireStaleRecommendations(); analyzeTrainingProgress(); } catch { /* non-critical */ }
 
   return results;
 }

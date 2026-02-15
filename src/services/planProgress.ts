@@ -12,6 +12,7 @@ export interface ActivePlan {
   raceDate?: string; // YYYY-MM-DD, optional
 }
 
+/** Retrieve the currently active training plan, or null if none selected. */
 export function getActivePlan(): ActivePlan | null {
   try {
     const raw = localStorage.getItem(ACTIVE_PLAN_KEY);
@@ -21,6 +22,7 @@ export function getActivePlan(): ActivePlan | null {
   }
 }
 
+/** Set or clear the active training plan. */
 export function setActivePlan(plan: ActivePlan | null): void {
   if (plan) localStorage.setItem(ACTIVE_PLAN_KEY, JSON.stringify(plan));
   else localStorage.removeItem(ACTIVE_PLAN_KEY);
@@ -60,10 +62,12 @@ function parseLocalDateKey(dateKey: string): Date {
   return parsed;
 }
 
+/** Check whether a specific day in the plan has been completed. */
 export function isDayCompleted(planId: string, weekIndex: number, dayIndex: number): boolean {
   return getCompletedSet().has(key(planId, weekIndex, dayIndex));
 }
 
+/** Mark a specific day as completed or incomplete. */
 export function setDayCompleted(planId: string, weekIndex: number, dayIndex: number, completed: boolean): void {
   const set = getCompletedSet();
   const k = key(planId, weekIndex, dayIndex);
@@ -72,6 +76,7 @@ export function setDayCompleted(planId: string, weekIndex: number, dayIndex: num
   saveCompletedSet(set);
 }
 
+/** Toggle completion status for a day and return the new state. */
 export function toggleDayCompleted(planId: string, weekIndex: number, dayIndex: number): boolean {
   const next = !isDayCompleted(planId, weekIndex, dayIndex);
   setDayCompleted(planId, weekIndex, dayIndex, next);
@@ -117,6 +122,7 @@ export function getWeekDayForDate(
   return { weekIndex, dayIndex };
 }
 
+/** Format a Date as a local YYYY-MM-DD string (no UTC drift). */
 export function formatDateKey(date: Date): string {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -161,16 +167,19 @@ function saveSyncMetaMap(map: Record<string, SyncMeta>): void {
   localStorage.setItem(SYNC_META_KEY, JSON.stringify(map));
 }
 
+/** Retrieve sync metadata for a specific plan day. */
 export function getSyncMeta(planId: string, weekIndex: number, dayIndex: number): SyncMeta | null {
   return getSyncMetaMap()[key(planId, weekIndex, dayIndex)] ?? null;
 }
 
+/** Store sync metadata (Strava activity match) for a plan day. */
 export function setSyncMeta(planId: string, weekIndex: number, dayIndex: number, meta: SyncMeta): void {
   const map = getSyncMetaMap();
   map[key(planId, weekIndex, dayIndex)] = meta;
   saveSyncMetaMap(map);
 }
 
+/** Retrieve all sync metadata entries for a given plan. */
 export function getAllSyncMeta(planId: string): { weekIndex: number; dayIndex: number; meta: SyncMeta }[] {
   const map = getSyncMetaMap();
   const results: { weekIndex: number; dayIndex: number; meta: SyncMeta }[] = [];
@@ -183,10 +192,12 @@ export function getAllSyncMeta(planId: string): { weekIndex: number; dayIndex: n
   return results;
 }
 
+/** Get the ISO timestamp of the last Strava auto-sync. */
 export function getLastSyncTime(): string | null {
   return localStorage.getItem(LAST_SYNC_KEY);
 }
 
+/** Record the timestamp of the most recent auto-sync. */
 export function setLastSyncTime(iso: string): void {
   localStorage.setItem(LAST_SYNC_KEY, iso);
 }

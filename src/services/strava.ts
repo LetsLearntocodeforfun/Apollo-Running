@@ -1,12 +1,19 @@
+/**
+ * Strava API client — handles token refresh, authenticated requests,
+ * and typed wrappers for athlete/activity endpoints.
+ */
+
 import { getStravaTokens, setStravaTokens, getStravaCredentials, type StravaTokens } from './storage';
 import { refreshStravaToken, isWeb } from './stravaWeb';
 
 const STRAVA_API = 'https://www.strava.com/api/v3';
 
+/** Check whether an OAuth token has expired (with a safety buffer). */
 function isExpired(expiresAt: number, bufferSeconds = 300): boolean {
   return Date.now() / 1000 >= expiresAt - bufferSeconds;
 }
 
+/** Ensure we have a valid access token, refreshing if needed. */
 async function ensureAccessToken(): Promise<string> {
   let tokens = getStravaTokens();
   if (!tokens) throw new Error('Not connected to Strava. Connect in Settings.');
@@ -45,6 +52,7 @@ async function ensureAccessToken(): Promise<string> {
   return tokens.access_token;
 }
 
+/** Authenticated fetch wrapper for the Strava API. Handles token injection. */
 export async function fetchStrava<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = await ensureAccessToken();
   const res = await fetch(`${STRAVA_API}${path}`, {
@@ -88,6 +96,7 @@ export interface StravaAthlete {
   profile: string;
 }
 
+/** Fetch a page of the authenticated athlete's activities. */
 export function getActivities(params: { page?: number; per_page?: number; after?: number } = {}): Promise<StravaActivity[]> {
   const search = new URLSearchParams();
   if (params.page != null) search.set('page', String(params.page));
@@ -97,10 +106,12 @@ export function getActivities(params: { page?: number; per_page?: number; after?
   return fetchStrava<StravaActivity[]>(`/athlete/activities${qs ? `?${qs}` : ''}`);
 }
 
+/** Fetch the authenticated athlete's profile. */
 export function getAthlete(): Promise<StravaAthlete> {
   return fetchStrava<StravaAthlete>('/athlete');
 }
 
+/** Fetch a single activity by ID. */
 export function getActivity(id: number): Promise<StravaActivity> {
   return fetchStrava<StravaActivity>(`/activities/${id}`);
 }
