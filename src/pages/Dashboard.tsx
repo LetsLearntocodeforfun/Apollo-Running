@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { getStravaTokens, getGarminTokens } from '../services/storage';
 import { getAthlete } from '../services/strava';
@@ -6,6 +6,10 @@ import { getActivities, type StravaActivity } from '../services/strava';
 import { getActivePlan, getWeekDayForDate, getCompletedCount, getSyncMeta, isDayCompleted } from '../services/planProgress';
 import { getPlanById } from '../data/plans';
 import { runAutoSync, getWeeklyMileageSummary, type SyncResult, type WeeklyMileage } from '../services/autoSync';
+import { getSavedPrediction, getSavedAdherence, type RacePrediction, type TrainingAdherence } from '../services/racePrediction';
+import { getLatestReadinessScore, type ReadinessScore } from '../services/weeklyReadiness';
+import { generateTodayRecap, type DailyRecap } from '../services/dailyRecap';
+import { isDailyRecapDue, markDailyRecapShown, isWeeklyRecapDue, markWeeklyRecapShown } from '../services/coachingPreferences';
 
 function formatDistance(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
@@ -16,9 +20,18 @@ function formatPace(meters: number, seconds: number): string {
   if (!seconds || !meters) return '—';
   const km = meters / 1000;
   const minPerKm = (seconds / 60) / km;
-  const min = Math.floor(minPerKm);
-  const sec = Math.round((minPerKm - min) * 60);
+  const totalSec = Math.round(minPerKm * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}/km`;
+}
+
+function formatPaceMinPerMi(paceMinPerMi: number): string {
+  if (!paceMinPerMi) return '—';
+  const totalSec = Math.round(paceMinPerMi * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
 function formatDuration(sec: number): string {
@@ -35,9 +48,17 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [, forceUpdate] = useState(0);
+  const autoSyncedPlanRef = useRef<string | null>(null);
+  const [prediction, setPrediction] = useState<RacePrediction | null>(null);
+  const [adherence, setAdherence] = useState<TrainingAdherence | null>(null);
+  const [readiness, setReadiness] = useState<ReadinessScore | null>(null);
+  const [dailyRecap, setDailyRecap] = useState<DailyRecap | null>(null);
+  const [showDailyRecap, setShowDailyRecap] = useState(false);
+  const [showWeeklyRecap, setShowWeeklyRecap] = useState(false);
   const stravaConnected = !!getStravaTokens();
   const garminConnected = !!getGarminTokens();
   const activePlan = getActivePlan();
+  const activePlanKey = activePlan ? `${activePlan.planId}:${activePlan.startDate}` : null;
   const plan = activePlan ? getPlanById(activePlan.planId) : null;
   const today = new Date();
   const todayWeekDay = plan && activePlan ? getWeekDayForDate(activePlan.startDate, plan.totalWeeks, today) : null;
@@ -48,25 +69,20 @@ export default function Dashboard() {
   const totalDays = plan ? plan.totalWeeks * 7 : 0;
   const weeklyMileage: WeeklyMileage | null = plan && todayWeekDay ? getWeeklyMileageSummary(plan.id, todayWeekDay.weekIndex) : null;
 
-  const doAutoSync = useCallback(async () => {
-    if (!stravaConnected || !getActivePlan()) return;
-    try {
-      const results = await runAutoSync();
-      setSyncResults(results);
-      forceUpdate((n) => n + 1);
-    } catch {
-      // silent
-    }
-  }, [stravaConnected]);
-
   useEffect(() => {
     if (!stravaConnected) {
+      autoSyncedPlanRef.current = null;
+      setAthlete(null);
+      setRecent([]);
+      setError(null);
       setLoading(false);
       return;
     }
     let cancelled = false;
     (async () => {
       try {
+        setError(null);
+        setLoading(true);
         const [athleteRes, activitiesRes] = await Promise.all([
           getAthlete(),
           getActivities({ per_page: 10 }),
@@ -75,16 +91,38 @@ export default function Dashboard() {
           setAthlete(athleteRes);
           setRecent(Array.isArray(activitiesRes) ? activitiesRes : []);
         }
+
+        if (activePlanKey && autoSyncedPlanRef.current !== activePlanKey) {
+          autoSyncedPlanRef.current = activePlanKey;
+          try {
+            const results = await runAutoSync();
+            if (!cancelled) {
+              setSyncResults(results);
+              forceUpdate((n) => n + 1);
+            }
+          } catch {
+            // keep dashboard data load successful even if auto-sync fails
+          }
+        }
+
+        // Load insights data after sync
+        if (!cancelled) {
+          setPrediction(getSavedPrediction());
+          setAdherence(getSavedAdherence());
+          setReadiness(getLatestReadinessScore());
+          const recap = generateTodayRecap();
+          if (recap) setDailyRecap(recap);
+          if (isDailyRecapDue()) { setShowDailyRecap(true); markDailyRecapShown(); }
+          if (isWeeklyRecapDue()) { setShowWeeklyRecap(true); markWeeklyRecapShown(); }
+        }
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Failed to load');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
-    // Auto-sync on mount
-    doAutoSync();
     return () => { cancelled = true; };
-  }, [stravaConnected, doAutoSync]);
+  }, [stravaConnected, activePlanKey]);
 
   return (
     <div>
@@ -164,7 +202,7 @@ export default function Dashboard() {
                 }}>
                   <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
                     <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{todaySyncMeta.actualDistanceMi.toFixed(1)} mi</span>
-                    <span>{Math.floor(todaySyncMeta.actualPaceMinPerMi)}:{Math.round((todaySyncMeta.actualPaceMinPerMi % 1) * 60).toString().padStart(2, '0')}/mi pace</span>
+                    <span>{formatPaceMinPerMi(todaySyncMeta.actualPaceMinPerMi)} pace</span>
                     <span>{Math.floor(todaySyncMeta.movingTimeSec / 60)}m {todaySyncMeta.movingTimeSec % 60}s</span>
                   </div>
                   <div style={{ color: 'var(--text)', fontStyle: 'italic' }}>{todaySyncMeta.feedback}</div>
@@ -261,6 +299,93 @@ export default function Dashboard() {
           )}
           <div style={{ marginTop: '1rem' }}>
             <Link to="/activities" className="btn btn-secondary">View all activities</Link>
+          </div>
+        </div>
+      )}
+
+      {/* ── Race Prediction & Adherence Strip ── */}
+      {plan && activePlan && (prediction || adherence) && (
+        <div className="card" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+          {prediction && (
+            <div>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Marathon Prediction</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent)' }}>{prediction.marathonTimeFormatted}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>VDOT {prediction.vdot} · {prediction.confidence}% confidence</div>
+            </div>
+          )}
+          {adherence && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Adherence</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: adherence.score >= 80 ? 'var(--accent)' : adherence.score >= 60 ? '#f0a030' : '#f55' }}>{adherence.score}%</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'capitalize' }}>{adherence.rating}</div>
+            </div>
+          )}
+          {readiness && (
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Readiness Wk {readiness.weekNumber}</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: readiness.grade.startsWith('A') ? 'var(--accent)' : readiness.grade.startsWith('B') ? '#4FC3F7' : '#f0a030' }}>{readiness.grade}</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{readiness.score}/100</div>
+            </div>
+          )}
+          <Link to="/insights" className="btn btn-secondary" style={{ fontSize: '0.85rem' }}>View Insights</Link>
+        </div>
+      )}
+
+      {/* ── Daily Recap Popup ── */}
+      {showDailyRecap && dailyRecap && (
+        <div className="card" style={{
+          borderLeft: `4px solid ${dailyRecap.grade === 'outstanding' ? '#00c853' : dailyRecap.grade === 'strong' ? '#4FC3F7' : dailyRecap.grade === 'missed' ? '#f55' : 'var(--border)'}`,
+          background: 'linear-gradient(135deg, rgba(0,200,83,0.06) 0%, var(--bg-card) 100%)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0 }}>Daily Training Recap</h3>
+            <button type="button" onClick={() => setShowDailyRecap(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          </div>
+          {dailyRecap.synced && (
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', margin: '0.75rem 0', fontSize: '0.88rem' }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{dailyRecap.actualDistanceMi.toFixed(1)} mi</span>
+              <span style={{ color: 'var(--text-muted)' }}>{formatPaceMinPerMi(dailyRecap.actualPaceMinPerMi)}</span>
+              {dailyRecap.avgHR && <span style={{ color: 'var(--text-muted)' }}>{dailyRecap.avgHR} bpm</span>}
+              {dailyRecap.primaryZone && <span style={{ color: 'var(--text-muted)' }}>Zone: {dailyRecap.primaryZone}</span>}
+            </div>
+          )}
+          <p style={{ fontSize: '0.88rem', color: 'var(--text)', lineHeight: 1.5, margin: '0.5rem 0 0', fontStyle: 'italic' }}>{dailyRecap.coachMessage}</p>
+        </div>
+      )}
+
+      {/* ── Weekly Readiness Popup ── */}
+      {showWeeklyRecap && readiness && (
+        <div className="card" style={{
+          borderLeft: `4px solid ${readiness.grade.startsWith('A') ? '#00c853' : readiness.grade.startsWith('B') ? '#4FC3F7' : '#f0a030'}`,
+          background: 'linear-gradient(135deg, rgba(79,195,247,0.06) 0%, var(--bg-card) 100%)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              Race Day Readiness — Week {readiness.weekNumber}
+              <span style={{ fontSize: '1.3rem', fontWeight: 700, color: readiness.grade.startsWith('A') ? '#00c853' : readiness.grade.startsWith('B') ? '#4FC3F7' : '#f0a030' }}>{readiness.grade}</span>
+            </h3>
+            <button type="button" onClick={() => setShowWeeklyRecap(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.2rem', cursor: 'pointer' }}>✕</button>
+          </div>
+          {readiness.strengths.length > 0 && (
+            <div style={{ margin: '0.75rem 0 0' }}>
+              <strong style={{ fontSize: '0.85rem', color: 'var(--accent)' }}>Strengths</strong>
+              {readiness.strengths.map((s, i) => <p key={i} style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s}</p>)}
+            </div>
+          )}
+          {readiness.improvements.length > 0 && (
+            <div style={{ margin: '0.5rem 0 0' }}>
+              <strong style={{ fontSize: '0.85rem', color: '#f0a030' }}>Areas to improve</strong>
+              {readiness.improvements.map((s, i) => <p key={i} style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s}</p>)}
+            </div>
+          )}
+          {readiness.nextWeekTips.length > 0 && (
+            <div style={{ margin: '0.5rem 0 0' }}>
+              <strong style={{ fontSize: '0.85rem', color: '#4FC3F7' }}>Next week</strong>
+              {readiness.nextWeekTips.map((s, i) => <p key={i} style={{ margin: '0.2rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)' }}>{s}</p>)}
+            </div>
+          )}
+          <div style={{ marginTop: '0.75rem' }}>
+            <Link to="/insights" style={{ fontSize: '0.85rem' }}>View full insights →</Link>
           </div>
         </div>
       )}

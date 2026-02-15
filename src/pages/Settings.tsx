@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   getStravaTokens,
   getStravaCredentials,
   setStravaCredentials,
+  setStravaTokens,
   clearStravaTokens,
   getGarminCredentials,
   setGarminCredentials,
@@ -12,6 +13,12 @@ import {
 import { setWelcomeCompleted } from '../services/planProgress';
 import { isWeb } from '../services/stravaWeb';
 import { getStravaAuthUrl } from '../services/stravaWeb';
+import {
+  getCoachingPreferences,
+  setCoachingPreferences,
+  WEEKDAY_NAMES,
+} from '../services/coachingPreferences';
+import { getHRProfile, setHRProfile as saveHRProfile } from '../services/heartRate';
 
 export default function Settings() {
   const [stravaClientId, setStravaClientId] = useState('');
@@ -23,6 +30,22 @@ export default function Settings() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const messageTimeoutRef = useRef<number | null>(null);
+  const [coachPrefs, setCoachPrefs] = useState(getCoachingPreferences());
+  const [hrMax, setHrMax] = useState(String(getHRProfile().maxHR));
+  const [hrResting, setHrResting] = useState(String(getHRProfile().restingHR));
+
+  const showMessage = useCallback((text: string, ms = 3000) => {
+    if (messageTimeoutRef.current != null) {
+      window.clearTimeout(messageTimeoutRef.current);
+      messageTimeoutRef.current = null;
+    }
+    setMessage(text);
+    messageTimeoutRef.current = window.setTimeout(() => {
+      setMessage(null);
+      messageTimeoutRef.current = null;
+    }, ms);
+  }, []);
 
   useEffect(() => {
     const creds = getStravaCredentials();
@@ -37,13 +60,18 @@ export default function Settings() {
       setGarminSecret(gcreds.clientSecret);
     }
     setGarminConnected(!!getGarminTokens());
+    return () => {
+      if (messageTimeoutRef.current != null) {
+        window.clearTimeout(messageTimeoutRef.current);
+        messageTimeoutRef.current = null;
+      }
+    };
   }, []);
 
   const saveStravaCredentials = () => {
     if (!stravaClientId.trim()) return;
     setStravaCredentials(stravaClientId.trim(), stravaSecret.trim());
-    setMessage('Strava credentials saved.');
-    setTimeout(() => setMessage(null), 3000);
+    showMessage('Strava credentials saved.');
   };
 
   const connectStrava = async () => {
@@ -76,7 +104,6 @@ export default function Settings() {
         clientSecret: stravaSecret.trim(),
         code: server.code,
       });
-      const { setStravaTokens } = await import('../services/storage');
       setStravaTokens({
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
@@ -84,8 +111,7 @@ export default function Settings() {
         athlete: tokens.athlete,
       });
       setStravaConnected(true);
-      setMessage(`Connected as ${tokens.athlete?.firstname ?? 'Strava'}.`);
-      setTimeout(() => setMessage(null), 4000);
+      showMessage(`Connected as ${tokens.athlete?.firstname ?? 'Strava'}.`, 4000);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Strava connection failed.');
     } finally {
@@ -96,22 +122,19 @@ export default function Settings() {
   const disconnectStrava = () => {
     clearStravaTokens();
     setStravaConnected(false);
-    setMessage('Strava disconnected.');
-    setTimeout(() => setMessage(null), 3000);
+    showMessage('Strava disconnected.');
   };
 
   const saveGarminCredentials = () => {
     if (!garminClientId.trim()) return;
     setGarminCredentials(garminClientId.trim(), garminSecret.trim());
-    setMessage('Garmin credentials saved.');
-    setTimeout(() => setMessage(null), 3000);
+    showMessage('Garmin credentials saved.');
   };
 
   const disconnectGarmin = () => {
     clearGarminTokens();
     setGarminConnected(false);
-    setMessage('Garmin disconnected.');
-    setTimeout(() => setMessage(null), 3000);
+    showMessage('Garmin disconnected.');
   };
 
   return (
@@ -203,6 +226,126 @@ export default function Settings() {
             {garminConnected && (
               <button type="button" onClick={disconnectGarmin} className="btn btn-secondary">Disconnect</button>
             )}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Coaching & Insights ── */}
+      <div className="card">
+        <h3>Coaching & Insights</h3>
+        <p style={{ color: 'var(--text-muted)', marginBottom: '1rem', fontSize: '0.95rem' }}>
+          Configure your daily recap and weekly Race Day Readiness notifications.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 480 }}>
+          {/* Daily Recap */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={coachPrefs.dailyRecapEnabled}
+                onChange={(e) => {
+                  const next = { ...coachPrefs, dailyRecapEnabled: e.target.checked };
+                  setCoachingPreferences(next);
+                  setCoachPrefs(next);
+                  showMessage('Daily recap ' + (e.target.checked ? 'enabled' : 'disabled') + '.');
+                }}
+                style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+              />
+              <span style={{ fontWeight: 500 }}>Daily training recap</span>
+            </label>
+            {coachPrefs.dailyRecapEnabled && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>at</span>
+                <input
+                  type="time"
+                  value={coachPrefs.dailyRecapTime}
+                  onChange={(e) => {
+                    const next = { ...coachPrefs, dailyRecapTime: e.target.value };
+                    setCoachingPreferences(next);
+                    setCoachPrefs(next);
+                  }}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.9rem' }}
+                />
+              </label>
+            )}
+          </div>
+
+          {/* Weekly Readiness */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={coachPrefs.weeklyRecapEnabled}
+                onChange={(e) => {
+                  const next = { ...coachPrefs, weeklyRecapEnabled: e.target.checked };
+                  setCoachingPreferences(next);
+                  setCoachPrefs(next);
+                  showMessage('Weekly readiness ' + (e.target.checked ? 'enabled' : 'disabled') + '.');
+                }}
+                style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+              />
+              <span style={{ fontWeight: 500 }}>Weekly Race Day Readiness</span>
+            </label>
+            {coachPrefs.weeklyRecapEnabled && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>on</span>
+                <select
+                  value={coachPrefs.weeklyRecapDay}
+                  onChange={(e) => {
+                    const next = { ...coachPrefs, weeklyRecapDay: Number(e.target.value) };
+                    setCoachingPreferences(next);
+                    setCoachPrefs(next);
+                  }}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.9rem' }}
+                >
+                  {WEEKDAY_NAMES.map((name, i) => (
+                    <option key={i} value={i}>{name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
+
+          {/* Heart Rate Profile */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '0.25rem' }}>
+            <strong style={{ fontSize: '0.95rem' }}>Heart Rate Profile</strong>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.25rem 0 0.75rem' }}>
+              Set your max and resting HR for accurate zone calculations. Auto-updates when Strava detects a higher max HR.
+            </p>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'end' }}>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Max HR (bpm)</span>
+                <input
+                  type="number"
+                  value={hrMax}
+                  onChange={(e) => setHrMax(e.target.value)}
+                  style={{ width: 80, padding: '0.4rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                />
+              </label>
+              <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Resting HR (bpm)</span>
+                <input
+                  type="number"
+                  value={hrResting}
+                  onChange={(e) => setHrResting(e.target.value)}
+                  style={{ width: 80, padding: '0.4rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
+                />
+              </label>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ fontSize: '0.85rem' }}
+                onClick={() => {
+                  const maxVal = parseInt(hrMax, 10);
+                  const restVal = parseInt(hrResting, 10);
+                  if (!maxVal || maxVal < 100 || maxVal > 230) return;
+                  if (!restVal || restVal < 30 || restVal > 120) return;
+                  saveHRProfile({ maxHR: maxVal, restingHR: restVal, source: 'manual', updatedAt: new Date().toISOString() });
+                  showMessage('Heart rate profile saved.');
+                }}
+              >Save</button>
+            </div>
           </div>
         </div>
       </div>

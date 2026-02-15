@@ -76,6 +76,8 @@ export interface StravaActivity {
   average_speed?: number;
   max_speed?: number;
   total_elevation_gain?: number;
+  average_cadence?: number;
+  suffer_score?: number;
   kudos_count: number;
 }
 

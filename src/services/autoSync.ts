@@ -18,6 +18,10 @@ import {
   getAllSyncMeta,
   type SyncMeta,
 } from './planProgress';
+import { buildHRDataFromStrava, upsertActivityHR } from './heartRate';
+import { calculateRacePrediction, calculateTrainingAdherence } from './racePrediction';
+import { generateCurrentWeekReadiness } from './weeklyReadiness';
+import { generateDailyRecap } from './dailyRecap';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -54,8 +58,9 @@ function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number
 
 function formatPaceMinPerMi(paceMinPerMi: number): string {
   if (!paceMinPerMi) return '—';
-  const min = Math.floor(paceMinPerMi);
-  const sec = Math.round((paceMinPerMi - min) * 60);
+  const totalSec = Math.round(paceMinPerMi * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
@@ -253,6 +258,28 @@ export async function runAutoSync(): Promise<SyncResult[]> {
   }
 
   setLastSyncTime(new Date().toISOString());
+
+  // ── Post-sync: capture HR data from all synced activities ──
+  for (const [dateKey, activity] of runsByDate) {
+    if (activity.average_heartrate && activity.average_heartrate > 0) {
+      const hrData = buildHRDataFromStrava(
+        activity.id,
+        dateKey,
+        activity.average_heartrate,
+        activity.max_heartrate ?? 0,
+        activity.moving_time,
+        activity.average_cadence,
+      );
+      if (hrData) upsertActivityHR(hrData);
+    }
+  }
+
+  // ── Post-sync: update race prediction, adherence, readiness, and daily recap ──
+  try { calculateRacePrediction(); } catch { /* non-critical */ }
+  try { calculateTrainingAdherence(); } catch { /* non-critical */ }
+  try { generateCurrentWeekReadiness(); } catch { /* non-critical */ }
+  try { generateDailyRecap(); } catch { /* non-critical */ }
+
   return results;
 }
 

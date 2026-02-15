@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { BUILT_IN_PLANS, getPlanById, type PlanDay } from '../data/plans';
 import {
   getActivePlan,
@@ -24,8 +24,9 @@ function miToKm(mi: number): string {
 
 function formatSyncPace(paceMinPerMi: number): string {
   if (!paceMinPerMi) return '—';
-  const min = Math.floor(paceMinPerMi);
-  const sec = Math.round((paceMinPerMi - min) * 60);
+  const totalSec = Math.round(paceMinPerMi * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
@@ -137,8 +138,11 @@ export default function Training() {
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [lastSync, setLastSync] = useState<string | null>(() => getLastSyncTime());
   const [, forceUpdate] = useState(0);
+  const isMountedRef = useRef(true);
+  const autoSyncedPlanRef = useRef<string | null>(null);
 
   const plan = selectedPlanId ? getPlanById(selectedPlanId) : null;
+  const activePlanKey = active ? `${active.planId}:${active.startDate}` : null;
   const today = new Date();
   const todayKey = formatDateKey(today);
   const stravaConnected = !!getStravaTokens();
@@ -147,6 +151,7 @@ export default function Training() {
     setSyncing(true);
     try {
       const results = await runAutoSync();
+      if (!isMountedRef.current) return;
       setSyncResults(results);
       setLastSync(getLastSyncTime());
       setActiveState(getActivePlan());
@@ -154,17 +159,28 @@ export default function Training() {
     } catch {
       // silent fail — user can retry
     } finally {
-      setSyncing(false);
+      if (isMountedRef.current) setSyncing(false);
     }
   }, []);
 
   useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
     setActiveState(getActivePlan());
+    if (!stravaConnected) {
+      autoSyncedPlanRef.current = null;
+      return;
+    }
     // Auto-sync on mount if Strava is connected and a plan is active
-    if (stravaConnected && getActivePlan()) {
+    if (activePlanKey && autoSyncedPlanRef.current !== activePlanKey) {
+      autoSyncedPlanRef.current = activePlanKey;
       handleSync();
     }
-  }, [stravaConnected, handleSync]);
+  }, [stravaConnected, activePlanKey, handleSync]);
 
   const handleStartPlan = () => {
     if (!selectedPlanId || !plan) return;

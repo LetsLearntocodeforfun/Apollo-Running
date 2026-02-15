@@ -45,6 +45,21 @@ function key(planId: string, weekIndex: number, dayIndex: number): string {
   return `${planId}:${weekIndex}:${dayIndex}`;
 }
 
+function parseLocalDateKey(dateKey: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!m) {
+    const fallback = new Date(dateKey + 'T00:00:00');
+    fallback.setHours(0, 0, 0, 0);
+    return fallback;
+  }
+  const y = Number(m[1]);
+  const mon = Number(m[2]);
+  const d = Number(m[3]);
+  const parsed = new Date(y, mon - 1, d);
+  parsed.setHours(0, 0, 0, 0);
+  return parsed;
+}
+
 export function isDayCompleted(planId: string, weekIndex: number, dayIndex: number): boolean {
   return getCompletedSet().has(key(planId, weekIndex, dayIndex));
 }
@@ -75,10 +90,11 @@ export function getCompletedCount(planId: string): number {
 
 /** Date for a given week/day (0-based) from plan start. */
 export function getDateForDay(startDate: string, weekIndex: number, dayIndex: number): Date {
-  const start = new Date(startDate + 'T00:00:00');
+  const start = parseLocalDateKey(startDate);
   const daysOffset = weekIndex * 7 + dayIndex;
   const d = new Date(start);
   d.setDate(d.getDate() + daysOffset);
+  d.setHours(0, 0, 0, 0);
   return d;
 }
 
@@ -88,8 +104,7 @@ export function getWeekDayForDate(
   totalWeeks: number,
   date: Date
 ): { weekIndex: number; dayIndex: number } | null {
-  const start = new Date(startDate + 'T00:00:00');
-  start.setHours(0, 0, 0, 0);
+  const start = parseLocalDateKey(startDate);
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
   const diffMs = d.getTime() - start.getTime();
@@ -103,7 +118,10 @@ export function getWeekDayForDate(
 }
 
 export function formatDateKey(date: Date): string {
-  return date.toISOString().slice(0, 10);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 /** First-boot welcome: has the user completed the "pick a plan?" flow (yes or no). */

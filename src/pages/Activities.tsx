@@ -18,8 +18,9 @@ function formatPace(meters: number, seconds: number): string {
   if (!seconds || !meters) return '—';
   const km = meters / 1000;
   const minPerKm = (seconds / 60) / km;
-  const min = Math.floor(minPerKm);
-  const sec = Math.round((minPerKm - min) * 60);
+  const totalSec = Math.round(minPerKm * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}/km`;
 }
 
@@ -36,6 +37,7 @@ export default function Activities() {
       return;
     }
     let cancelled = false;
+    setError(null);
     setLoading(true);
     getActivities({ page, per_page: 30 })
       .then((data) => {
@@ -97,6 +99,9 @@ export default function Activities() {
                     {a.average_speed != null && a.average_speed > 0 ? formatPace(a.distance, a.moving_time) : '—'}
                     {a.total_elevation_gain != null && a.total_elevation_gain > 0 && (
                       <><br />+{Math.round(a.total_elevation_gain)} m</>
+                    )}
+                    {a.average_heartrate != null && a.average_heartrate > 0 && (
+                      <><br /><span style={{ color: '#EF5350' }}>{Math.round(a.average_heartrate)}</span> / {a.max_heartrate ? Math.round(a.max_heartrate) : '—'} bpm</>
                     )}
                   </div>
                 </li>
