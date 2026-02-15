@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { getStravaTokens, getGarminTokens } from '../services/storage';
 import { getAthlete } from '../services/strava';
 import { getActivities, type StravaActivity } from '../services/strava';
-import { getActivePlan, getWeekDayForDate, getCompletedCount } from '../services/planProgress';
+import { getActivePlan, getWeekDayForDate, getCompletedCount, getSyncMeta, isDayCompleted } from '../services/planProgress';
 import { getPlanById } from '../data/plans';
+import { runAutoSync, getWeeklyMileageSummary, type SyncResult, type WeeklyMileage } from '../services/autoSync';
 
 function formatDistance(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
@@ -32,6 +33,8 @@ export default function Dashboard() {
   const [recent, setRecent] = useState<StravaActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
+  const [, forceUpdate] = useState(0);
   const stravaConnected = !!getStravaTokens();
   const garminConnected = !!getGarminTokens();
   const activePlan = getActivePlan();
@@ -39,8 +42,22 @@ export default function Dashboard() {
   const today = new Date();
   const todayWeekDay = plan && activePlan ? getWeekDayForDate(activePlan.startDate, plan.totalWeeks, today) : null;
   const todayWorkout = plan && todayWeekDay != null ? plan.weeks[todayWeekDay.weekIndex]?.days[todayWeekDay.dayIndex] : null;
+  const todaySyncMeta = plan && todayWeekDay ? getSyncMeta(plan.id, todayWeekDay.weekIndex, todayWeekDay.dayIndex) : null;
+  const todayCompleted = plan && todayWeekDay ? isDayCompleted(plan.id, todayWeekDay.weekIndex, todayWeekDay.dayIndex) : false;
   const completedCount = plan && activePlan ? getCompletedCount(plan.id) : 0;
   const totalDays = plan ? plan.totalWeeks * 7 : 0;
+  const weeklyMileage: WeeklyMileage | null = plan && todayWeekDay ? getWeeklyMileageSummary(plan.id, todayWeekDay.weekIndex) : null;
+
+  const doAutoSync = useCallback(async () => {
+    if (!stravaConnected || !getActivePlan()) return;
+    try {
+      const results = await runAutoSync();
+      setSyncResults(results);
+      forceUpdate((n) => n + 1);
+    } catch {
+      // silent
+    }
+  }, [stravaConnected]);
 
   useEffect(() => {
     if (!stravaConnected) {
@@ -64,8 +81,10 @@ export default function Dashboard() {
         if (!cancelled) setLoading(false);
       }
     })();
+    // Auto-sync on mount
+    doAutoSync();
     return () => { cancelled = true; };
-  }, [stravaConnected]);
+  }, [stravaConnected, doAutoSync]);
 
   return (
     <div>
@@ -103,7 +122,29 @@ export default function Dashboard() {
           </p>
           {todayWorkout && (
             <div style={{ background: 'var(--bg)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
-              <strong style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Today&apos;s workout</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                <strong style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Today&apos;s workout</strong>
+                {todaySyncMeta && (
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: 'rgba(0,200,83,0.2)',
+                    color: 'var(--accent)',
+                    padding: '0.1rem 0.5rem',
+                    borderRadius: '999px',
+                    fontWeight: 600,
+                  }}>Auto-synced</span>
+                )}
+                {todayCompleted && !todaySyncMeta && (
+                  <span style={{
+                    fontSize: '0.72rem',
+                    background: 'rgba(0,200,83,0.15)',
+                    color: 'var(--accent)',
+                    padding: '0.1rem 0.5rem',
+                    borderRadius: '999px',
+                    fontWeight: 600,
+                  }}>Completed</span>
+                )}
+              </div>
               <div style={{ marginTop: '0.25rem', fontWeight: 500 }} className={`day-type-${todayWorkout.type}`}>
                 {todayWorkout.label}
                 {todayWorkout.distanceMi != null && (
@@ -112,6 +153,69 @@ export default function Dashboard() {
                   </span>
                 )}
               </div>
+              {todaySyncMeta && (
+                <div style={{
+                  marginTop: '0.5rem',
+                  padding: '0.5rem 0.75rem',
+                  background: 'rgba(0,200,83,0.08)',
+                  borderRadius: '8px',
+                  fontSize: '0.85rem',
+                  lineHeight: 1.5,
+                }}>
+                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+                    <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{todaySyncMeta.actualDistanceMi.toFixed(1)} mi</span>
+                    <span>{Math.floor(todaySyncMeta.actualPaceMinPerMi)}:{Math.round((todaySyncMeta.actualPaceMinPerMi % 1) * 60).toString().padStart(2, '0')}/mi pace</span>
+                    <span>{Math.floor(todaySyncMeta.movingTimeSec / 60)}m {todaySyncMeta.movingTimeSec % 60}s</span>
+                  </div>
+                  <div style={{ color: 'var(--text)', fontStyle: 'italic' }}>{todaySyncMeta.feedback}</div>
+                </div>
+              )}
+            </div>
+          )}
+          {weeklyMileage && weeklyMileage.actualMi > 0 && (
+            <div style={{ background: 'var(--bg)', padding: '0.75rem 1rem', borderRadius: '8px', marginBottom: '0.75rem' }}>
+              <strong style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>This week&apos;s mileage</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.5rem' }}>
+                <div style={{
+                  flex: 1,
+                  height: 8,
+                  borderRadius: 4,
+                  background: 'rgba(255,255,255,0.08)',
+                  overflow: 'hidden',
+                }}>
+                  <div style={{
+                    height: '100%',
+                    width: `${weeklyMileage.plannedMi > 0 ? Math.min((weeklyMileage.actualMi / weeklyMileage.plannedMi) * 100, 100) : 0}%`,
+                    borderRadius: 4,
+                    background: weeklyMileage.status === 'on_track' || weeklyMileage.status === 'ahead' ? 'var(--accent)' : weeklyMileage.status === 'behind' ? '#f0a030' : '#f55',
+                    transition: 'width 0.3s',
+                  }} />
+                </div>
+                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                  {weeklyMileage.actualMi.toFixed(1)} / {weeklyMileage.plannedMi.toFixed(1)} mi
+                </span>
+              </div>
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', margin: '0.35rem 0 0', fontStyle: 'italic' }}>
+                {weeklyMileage.message}
+              </p>
+            </div>
+          )}
+          {syncResults.length > 0 && (
+            <div style={{ marginBottom: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+              {syncResults.slice(0, 3).map((r, i) => (
+                <div key={i} style={{
+                  background: 'rgba(0,200,83,0.08)',
+                  borderRadius: '8px',
+                  padding: '0.5rem 0.75rem',
+                  fontSize: '0.82rem',
+                  lineHeight: 1.4,
+                }}>
+                  <span style={{ fontWeight: 600, color: 'var(--accent)' }}>
+                    {r.isNew ? 'Auto-completed' : 'Synced'}:
+                  </span>{' '}
+                  {r.plannedDay.label} — {r.actualDistanceMi.toFixed(1)} mi
+                </div>
+              ))}
             </div>
           )}
           <Link to="/training" className="btn btn-primary">Open training plan</Link>

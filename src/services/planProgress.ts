@@ -115,3 +115,60 @@ export function setWelcomeCompleted(completed: boolean): void {
   if (completed) localStorage.setItem(WELCOME_COMPLETED_KEY, 'true');
   else localStorage.removeItem(WELCOME_COMPLETED_KEY);
 }
+
+/** ── Auto-Sync Metadata ── */
+
+const SYNC_META_KEY = 'apollo_sync_meta';
+const LAST_SYNC_KEY = 'apollo_last_sync';
+
+export interface SyncMeta {
+  stravaActivityId: number;
+  actualDistanceMi: number;
+  actualPaceMinPerMi: number;
+  movingTimeSec: number;
+  feedback: string;
+  syncedAt: string; // ISO timestamp
+}
+
+function getSyncMetaMap(): Record<string, SyncMeta> {
+  try {
+    const raw = localStorage.getItem(SYNC_META_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveSyncMetaMap(map: Record<string, SyncMeta>): void {
+  localStorage.setItem(SYNC_META_KEY, JSON.stringify(map));
+}
+
+export function getSyncMeta(planId: string, weekIndex: number, dayIndex: number): SyncMeta | null {
+  return getSyncMetaMap()[key(planId, weekIndex, dayIndex)] ?? null;
+}
+
+export function setSyncMeta(planId: string, weekIndex: number, dayIndex: number, meta: SyncMeta): void {
+  const map = getSyncMetaMap();
+  map[key(planId, weekIndex, dayIndex)] = meta;
+  saveSyncMetaMap(map);
+}
+
+export function getAllSyncMeta(planId: string): { weekIndex: number; dayIndex: number; meta: SyncMeta }[] {
+  const map = getSyncMetaMap();
+  const results: { weekIndex: number; dayIndex: number; meta: SyncMeta }[] = [];
+  for (const [k, v] of Object.entries(map)) {
+    if (k.startsWith(planId + ':')) {
+      const parts = k.split(':');
+      results.push({ weekIndex: Number(parts[1]), dayIndex: Number(parts[2]), meta: v });
+    }
+  }
+  return results;
+}
+
+export function getLastSyncTime(): string | null {
+  return localStorage.getItem(LAST_SYNC_KEY);
+}
+
+export function setLastSyncTime(iso: string): void {
+  localStorage.setItem(LAST_SYNC_KEY, iso);
+}

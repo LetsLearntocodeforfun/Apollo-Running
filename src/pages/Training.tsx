@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { BUILT_IN_PLANS, getPlanById, type TrainingPlan, type PlanDay } from '../data/plans';
+import { useState, useEffect, useCallback } from 'react';
+import { BUILT_IN_PLANS, getPlanById, type PlanDay } from '../data/plans';
 import {
   getActivePlan,
   setActivePlan,
@@ -8,8 +8,13 @@ import {
   getDateForDay,
   getCompletedCount,
   formatDateKey,
+  getSyncMeta,
+  getLastSyncTime,
   type ActivePlan,
+  type SyncMeta,
 } from '../services/planProgress';
+import { getStravaTokens } from '../services/storage';
+import { runAutoSync, getWeeklyMileageSummary, type SyncResult } from '../services/autoSync';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -17,14 +22,22 @@ function miToKm(mi: number): string {
   return (mi * 1.60934).toFixed(1);
 }
 
+function formatSyncPace(paceMinPerMi: number): string {
+  if (!paceMinPerMi) return '—';
+  const min = Math.floor(paceMinPerMi);
+  const sec = Math.round((paceMinPerMi - min) * 60);
+  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
+}
+
 function DayRow({
-  planId,
-  weekIndex,
+  planId: _planId,
+  weekIndex: _weekIndex,
   dayIndex,
   day,
   date,
   isToday,
   completed,
+  syncMeta,
   onToggle,
 }: {
   planId: string;
@@ -34,37 +47,83 @@ function DayRow({
   date: Date;
   isToday: boolean;
   completed: boolean;
+  syncMeta: SyncMeta | null;
   onToggle: () => void;
 }) {
   const dateStr = formatDateKey(date);
+  const isSynced = !!syncMeta;
   return (
-    <tr style={{ background: isToday ? 'rgba(0,200,83,0.12)' : undefined }}>
-      <td style={{ padding: '0.5rem', width: 36 }}>
-        {(day.type === 'run' || day.type === 'cross' || day.type === 'race' || day.type === 'marathon') ? (
-          <input
-            type="checkbox"
-            checked={completed}
-            onChange={() => onToggle()}
-            aria-label={`Mark ${day.label} complete`}
-          />
-        ) : (
-          <span style={{ color: 'var(--text-muted)' }}>—</span>
-        )}
-      </td>
-      <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{DAY_NAMES[dayIndex]}</td>
-      <td style={{ padding: '0.5rem' }}>{dateStr}</td>
-      <td style={{ padding: '0.5rem' }}>
-        <span className={`day-type-${day.type}`}>{day.label}</span>
-        {day.distanceMi != null && (
-          <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: '0.9rem' }}>
-            {day.distanceMi} mi ({miToKm(day.distanceMi)} km)
-          </span>
-        )}
-      </td>
-      <td style={{ padding: '0.5rem' }}>
-        {isToday ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Today</span> : null}
-      </td>
-    </tr>
+    <>
+      <tr style={{ background: isToday ? 'rgba(0,200,83,0.12)' : isSynced ? 'rgba(0,200,83,0.05)' : undefined }}>
+        <td style={{ padding: '0.5rem', width: 36 }}>
+          {(day.type === 'run' || day.type === 'cross' || day.type === 'race' || day.type === 'marathon') ? (
+            <input
+              type="checkbox"
+              checked={completed}
+              onChange={() => onToggle()}
+              aria-label={`Mark ${day.label} complete`}
+            />
+          ) : (
+            <span style={{ color: 'var(--text-muted)' }}>—</span>
+          )}
+        </td>
+        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>{DAY_NAMES[dayIndex]}</td>
+        <td style={{ padding: '0.5rem' }}>{dateStr}</td>
+        <td style={{ padding: '0.5rem' }}>
+          <span className={`day-type-${day.type}`}>{day.label}</span>
+          {day.distanceMi != null && (
+            <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: '0.9rem' }}>
+              {day.distanceMi} mi ({miToKm(day.distanceMi)} km)
+            </span>
+          )}
+          {isSynced && (
+            <span style={{
+              marginLeft: '0.5rem',
+              fontSize: '0.75rem',
+              background: 'rgba(0,200,83,0.2)',
+              color: 'var(--accent)',
+              padding: '0.15rem 0.5rem',
+              borderRadius: '999px',
+              fontWeight: 600,
+            }}>
+              Synced
+            </span>
+          )}
+        </td>
+        <td style={{ padding: '0.5rem' }}>
+          {isToday ? <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Today</span> : null}
+        </td>
+      </tr>
+      {isSynced && syncMeta && (
+        <tr style={{ background: isToday ? 'rgba(0,200,83,0.08)' : 'rgba(0,200,83,0.03)' }}>
+          <td colSpan={5} style={{ padding: '0.25rem 0.5rem 0.5rem 2.75rem' }}>
+            <div style={{
+              fontSize: '0.82rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              gap: '1rem',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+            }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 600 }}>
+                {syncMeta.actualDistanceMi.toFixed(1)} mi
+              </span>
+              <span>{formatSyncPace(syncMeta.actualPaceMinPerMi)} pace</span>
+              <span>{Math.floor(syncMeta.movingTimeSec / 60)}m {syncMeta.movingTimeSec % 60}s</span>
+            </div>
+            <div style={{
+              fontSize: '0.82rem',
+              color: 'var(--text)',
+              marginTop: '0.25rem',
+              lineHeight: 1.4,
+              fontStyle: 'italic',
+            }}>
+              {syncMeta.feedback}
+            </div>
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
 
@@ -74,14 +133,38 @@ export default function Training() {
   const [startDate, setStartDate] = useState(active?.startDate ?? formatDateKey(new Date()));
   const [expandedWeek, setExpandedWeek] = useState<number | null>(() => (getActivePlan() ? 0 : null));
   const [showPicker, setShowPicker] = useState(!active);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
+  const [lastSync, setLastSync] = useState<string | null>(() => getLastSyncTime());
+  const [, forceUpdate] = useState(0);
 
   const plan = selectedPlanId ? getPlanById(selectedPlanId) : null;
   const today = new Date();
   const todayKey = formatDateKey(today);
+  const stravaConnected = !!getStravaTokens();
+
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try {
+      const results = await runAutoSync();
+      setSyncResults(results);
+      setLastSync(getLastSyncTime());
+      setActiveState(getActivePlan());
+      forceUpdate((n) => n + 1);
+    } catch {
+      // silent fail — user can retry
+    } finally {
+      setSyncing(false);
+    }
+  }, []);
 
   useEffect(() => {
     setActiveState(getActivePlan());
-  }, []);
+    // Auto-sync on mount if Strava is connected and a plan is active
+    if (stravaConnected && getActivePlan()) {
+      handleSync();
+    }
+  }, [stravaConnected, handleSync]);
 
   const handleStartPlan = () => {
     if (!selectedPlanId || !plan) return;
@@ -231,11 +314,41 @@ export default function Training() {
                             color: 'var(--text)',
                             cursor: 'pointer',
                             fontSize: '1rem',
+                            gap: '0.5rem',
                           }}
                         >
-                          <span>Week {week.weekNumber}</span>
-                          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                            {week.days.filter((_, di) => isDayCompleted(plan.id, week.weekNumber - 1, di)).length} completed
+                          <span style={{ minWidth: '5rem' }}>Week {week.weekNumber}</span>
+                          {(() => {
+                            const wm = getWeeklyMileageSummary(plan.id, week.weekNumber - 1);
+                            if (!wm || wm.actualMi === 0) return null;
+                            const pct = wm.plannedMi > 0 ? Math.min((wm.actualMi / wm.plannedMi) * 100, 100) : 0;
+                            const barColor = wm.status === 'on_track' || wm.status === 'ahead' ? 'var(--accent)' : wm.status === 'behind' ? '#f0a030' : '#f55';
+                            return (
+                              <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{
+                                  flex: 1,
+                                  height: 6,
+                                  borderRadius: 3,
+                                  background: 'rgba(255,255,255,0.08)',
+                                  overflow: 'hidden',
+                                }}>
+                                  <span style={{
+                                    display: 'block',
+                                    height: '100%',
+                                    width: `${pct}%`,
+                                    borderRadius: 3,
+                                    background: barColor,
+                                    transition: 'width 0.3s',
+                                  }} />
+                                </span>
+                                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                  {wm.actualMi.toFixed(1)}/{wm.plannedMi.toFixed(1)} mi
+                                </span>
+                              </span>
+                            );
+                          })()}
+                          <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem', whiteSpace: 'nowrap' }}>
+                            {week.days.filter((_, di) => isDayCompleted(plan.id, week.weekNumber - 1, di)).length} done
                           </span>
                           <span>{isExpanded ? '▼' : '▶'}</span>
                         </button>
@@ -256,6 +369,7 @@ export default function Training() {
                                   const date = getDateForDay(active.startDate, week.weekNumber - 1, dayIndex);
                                   const isToday = formatDateKey(date) === todayKey;
                                   const completed = isDayCompleted(plan.id, week.weekNumber - 1, dayIndex);
+                                  const meta = getSyncMeta(plan.id, week.weekNumber - 1, dayIndex);
                                   return (
                                     <DayRow
                                       key={dayIndex}
@@ -266,9 +380,11 @@ export default function Training() {
                                       date={date}
                                       isToday={isToday}
                                       completed={completed}
+                                      syncMeta={meta}
                                       onToggle={() => {
                                         toggleDayCompleted(plan.id, week.weekNumber - 1, dayIndex);
                                         setActiveState(getActivePlan());
+                                        forceUpdate((n) => n + 1);
                                       }}
                                     />
                                   );
@@ -288,10 +404,58 @@ export default function Training() {
       )}
 
       <div className="card" style={{ background: 'rgba(0,200,83,0.08)', borderColor: 'var(--accent)' }}>
-        <h3>Sync with Strava & Garmin</h3>
-        <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-          Connect in <strong>Settings</strong> to import activities. Your runs will still appear under Activities; you can check off plan days manually or we can add auto-match later.
-        </p>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          Smart Auto-Sync
+          {stravaConnected && (
+            <span style={{ fontSize: '0.8rem', color: 'var(--accent)', fontWeight: 500 }}>Active</span>
+          )}
+        </h3>
+        {!stravaConnected ? (
+          <p style={{ color: 'var(--text-muted)', margin: 0 }}>
+            Connect <strong>Strava</strong> in Settings to automatically sync your runs with the training plan.
+          </p>
+        ) : (
+          <div>
+            <p style={{ color: 'var(--text-muted)', margin: '0 0 0.75rem', fontSize: '0.9rem' }}>
+              Your Strava runs are automatically matched to plan days. Distance, pace, and weekly mileage are analyzed after every sync.
+              {lastSync && (
+                <span style={{ marginLeft: '0.5rem' }}>
+                  Last synced: {new Date(lastSync).toLocaleTimeString()}
+                </span>
+              )}
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleSync}
+              disabled={syncing}
+              style={{ marginBottom: syncResults.length > 0 ? '0.75rem' : 0 }}
+            >
+              {syncing ? 'Syncing…' : 'Sync now'}
+            </button>
+            {syncResults.length > 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                {syncResults.map((r, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      background: 'rgba(0,200,83,0.1)',
+                      borderRadius: '8px',
+                      padding: '0.75rem 1rem',
+                      fontSize: '0.88rem',
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    <div style={{ fontWeight: 600, color: 'var(--accent)', marginBottom: '0.25rem' }}>
+                      {r.isNew ? 'Auto-completed' : 'Updated'}: Week {r.weekIndex + 1}, {DAY_NAMES[r.dayIndex]} — {r.plannedDay.label}
+                    </div>
+                    <div style={{ color: 'var(--text)' }}>{r.feedback}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
