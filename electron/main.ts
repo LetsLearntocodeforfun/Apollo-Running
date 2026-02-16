@@ -13,24 +13,28 @@ const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
 const STRAVA_SCOPES = 'activity:read_all,activity:write,profile:read_all';
 
-// Debug paths
-console.log('App is packaged:', app.isPackaged);
-console.log('App path:', app.getAppPath());
-console.log('Exec path:', process.execPath);
-console.log('CWD:', process.cwd());
-console.log('__dirname:', __dirname);
+// Debug paths (only in development)
+if (isDev) {
+  console.log('App is packaged:', app.isPackaged);
+  console.log('App path:', app.getAppPath());
+  console.log('Exec path:', process.execPath);
+  console.log('CWD:', process.cwd());
+  console.log('__dirname:', __dirname);
+}
 
 function createWindow() {
   const iconPath = path.join(__dirname, '..', 'public', 'assets', 'logo-256.png');
   // Preload is emitted to dist-electron/preload.js (same dir level as main.js)
   const preloadPath = path.join(__dirname, 'preload.js');
   
-  // Log important paths for debugging
-  console.log('App path:', app.getAppPath());
-  console.log('Exec path:', process.execPath);
-  console.log('Resources path:', process.resourcesPath);
-  console.log('Preload path:', preloadPath);
-  console.log('Icon path:', iconPath);
+  // Log important paths for debugging (dev only)
+  if (isDev) {
+    console.log('App path:', app.getAppPath());
+    console.log('Exec path:', process.execPath);
+    console.log('Resources path:', process.resourcesPath);
+    console.log('Preload path:', preloadPath);
+    console.log('Icon path:', iconPath);
+  }
 
   mainWindow = new BrowserWindow({
     width: 1200,
