@@ -36,6 +36,13 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      # Linux needs additional system libraries for building deb/AppImage
+      - name: Install Linux build dependencies
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-tools rpm dpkg fakeroot
+
       - name: Install dependencies
         run: npm ci
 
@@ -43,34 +50,24 @@ jobs:
       - name: Build Electron app
         run: npm run build:electron
 
-      # Package and publish installers to the GitHub Release
-      # electron-builder creates the release (draft) if it doesn't exist,
+      # Package and publish installers to the GitHub Release.
+      # electron-builder creates a draft release if it doesn't exist,
       # or appends artifacts to an existing one for the same tag.
+      #
+      # CSC_IDENTITY_AUTO_DISCOVERY=false prevents macOS from trying to
+      # code-sign when no certificates are configured. Remove this env var
+      # (or set to true) once you add MAC_CERTS / WIN_CSC_LINK secrets.
       - name: Package & publish installers
         run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # ── macOS code-signing (optional) ──
-          # To sign & notarize macOS builds, add these repository secrets:
-          #   MAC_CERTS        – Base64-encoded .p12 certificate
-          #   MAC_CERTS_PASSWORD – Password for the .p12
-          #   APPLE_ID          – Apple ID email for notarization
-          #   APPLE_APP_SPECIFIC_PASSWORD – App-specific password
-          #   APPLE_TEAM_ID     – 10-char Apple Developer Team ID
-          CSC_LINK: ${{ secrets.MAC_CERTS }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTS_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          # ── Windows code-signing (optional) ──
-          # To sign Windows builds, add these repository secrets:
-          #   WIN_CSC_LINK     – Base64-encoded .pfx certificate
-          #   WIN_CSC_KEY_PASSWORD – Password for the .pfx
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          # Disable auto code-signing discovery (prevents failures when
+          # no signing certificates are configured as repo secrets).
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
       # Upload build artifacts as a backup (accessible from the Actions run)
       - name: Upload artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: installers-${{ matrix.platform }}
@@ -82,5 +79,6 @@ jobs:
             release/*.deb
             release/*.yml
             release/*.yaml
+            release/*.blockmap
           if-no-files-found: warn
           retention-days: 30
