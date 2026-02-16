@@ -2,7 +2,10 @@
   "name": "apollo-marathon",
   "version": "1.0.0",
   "description": "Apollo — all-in-one marathon training with Strava & Garmin",
-  "author": "LetsLearntocodeforfun",
+  "author": {
+    "name": "LetsLearntocodeforfun",
+    "email": "apollo-running@users.noreply.github.com"
+  },
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
