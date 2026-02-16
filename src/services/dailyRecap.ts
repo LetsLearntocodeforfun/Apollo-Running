@@ -8,6 +8,7 @@ import { getPlanById } from '../data/plans';
 import { getWeeklyMileageSummary, type WeeklyMileage } from './autoSync';
 import { getHRHistory, getHRZones, type ActivityHRData } from './heartRate';
 import { getSavedPrediction } from './racePrediction';
+import { persistence } from './db/persistence';
 
 const RECAP_KEY = 'apollo_daily_recaps';
 
@@ -46,7 +47,7 @@ export interface DailyRecap {
 
 function getRecapStore(): Record<string, DailyRecap> {
   try {
-    const raw = localStorage.getItem(RECAP_KEY);
+    const raw = persistence.getItem(RECAP_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -54,7 +55,7 @@ function getRecapStore(): Record<string, DailyRecap> {
 }
 
 function saveRecapStore(store: Record<string, DailyRecap>): void {
-  localStorage.setItem(RECAP_KEY, JSON.stringify(store));
+  persistence.setItem(RECAP_KEY, JSON.stringify(store));
 }
 
 export function getDailyRecap(date: string): DailyRecap | null {
@@ -168,10 +169,10 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
   // Save
   const store = getRecapStore();
   store[date] = recap;
-  // Keep last 90 days
+  // Keep last 365 days (IndexedDB has ample capacity)
   const keys = Object.keys(store).sort();
-  if (keys.length > 90) {
-    for (const old of keys.slice(0, keys.length - 90)) {
+  if (keys.length > 365) {
+    for (const old of keys.slice(0, keys.length - 365)) {
       delete store[old];
     }
   }

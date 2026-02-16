@@ -14,13 +14,7 @@ const config = {
   // Use custom HTML template for Electron builds
   root: isElectron ? process.cwd() : undefined,
   plugins: [
-    react({
-      // Add React refresh
-      jsxImportSource: '@emotion/react',
-      babel: {
-        plugins: ['@emotion/babel-plugin'],
-      },
-    }),
+    react(),
     isElectron && electron([
       { 
         entry: 'electron/main.ts',

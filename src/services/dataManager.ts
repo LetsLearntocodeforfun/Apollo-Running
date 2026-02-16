@@ -1,7 +1,9 @@
 /**
  * Data management service for exporting, importing, and clearing Apollo Running data.
- * All user training data, credentials, and preferences are stored in localStorage.
+ * Uses the persistence service (IndexedDB + localStorage) for all storage operations.
  */
+
+import { persistence, isApolloKey } from './db/persistence';
 
 export interface BackupMetadata {
   exportDate: string;
@@ -16,46 +18,21 @@ export interface BackupData {
 }
 
 /**
- * Known localStorage keys used by Apollo Running.
- * These are the credential keys that don't use the apollo_ prefix.
- */
-const CREDENTIAL_KEYS = [
-  'strava_tokens',
-  'strava_credentials',
-  'garmin_tokens',
-  'garmin_credentials',
-];
-
-/**
- * Export all Apollo-related data from localStorage.
+ * Export all Apollo-related data from the persistence layer.
  * Includes all keys starting with 'apollo_' plus credential keys.
- * 
+ *
  * @returns An object containing metadata and all exported data
  */
 export function exportAllData(): BackupData {
-  const data: Record<string, string> = {};
-  
-  // Iterate through all localStorage keys
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    
-    // Include keys that start with 'apollo_' or are credential keys
-    if (key.startsWith('apollo_') || CREDENTIAL_KEYS.includes(key)) {
-      const value = localStorage.getItem(key);
-      if (value !== null) {
-        data[key] = value;
-      }
-    }
-  }
-  
+  const data = persistence.toRecord();
+
   const metadata: BackupMetadata = {
     exportDate: new Date().toISOString(),
     appName: 'Apollo Running',
     version: '1.0',
     keyCount: Object.keys(data).length,
   };
-  
+
   return { metadata, data };
 }
 
@@ -64,7 +41,7 @@ export function exportAllData(): BackupData {
  * Validates the structure before importing.
  * Only allows keys that match the apollo_ prefix or known credential keys,
  * preventing arbitrary key injection from tampered backup files.
- * 
+ *
  * @param backup - The backup data object to import
  * @returns true if import was successful, false otherwise
  */
@@ -73,43 +50,41 @@ export function importAllData(backup: unknown): boolean {
   if (!backup || typeof backup !== 'object') {
     return false;
   }
-  
+
   const backupData = backup as Partial<BackupData>;
-  
+
   // Check for required metadata
   if (!backupData.metadata || !backupData.data) {
     return false;
   }
-  
+
   // Validate this backup is from Apollo Running
   if (backupData.metadata.appName !== 'Apollo Running') {
     return false;
   }
-  
+
   if (typeof backupData.data !== 'object' || backupData.data === null) {
     return false;
   }
-  
+
   // Validate key count matches metadata (tamper detection)
   const dataKeys = Object.keys(backupData.data);
   if (backupData.metadata.keyCount !== dataKeys.length) {
     return false;
   }
-  
+
   // Import only allowed keys — reject anything outside the safe set
   try {
-    let importedCount = 0;
+    const allowed: Record<string, string> = {};
     Object.entries(backupData.data).forEach(([key, value]) => {
       if (typeof value !== 'string') return;
-      
-      // Only allow keys that start with 'apollo_' or are known credential keys
-      const isAllowed = key.startsWith('apollo_') || CREDENTIAL_KEYS.includes(key);
-      if (!isAllowed) return;
-      
-      localStorage.setItem(key, value);
-      importedCount++;
+      if (isApolloKey(key)) {
+        allowed[key] = value;
+      }
     });
-    return importedCount > 0;
+    if (Object.keys(allowed).length === 0) return false;
+    persistence.bulkSet(allowed);
+    return true;
   } catch (e) {
     console.error('Failed to import data:', e);
     return false;
@@ -117,24 +92,11 @@ export function importAllData(backup: unknown): boolean {
 }
 
 /**
- * Clear all Apollo-related data from localStorage.
+ * Clear all Apollo-related data from all storage layers.
  * Removes all keys starting with 'apollo_' plus credential keys.
  */
 export function clearAllData(): void {
-  const keysToRemove: string[] = [];
-  
-  // Collect all keys to remove
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    
-    if (key.startsWith('apollo_') || CREDENTIAL_KEYS.includes(key)) {
-      keysToRemove.push(key);
-    }
-  }
-  
-  // Remove all collected keys
-  keysToRemove.forEach(key => localStorage.removeItem(key));
+  persistence.clear();
 }
 
 /**

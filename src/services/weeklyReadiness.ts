@@ -9,6 +9,7 @@ import { getPlanById } from '../data/plans';
 import { getAllWeeklyMileage } from './autoSync';
 import { getHRHistory, getHRProfile } from './heartRate';
 import { getSavedPrediction } from './racePrediction';
+import { persistence } from './db/persistence';
 
 const READINESS_KEY = 'apollo_readiness_scores';
 
@@ -42,7 +43,7 @@ export interface ReadinessScore {
 
 function getReadinessStore(): Record<number, ReadinessScore> {
   try {
-    const raw = localStorage.getItem(READINESS_KEY);
+    const raw = persistence.getItem(READINESS_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -50,7 +51,7 @@ function getReadinessStore(): Record<number, ReadinessScore> {
 }
 
 function saveReadinessStore(store: Record<number, ReadinessScore>): void {
-  localStorage.setItem(READINESS_KEY, JSON.stringify(store));
+  persistence.setItem(READINESS_KEY, JSON.stringify(store));
 }
 
 export function getReadinessScore(weekNumber: number): ReadinessScore | null {

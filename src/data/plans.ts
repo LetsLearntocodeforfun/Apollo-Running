@@ -3,6 +3,8 @@
  * Distances are in miles (as published/estimated); we display both mi and km.
  */
 
+import { persistence } from '../services/db/persistence';
+
 export type DayType = 'rest' | 'run' | 'cross' | 'race' | 'marathon';
 
 export interface PlanDay {
@@ -64,7 +66,7 @@ function clamp(n: number, min: number, max: number): number {
 
 function readStorage<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(key);
+    const raw = persistence.getItem(key);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
     return null;
@@ -73,10 +75,10 @@ function readStorage<T>(key: string): T | null {
 
 function writeStorage(key: string, value: unknown | null): void {
   try {
-    if (value == null) localStorage.removeItem(key);
-    else localStorage.setItem(key, JSON.stringify(value));
+    if (value == null) persistence.removeItem(key);
+    else persistence.setItem(key, JSON.stringify(value));
   } catch {
-    // ignore local storage errors
+    // ignore storage errors
   }
 }
 

@@ -11,7 +11,7 @@
  *   4. Inconsistent execution — pacing education, target adjustment
  *   5. Race week optimization — taper and race-day strategy
  *
- * All state is persisted in localStorage for offline-first operation.
+ * All state is persisted via IndexedDB (with localStorage fallback) for offline-first operation.
  */
 
 import {
@@ -27,6 +27,7 @@ import { getAllWeeklyMileage } from './autoSync';
 import { getLatestReadinessScore } from './weeklyReadiness';
 import { getSavedAdherence } from './racePrediction';
 import { getStravaTokens } from './storage';
+import { persistence } from './db/persistence';
 import type {
   AdaptiveRecommendation,
   AdaptivePreferences,
@@ -64,7 +65,7 @@ const DEFAULT_PREFS: AdaptivePreferences = {
 /** Retrieve adaptive recommendation preferences. */
 export function getAdaptivePreferences(): AdaptivePreferences {
   try {
-    const raw = localStorage.getItem(PREFERENCES_KEY);
+    const raw = persistence.getItem(PREFERENCES_KEY);
     if (!raw) return { ...DEFAULT_PREFS };
     return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
   } catch {
@@ -75,7 +76,7 @@ export function getAdaptivePreferences(): AdaptivePreferences {
 /** Persist adaptive recommendation preferences. */
 export function setAdaptivePreferences(prefs: Partial<AdaptivePreferences>): void {
   const current = getAdaptivePreferences();
-  localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ ...current, ...prefs }));
+  persistence.setItem(PREFERENCES_KEY, JSON.stringify({ ...current, ...prefs }));
 }
 
 // ── Recommendations CRUD ──────────────────────────────────────────────────────
@@ -83,16 +84,16 @@ export function setAdaptivePreferences(prefs: Partial<AdaptivePreferences>): voi
 /** Get all stored recommendations. */
 function getStoredRecommendations(): AdaptiveRecommendation[] {
   try {
-    const raw = localStorage.getItem(RECOMMENDATIONS_KEY);
+    const raw = persistence.getItem(RECOMMENDATIONS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
   }
 }
 
-/** Save recommendations array to localStorage. */
+/** Save recommendations array. */
 function saveRecommendations(recs: AdaptiveRecommendation[]): void {
-  localStorage.setItem(RECOMMENDATIONS_KEY, JSON.stringify(recs));
+  persistence.setItem(RECOMMENDATIONS_KEY, JSON.stringify(recs));
 }
 
 /** Get active (non-expired, non-dismissed) recommendations. */
@@ -139,7 +140,7 @@ export function acceptRecommendation(id: string, optionKey: string): void {
 /** Get all plan modifications. */
 export function getPlanModifications(): PlanModification[] {
   try {
-    const raw = localStorage.getItem(MODIFICATIONS_KEY);
+    const raw = persistence.getItem(MODIFICATIONS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -148,7 +149,7 @@ export function getPlanModifications(): PlanModification[] {
 
 /** Save modifications array. */
 function saveModifications(mods: PlanModification[]): void {
-  localStorage.setItem(MODIFICATIONS_KEY, JSON.stringify(mods));
+  persistence.setItem(MODIFICATIONS_KEY, JSON.stringify(mods));
 }
 
 /**
@@ -277,7 +278,7 @@ function trackAnalytics(
   selectedOptionKey?: string,
 ): void {
   try {
-    const raw = localStorage.getItem(ANALYTICS_KEY);
+    const raw = persistence.getItem(ANALYTICS_KEY);
     const entries: RecommendationAnalytics[] = raw ? JSON.parse(raw) : [];
     entries.push({
       recommendationId: rec.id,
@@ -287,9 +288,9 @@ function trackAnalytics(
       selectedOptionKey,
       timestamp: new Date().toISOString(),
     });
-    // Keep last 200 entries
-    if (entries.length > 200) entries.splice(0, entries.length - 200);
-    localStorage.setItem(ANALYTICS_KEY, JSON.stringify(entries));
+    // Keep last 2000 entries (IndexedDB has ample capacity)
+    if (entries.length > 2000) entries.splice(0, entries.length - 2000);
+    persistence.setItem(ANALYTICS_KEY, JSON.stringify(entries));
   } catch {
     // non-critical
   }
@@ -298,7 +299,7 @@ function trackAnalytics(
 /** Retrieve analytics history. */
 export function getAnalyticsHistory(): RecommendationAnalytics[] {
   try {
-    const raw = localStorage.getItem(ANALYTICS_KEY);
+    const raw = persistence.getItem(ANALYTICS_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -312,7 +313,7 @@ function shouldRunAnalysis(): boolean {
   const prefs = getAdaptivePreferences();
   if (!prefs.enabled) return false;
 
-  const last = localStorage.getItem(LAST_ANALYSIS_KEY);
+  const last = persistence.getItem(LAST_ANALYSIS_KEY);
   if (!last) return true;
 
   const lastDate = new Date(last);
@@ -1034,13 +1035,13 @@ export function analyzeTrainingProgress(force = false): TrainingAnalysisResult |
   if (toAdd.length > 0) {
     const all = getStoredRecommendations();
     all.push(...toAdd);
-    // Keep last 50 total
-    if (all.length > 50) all.splice(0, all.length - 50);
+    // Keep last 500 total (IndexedDB has ample capacity)
+    if (all.length > 500) all.splice(0, all.length - 500);
     saveRecommendations(all);
   }
 
   // Mark analysis time
-  localStorage.setItem(LAST_ANALYSIS_KEY, new Date().toISOString());
+  persistence.setItem(LAST_ANALYSIS_KEY, new Date().toISOString());
 
   return {
     detectedScenarios,

@@ -2,6 +2,8 @@
  * Persist which plan is active, start date, and day-by-day completion.
  */
 
+import { persistence } from './db/persistence';
+
 const ACTIVE_PLAN_KEY = 'apollo_active_plan';
 const COMPLETED_DAYS_KEY = 'apollo_completed_days';
 const WELCOME_COMPLETED_KEY = 'apollo_welcome_completed';
@@ -15,7 +17,7 @@ export interface ActivePlan {
 /** Retrieve the currently active training plan, or null if none selected. */
 export function getActivePlan(): ActivePlan | null {
   try {
-    const raw = localStorage.getItem(ACTIVE_PLAN_KEY);
+    const raw = persistence.getItem(ACTIVE_PLAN_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -24,14 +26,14 @@ export function getActivePlan(): ActivePlan | null {
 
 /** Set or clear the active training plan. */
 export function setActivePlan(plan: ActivePlan | null): void {
-  if (plan) localStorage.setItem(ACTIVE_PLAN_KEY, JSON.stringify(plan));
-  else localStorage.removeItem(ACTIVE_PLAN_KEY);
+  if (plan) persistence.setItem(ACTIVE_PLAN_KEY, JSON.stringify(plan));
+  else persistence.removeItem(ACTIVE_PLAN_KEY);
 }
 
 /** Completed set is stored as "planId:weekIndex:dayIndex" for the active plan. */
 function getCompletedSet(): Set<string> {
   try {
-    const raw = localStorage.getItem(COMPLETED_DAYS_KEY);
+    const raw = persistence.getItem(COMPLETED_DAYS_KEY);
     const arr = raw ? JSON.parse(raw) : [];
     return new Set(Array.isArray(arr) ? arr : []);
   } catch {
@@ -40,7 +42,7 @@ function getCompletedSet(): Set<string> {
 }
 
 function saveCompletedSet(set: Set<string>): void {
-  localStorage.setItem(COMPLETED_DAYS_KEY, JSON.stringify([...set]));
+  persistence.setItem(COMPLETED_DAYS_KEY, JSON.stringify([...set]));
 }
 
 function key(planId: string, weekIndex: number, dayIndex: number): string {
@@ -132,12 +134,12 @@ export function formatDateKey(date: Date): string {
 
 /** First-boot welcome: has the user completed the "pick a plan?" flow (yes or no). */
 export function getWelcomeCompleted(): boolean {
-  return localStorage.getItem(WELCOME_COMPLETED_KEY) === 'true';
+  return persistence.getItem(WELCOME_COMPLETED_KEY) === 'true';
 }
 
 export function setWelcomeCompleted(completed: boolean): void {
-  if (completed) localStorage.setItem(WELCOME_COMPLETED_KEY, 'true');
-  else localStorage.removeItem(WELCOME_COMPLETED_KEY);
+  if (completed) persistence.setItem(WELCOME_COMPLETED_KEY, 'true');
+  else persistence.removeItem(WELCOME_COMPLETED_KEY);
 }
 
 /** ── Auto-Sync Metadata ── */
@@ -156,7 +158,7 @@ export interface SyncMeta {
 
 function getSyncMetaMap(): Record<string, SyncMeta> {
   try {
-    const raw = localStorage.getItem(SYNC_META_KEY);
+    const raw = persistence.getItem(SYNC_META_KEY);
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
@@ -164,7 +166,7 @@ function getSyncMetaMap(): Record<string, SyncMeta> {
 }
 
 function saveSyncMetaMap(map: Record<string, SyncMeta>): void {
-  localStorage.setItem(SYNC_META_KEY, JSON.stringify(map));
+  persistence.setItem(SYNC_META_KEY, JSON.stringify(map));
 }
 
 /** Retrieve sync metadata for a specific plan day. */
@@ -194,10 +196,10 @@ export function getAllSyncMeta(planId: string): { weekIndex: number; dayIndex: n
 
 /** Get the ISO timestamp of the last Strava auto-sync. */
 export function getLastSyncTime(): string | null {
-  return localStorage.getItem(LAST_SYNC_KEY);
+  return persistence.getItem(LAST_SYNC_KEY);
 }
 
 /** Record the timestamp of the most recent auto-sync. */
 export function setLastSyncTime(iso: string): void {
-  localStorage.setItem(LAST_SYNC_KEY, iso);
+  persistence.setItem(LAST_SYNC_KEY, iso);
 }

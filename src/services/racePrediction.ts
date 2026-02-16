@@ -7,6 +7,7 @@
 import { getAllSyncMeta, getActivePlan, getCompletedCount } from './planProgress';
 import { getPlanById } from '../data/plans';
 import { getHRHistory, getHRProfile } from './heartRate';
+import { persistence } from './db/persistence';
 
 const PREDICTION_KEY = 'apollo_race_prediction';
 
@@ -236,12 +237,12 @@ export function calculateRacePrediction(): RacePrediction | null {
 }
 
 function savePrediction(pred: RacePrediction): void {
-  localStorage.setItem(PREDICTION_KEY, JSON.stringify(pred));
+  persistence.setItem(PREDICTION_KEY, JSON.stringify(pred));
 }
 
 export function getSavedPrediction(): RacePrediction | null {
   try {
-    const raw = localStorage.getItem(PREDICTION_KEY);
+    const raw = persistence.getItem(PREDICTION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -377,12 +378,12 @@ export function calculateTrainingAdherence(): TrainingAdherence | null {
 }
 
 function saveAdherence(adherence: TrainingAdherence): void {
-  localStorage.setItem(ADHERENCE_KEY, JSON.stringify(adherence));
+  persistence.setItem(ADHERENCE_KEY, JSON.stringify(adherence));
 }
 
 export function getSavedAdherence(): TrainingAdherence | null {
   try {
-    const raw = localStorage.getItem(ADHERENCE_KEY);
+    const raw = persistence.getItem(ADHERENCE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

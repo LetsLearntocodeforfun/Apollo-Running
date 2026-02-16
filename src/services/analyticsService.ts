@@ -5,6 +5,7 @@
  * All data derived from Strava activities stored locally.
  */
 
+import { persistence } from './db/persistence';
 import type { StravaActivity } from './strava';
 
 const METERS_TO_MILES = 0.000621371;
@@ -99,7 +100,7 @@ export interface AnalyticsSnapshot {
 
 // ─── Activity Storage ────────────────────────────────────────
 
-/** Store activities in localStorage for analytics (deduplicated by ID) */
+/** Store activities for analytics (deduplicated by ID) */
 export function storeActivities(activities: StravaActivity[]): void {
   const existing = getStoredActivities();
   const map = new Map(existing.map(a => [a.id, a]));
@@ -108,15 +109,15 @@ export function storeActivities(activities: StravaActivity[]): void {
   }
   const all = Array.from(map.values())
     .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
-  // Keep max 500
-  const trimmed = all.slice(0, 500);
-  localStorage.setItem(ACTIVITIES_STORE_KEY, JSON.stringify(trimmed));
+  // Keep max 5000 (IndexedDB has ample capacity)
+  const trimmed = all.slice(0, 5000);
+  persistence.setItem(ACTIVITIES_STORE_KEY, JSON.stringify(trimmed));
 }
 
 /** Retrieve all stored activities */
 export function getStoredActivities(): StravaActivity[] {
   try {
-    const raw = localStorage.getItem(ACTIVITIES_STORE_KEY);
+    const raw = persistence.getItem(ACTIVITIES_STORE_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -649,7 +650,7 @@ export function generateAnalyticsSnapshot(activities: StravaActivity[]): Analyti
   };
 
   try {
-    localStorage.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(snapshot));
+    persistence.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(snapshot));
   } catch { /* storage full — non-critical */ }
 
   return snapshot;
@@ -658,7 +659,7 @@ export function generateAnalyticsSnapshot(activities: StravaActivity[]): Analyti
 /** Load cached snapshot */
 export function getCachedSnapshot(): AnalyticsSnapshot | null {
   try {
-    const raw = localStorage.getItem(ANALYTICS_CACHE_KEY);
+    const raw = persistence.getItem(ANALYTICS_CACHE_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;

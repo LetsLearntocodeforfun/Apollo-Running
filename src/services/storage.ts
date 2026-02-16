@@ -1,7 +1,10 @@
 /**
  * Credential and token persistence layer.
- * All auth tokens and API credentials are stored in localStorage.
+ * All auth tokens and API credentials are stored via the persistence service
+ * (IndexedDB primary, localStorage fallback).
  */
+
+import { persistence } from './db/persistence';
 
 const STRAVA_KEY = 'strava_tokens';
 const GARMIN_KEY = 'garmin_tokens';
@@ -24,7 +27,7 @@ export interface GarminTokens {
 /** Retrieve stored Strava OAuth tokens, or null if not connected. */
 export function getStravaTokens(): StravaTokens | null {
   try {
-    const raw = localStorage.getItem(STRAVA_KEY);
+    const raw = persistence.getItem(STRAVA_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -33,18 +36,18 @@ export function getStravaTokens(): StravaTokens | null {
 
 /** Persist Strava OAuth tokens after authentication or refresh. */
 export function setStravaTokens(t: StravaTokens): void {
-  localStorage.setItem(STRAVA_KEY, JSON.stringify(t));
+  persistence.setItem(STRAVA_KEY, JSON.stringify(t));
 }
 
 /** Remove Strava tokens (disconnect). */
 export function clearStravaTokens(): void {
-  localStorage.removeItem(STRAVA_KEY);
+  persistence.removeItem(STRAVA_KEY);
 }
 
 /** Retrieve stored Garmin OAuth tokens, or null if not connected. */
 export function getGarminTokens(): GarminTokens | null {
   try {
-    const raw = localStorage.getItem(GARMIN_KEY);
+    const raw = persistence.getItem(GARMIN_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -53,18 +56,18 @@ export function getGarminTokens(): GarminTokens | null {
 
 /** Persist Garmin OAuth tokens. */
 export function setGarminTokens(t: GarminTokens): void {
-  localStorage.setItem(GARMIN_KEY, JSON.stringify(t));
+  persistence.setItem(GARMIN_KEY, JSON.stringify(t));
 }
 
 /** Remove Garmin tokens (disconnect). */
 export function clearGarminTokens(): void {
-  localStorage.removeItem(GARMIN_KEY);
+  persistence.removeItem(GARMIN_KEY);
 }
 
 /** Retrieve stored Strava API credentials (Client ID + Secret). */
 export function getStravaCredentials(): { clientId: string; clientSecret: string } | null {
   try {
-    const raw = localStorage.getItem(STRAVA_CREDENTIALS);
+    const raw = persistence.getItem(STRAVA_CREDENTIALS);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -73,13 +76,13 @@ export function getStravaCredentials(): { clientId: string; clientSecret: string
 
 /** Persist Strava API credentials for Electron OAuth flow. */
 export function setStravaCredentials(clientId: string, clientSecret: string): void {
-  localStorage.setItem(STRAVA_CREDENTIALS, JSON.stringify({ clientId, clientSecret }));
+  persistence.setItem(STRAVA_CREDENTIALS, JSON.stringify({ clientId, clientSecret }));
 }
 
 /** Retrieve stored Garmin API credentials. */
 export function getGarminCredentials(): { clientId: string; clientSecret: string } | null {
   try {
-    const raw = localStorage.getItem(GARMIN_CREDENTIALS);
+    const raw = persistence.getItem(GARMIN_CREDENTIALS);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -88,5 +91,5 @@ export function getGarminCredentials(): { clientId: string; clientSecret: string
 
 /** Persist Garmin API credentials. */
 export function setGarminCredentials(clientId: string, clientSecret: string): void {
-  localStorage.setItem(GARMIN_CREDENTIALS, JSON.stringify({ clientId, clientSecret }));
+  persistence.setItem(GARMIN_CREDENTIALS, JSON.stringify({ clientId, clientSecret }));
 }

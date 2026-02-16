@@ -1,7 +1,9 @@
 /**
  * Coaching Preferences — user settings for daily recap, weekly readiness recap,
- * and notification timing. Persisted in localStorage.
+ * and notification timing. Persisted via the persistence service.
  */
+
+import { persistence } from './db/persistence';
 
 const PREFS_KEY = 'apollo_coaching_prefs';
 
@@ -28,7 +30,7 @@ const DEFAULT_PREFS: CoachingPreferences = {
 
 export function getCoachingPreferences(): CoachingPreferences {
   try {
-    const raw = localStorage.getItem(PREFS_KEY);
+    const raw = persistence.getItem(PREFS_KEY);
     if (!raw) return { ...DEFAULT_PREFS };
     return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
   } catch {
@@ -39,7 +41,7 @@ export function getCoachingPreferences(): CoachingPreferences {
 export function setCoachingPreferences(prefs: Partial<CoachingPreferences>): void {
   const current = getCoachingPreferences();
   const merged = { ...current, ...prefs };
-  localStorage.setItem(PREFS_KEY, JSON.stringify(merged));
+  persistence.setItem(PREFS_KEY, JSON.stringify(merged));
 }
 
 export function isCoachingOnboardingDone(): boolean {
@@ -64,7 +66,7 @@ export function isDailyRecapDue(): boolean {
   if (now < recapTime) return false;
 
   // Check if we already showed a recap today
-  const lastShown = localStorage.getItem('apollo_daily_recap_last');
+  const lastShown = persistence.getItem('apollo_daily_recap_last');
   if (lastShown) {
     const lastDate = new Date(lastShown);
     if (
@@ -79,7 +81,7 @@ export function isDailyRecapDue(): boolean {
 }
 
 export function markDailyRecapShown(): void {
-  localStorage.setItem('apollo_daily_recap_last', new Date().toISOString());
+  persistence.setItem('apollo_daily_recap_last', new Date().toISOString());
 }
 
 /** Check if weekly recap is due */
@@ -94,7 +96,7 @@ export function isWeeklyRecapDue(): boolean {
 
   if (ourDay !== prefs.weeklyRecapDay) return false;
 
-  const lastShown = localStorage.getItem('apollo_weekly_recap_last');
+  const lastShown = persistence.getItem('apollo_weekly_recap_last');
   if (lastShown) {
     const lastDate = new Date(lastShown);
     const diffMs = now.getTime() - lastDate.getTime();
@@ -104,7 +106,7 @@ export function isWeeklyRecapDue(): boolean {
 }
 
 export function markWeeklyRecapShown(): void {
-  localStorage.setItem('apollo_weekly_recap_last', new Date().toISOString());
+  persistence.setItem('apollo_weekly_recap_last', new Date().toISOString());
 }
 
 /** Day names for UI display */

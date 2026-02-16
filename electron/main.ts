@@ -114,7 +114,7 @@ function createWindow() {
               }
             }
           } catch (err) {
-            console.warn(`Failed to load from ${indexPath}:`, err.message);
+            console.warn(`Failed to load from ${indexPath}:`, (err as Error).message);
           }
         }
 
@@ -123,6 +123,11 @@ function createWindow() {
         }
       } catch (error) {
         console.error('Failed to load app:', error);
+
+        // Escape HTML entities to prevent XSS in error messages
+        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const errMsg = esc(error instanceof Error ? error.message : String(error));
+        const errStack = esc(error instanceof Error && error.stack ? error.stack : 'No stack trace available');
 
         // Show error page
         const errorHtml = `
@@ -166,9 +171,9 @@ function createWindow() {
                 <h1>Failed to Load Apollo</h1>
                 <p>An error occurred while loading the application. Please try reinstalling the app.</p>
                 <p>Error details:</p>
-                <pre>${error.message}\n\n${error.stack || 'No stack trace available'}</pre>
-                <p>App path: ${app.getAppPath()}</p>
-                <p>Resources path: ${process.resourcesPath}</p>
+                <pre>${errMsg}\n\n${errStack}</pre>
+                <p>App path: ${esc(app.getAppPath())}</p>
+                <p>Resources path: ${esc(process.resourcesPath)}</p>
               </div>
             </body>
           </html>
@@ -299,6 +304,14 @@ ipcMain.handle('garmin:exchange-code', async () => {
   return { error: 'Garmin integration requires Garmin Connect Developer Program approval.' };
 });
 
-ipcMain.handle('open-external', (_, url: string) => {
-  shell.openExternal(url);
+ipcMain.handle('open-external', (_, targetUrl: string) => {
+  // Only allow http/https URLs to prevent opening arbitrary protocols
+  try {
+    const parsed = new URL(targetUrl);
+    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+      shell.openExternal(targetUrl);
+    }
+  } catch {
+    // invalid URL — ignore
+  }
 });

@@ -4,6 +4,8 @@
  * Uses standard 5-zone model (identical to Strava's zone display).
  */
 
+import { persistence } from './db/persistence';
+
 const HR_PROFILE_KEY = 'apollo_hr_profile';
 const HR_HISTORY_KEY = 'apollo_hr_history';
 
@@ -60,14 +62,14 @@ const DEFAULT_RESTING_HR = 60;
 
 export function getHRProfile(): HRProfile {
   try {
-    const raw = localStorage.getItem(HR_PROFILE_KEY);
+    const raw = persistence.getItem(HR_PROFILE_KEY);
     if (raw) return JSON.parse(raw);
   } catch { /* fallthrough */ }
   return { maxHR: DEFAULT_MAX_HR, restingHR: DEFAULT_RESTING_HR, source: 'default', updatedAt: '' };
 }
 
 export function setHRProfile(profile: HRProfile): void {
-  localStorage.setItem(HR_PROFILE_KEY, JSON.stringify(profile));
+  persistence.setItem(HR_PROFILE_KEY, JSON.stringify(profile));
 }
 
 /** Compute the 5 HR zones from the user's max HR */
@@ -97,7 +99,7 @@ export function getZoneForHR(hr: number, maxHR?: number): number {
 /** Get all stored HR history records */
 export function getHRHistory(): ActivityHRData[] {
   try {
-    const raw = localStorage.getItem(HR_HISTORY_KEY);
+    const raw = persistence.getItem(HR_HISTORY_KEY);
     return raw ? JSON.parse(raw) : [];
   } catch {
     return [];
@@ -105,7 +107,7 @@ export function getHRHistory(): ActivityHRData[] {
 }
 
 function saveHRHistory(history: ActivityHRData[]): void {
-  localStorage.setItem(HR_HISTORY_KEY, JSON.stringify(history));
+  persistence.setItem(HR_HISTORY_KEY, JSON.stringify(history));
 }
 
 /** Add or update HR data for an activity */
@@ -117,8 +119,8 @@ export function upsertActivityHR(data: ActivityHRData): void {
   } else {
     history.push(data);
   }
-  // Keep last 200 activities max
-  if (history.length > 200) history.splice(0, history.length - 200);
+  // Keep last 2000 activities max (IndexedDB allows much larger datasets)
+  if (history.length > 2000) history.splice(0, history.length - 2000);
   saveHRHistory(history);
 }
 
