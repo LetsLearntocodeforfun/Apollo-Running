@@ -19,6 +19,12 @@ interface ElectronAPI {
     exchangeCode: (p: unknown) => Promise<{ error?: string }>;
   };
   openExternal: (url: string) => Promise<void>;
+  secureStorage: {
+    set: (key: string, value: string) => Promise<{ success: boolean; encrypted?: boolean; error?: string }>;
+    get: (key: string) => Promise<string | null>;
+    remove: (key: string) => Promise<{ success: boolean; error?: string }>;
+    isAvailable: () => Promise<boolean>;
+  };
 }
 
 declare global {

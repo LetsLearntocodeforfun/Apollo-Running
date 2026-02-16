@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, safeStorage } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
@@ -314,4 +314,95 @@ ipcMain.handle('open-external', (_, targetUrl: string) => {
   } catch {
     // invalid URL — ignore
   }
+});
+
+// ----- Secure Credential Storage (safeStorage API) -----
+// Uses Electron's OS-level encryption (DPAPI on Windows, Keychain on macOS,
+// libsecret on Linux) to encrypt sensitive OAuth credentials at rest.
+// Encrypted blobs are stored as Base64 in a local JSON file inside the
+// app's userData directory — never in localStorage or IndexedDB.
+
+const SECURE_STORE_PATH = path.join(app.getPath('userData'), 'secure-credentials.json');
+
+/** Read the encrypted credentials file from disk */
+function readSecureStore(): Record<string, string> {
+  try {
+    if (fs.existsSync(SECURE_STORE_PATH)) {
+      const raw = fs.readFileSync(SECURE_STORE_PATH, 'utf-8');
+      return JSON.parse(raw);
+    }
+  } catch {
+    // corrupted file — start fresh
+  }
+  return {};
+}
+
+/** Write the encrypted credentials file to disk */
+function writeSecureStore(store: Record<string, string>): void {
+  try {
+    const dir = path.dirname(SECURE_STORE_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(SECURE_STORE_PATH, JSON.stringify(store, null, 2), 'utf-8');
+  } catch (err) {
+    console.error('[Apollo] Failed to write secure store:', err);
+  }
+}
+
+/** Store a credential securely using OS-level encryption */
+ipcMain.handle('secure-storage:set', (_, key: string, value: string) => {
+  try {
+    if (!safeStorage.isEncryptionAvailable()) {
+      console.warn('[Apollo] safeStorage encryption not available, storing with basic protection');
+      // Fallback: still use the file-based store but without OS encryption
+      const store = readSecureStore();
+      store[key] = Buffer.from(value).toString('base64');
+      writeSecureStore(store);
+      return { success: true, encrypted: false };
+    }
+    const encrypted = safeStorage.encryptString(value);
+    const store = readSecureStore();
+    store[key] = encrypted.toString('base64');
+    writeSecureStore(store);
+    return { success: true, encrypted: true };
+  } catch (err) {
+    console.error('[Apollo] secure-storage:set error:', err);
+    return { success: false, error: String(err) };
+  }
+});
+
+/** Retrieve and decrypt a stored credential */
+ipcMain.handle('secure-storage:get', (_, key: string) => {
+  try {
+    const store = readSecureStore();
+    const encoded = store[key];
+    if (!encoded) return null;
+
+    const buffer = Buffer.from(encoded, 'base64');
+    if (safeStorage.isEncryptionAvailable()) {
+      return safeStorage.decryptString(buffer);
+    }
+    // Fallback: was stored as plain base64
+    return buffer.toString('utf-8');
+  } catch (err) {
+    console.error('[Apollo] secure-storage:get error:', err);
+    return null;
+  }
+});
+
+/** Remove a stored credential */
+ipcMain.handle('secure-storage:remove', (_, key: string) => {
+  try {
+    const store = readSecureStore();
+    delete store[key];
+    writeSecureStore(store);
+    return { success: true };
+  } catch (err) {
+    console.error('[Apollo] secure-storage:remove error:', err);
+    return { success: false, error: String(err) };
+  }
+});
+
+/** Check if safeStorage encryption is available */
+ipcMain.handle('secure-storage:is-available', () => {
+  return safeStorage.isEncryptionAvailable();
 });

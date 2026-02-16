@@ -63,13 +63,13 @@ export interface TrainingAdherence {
 const ADHERENCE_KEY = 'apollo_adherence';
 
 /** Riegel formula: T2 = T1 * (D2/D1)^1.06 */
-function riegelPredict(knownDistMi: number, knownTimeSec: number, targetDistMi: number): number {
+export function riegelPredict(knownDistMi: number, knownTimeSec: number, targetDistMi: number): number {
   if (knownDistMi <= 0 || knownTimeSec <= 0) return 0;
   return knownTimeSec * Math.pow(targetDistMi / knownDistMi, 1.06);
 }
 
 /** VDOT estimation from a race/workout performance */
-function estimateVDOT(distanceMeters: number, timeSec: number): number {
+export function estimateVDOT(distanceMeters: number, timeSec: number): number {
   if (distanceMeters <= 0 || timeSec <= 0) return 0;
   const distKm = distanceMeters / 1000;
   const timeMin = timeSec / 60;
@@ -85,7 +85,7 @@ function estimateVDOT(distanceMeters: number, timeSec: number): number {
 }
 
 /** Get VDOT-predicted marathon time from VDOT score */
-function vdotToMarathonSec(vdot: number): number {
+export function vdotToMarathonSec(vdot: number): number {
   // Approximate inverse: empirical lookup approximation
   // Based on Daniels' tables, marathon time = f(VDOT)
   // VDOT 30 → ~5:30:00, VDOT 40 → ~4:05:00, VDOT 50 → ~3:20:00, VDOT 60 → ~2:50:00, VDOT 70 → ~2:28:00
@@ -98,7 +98,7 @@ function vdotToMarathonSec(vdot: number): number {
   return Math.round(Math.max(seconds, 7200)); // min 2 hours
 }
 
-function formatTimeSec(totalSec: number): string {
+export function formatTimeSec(totalSec: number): string {
   if (totalSec <= 0) return '—';
   const h = Math.floor(totalSec / 3600);
   const m = Math.floor((totalSec % 3600) / 60);

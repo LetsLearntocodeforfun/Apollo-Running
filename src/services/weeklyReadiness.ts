@@ -68,7 +68,7 @@ export function getLatestReadinessScore(): ReadinessScore | null {
   return all.length > 0 ? all[all.length - 1] : null;
 }
 
-function letterGrade(score: number): string {
+export function letterGrade(score: number): string {
   if (score >= 95) return 'A+';
   if (score >= 88) return 'A';
   if (score >= 82) return 'B+';

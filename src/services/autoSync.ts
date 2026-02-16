@@ -49,19 +49,19 @@ export interface WeeklyMileage {
 const METERS_TO_MILES = 0.000621371;
 
 /** Convert meters to miles. */
-function metersToMiles(m: number): number {
+export function metersToMiles(m: number): number {
   return m * METERS_TO_MILES;
 }
 
 /** Calculate pace in minutes per mile from raw distance/time. */
-function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
+export function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
   if (!distanceMeters || !movingTimeSec) return 0;
   const miles = metersToMiles(distanceMeters);
   return (movingTimeSec / 60) / miles;
 }
 
 /** Format pace as "M:SS/mi" string. */
-function formatPaceMinPerMi(paceMinPerMi: number): string {
+export function formatPaceMinPerMi(paceMinPerMi: number): string {
   if (!paceMinPerMi) return '—';
   const totalSec = Math.round(paceMinPerMi * 60);
   const min = Math.floor(totalSec / 60);
@@ -70,7 +70,7 @@ function formatPaceMinPerMi(paceMinPerMi: number): string {
 }
 
 /** Check if a Strava activity is a running type */
-function isRunActivity(activity: StravaActivity): boolean {
+export function isRunActivity(activity: StravaActivity): boolean {
   const runTypes = ['Run', 'VirtualRun', 'TrailRun'];
   return runTypes.includes(activity.type) || runTypes.includes(activity.sport_type);
 }
