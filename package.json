@@ -2,6 +2,7 @@
   "name": "apollo-marathon",
   "version": "1.0.0",
   "description": "Apollo — all-in-one marathon training with Strava & Garmin",
+  "author": "LetsLearntocodeforfun",
   "main": "dist-electron/main.js",
   "scripts": {
     "dev": "vite",
@@ -56,10 +57,44 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
+    "icon": "public/assets/logo-1024.png",
     "win": {
       "target": [
         "nsis"
+      ],
+      "icon": "public/assets/logo-1024.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.healthcare-fitness",
+      "icon": "public/assets/logo-1024.png"
+    },
+    "dmg": {
+      "contents": [
+        { "x": 130, "y": 220 },
+        { "x": 410, "y": 220, "type": "link", "path": "/Applications" }
       ]
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "public/assets/logo-1024.png"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "LetsLearntocodeforfun",
+      "repo": "Apollo-Running"
     }
   }
 }
