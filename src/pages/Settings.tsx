@@ -20,6 +20,13 @@ import {
 } from '../services/coachingPreferences';
 import { getHRProfile, setHRProfile as saveHRProfile } from '../services/heartRate';
 import { getAdaptivePreferences, setAdaptivePreferences } from '../services/adaptiveTraining';
+import {
+  exportAllData,
+  importAllData,
+  clearAllData,
+  downloadJson,
+  generateBackupFilename,
+} from '../services/dataManager';
 
 export default function Settings() {
   const [stravaClientId, setStravaClientId] = useState('');
@@ -36,6 +43,7 @@ export default function Settings() {
   const [hrMax, setHrMax] = useState(String(getHRProfile().maxHR));
   const [hrResting, setHrResting] = useState(String(getHRProfile().restingHR));
   const [adaptivePrefs, setAdaptivePrefsState] = useState(getAdaptivePreferences());
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showMessage = useCallback((text: string, ms = 3000) => {
     if (messageTimeoutRef.current != null) {
@@ -137,6 +145,117 @@ export default function Settings() {
     clearGarminTokens();
     setGarminConnected(false);
     showMessage('Garmin disconnected.');
+  };
+
+  // ── Data Management Handlers ──
+  const handleExportData = () => {
+    try {
+      const backup = exportAllData();
+      const filename = generateBackupFilename();
+      downloadJson(backup, filename);
+      showMessage(`Data exported: ${backup.metadata.keyCount} items backed up.`, 4000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to export data.');
+    }
+  };
+
+  const handleImportData = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result;
+        if (typeof content !== 'string') {
+          setError('Failed to read file.');
+          return;
+        }
+
+        const backup = JSON.parse(content);
+        
+        // Validate and show confirmation
+        if (!backup.metadata || !backup.data) {
+          setError('Invalid backup file format.');
+          return;
+        }
+
+        const confirmed = window.confirm(
+          `Import ${backup.metadata.keyCount} items from backup?\n\n` +
+          `Export date: ${new Date(backup.metadata.exportDate).toLocaleString()}\n\n` +
+          `This will replace your current data. Continue?`
+        );
+
+        if (!confirmed) {
+          showMessage('Import cancelled.');
+          return;
+        }
+
+        const success = importAllData(backup);
+        if (success) {
+          showMessage('Data imported successfully. Reloading...', 2000);
+          setTimeout(() => window.location.reload(), 2000);
+        } else {
+          setError('Failed to import data. Please check the file format.');
+        }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'Failed to parse backup file.');
+      } finally {
+        // Reset file input so the same file can be selected again
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+
+    reader.onerror = () => {
+      setError('Failed to read file.');
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+  const handleClearData = () => {
+    const confirmed = window.confirm(
+      '⚠️ WARNING: This will permanently delete ALL Apollo Running data, including:\n\n' +
+      '• Training plans and progress\n' +
+      '• Race predictions and adherence data\n' +
+      '• Heart rate profiles and history\n' +
+      '• Strava and Garmin credentials\n' +
+      '• Coaching preferences and insights\n' +
+      '• All activity data and analytics\n\n' +
+      'This action cannot be undone. Continue?'
+    );
+
+    if (!confirmed) {
+      showMessage('Clear data cancelled.');
+      return;
+    }
+
+    // Double confirmation for safety
+    const doubleConfirm = window.confirm(
+      'Are you absolutely sure?\n\nThis is your last chance to cancel before all data is deleted.'
+    );
+
+    if (!doubleConfirm) {
+      showMessage('Clear data cancelled.');
+      return;
+    }
+
+    try {
+      clearAllData();
+      showMessage('All data cleared. Reloading...', 2000);
+      setTimeout(() => window.location.reload(), 2000);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to clear data.');
+    }
   };
 
   return (
@@ -468,6 +587,81 @@ export default function Settings() {
         >
           Show plan picker again
         </button>
+      </div>
+
+      {/* ── Data Management ── */}
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: 'var(--apollo-orange)',
+      }}>
+        <h3 style={{ color: 'var(--apollo-orange)' }}>Data Management</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+          Export, import, or clear your training data. All data is stored locally on your device.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Export Data */}
+          <div>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem' }}>Export All Data</h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+              Download a complete backup of your training data, including plans, progress, race predictions, heart rate data, and all preferences. The backup is saved as a JSON file with the current date.
+            </p>
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={handleExportData}
+              style={{ fontSize: '0.9rem' }}
+            >
+              Export All Data
+            </button>
+          </div>
+
+          {/* Import Data */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem' }}>Import Data</h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+              Restore your training data from a previous backup. This will replace all current data with the backup contents. The app will reload after a successful import.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".json"
+              onChange={handleFileChange}
+              style={{ display: 'none' }}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleImportData}
+              style={{ fontSize: '0.9rem' }}
+            >
+              Import Data
+            </button>
+          </div>
+
+          {/* Clear All Data */}
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+            <h4 style={{ fontSize: '0.95rem', fontWeight: 600, marginBottom: '0.5rem', color: 'var(--color-error)' }}>
+              Clear All Data
+            </h4>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', marginBottom: '0.75rem', lineHeight: 1.4 }}>
+              Permanently delete all Apollo Running data from this device, including training plans, credentials, activity history, and preferences. <strong style={{ color: 'var(--color-warning)' }}>This action cannot be undone.</strong> Make sure to export your data first if you want to keep a backup.
+            </p>
+            <button
+              type="button"
+              className="btn"
+              onClick={handleClearData}
+              style={{
+                fontSize: '0.9rem',
+                background: 'var(--color-error-dim)',
+                color: 'var(--color-error)',
+                borderColor: 'var(--color-error)',
+              }}
+            >
+              Clear All Data
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );
