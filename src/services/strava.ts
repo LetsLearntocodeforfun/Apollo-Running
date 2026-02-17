@@ -87,6 +87,13 @@ export interface StravaActivity {
   average_cadence?: number;
   suffer_score?: number;
   kudos_count: number;
+  start_latlng?: [number, number] | null;
+  end_latlng?: [number, number] | null;
+  map?: {
+    id: string;
+    summary_polyline: string | null;
+    polyline?: string | null;
+  } | null;
 }
 
 export interface StravaAthlete {

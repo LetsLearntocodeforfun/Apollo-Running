@@ -24,6 +24,7 @@ import { generateCurrentWeekReadiness } from './weeklyReadiness';
 import { generateDailyRecap } from './dailyRecap';
 import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveTraining';
 import { storeActivities } from './analyticsService';
+import { processActivityEffort } from './effortService';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -280,6 +281,11 @@ export async function runAutoSync(): Promise<SyncResult[]> {
       );
       if (hrData) upsertActivityHR(hrData);
     }
+  }
+
+  // ── Post-sync: process route effort recognitions ──
+  for (const activity of runActivities) {
+    try { processActivityEffort(activity); } catch { /* non-critical */ }
   }
 
   // ── Post-sync: update race prediction, adherence, readiness, daily recap, and adaptive recommendations ──

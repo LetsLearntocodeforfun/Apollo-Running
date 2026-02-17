@@ -15,6 +15,9 @@ import {
 } from '../services/planProgress';
 import { getStravaTokens } from '../services/storage';
 import { runAutoSync, getWeeklyMileageSummary, type SyncResult } from '../services/autoSync';
+import { RouteMapThumbnail } from '../components/RouteMap';
+import { getStoredActivities } from '../services/analyticsService';
+import { getEffortRecognition, type AchievementTier } from '../services/effortService';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -93,6 +96,24 @@ const DayRow = memo(function DayRow({
               Synced
             </span>
           )}
+          {isSynced && syncMeta?.stravaActivityId && (() => {
+            const rec = getEffortRecognition(syncMeta.stravaActivityId);
+            if (!rec?.paceTier) return null;
+            const tierConfig: Record<AchievementTier, { label: string; color: string; bg: string }> = {
+              gold: { label: 'Gold Split', color: 'var(--apollo-gold)', bg: 'var(--apollo-gold-dim)' },
+              silver: { label: 'Silver Split', color: 'var(--text-secondary)', bg: 'rgba(184, 178, 168, 0.12)' },
+              bronze: { label: 'Bronze Split', color: '#CD7F32', bg: 'rgba(205, 127, 50, 0.12)' },
+            };
+            const tc = tierConfig[rec.paceTier];
+            return (
+              <span style={{
+                marginLeft: '0.35rem', fontSize: '0.68rem',
+                background: tc.bg, color: tc.color,
+                padding: '0.1rem 0.45rem', borderRadius: 'var(--radius-full)',
+                fontWeight: 600, fontFamily: 'var(--font-display)',
+              }}>{tc.label}</span>
+            );
+          })()}
         </td>
         <td style={{ padding: '0.5rem' }}>
           {isToday ? <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)' }}>Today</span> : null}
@@ -109,6 +130,15 @@ const DayRow = memo(function DayRow({
               flexWrap: 'wrap',
               alignItems: 'center',
             }}>
+              {/* Route thumbnail for synced activity */}
+              {syncMeta.stravaActivityId && (() => {
+                const stored = getStoredActivities();
+                const matched = stored.find(a => a.id === syncMeta.stravaActivityId);
+                if (matched?.map?.summary_polyline) {
+                  return <RouteMapThumbnail activity={matched} />;
+                }
+                return null;
+              })()}
               <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
                 {syncMeta.actualDistanceMi.toFixed(1)} mi
               </span>

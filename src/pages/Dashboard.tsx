@@ -13,6 +13,8 @@ import { isDailyRecapDue, markDailyRecapShown, isWeeklyRecapDue, markWeeklyRecap
 import AdaptiveRecommendations from '../components/AdaptiveRecommendations';
 import ErrorBoundary from '../components/ErrorBoundary';
 import LoadingScreen from '../components/LoadingScreen';
+import RouteMap, { RouteMapThumbnail } from '../components/RouteMap';
+import { getEffortRecognition, type AchievementTier } from '../services/effortService';
 
 function formatDistance(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
@@ -269,6 +271,62 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Route map for today's synced activity */}
+          {todaySyncMeta && (() => {
+            const todayActivity = recent.find(a => a.id === todaySyncMeta.stravaActivityId);
+            if (todayActivity?.map?.summary_polyline) {
+              return (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <RouteMap activity={todayActivity} size="card" colorMode="apollo" animate={true} />
+                </div>
+              );
+            }
+            return null;
+          })()}
+
+          {/* Effort recognition for today's synced activity */}
+          {todaySyncMeta && (() => {
+            const rec = getEffortRecognition(todaySyncMeta.stravaActivityId);
+            if (!rec || (rec.insights.length === 0 && !rec.paceTier)) return null;
+            const tierColors: Record<AchievementTier, { label: string; color: string; bg: string }> = {
+              gold: { label: 'Gold Split', color: 'var(--apollo-gold)', bg: 'var(--apollo-gold-dim)' },
+              silver: { label: 'Silver Split', color: 'var(--text-secondary)', bg: 'rgba(184, 178, 168, 0.12)' },
+              bronze: { label: 'Bronze Split', color: '#CD7F32', bg: 'rgba(205, 127, 50, 0.12)' },
+            };
+            return (
+              <div style={{
+                marginTop: '0.65rem', padding: '0.6rem 0.85rem',
+                background: 'rgba(212, 165, 55, 0.03)', borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border)',
+                borderLeftWidth: 3,
+                borderLeftColor: rec.paceTier ? tierColors[rec.paceTier].color : 'var(--border)',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: rec.insights.length > 0 ? '0.4rem' : 0 }}>
+                  <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
+                    Effort #{rec.effortNumber} · {rec.routeName}
+                  </span>
+                  {rec.paceTier && (
+                    <span style={{
+                      fontSize: '0.68rem', fontWeight: 600, padding: '0.12rem 0.5rem',
+                      borderRadius: 'var(--radius-full)',
+                      background: tierColors[rec.paceTier].bg,
+                      color: tierColors[rec.paceTier].color,
+                      fontFamily: 'var(--font-display)',
+                    }}>{tierColors[rec.paceTier].label}</span>
+                  )}
+                </div>
+                {rec.insights.slice(0, 2).map((ins, i) => (
+                  <div key={i} style={{
+                    fontSize: '0.82rem', color: ins.sentiment === 'positive' ? 'var(--text)' : 'var(--text-secondary)',
+                    lineHeight: 1.4, padding: '0.15rem 0 0.15rem 0.65rem',
+                    borderLeft: `2px solid ${ins.sentiment === 'positive' ? 'var(--color-success)' : ins.sentiment === 'neutral' ? 'var(--border)' : 'var(--color-warning)'}`,
+                    marginBottom: i < 1 ? '0.25rem' : 0,
+                  }}>{ins.message}</div>
+                ))}
+              </div>
+            );
+          })()}
+
           {/* Weekly mileage progress */}
           {weeklyMileage && weeklyMileage.actualMi > 0 && (
             <div style={{ marginTop: '1rem' }}>
@@ -450,33 +508,51 @@ export default function Dashboard() {
             <p style={{ color: 'var(--text-muted)' }}>No activities yet. Get out there and run!</p>
           ) : (
             <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {recent.slice(0, 5).map((a) => (
+              {recent.slice(0, 5).map((a) => {
+                const actRec = getEffortRecognition(a.id);
+                const actTier = actRec?.paceTier ?? actRec?.hrEfficiencyTier ?? null;
+                const tierDotColor = actTier === 'gold' ? 'var(--apollo-gold)' : actTier === 'silver' ? 'var(--text-secondary)' : actTier === 'bronze' ? '#CD7F32' : null;
+
+                return (
                 <li
                   key={a.id}
                   style={{
                     padding: '0.85rem 0',
                     borderBottom: '1px solid var(--border)',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    flexWrap: 'wrap',
-                    gap: '0.5rem',
+                    display: 'grid',
+                    gridTemplateColumns: a.map?.summary_polyline ? '48px 1fr auto' : '1fr auto',
+                    gap: '0.75rem',
+                    alignItems: 'center',
                     transition: 'background var(--transition-fast)',
                   }}
                 >
+                  {a.map?.summary_polyline && (
+                    <RouteMapThumbnail activity={a} />
+                  )}
                   <div>
-                    <strong style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>{a.name || a.type}</strong>
+                    <strong style={{ fontFamily: 'var(--font-display)', fontWeight: 600 }}>
+                      {a.name || a.type}
+                      {tierDotColor && (
+                        <span style={{
+                          display: 'inline-block', width: 7, height: 7, borderRadius: '50%',
+                          background: tierDotColor, marginLeft: '0.35rem', verticalAlign: 'middle',
+                          boxShadow: actTier === 'gold' ? '0 0 6px rgba(212,165,55,0.4)' : 'none',
+                        }} />
+                      )}
+                    </strong>
                     <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: 'var(--text-sm)' }}>
                       {new Date(a.start_date_local).toLocaleDateString()} · {a.sport_type || a.type}
                     </span>
                   </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-display)' }}>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap' }}>
                     {formatDistance(a.distance)} · {formatDuration(a.moving_time)}
                     {a.average_speed != null && a.average_speed > 0 && (
                       <> · {formatPace(a.distance, a.moving_time)}</>
                     )}
                   </div>
                 </li>
-              ))}
+                );
+              })}
             </ul>
           )}
           <div style={{ marginTop: '1rem' }}>
