@@ -25,6 +25,7 @@ import { generateDailyRecap } from './dailyRecap';
 import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveTraining';
 import { storeActivities } from './analyticsService';
 import { processActivityEffort } from './effortService';
+import { formatMiles, formatPaceFromMinPerMi } from './unitPreferences';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -108,17 +109,17 @@ function buildWeeklyMileage(plan: TrainingPlan, planId: string, weekIndex: numbe
   if (ratio >= 0.95) {
     if (ratio > 1.1) {
       status = 'ahead';
-      message = `Week ${weekIndex + 1}: ${actualMi.toFixed(1)} / ${plannedMi.toFixed(1)} mi — You're ahead of schedule! Great hustle.`;
+      message = `Week ${weekIndex + 1}: ${formatMiles(actualMi)} / ${formatMiles(plannedMi)} — You're ahead of schedule! Great hustle.`;
     } else {
       status = 'on_track';
-      message = `Week ${weekIndex + 1}: ${actualMi.toFixed(1)} / ${plannedMi.toFixed(1)} mi — Right on pace with the plan!`;
+      message = `Week ${weekIndex + 1}: ${formatMiles(actualMi)} / ${formatMiles(plannedMi)} — Right on pace with the plan!`;
     }
   } else if (ratio >= 0.75) {
     status = 'behind';
-    message = `Week ${weekIndex + 1}: ${actualMi.toFixed(1)} / ${plannedMi.toFixed(1)} mi — A bit behind, but you can catch up.`;
+    message = `Week ${weekIndex + 1}: ${formatMiles(actualMi)} / ${formatMiles(plannedMi)} — A bit behind, but you can catch up.`;
   } else {
     status = 'way_behind';
-    message = `Week ${weekIndex + 1}: ${actualMi.toFixed(1)} / ${plannedMi.toFixed(1)} mi — Falling behind this week. Consider an extra easy run.`;
+    message = `Week ${weekIndex + 1}: ${formatMiles(actualMi)} / ${formatMiles(plannedMi)} — Falling behind this week. Consider an extra easy run.`;
   }
 
   return { weekIndex, plannedMi, actualMi, status, message };
@@ -135,21 +136,21 @@ function generateFeedback(
   const plannedMi = plannedDay.distanceMi ?? 0;
   const distDiff = actualMi - plannedMi;
   const distPct = plannedMi > 0 ? (distDiff / plannedMi) * 100 : 0;
-  const paceStr = formatPaceMinPerMi(paceMinPerMi);
+  const paceStr = formatPaceFromMinPerMi(paceMinPerMi);
 
   const lines: string[] = [];
 
   // Distance analysis
   if (plannedMi > 0) {
     if (Math.abs(distPct) <= 5) {
-      lines.push(`Great job! ${actualMi.toFixed(1)} mi at ${paceStr} — nailed the ${plannedMi} mi target!`);
+      lines.push(`Great job! ${formatMiles(actualMi)} at ${paceStr} — nailed the ${formatMiles(plannedMi)} target!`);
     } else if (distDiff > 0) {
-      lines.push(`Nice work! ${actualMi.toFixed(1)} mi at ${paceStr} — ${distDiff.toFixed(1)} mi extra over the ${plannedMi} mi plan.`);
+      lines.push(`Nice work! ${formatMiles(actualMi)} at ${paceStr} — ${formatMiles(distDiff)} extra over the ${formatMiles(plannedMi)} plan.`);
     } else {
-      lines.push(`Solid effort! ${actualMi.toFixed(1)} mi at ${paceStr} — just ${Math.abs(distDiff).toFixed(1)} mi short of the ${plannedMi} mi goal.`);
+      lines.push(`Solid effort! ${formatMiles(actualMi)} at ${paceStr} — just ${formatMiles(Math.abs(distDiff))} short of the ${formatMiles(plannedMi)} goal.`);
     }
   } else {
-    lines.push(`Logged ${actualMi.toFixed(1)} mi at ${paceStr}. Keep it up!`);
+    lines.push(`Logged ${formatMiles(actualMi)} at ${paceStr}. Keep it up!`);
   }
 
   // Pace analysis based on workout type

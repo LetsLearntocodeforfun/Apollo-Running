@@ -39,6 +39,7 @@ class PersistenceService {
   private cache = new Map<string, string>();
   private _ready: Promise<void>;
   private _initialized = false;
+  private _failedWrites = new Set<string>();
 
   constructor() {
     // Phase 1: instant bootstrap from localStorage (synchronous)
@@ -112,16 +113,56 @@ class PersistenceService {
     return this._initialized;
   }
 
+  /** Keys that failed to write to IndexedDB (for health monitoring). */
+  get failedWrites(): ReadonlySet<string> {
+    return this._failedWrites;
+  }
+
+  /** Retry any writes that previously failed. Call after connectivity/quota issues resolve. */
+  async retryFailedWrites(): Promise<number> {
+    let recovered = 0;
+    for (const key of this._failedWrites) {
+      const value = this.cache.get(key);
+      if (value === undefined) {
+        this._failedWrites.delete(key);
+        continue;
+      }
+      try {
+        await db.kvStore.put({ key, value, updatedAt: Date.now() });
+        this._failedWrites.delete(key);
+        recovered++;
+      } catch {
+        // Still failing — leave in the set
+      }
+    }
+    if (recovered > 0) {
+      console.info(`[Apollo] Recovered ${recovered} previously failed write(s)`);
+    }
+    return recovered;
+  }
+
   /** Synchronous read from the in-memory cache */
   getItem(key: string): string | null {
     return this.cache.get(key) ?? null;
   }
 
-  /** Write to cache + IndexedDB + localStorage */
+  /** Write to cache + IndexedDB + localStorage with write verification. */
   setItem(key: string, value: string): void {
     this.cache.set(key, value);
-    // Async durable write (fire-and-forget)
-    db.kvStore.put({ key, value, updatedAt: Date.now() }).catch(() => {});
+    // Durable write with verification and retry
+    db.kvStore
+      .put({ key, value, updatedAt: Date.now() })
+      .then(() => db.kvStore.get(key))
+      .then((entry) => {
+        if (!entry || entry.value !== value) {
+          console.warn(`[Apollo] Write verification failed for key "${key}", retrying…`);
+          return db.kvStore.put({ key, value, updatedAt: Date.now() });
+        }
+      })
+      .catch((err) => {
+        console.error(`[Apollo] IndexedDB write failed for key "${key}":`, err);
+        this._failedWrites.add(key);
+      });
     // Sync fallback write
     try { localStorage.setItem(key, value); } catch { /* quota exceeded */ }
   }
@@ -160,7 +201,13 @@ class PersistenceService {
       try { localStorage.setItem(key, value); } catch {}
       return { key, value, updatedAt: Date.now() };
     });
-    db.kvStore.bulkPut(dbEntries).catch(() => {});
+    db.kvStore.bulkPut(dbEntries).catch((err) => {
+      console.error('[Apollo] Bulk write to IndexedDB failed:', err);
+      // Track individual keys as failed
+      for (const entry of dbEntries) {
+        this._failedWrites.add(entry.key);
+      }
+    });
   }
 
   /** Export all cached data as a plain Record */

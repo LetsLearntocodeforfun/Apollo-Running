@@ -132,6 +132,21 @@ export function formatDuration(sec: number): string {
   return `${s}s`;
 }
 
+// ─── Raw Conversion Helpers ──────────────────────────────────
+// Used by services that need raw numeric conversions (not display formatting).
+
+const METERS_TO_MILES = 0.000621371;
+
+/** Convert meters to miles (raw numeric). */
+export function metersToMiles(m: number): number {
+  return m * METERS_TO_MILES;
+}
+
+/** Convert meters to kilometers (raw numeric). */
+export function metersToKm(m: number): number {
+  return m / 1000;
+}
+
 // ─── Mile-based Data Converters ──────────────────────────────
 // Plan data, sync data, and recap data are stored in miles.
 // These helpers convert to the user's preferred unit for display.

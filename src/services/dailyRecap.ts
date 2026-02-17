@@ -9,6 +9,7 @@ import { getWeeklyMileageSummary, type WeeklyMileage } from './autoSync';
 import { getHRHistory, getHRZones, type ActivityHRData } from './heartRate';
 import { getSavedPrediction } from './racePrediction';
 import { persistence } from './db/persistence';
+import { formatPaceFromMinPerMi, formatMiles } from './unitPreferences';
 
 const RECAP_KEY = 'apollo_daily_recaps';
 
@@ -67,14 +68,6 @@ export function getRecentRecaps(count: number = 7): DailyRecap[] {
   return Object.values(store)
     .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, count);
-}
-
-function formatPace(paceMinPerMi: number): string {
-  if (!paceMinPerMi) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
 /** Generate the daily recap for a specific date */
@@ -192,7 +185,7 @@ function buildCoachMessage(
   primaryZone?: string,
 ): string {
   const lines: string[] = [];
-  const paceStr = formatPace(pace);
+  const paceStr = formatPaceFromMinPerMi(pace);
 
   switch (grade) {
     case 'rest_day':
@@ -203,16 +196,16 @@ function buildCoachMessage(
       lines.push('Try to get back on track tomorrow. Consistency over perfection.');
       break;
     case 'outstanding':
-      lines.push(`Exceptional work! You crushed ${actualMi.toFixed(1)} mi at ${paceStr} — exceeding the ${plannedMi} mi target.`);
+      lines.push(`Exceptional work! You crushed ${formatMiles(actualMi)} at ${paceStr} — exceeding the ${formatMiles(plannedMi)} target.`);
       if (note.toLowerCase() === 'easy') {
         lines.push('Just watch that you\'re keeping easy days truly easy to avoid overtraining.');
       }
       break;
     case 'strong':
-      lines.push(`Strong session! ${actualMi.toFixed(1)} mi at ${paceStr} — right on target with the ${plannedMi} mi plan.`);
+      lines.push(`Strong session! ${formatMiles(actualMi)} at ${paceStr} — right on target with the ${formatMiles(plannedMi)} plan.`);
       break;
     case 'solid':
-      lines.push(`Solid effort with ${actualMi.toFixed(1)} mi at ${paceStr}. A little short of the ${plannedMi} mi goal, but every mile counts.`);
+      lines.push(`Solid effort with ${formatMiles(actualMi)} at ${paceStr}. A little short of the ${formatMiles(plannedMi)} goal, but every mile counts.`);
       break;
   }
 
@@ -238,7 +231,7 @@ function buildCoachMessage(
   // Weekly context
   if (weeklyMileage && weeklyMileage.actualMi > 0) {
     const pct = weeklyMileage.plannedMi > 0 ? Math.round((weeklyMileage.actualMi / weeklyMileage.plannedMi) * 100) : 0;
-    lines.push(`Week ${weeklyMileage.weekIndex + 1} progress: ${weeklyMileage.actualMi.toFixed(1)}/${weeklyMileage.plannedMi.toFixed(1)} mi (${pct}%).`);
+    lines.push(`Week ${weeklyMileage.weekIndex + 1} progress: ${formatMiles(weeklyMileage.actualMi)}/${formatMiles(weeklyMileage.plannedMi)} (${pct}%).`);
   }
 
   return lines.join(' ');

@@ -8,53 +8,116 @@ import { refreshStravaToken, isWeb } from './stravaWeb';
 
 const STRAVA_API = 'https://www.strava.com/api/v3';
 
+// ─── Rate Limiter ────────────────────────────────────────────
+// Strava enforces: 100 requests / 15 min, 1 000 requests / day.
+// We track timestamps of each request and reject before hitting limits.
+
+const RATE_LIMIT_15MIN = 95;   // leave 5-request buffer
+const RATE_LIMIT_DAILY = 950;  // leave 50-request buffer
+const FIFTEEN_MIN_MS = 15 * 60 * 1000;
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+const requestTimestamps: number[] = [];
+
+function pruneTimestamps(): void {
+  const cutoff = Date.now() - ONE_DAY_MS;
+  while (requestTimestamps.length > 0 && requestTimestamps[0] < cutoff) {
+    requestTimestamps.shift();
+  }
+}
+
+function checkRateLimit(): void {
+  pruneTimestamps();
+  const now = Date.now();
+  const recentCount = requestTimestamps.filter((t) => t > now - FIFTEEN_MIN_MS).length;
+  if (recentCount >= RATE_LIMIT_15MIN) {
+    throw new Error('Approaching Strava rate limit (100 requests / 15 min). Please wait a few minutes before syncing again.');
+  }
+  if (requestTimestamps.length >= RATE_LIMIT_DAILY) {
+    throw new Error('Approaching Strava daily rate limit (1,000 requests / day). Try again tomorrow.');
+  }
+}
+
+function recordRequest(): void {
+  requestTimestamps.push(Date.now());
+}
+
+/** Expose rate usage for UI feedback. */
+export function getRateLimitStatus(): { recent15Min: number; daily: number; limit15Min: number; limitDaily: number } {
+  pruneTimestamps();
+  const now = Date.now();
+  return {
+    recent15Min: requestTimestamps.filter((t) => t > now - FIFTEEN_MIN_MS).length,
+    daily: requestTimestamps.length,
+    limit15Min: RATE_LIMIT_15MIN,
+    limitDaily: RATE_LIMIT_DAILY,
+  };
+}
+
+// ─── Token Refresh Mutex ─────────────────────────────────────
+// Prevents concurrent refresh attempts from racing each other.
+
+let refreshInFlight: Promise<string> | null = null;
+
 /** Check whether an OAuth token has expired (with a safety buffer). */
 function isExpired(expiresAt: number, bufferSeconds = 300): boolean {
   return Date.now() / 1000 >= expiresAt - bufferSeconds;
 }
 
-/** Ensure we have a valid access token, refreshing if needed. */
-async function ensureAccessToken(): Promise<string> {
-  let tokens = getStravaTokens();
-  if (!tokens) throw new Error('Not connected to Strava. Connect in Settings.');
-
-  if (isExpired(tokens.expires_at)) {
-    if (isWeb()) {
-      const refreshed = await refreshStravaToken(tokens.refresh_token);
-      const newTokens: StravaTokens = {
-        ...tokens,
-        access_token: refreshed.access_token,
-        refresh_token: refreshed.refresh_token,
-        expires_at: refreshed.expires_at,
-      };
-      setStravaTokens(newTokens);
-      tokens = newTokens;
-    } else {
-      const creds = getStravaCredentials();
-      if (!creds) throw new Error('Strava credentials not set. Add Client ID and Secret in Settings.');
-      const api = window.electronAPI;
-      if (!api) throw new Error('Electron API not available');
-      const refreshed = await api.strava.refreshToken({
-        clientId: creds.clientId,
-        clientSecret: creds.clientSecret,
-        refreshToken: tokens.refresh_token,
-      });
-      const newTokens: StravaTokens = {
-        ...tokens,
-        access_token: refreshed.access_token,
-        refresh_token: refreshed.refresh_token,
-        expires_at: refreshed.expires_at,
-      };
-      setStravaTokens(newTokens);
-      tokens = newTokens;
-    }
+/** Perform the actual token refresh (called only from the mutex). */
+async function doRefresh(tokens: StravaTokens): Promise<string> {
+  if (isWeb()) {
+    const refreshed = await refreshStravaToken(tokens.refresh_token);
+    const newTokens: StravaTokens = {
+      ...tokens,
+      access_token: refreshed.access_token,
+      refresh_token: refreshed.refresh_token,
+      expires_at: refreshed.expires_at,
+    };
+    setStravaTokens(newTokens);
+    return newTokens.access_token;
+  } else {
+    const creds = getStravaCredentials();
+    if (!creds) throw new Error('Strava credentials not set. Add Client ID and Secret in Settings.');
+    const api = window.electronAPI;
+    if (!api) throw new Error('Electron API not available');
+    const refreshed = await api.strava.refreshToken({
+      clientId: creds.clientId,
+      clientSecret: creds.clientSecret,
+      refreshToken: tokens.refresh_token,
+    });
+    const newTokens: StravaTokens = {
+      ...tokens,
+      access_token: refreshed.access_token,
+      refresh_token: refreshed.refresh_token,
+      expires_at: refreshed.expires_at,
+    };
+    setStravaTokens(newTokens);
+    return newTokens.access_token;
   }
-  return tokens.access_token;
 }
 
-/** Authenticated fetch wrapper for the Strava API. Handles token injection. */
+/** Ensure we have a valid access token, refreshing if needed (mutex-protected). */
+async function ensureAccessToken(): Promise<string> {
+  const tokens = getStravaTokens();
+  if (!tokens) throw new Error('Not connected to Strava. Connect in Settings.');
+
+  if (!isExpired(tokens.expires_at)) return tokens.access_token;
+
+  // If a refresh is already in progress, wait for it
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = doRefresh(tokens).finally(() => {
+    refreshInFlight = null;
+  });
+  return refreshInFlight;
+}
+
+/** Authenticated fetch wrapper for the Strava API. Handles token injection and rate limiting. */
 export async function fetchStrava<T>(path: string, options: RequestInit = {}): Promise<T> {
+  checkRateLimit();
   const token = await ensureAccessToken();
+  recordRequest();
   const res = await fetch(`${STRAVA_API}${path}`, {
     ...options,
     headers: {
@@ -62,6 +125,19 @@ export async function fetchStrava<T>(path: string, options: RequestInit = {}): P
       ...(options.headers as Record<string, string>),
     },
   });
+
+  // Read Strava's rate limit headers for observability
+  const usage15 = res.headers.get('X-RateLimit-Usage');
+  if (usage15) {
+    const [short, daily] = usage15.split(',').map(Number);
+    if (short >= 90 || daily >= 900) {
+      console.warn(`[Strava] Rate limit warning — 15-min: ${short}/100, daily: ${daily}/1000`);
+    }
+  }
+
+  if (res.status === 429) {
+    throw new Error('Strava rate limit exceeded. Please wait before making more requests.');
+  }
   if (!res.ok) {
     const err = await res.text();
     throw new Error(err || `Strava API ${res.status}`);

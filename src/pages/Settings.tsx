@@ -21,6 +21,19 @@ import {
 import { getHRProfile, setHRProfile as saveHRProfile } from '../services/heartRate';
 import { getAdaptivePreferences, setAdaptivePreferences } from '../services/adaptiveTraining';
 import { getDistanceUnit, setDistanceUnit, type DistanceUnit } from '../services/unitPreferences';
+import {
+  getBackupConfig,
+  setBackupConfig,
+  getBackupHealth,
+  getBackupRecords,
+  createBackup,
+  downloadCurrentData,
+  downloadBackup,
+  importFromFile,
+  restoreFromBackup,
+  formatBytes,
+  type BackupConfig,
+} from '../services/backupService';
 
 export default function Settings() {
   const [stravaClientId, setStravaClientId] = useState('');
@@ -38,6 +51,10 @@ export default function Settings() {
   const [hrResting, setHrResting] = useState(String(getHRProfile().restingHR));
   const [adaptivePrefs, setAdaptivePrefsState] = useState(getAdaptivePreferences());
   const [distanceUnit, setDistanceUnitState] = useState<DistanceUnit>(getDistanceUnit());
+  const [backupConfig, setBackupConfigState] = useState<BackupConfig>(() => getBackupConfig());
+  const [backupHealth] = useState(() => getBackupHealth());
+  const [backupRecords, setBackupRecords] = useState(() => getBackupRecords());
+  const [backupBusy, setBackupBusy] = useState(false);
 
   const showMessage = useCallback((text: string, ms = 3000) => {
     if (messageTimeoutRef.current != null) {
@@ -507,6 +524,190 @@ export default function Settings() {
               </p>
             </>
           )}
+        </div>
+      </div>
+
+      {/* ── Data Management & Backups ── */}
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: backupHealth.status === 'healthy' ? 'var(--color-success)' : backupHealth.status === 'warning' ? 'var(--color-warning)' : 'var(--color-error)',
+      }}>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          Data Management & Backups
+          <span style={{
+            fontSize: '0.72rem',
+            background: backupHealth.status === 'healthy' ? 'var(--color-success-dim)' : backupHealth.status === 'warning' ? 'rgba(224,123,48,0.12)' : 'var(--color-error-dim)',
+            color: backupHealth.status === 'healthy' ? 'var(--color-success)' : backupHealth.status === 'warning' ? 'var(--color-warning)' : 'var(--color-error)',
+            padding: '0.15rem 0.6rem', borderRadius: 'var(--radius-full)',
+            fontWeight: 600, fontFamily: 'var(--font-display)',
+          }}>
+            {backupHealth.status === 'healthy' ? 'Protected' : backupHealth.status === 'warning' ? 'Warning' : 'At Risk'}
+          </span>
+        </h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+          {backupHealth.message}
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxWidth: 520 }}>
+          {/* Auto-Backup Toggle */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={backupConfig.autoBackupEnabled}
+                onChange={(e) => {
+                  const next = { ...backupConfig, autoBackupEnabled: e.target.checked };
+                  setBackupConfig(next);
+                  setBackupConfigState(next);
+                  showMessage('Auto-backup ' + (e.target.checked ? 'enabled' : 'disabled') + '.');
+                }}
+                style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+              />
+              <span style={{ fontWeight: 500 }}>Automatic backups</span>
+            </label>
+            {backupConfig.autoBackupEnabled && (
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>every</span>
+                <select
+                  value={backupConfig.intervalHours}
+                  onChange={(e) => {
+                    const next = { ...backupConfig, intervalHours: Number(e.target.value) };
+                    setBackupConfig(next);
+                    setBackupConfigState(next);
+                  }}
+                  style={{ padding: '0.35rem 0.5rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)', fontSize: '0.9rem' }}
+                >
+                  <option value={12}>12 hours</option>
+                  <option value={24}>24 hours</option>
+                  <option value={48}>2 days</option>
+                  <option value={168}>1 week</option>
+                </select>
+                <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>
+                  · keep {backupConfig.maxBackups}
+                </span>
+              </label>
+            )}
+          </div>
+
+          {/* Manual Actions */}
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={backupBusy}
+              style={{ fontSize: 'var(--text-sm)' }}
+              onClick={async () => {
+                setBackupBusy(true);
+                try {
+                  const record = await createBackup('manual');
+                  setBackupRecords(getBackupRecords());
+                  showMessage(record ? `Backup created (${formatBytes(record.sizeBytes)}).` : 'Backup failed.', 3000);
+                } finally {
+                  setBackupBusy(false);
+                }
+              }}
+            >
+              {backupBusy ? 'Working…' : 'Create Backup Now'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              style={{ fontSize: 'var(--text-sm)' }}
+              onClick={() => downloadCurrentData()}
+            >
+              Export Data
+            </button>
+            <label
+              className="btn btn-secondary"
+              style={{ fontSize: 'var(--text-sm)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center' }}
+            >
+              Import Data
+              <input
+                type="file"
+                accept=".json"
+                style={{ display: 'none' }}
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  setBackupBusy(true);
+                  try {
+                    const result = await importFromFile(file);
+                    showMessage(result.message, result.success ? 4000 : 5000);
+                  } finally {
+                    setBackupBusy(false);
+                    e.target.value = '';
+                  }
+                }}
+              />
+            </label>
+          </div>
+
+          {/* Backup History */}
+          {backupRecords.length > 0 && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '0.75rem' }}>
+              <strong style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Backup History ({backupRecords.length})</strong>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.5rem' }}>
+                {backupRecords.slice(-5).reverse().map((r) => (
+                  <div key={r.id} style={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    fontSize: 'var(--text-sm)', padding: '0.35rem 0.5rem',
+                    background: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)',
+                  }}>
+                    <div>
+                      <span style={{ color: 'var(--text)' }}>{new Date(r.createdAt).toLocaleDateString()}</span>
+                      <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>
+                        {new Date(r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                      <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem' }}>{r.keyCount} keys · {formatBytes(r.sizeBytes)}</span>
+                      <span style={{
+                        marginLeft: '0.35rem', fontSize: '0.68rem',
+                        padding: '0.08rem 0.35rem', borderRadius: 'var(--radius-full)',
+                        background: r.trigger === 'auto' ? 'var(--apollo-teal-dim)' : 'var(--apollo-gold-dim)',
+                        color: r.trigger === 'auto' ? 'var(--apollo-teal)' : 'var(--apollo-gold)',
+                        fontWeight: 600, fontFamily: 'var(--font-display)',
+                      }}>{r.trigger}</span>
+                      {r.verified && (
+                        <span style={{ marginLeft: '0.25rem', color: 'var(--color-success)', fontSize: '0.72rem' }} title="Integrity verified">✓</span>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', gap: '0.35rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => downloadBackup(r.id)}
+                        style={{
+                          background: 'none', border: 'none', color: 'var(--apollo-gold)',
+                          cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'var(--font-display)',
+                          fontWeight: 600, padding: '0.2rem 0.4rem',
+                        }}
+                      >↓</button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm('Restore this backup? Current data will be backed up first.')) return;
+                          setBackupBusy(true);
+                          try {
+                            const ok = await restoreFromBackup(r.id);
+                            showMessage(ok ? 'Restored successfully. Refresh to see changes.' : 'Restore failed — checksum mismatch.', 4000);
+                          } finally {
+                            setBackupBusy(false);
+                          }
+                        }}
+                        style={{
+                          background: 'none', border: 'none', color: 'var(--text-muted)',
+                          cursor: 'pointer', fontSize: '0.78rem', fontFamily: 'var(--font-display)',
+                          fontWeight: 600, padding: '0.2rem 0.4rem',
+                        }}
+                      >Restore</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', margin: 0, lineHeight: 1.4 }}>
+            Backups use SHA-256 checksums to detect corruption. All data stays on your device — nothing is sent anywhere.
+          </p>
         </div>
       </div>
 

@@ -14,6 +14,7 @@
 import { persistence } from './db/persistence';
 import { decodePolyline, haversineDistance, type LatLng } from './routeService';
 import type { StravaActivity } from './strava';
+import { formatPaceFromMinPerMi } from './unitPreferences';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -159,17 +160,14 @@ export function calcCentroid(coords: LatLng[]): LatLng {
   return { lat: sum.lat / coords.length, lng: sum.lng / coords.length };
 }
 
-function calcPace(distanceMeters: number, movingTimeSec: number): number {
+function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
   if (!distanceMeters || !movingTimeSec) return 0;
   return (movingTimeSec / 60) / (distanceMeters * METERS_TO_MILES);
 }
 
+/** @deprecated Use formatPaceFromMinPerMi from unitPreferences instead. */
 export function formatPace(paceMinPerMi: number): string {
-  if (!paceMinPerMi || paceMinPerMi > 30) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
+  return formatPaceFromMinPerMi(paceMinPerMi);
 }
 
 /** Percentage change from old to new (positive = increase). */
@@ -301,20 +299,20 @@ function analyzeEffort(
         if (delta < 0) {
           insights.push({
             category: 'pace',
-            message: `Your pace was ${formatPace(effort.paceMinPerMi)} — ${Math.abs(delta).toFixed(1)}% faster than your last effort on this route (${formatPace(lastEffort.paceMinPerMi)})`,
+            message: `Your pace was ${formatPaceFromMinPerMi(effort.paceMinPerMi)} — ${Math.abs(delta).toFixed(1)}% faster than your last effort on this route (${formatPaceFromMinPerMi(lastEffort.paceMinPerMi)})`,
             sentiment: 'positive',
           });
         } else {
           insights.push({
             category: 'pace',
-            message: `Your pace was ${formatPace(effort.paceMinPerMi)} — ${delta.toFixed(1)}% slower than your last effort (${formatPace(lastEffort.paceMinPerMi)})`,
+            message: `Your pace was ${formatPaceFromMinPerMi(effort.paceMinPerMi)} — ${delta.toFixed(1)}% slower than your last effort (${formatPaceFromMinPerMi(lastEffort.paceMinPerMi)})`,
             sentiment: 'negative',
           });
         }
       } else {
         insights.push({
           category: 'pace',
-          message: `Your pace was ${formatPace(effort.paceMinPerMi)} — consistent with your last effort (${formatPace(lastEffort.paceMinPerMi)})`,
+          message: `Your pace was ${formatPaceFromMinPerMi(effort.paceMinPerMi)} — consistent with your last effort (${formatPaceFromMinPerMi(lastEffort.paceMinPerMi)})`,
           sentiment: 'neutral',
         });
       }
@@ -397,7 +395,7 @@ function analyzeEffort(
       if (effDelta < -EFFICIENCY_NOTABLE_PCT) {
         insights.push({
           category: 'efficiency',
-          message: `Improved efficiency — ${formatPace(effort.paceMinPerMi)} at ${Math.round(effort.averageHR)} bpm vs ${formatPace(lastHR.paceMinPerMi)} at ${Math.round(lastHR.averageHR!)} bpm last time`,
+          message: `Improved efficiency — ${formatPaceFromMinPerMi(effort.paceMinPerMi)} at ${Math.round(effort.averageHR)} bpm vs ${formatPaceFromMinPerMi(lastHR.paceMinPerMi)} at ${Math.round(lastHR.averageHR!)} bpm last time`,
           sentiment: 'positive',
         });
       }
@@ -500,7 +498,7 @@ export function processActivityEffort(activity: StravaActivity): EffortRecogniti
     date: activity.start_date_local.slice(0, 10),
     distanceMeters: activity.distance,
     movingTimeSec: activity.moving_time,
-    paceMinPerMi: calcPace(activity.distance, activity.moving_time),
+    paceMinPerMi: calcPaceMinPerMi(activity.distance, activity.moving_time),
     averageHR: activity.average_heartrate ?? null,
     maxHR: activity.max_heartrate ?? null,
     avgCadence: activity.average_cadence ? Math.round(activity.average_cadence * 2) : null,

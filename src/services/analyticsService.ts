@@ -7,8 +7,15 @@
 
 import { persistence } from './db/persistence';
 import type { StravaActivity } from './strava';
+import {
+  metersToMiles,
+  formatPaceFromMinPerMi,
+  formatDuration,
+  formatMiles,
+  formatElevation,
+  unitLabel,
+} from './unitPreferences';
 
-const METERS_TO_MILES = 0.000621371;
 const ANALYTICS_CACHE_KEY = 'apollo_analytics_cache';
 const ACTIVITIES_STORE_KEY = 'apollo_activities_store';
 
@@ -134,28 +141,19 @@ function filterRuns(activities: StravaActivity[]): StravaActivity[] {
 
 // ─── Utility ─────────────────────────────────────────────────
 
-function metersToMiles(m: number): number {
-  return m * METERS_TO_MILES;
-}
-
-function calcPace(distMeters: number, timeSec: number): number {
+/** Calculate pace in min/mi from raw distance/time (internal analytics — always in miles). */
+function calcPaceMinPerMi(distMeters: number, timeSec: number): number {
   if (!distMeters || !timeSec) return 0;
   return (timeSec / 60) / metersToMiles(distMeters);
 }
 
-function formatPace(paceMinPerMi: number): string {
+/** Format pace as "M:SS" (no unit suffix — used in PRs and internal display). */
+function formatPaceShort(paceMinPerMi: number): string {
   if (!paceMinPerMi || paceMinPerMi > 30) return '—';
   const totalSec = Math.round(paceMinPerMi * 60);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}`;
-}
-
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h) return `${h}h ${m}m`;
-  return `${m}m`;
 }
 
 function getWeekStart(dateStr: string): string {
@@ -194,7 +192,7 @@ export function calculateSummaryStats(
   const totalMiles = runs.reduce((s, a) => s + metersToMiles(a.distance), 0);
   const totalTime = runs.reduce((s, a) => s + a.moving_time, 0);
   const totalElevation = runs.reduce((s, a) => s + (a.total_elevation_gain ?? 0), 0);
-  const avgPace = runs.length > 0 ? calcPace(
+  const avgPace = runs.length > 0 ? calcPaceMinPerMi(
     runs.reduce((s, a) => s + a.distance, 0),
     runs.reduce((s, a) => s + a.moving_time, 0)
   ) : 0;
@@ -203,7 +201,7 @@ export function calculateSummaryStats(
     ? Math.round(hrRuns.reduce((s, a) => s + (a.average_heartrate ?? 0), 0) / hrRuns.length)
     : null;
   const longestRun = runs.length > 0 ? Math.max(...runs.map(a => metersToMiles(a.distance))) : 0;
-  const fastestPace = runs.length > 0 ? Math.min(...runs.map(a => calcPace(a.distance, a.moving_time)).filter(p => p > 0)) : 0;
+  const fastestPace = runs.length > 0 ? Math.min(...runs.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).filter(p => p > 0)) : 0;
   const totalCalories = runs.reduce((s, a) => {
     const cal = (a as unknown as { calories?: number }).calories;
     return s + (cal ?? 0);
@@ -217,7 +215,7 @@ export function calculateSummaryStats(
     const prevRuns = filterRuns(previousActivities);
     const prevMiles = prevRuns.reduce((s, a) => s + metersToMiles(a.distance), 0);
     const prevTime = prevRuns.reduce((s, a) => s + a.moving_time, 0);
-    const prevPace = prevRuns.length > 0 ? calcPace(
+    const prevPace = prevRuns.length > 0 ? calcPaceMinPerMi(
       prevRuns.reduce((s, a) => s + a.distance, 0),
       prevRuns.reduce((s, a) => s + a.moving_time, 0)
     ) : 0;
@@ -296,7 +294,7 @@ export function calculatePaceProgression(activities: StravaActivity[], weeks: nu
   const result: PaceProgressionPoint[] = [];
 
   for (const [ws, weekRuns] of Array.from(weekMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
-    const paces = weekRuns.map(a => calcPace(a.distance, a.moving_time)).filter(p => p > 0 && p < 20);
+    const paces = weekRuns.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).filter(p => p > 0 && p < 20);
     if (paces.length === 0) continue;
 
     const avgPace = paces.reduce((s, p) => s + p, 0) / paces.length;
@@ -307,10 +305,10 @@ export function calculatePaceProgression(activities: StravaActivity[], weeks: nu
     const longRuns = weekRuns.filter(a => metersToMiles(a.distance) >= 10);
 
     const easyPace = easyRuns.length > 0
-      ? easyRuns.map(a => calcPace(a.distance, a.moving_time)).reduce((s, p) => s + p, 0) / easyRuns.length
+      ? easyRuns.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).reduce((s, p) => s + p, 0) / easyRuns.length
       : null;
     const longRunPace = longRuns.length > 0
-      ? longRuns.map(a => calcPace(a.distance, a.moving_time)).reduce((s, p) => s + p, 0) / longRuns.length
+      ? longRuns.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).reduce((s, p) => s + p, 0) / longRuns.length
       : null;
 
     result.push({
@@ -331,7 +329,7 @@ export function calculatePaceProgression(activities: StravaActivity[], weeks: nu
 /** Training load score for a single activity (distance * intensity proxy) */
 function activityLoad(a: StravaActivity): number {
   const miles = metersToMiles(a.distance);
-  const pace = calcPace(a.distance, a.moving_time);
+  const pace = calcPaceMinPerMi(a.distance, a.moving_time);
   // Faster pace = higher intensity multiplier
   const intensityMultiplier = pace > 0 ? Math.max(0.5, 12 / pace) : 1;
   return miles * intensityMultiplier;
@@ -427,8 +425,8 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
     if (matching.length === 0) continue;
 
     const best = matching.reduce((prev, curr) => {
-      const prevPace = calcPace(prev.distance, prev.moving_time);
-      const currPace = calcPace(curr.distance, curr.moving_time);
+      const prevPace = calcPaceMinPerMi(prev.distance, prev.moving_time);
+      const currPace = calcPaceMinPerMi(curr.distance, curr.moving_time);
       return currPace < prevPace ? curr : prev;
     });
 
@@ -457,7 +455,7 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
     records.push({
       category: 'longest_run',
       label: 'Longest Run',
-      value: `${metersToMiles(longest.distance).toFixed(1)} mi`,
+      value: formatMiles(metersToMiles(longest.distance)),
       numericValue: metersToMiles(longest.distance),
       date: longest.start_date_local.slice(0, 10),
       activityId: longest.id,
@@ -474,7 +472,7 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
     records.push({
       category: 'elevation',
       label: 'Most Elevation Gain',
-      value: `${Math.round(biggest.total_elevation_gain! * 3.28084)} ft`,
+      value: formatElevation(biggest.total_elevation_gain!),
       numericValue: biggest.total_elevation_gain!,
       date: biggest.start_date_local.slice(0, 10),
       activityId: biggest.id,
@@ -486,15 +484,15 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
   const qualifyingRuns = runs.filter(a => a.distance >= 1600);
   if (qualifyingRuns.length > 0) {
     const fastest = qualifyingRuns.reduce((prev, curr) => {
-      const pp = calcPace(prev.distance, prev.moving_time);
-      const cp = calcPace(curr.distance, curr.moving_time);
+      const pp = calcPaceMinPerMi(prev.distance, prev.moving_time);
+      const cp = calcPaceMinPerMi(curr.distance, curr.moving_time);
       return cp < pp ? curr : prev;
     });
     records.push({
       category: 'fastest_pace',
       label: 'Fastest Pace',
-      value: `${formatPace(calcPace(fastest.distance, fastest.moving_time))}/mi`,
-      numericValue: calcPace(fastest.distance, fastest.moving_time),
+      value: formatPaceFromMinPerMi(calcPaceMinPerMi(fastest.distance, fastest.moving_time)),
+      numericValue: calcPaceMinPerMi(fastest.distance, fastest.moving_time),
       date: fastest.start_date_local.slice(0, 10),
       activityId: fastest.id,
       activityName: fastest.name,
@@ -576,7 +574,7 @@ export function calculateHREfficiency(activities: StravaActivity[], days: number
       return true;
     })
     .map(a => {
-      const pace = calcPace(a.distance, a.moving_time);
+      const pace = calcPaceMinPerMi(a.distance, a.moving_time);
       const hr = a.average_heartrate!;
       return {
         date: a.start_date_local.slice(0, 10),
@@ -628,7 +626,7 @@ export function weekOverWeek(activities: StravaActivity[]): WeekCompare[] {
   const pct = (curr: number, prev: number) => prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
 
   return [
-    { label: 'Miles', current: Math.round(thisMiles * 10) / 10, previous: Math.round(lastMiles * 10) / 10, delta: pct(thisMiles, lastMiles), unit: 'mi' },
+    { label: 'Distance', current: Math.round(thisMiles * 10) / 10, previous: Math.round(lastMiles * 10) / 10, delta: pct(thisMiles, lastMiles), unit: unitLabel() },
     { label: 'Time', current: Math.round(thisTime / 60), previous: Math.round(lastTime / 60), delta: pct(thisTime, lastTime), unit: 'min' },
     { label: 'Runs', current: thisWeek.length, previous: lastWeek.length, delta: pct(thisWeek.length, lastWeek.length), unit: '' },
     { label: 'Elevation', current: Math.round(thisElev * 3.28084), previous: Math.round(lastElev * 3.28084), delta: pct(thisElev, lastElev), unit: 'ft' },
@@ -668,4 +666,4 @@ export function getCachedSnapshot(): AnalyticsSnapshot | null {
 
 // ─── Exported formatters ─────────────────────────────────────
 
-export { formatPace, formatDuration, metersToMiles, filterRuns };
+export { formatPaceShort, formatDuration, metersToMiles, filterRuns };

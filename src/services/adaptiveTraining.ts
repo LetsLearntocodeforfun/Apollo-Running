@@ -28,6 +28,7 @@ import { getLatestReadinessScore } from './weeklyReadiness';
 import { getSavedAdherence } from './racePrediction';
 import { getStravaTokens } from './storage';
 import { persistence } from './db/persistence';
+import { formatPaceFromMinPerMi } from './unitPreferences';
 import type {
   AdaptiveRecommendation,
   AdaptivePreferences,
@@ -557,7 +558,7 @@ function detectScenarios(
       const avgPace = recentLong.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentLong.length;
       // If running faster than ~10:00/mi average on long runs, they're doing well
       if (avgPace < 9.5) {
-        triggers.push(`Last ${recentLong.length} long runs averaged ${formatPace(avgPace)} — faster than typical training pace`);
+        triggers.push(`Last ${recentLong.length} long runs averaged ${formatPaceFromMinPerMi(avgPace)} — faster than typical training pace`);
         confidence += 30;
       }
     }
@@ -656,7 +657,7 @@ function detectScenarios(
     let confidence = 0;
 
     if (stats.easyDaysTooFast) {
-      triggers.push(`Easy day pace (${formatPace(stats.avgEasyPace)}) is too fast — should be conversational effort`);
+      triggers.push(`Easy day pace (${formatPaceFromMinPerMi(stats.avgEasyPace)}) is too fast — should be conversational effort`);
       confidence += 35;
     }
 
@@ -713,20 +714,12 @@ function generateId(): string {
   return `rec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 }
 
-function formatPace(paceMinPerMi: number): string {
-  if (!paceMinPerMi) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
-}
-
 function buildAheadRecommendation(
   input: TrainingAnalysisInput,
   scenario: DetectedScenario,
   stats: AnalysisStats,
 ): AdaptiveRecommendation {
-  const longRunPaceStr = stats.avgLongRunPace > 0 ? formatPace(stats.avgLongRunPace) : 'a strong pace';
+  const longRunPaceStr = stats.avgLongRunPace > 0 ? formatPaceFromMinPerMi(stats.avgLongRunPace) : 'a strong pace';
 
   const options: RecommendationOption[] = [
     {
@@ -858,7 +851,7 @@ function buildInconsistentRecommendation(
   scenario: DetectedScenario,
   stats: AnalysisStats,
 ): AdaptiveRecommendation {
-  const easyPaceStr = formatPace(stats.avgEasyPace);
+  const easyPaceStr = formatPaceFromMinPerMi(stats.avgEasyPace);
   const options: RecommendationOption[] = [
     {
       key: 'learn_more',
@@ -904,7 +897,7 @@ function buildRaceWeekRecommendation(
     : 0;
   // Marathon race pace is typically 5-10% slower than average training pace
   const estRacePace = avgPace > 0 ? avgPace * 1.03 : 0;
-  const racePaceStr = formatPace(estRacePace);
+  const racePaceStr = formatPaceFromMinPerMi(estRacePace);
 
   const options: RecommendationOption[] = [
     {
