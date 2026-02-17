@@ -20,6 +20,7 @@ import {
 } from '../services/coachingPreferences';
 import { getHRProfile, setHRProfile as saveHRProfile } from '../services/heartRate';
 import { getAdaptivePreferences, setAdaptivePreferences } from '../services/adaptiveTraining';
+import { getDistanceUnit, setDistanceUnit, type DistanceUnit } from '../services/unitPreferences';
 
 export default function Settings() {
   const [stravaClientId, setStravaClientId] = useState('');
@@ -36,6 +37,7 @@ export default function Settings() {
   const [hrMax, setHrMax] = useState(String(getHRProfile().maxHR));
   const [hrResting, setHrResting] = useState(String(getHRProfile().restingHR));
   const [adaptivePrefs, setAdaptivePrefsState] = useState(getAdaptivePreferences());
+  const [distanceUnit, setDistanceUnitState] = useState<DistanceUnit>(getDistanceUnit());
 
   const showMessage = useCallback((text: string, ms = 3000) => {
     if (messageTimeoutRef.current != null) {
@@ -257,6 +259,61 @@ export default function Settings() {
               <button type="button" onClick={disconnectGarmin} className="btn btn-secondary">Disconnect</button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── Distance Units ── */}
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: 'var(--apollo-gold)',
+      }}>
+        <h3 style={{ color: 'var(--apollo-gold)' }}>Distance Units</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+          Choose how distances, paces, and elevations are displayed across Apollo.
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', maxWidth: 360 }}>
+          <button
+            type="button"
+            onClick={() => {
+              setDistanceUnit('mi');
+              setDistanceUnitState('mi');
+              showMessage('Switched to miles.');
+            }}
+            style={{
+              flex: 1, padding: '0.85rem 0.75rem',
+              borderRadius: 'var(--radius-md)',
+              border: distanceUnit === 'mi' ? '2px solid var(--apollo-gold)' : '2px solid var(--border)',
+              background: distanceUnit === 'mi' ? 'var(--apollo-gold-dim)' : 'var(--bg)',
+              color: distanceUnit === 'mi' ? 'var(--apollo-gold)' : 'var(--text-secondary)',
+              cursor: 'pointer', textAlign: 'center',
+              transition: 'all var(--transition-fast)',
+              fontFamily: 'var(--font-display)', fontWeight: 600,
+            }}
+          >
+            <div style={{ fontSize: '1.15rem', marginBottom: '0.25rem' }}>Miles</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 400, color: 'var(--text-muted)' }}>min/mi · ft</div>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDistanceUnit('km');
+              setDistanceUnitState('km');
+              showMessage('Switched to kilometers.');
+            }}
+            style={{
+              flex: 1, padding: '0.85rem 0.75rem',
+              borderRadius: 'var(--radius-md)',
+              border: distanceUnit === 'km' ? '2px solid var(--apollo-teal)' : '2px solid var(--border)',
+              background: distanceUnit === 'km' ? 'var(--apollo-teal-dim)' : 'var(--bg)',
+              color: distanceUnit === 'km' ? 'var(--apollo-teal)' : 'var(--text-secondary)',
+              cursor: 'pointer', textAlign: 'center',
+              transition: 'all var(--transition-fast)',
+              fontFamily: 'var(--font-display)', fontWeight: 600,
+            }}
+          >
+            <div style={{ fontSize: '1.15rem', marginBottom: '0.25rem' }}>Kilometers</div>
+            <div style={{ fontSize: '0.72rem', fontWeight: 400, color: 'var(--text-muted)' }}>min/km · m</div>
+          </button>
         </div>
       </div>
 

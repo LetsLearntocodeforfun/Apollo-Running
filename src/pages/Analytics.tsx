@@ -18,6 +18,13 @@ import {
   type HREfficiencyPoint, type WeekCompare,
 } from '../services/analyticsService';
 import LoadingScreen from '../components/LoadingScreen';
+import {
+  getDistanceUnit,
+  metersToUnit,
+  unitLabel,
+  paceUnitLabel,
+  milesToUnit,
+} from '../services/unitPreferences';
 
 // ─── Time Period ─────────────────────────────────────────────
 
@@ -62,16 +69,19 @@ const ORANGE = '#E07B30';
 
 // ─── Formatters ──────────────────────────────────────────────
 
+/** Format min/mi pace value to user-preferred unit (no suffix for chart axes). */
 function fmtPace(v: number): string {
   if (!v || v > 20) return '—';
-  const totalSec = Math.round(v * 60);
+  const unit = getDistanceUnit();
+  const paceInUnit = unit === 'km' ? v / 1.60934 : v;
+  const totalSec = Math.round(paceInUnit * 60);
   const min = Math.floor(totalSec / 60);
   const sec = totalSec % 60;
   return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 function fmtMiles(v: number): string {
-  return v.toFixed(1);
+  return milesToUnit(v).toFixed(1);
 }
 
 // ─── Stat Card ───────────────────────────────────────────────
@@ -203,7 +213,7 @@ function ConsistencyHeatmap({ data }: { data: ConsistencyDay[] }) {
             return (
               <div
                 key={di}
-                title={day.date ? `${day.date}: ${day.miles} mi` : ''}
+                title={day.date ? `${day.date}: ${fmtMiles(day.miles)} ${unitLabel()}` : ''}
                 style={{
                   width: 14, height: 14, borderRadius: 2,
                   background: bg,
@@ -365,12 +375,12 @@ export default function Analytics() {
       {/* ── Summary Stats ── */}
       {stats && (
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
-          <StatCard label="Total Miles" value={fmtMiles(stats.totalMiles)} delta={stats.milesDelta} />
+          <StatCard label={`Total ${unitLabel() === 'mi' ? 'Miles' : 'Kilometers'}`} value={fmtMiles(stats.totalMiles)} delta={stats.milesDelta} />
           <StatCard label="Total Time" value={formatDuration(stats.totalTime)} delta={stats.timeDelta} />
-          <StatCard label="Avg Pace" value={fmtPace(stats.avgPace)} unit="/mi" delta={stats.paceDelta != null ? (stats.paceDelta < 0 ? Math.abs(stats.paceDelta * 10) : -stats.paceDelta * 10) : null} />
+          <StatCard label="Avg Pace" value={fmtPace(stats.avgPace)} unit={paceUnitLabel()} delta={stats.paceDelta != null ? (stats.paceDelta < 0 ? Math.abs(stats.paceDelta * 10) : -stats.paceDelta * 10) : null} />
           <StatCard label="Runs" value={String(stats.runCount)} />
           {stats.avgHR && <StatCard label="Avg HR" value={String(stats.avgHR)} unit="bpm" />}
-          <StatCard label="Elevation" value={String(Math.round(stats.totalElevation * 3.28084))} unit="ft" />
+          <StatCard label="Elevation" value={String(Math.round(getDistanceUnit() === 'km' ? stats.totalElevation : stats.totalElevation * 3.28084))} unit={getDistanceUnit() === 'km' ? 'm' : 'ft'} />
         </div>
       )}
 
@@ -425,7 +435,7 @@ export default function Analytics() {
 
         {/* Pace Progression */}
         {paceProgression.length > 1 && (
-          <ChartCard title="Pace Progression" subtitle="Average pace per week (min/mi)" height={240}>
+          <ChartCard title="Pace Progression" subtitle={`Average pace per week (min${paceUnitLabel()})`} height={240}>
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={paceProgression} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -479,7 +489,7 @@ export default function Analytics() {
                 tick={{ fill: '#8A8478', fontSize: 11 }}
                 tickFormatter={(v: number) => fmtPace(v)}
                 reversed
-                label={{ value: 'Pace (min/mi)', angle: -90, position: 'insideLeft', offset: 15, style: { fill: '#8A8478', fontSize: 10 } }}
+                  label={{ value: `Pace (min${paceUnitLabel()})`, angle: -90, position: 'insideLeft', offset: 15, style: { fill: '#8A8478', fontSize: 10 } }}
               />
               <Tooltip
                 content={({ active, payload }) => {
@@ -492,7 +502,7 @@ export default function Analytics() {
                       fontSize: '0.78rem', color: 'var(--text)',
                     }}>
                       <div style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{d.activityName}</div>
-                      <div>{d.date} · {fmtPace(d.pace)}/mi · {d.avgHR} bpm</div>
+                      <div>{d.date} · {fmtPace(d.pace)}{paceUnitLabel()} · {d.avgHR} bpm</div>
                     </div>
                   );
                 }}
@@ -590,22 +600,23 @@ export default function Analytics() {
                   .filter(a => ['Run', 'VirtualRun', 'TrailRun'].includes(a.type) || ['Run', 'VirtualRun', 'TrailRun'].includes(a.sport_type))
                   .slice(0, 20)
                   .map(a => {
-                    const mi = a.distance * 0.000621371;
-                    const pace = a.distance > 0 && a.moving_time > 0 ? (a.moving_time / 60) / mi : 0;
+                    const dist = metersToUnit(a.distance);
+                    const mi = a.distance / 1609.344;
+                    const paceMinPerMi = a.distance > 0 && a.moving_time > 0 ? (a.moving_time / 60) / mi : 0;
                     return (
                       <tr key={a.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background var(--transition-fast)' }}>
                         <td style={{ padding: '0.6rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                           {new Date(a.start_date_local).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
                         </td>
                         <td style={{ padding: '0.6rem', fontFamily: 'var(--font-display)', fontWeight: 500 }}>{a.name}</td>
-                        <td style={{ padding: '0.6rem', color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{mi.toFixed(1)} mi</td>
+                        <td style={{ padding: '0.6rem', color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{dist.toFixed(1)} {unitLabel()}</td>
                         <td style={{ padding: '0.6rem', color: 'var(--text-secondary)' }}>{formatDuration(a.moving_time)}</td>
-                        <td style={{ padding: '0.6rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}>{fmtPace(pace)}/mi</td>
+                        <td style={{ padding: '0.6rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}>{fmtPace(paceMinPerMi)}{paceUnitLabel()}</td>
                         <td style={{ padding: '0.6rem', color: a.average_heartrate ? 'var(--color-error)' : 'var(--text-muted)' }}>
                           {a.average_heartrate ? `${Math.round(a.average_heartrate)}` : '—'}
                         </td>
                         <td style={{ padding: '0.6rem', color: 'var(--apollo-teal)' }}>
-                          {a.total_elevation_gain ? `+${Math.round(a.total_elevation_gain * 3.28084)}` : '—'}
+                          {a.total_elevation_gain ? `+${Math.round(getDistanceUnit() === 'km' ? a.total_elevation_gain : a.total_elevation_gain * 3.28084)}` : '—'}
                         </td>
                       </tr>
                     );

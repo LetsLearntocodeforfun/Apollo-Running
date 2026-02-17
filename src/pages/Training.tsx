@@ -18,20 +18,9 @@ import { runAutoSync, getWeeklyMileageSummary, type SyncResult } from '../servic
 import { RouteMapThumbnail } from '../components/RouteMap';
 import { getStoredActivities } from '../services/analyticsService';
 import { getEffortRecognition, type AchievementTier } from '../services/effortService';
+import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
-function miToKm(mi: number): string {
-  return (mi * 1.60934).toFixed(1);
-}
-
-function formatSyncPace(paceMinPerMi: number): string {
-  if (!paceMinPerMi) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
-}
 
 /** Single day row in the training plan checklist. Memoized to avoid re-renders on sibling changes. */
 const DayRow = memo(function DayRow({
@@ -79,7 +68,7 @@ const DayRow = memo(function DayRow({
           <span className={`day-type-${day.type}`} style={{ fontFamily: 'var(--font-display)', fontWeight: completed ? 600 : 400 }}>{day.label}</span>
           {day.distanceMi != null && (
             <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: 'var(--text-sm)' }}>
-              {day.distanceMi} mi ({miToKm(day.distanceMi)} km)
+              {formatMiles(day.distanceMi)}
             </span>
           )}
           {isSynced && (
@@ -140,9 +129,9 @@ const DayRow = memo(function DayRow({
                 return null;
               })()}
               <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
-                {syncMeta.actualDistanceMi.toFixed(1)} mi
+                {formatMiles(syncMeta.actualDistanceMi)}
               </span>
-              <span>{formatSyncPace(syncMeta.actualPaceMinPerMi)} pace</span>
+              <span>{formatPaceFromMinPerMi(syncMeta.actualPaceMinPerMi)} pace</span>
               <span>{Math.floor(syncMeta.movingTimeSec / 60)}m {syncMeta.movingTimeSec % 60}s</span>
             </div>
             <div style={{
@@ -412,7 +401,7 @@ export default function Training() {
                                   }} />
                                 </span>
                                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                  {wm.actualMi.toFixed(1)}/{wm.plannedMi.toFixed(1)} mi
+                                  {formatMiles(wm.actualMi)}/{formatMiles(wm.plannedMi)}
                                 </span>
                               </span>
                             );

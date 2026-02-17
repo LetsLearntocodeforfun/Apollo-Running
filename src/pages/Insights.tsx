@@ -34,14 +34,7 @@ import {
   setCoachingPreferences,
   WEEKDAY_NAMES,
 } from '../services/coachingPreferences';
-
-function formatPace(paceMinPerMi: number): string {
-  if (!paceMinPerMi) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
-}
+import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
 
 /** Circular gauge component for scores */
 function ScoreGauge({ score, size = 120, label, color }: { score: number; size?: number; label: string; color: string }) {
@@ -516,8 +509,8 @@ export default function Insights() {
               </h3>
               {todayRecap.synced && (
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem', fontSize: '0.88rem' }}>
-                  <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{todayRecap.actualDistanceMi.toFixed(1)} mi</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{formatPace(todayRecap.actualPaceMinPerMi)} pace</span>
+                  <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatMiles(todayRecap.actualDistanceMi)}</span>
+                  <span style={{ color: 'var(--text-muted)' }}>{formatPaceFromMinPerMi(todayRecap.actualPaceMinPerMi)} pace</span>
                   {todayRecap.avgHR && <span style={{ color: 'var(--text-muted)' }}>{todayRecap.avgHR} bpm avg</span>}
                   {todayRecap.primaryZone && <span style={{ color: 'var(--text-muted)' }}>Zone: {todayRecap.primaryZone}</span>}
                 </div>
@@ -685,16 +678,16 @@ export default function Insights() {
                 <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
                   <div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Distance</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent)' }}>{todayRecap.actualDistanceMi.toFixed(1)} mi</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent)' }}>{formatMiles(todayRecap.actualDistanceMi)}</div>
                     {todayRecap.plannedDistanceMi > 0 && (
                       <div style={{ fontSize: '0.72rem', color: todayRecap.metPlan ? 'var(--accent)' : '#f0a030' }}>
-                        {todayRecap.distanceDiffMi >= 0 ? '+' : ''}{todayRecap.distanceDiffMi.toFixed(1)} mi ({todayRecap.distanceDiffPct >= 0 ? '+' : ''}{todayRecap.distanceDiffPct.toFixed(0)}%)
+                        {todayRecap.distanceDiffMi >= 0 ? '+' : ''}{formatMiles(todayRecap.distanceDiffMi)} ({todayRecap.distanceDiffPct >= 0 ? '+' : ''}{todayRecap.distanceDiffPct.toFixed(0)}%)
                       </div>
                     )}
                   </div>
                   <div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Pace</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{formatPace(todayRecap.actualPaceMinPerMi)}</div>
+                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{formatPaceFromMinPerMi(todayRecap.actualPaceMinPerMi)}</div>
                   </div>
                   <div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Duration</div>
@@ -746,7 +739,7 @@ export default function Insights() {
                       color: r.grade === 'outstanding' ? 'var(--accent)' : r.grade === 'strong' ? '#4FC3F7' : r.grade === 'missed' ? '#f55' : '#f0a030',
                     }}>{r.grade.replace('_', ' ')}</span>
                     <div style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {r.synced ? `${r.actualDistanceMi.toFixed(1)} mi · ${formatPace(r.actualPaceMinPerMi)}` : r.plannedWorkout}
+                      {r.synced ? `${formatMiles(r.actualDistanceMi)} · ${formatPaceFromMinPerMi(r.actualPaceMinPerMi)}` : r.plannedWorkout}
                     </div>
                     {r.metPlan && <span style={{ color: 'var(--accent)', fontSize: '0.82rem' }}>✓</span>}
                   </div>

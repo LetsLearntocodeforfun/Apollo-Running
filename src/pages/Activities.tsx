@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getActivities, type StravaActivity } from '../services/strava';
+import { getActivities, getActivityDetail, type StravaActivity } from '../services/strava';
 import { getStravaTokens } from '../services/storage';
 import { Link } from 'react-router-dom';
 import RouteMap, { RouteMapThumbnail } from '../components/RouteMap';
@@ -10,42 +10,19 @@ import {
   type AchievementTier,
   type EffortInsight,
 } from '../services/effortService';
-
-function formatDistance(m: number): string {
-  if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
-  return `${Math.round(m)} m`;
-}
-
-function formatDistanceMi(m: number): string {
-  return `${(m * 0.000621371).toFixed(2)} mi`;
-}
-
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h) return `${h}h ${m}m`;
-  return `${m}m`;
-}
-
-function formatPaceMi(meters: number, seconds: number): string {
-  if (!seconds || !meters) return '—';
-  const mi = meters * 0.000621371;
-  const minPerMi = (seconds / 60) / mi;
-  const totalSec = Math.round(minPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
-}
-
-function formatPaceKm(meters: number, seconds: number): string {
-  if (!seconds || !meters) return '—';
-  const km = meters / 1000;
-  const minPerKm = (seconds / 60) / km;
-  const totalSec = Math.round(minPerKm * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/km`;
-}
+import {
+  analyzeSplits,
+  getCachedSplitAnalysis,
+  hasSplitData,
+  type SplitAnalysis as SplitAnalysisType,
+} from '../services/splitService';
+import { SplitAnalysisPanel, SplitSummaryBadge } from '../components/SplitAnalysis';
+import {
+  formatDistance as fmtDist,
+  formatPace as fmtPace,
+  formatElevation as fmtElev,
+  formatDuration as fmtDur,
+} from '../services/unitPreferences';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString(undefined, {
@@ -181,10 +158,39 @@ function EffortRecognitionPanel({ activityId }: { activityId: number }) {
   );
 }
 
-/** Expanded detail panel for a single activity with route map */
+/** Expanded detail panel for a single activity with route map and split analysis */
 function ActivityDetail({ activity }: { activity: StravaActivity }) {
   const polyline = getPolylineForActivity(activity);
   const route = polyline ? processRoute(polyline) : null;
+  const [splitAnalysis, setSplitAnalysis] = useState<SplitAnalysisType | null>(
+    () => getCachedSplitAnalysis(activity.id),
+  );
+  const [loadingSplits, setLoadingSplits] = useState(false);
+
+  // Auto-load split data if not cached
+  useEffect(() => {
+    if (splitAnalysis) return;
+    if (hasSplitData(activity)) {
+      // Activity already has split data (from detail fetch)
+      const result = analyzeSplits(activity);
+      if (result) setSplitAnalysis(result);
+      return;
+    }
+    // Fetch detailed activity to get splits
+    let cancelled = false;
+    setLoadingSplits(true);
+    getActivityDetail(activity.id)
+      .then((detailed) => {
+        if (cancelled) return;
+        if (hasSplitData(detailed)) {
+          const result = analyzeSplits(detailed);
+          if (result) setSplitAnalysis(result);
+        }
+      })
+      .catch(() => { /* non-critical */ })
+      .finally(() => { if (!cancelled) setLoadingSplits(false); });
+    return () => { cancelled = true; };
+  }, [activity.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ padding: '1rem 0 0.5rem', animation: 'slideUp 0.25s ease' }}>
@@ -206,13 +212,13 @@ function ActivityDetail({ activity }: { activity: StravaActivity }) {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
         gap: '0.75rem', marginTop: '0.85rem',
       }}>
-        <DetailStat label="Distance" value={formatDistanceMi(activity.distance)} sub={formatDistance(activity.distance)} color="var(--apollo-gold)" />
-        <DetailStat label="Duration" value={formatDuration(activity.moving_time)}
-          sub={activity.elapsed_time > activity.moving_time ? `${formatDuration(activity.elapsed_time)} elapsed` : undefined}
+        <DetailStat label="Distance" value={fmtDist(activity.distance)} color="var(--apollo-gold)" />
+        <DetailStat label="Duration" value={fmtDur(activity.moving_time)}
+          sub={activity.elapsed_time > activity.moving_time ? `${fmtDur(activity.elapsed_time)} elapsed` : undefined}
           color="var(--text)" />
-        <DetailStat label="Pace" value={formatPaceMi(activity.distance, activity.moving_time)} sub={formatPaceKm(activity.distance, activity.moving_time)} color="var(--apollo-teal)" />
+        <DetailStat label="Pace" value={fmtPace(activity.distance, activity.moving_time)} color="var(--apollo-teal)" />
         {activity.total_elevation_gain != null && activity.total_elevation_gain > 0 && (
-          <DetailStat label="Elevation" value={`${Math.round(activity.total_elevation_gain * 3.28084)} ft`} sub={`${Math.round(activity.total_elevation_gain)} m`} color="var(--color-success)" />
+          <DetailStat label="Elevation" value={fmtElev(activity.total_elevation_gain)} color="var(--color-success)" />
         )}
         {activity.average_heartrate != null && activity.average_heartrate > 0 && (
           <DetailStat label="Heart Rate" value={`${Math.round(activity.average_heartrate)}`}
@@ -231,6 +237,17 @@ function ActivityDetail({ activity }: { activity: StravaActivity }) {
           <DetailStat label="Suffer Score" value={String(activity.suffer_score)} color="var(--color-warning)" />
         )}
       </div>
+
+      {/* Split analysis */}
+      {splitAnalysis && <SplitAnalysisPanel analysis={splitAnalysis} />}
+      {loadingSplits && (
+        <div style={{
+          marginTop: '0.75rem', padding: '0.6rem', textAlign: 'center',
+          color: 'var(--text-muted)', fontSize: 'var(--text-sm)',
+        }}>
+          <span style={{ animation: 'breathe 2s ease-in-out infinite' }}>Loading split data…</span>
+        </div>
+      )}
 
       {/* Effort recognition: data-driven route comparisons & achievements */}
       <EffortRecognitionPanel activityId={activity.id} />
@@ -328,6 +345,7 @@ export default function Activities() {
                 const hasRoute = !!(a.map?.summary_polyline);
                 const recognition = getEffortRecognition(a.id);
                 const topTier = recognition?.paceTier ?? recognition?.hrEfficiencyTier ?? null;
+                const cachedSplits = getCachedSplitAnalysis(a.id);
 
                 return (
                   <li key={a.id} style={{ borderBottom: idx < activities.length - 1 ? '1px solid var(--border)' : 'none' }}>
@@ -361,22 +379,23 @@ export default function Activities() {
                           {a.name || a.type}
                           {topTier && <TierDot tier={topTier} />}
                         </strong>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: '0.15rem' }}>
-                          {formatDate(a.start_date_local)} · {a.sport_type || a.type}
+                        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                          <span>{formatDate(a.start_date_local)} · {a.sport_type || a.type}</span>
+                          {cachedSplits && <SplitSummaryBadge analysis={cachedSplits} />}
                         </div>
                       </div>
 
                       {/* Distance & time */}
                       <div style={{ textAlign: 'right', fontSize: 'var(--text-sm)' }}>
-                        <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{formatDistanceMi(a.distance)}</span><br />
-                        <span style={{ color: 'var(--text-muted)' }}>{formatDuration(a.moving_time)}</span>
+                        <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{fmtDist(a.distance)}</span><br />
+                        <span style={{ color: 'var(--text-muted)' }}>{fmtDur(a.moving_time)}</span>
                       </div>
 
                       {/* Pace & metrics */}
                       <div style={{ textAlign: 'right', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', minWidth: 80 }}>
-                        {a.average_speed != null && a.average_speed > 0 ? formatPaceMi(a.distance, a.moving_time) : '—'}
+                        {a.average_speed != null && a.average_speed > 0 ? fmtPace(a.distance, a.moving_time) : '—'}
                         {a.total_elevation_gain != null && a.total_elevation_gain > 0 && (
-                          <><br /><span style={{ color: 'var(--apollo-teal)' }}>+{Math.round(a.total_elevation_gain * 3.28084)} ft</span></>
+                          <><br /><span style={{ color: 'var(--apollo-teal)' }}>+{fmtElev(a.total_elevation_gain)}</span></>
                         )}
                         {a.average_heartrate != null && a.average_heartrate > 0 && (
                           <><br /><span style={{ color: 'var(--color-error)' }}>{Math.round(a.average_heartrate)}</span> bpm</>

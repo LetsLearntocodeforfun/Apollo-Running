@@ -16,8 +16,9 @@ import {
   suggestWeeklyRecapDay,
   WEEKDAY_NAMES,
 } from '../services/coachingPreferences';
+import { getDistanceUnit, setDistanceUnit, type DistanceUnit } from '../services/unitPreferences';
 
-type Step = 'choice' | 'recommend' | 'overview' | 'custom-builder' | 'start-date' | 'coaching';
+type Step = 'choice' | 'recommend' | 'overview' | 'custom-builder' | 'start-date' | 'unit-select' | 'coaching';
 
 export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>('choice');
@@ -36,6 +37,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
   const [dailyRecapTime, setDailyRecapTime] = useState('20:00');
   const [weeklyRecapEnabled, setWeeklyRecapEnabled] = useState(true);
   const [weeklyRecapDay, setWeeklyRecapDay] = useState(6);
+  const [selectedUnit, setSelectedUnit] = useState<DistanceUnit>(getDistanceUnit());
 
   const plan = selectedPlanId ? getPlanById(selectedPlanId) : null;
 
@@ -69,6 +71,11 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
     // Find the long run day to suggest a weekly recap day
     const longRunIdx = plan.weeks[0]?.days.findIndex((d) => d.note?.toLowerCase() === 'long') ?? -1;
     setWeeklyRecapDay(suggestWeeklyRecapDay(longRunIdx >= 0 ? longRunIdx : null));
+    setStep('unit-select');
+  };
+
+  const handleConfirmUnit = () => {
+    setDistanceUnit(selectedUnit);
     setStep('coaching');
   };
 
@@ -381,6 +388,71 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
               </div>
             </>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'unit-select') {
+    return (
+      <div className="welcome-flow">
+        <div className="welcome-card" style={{ maxWidth: 520 }}>
+          <h1 className="welcome-title">Distance Units</h1>
+          <p className="welcome-text">
+            How would you like distances, paces, and splits displayed throughout Apollo?
+          </p>
+          <p className="welcome-hint">
+            This affects all pace calculations, split analysis, and distance displays. You can change this anytime in Settings.
+          </p>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', margin: '1.5rem 0' }}>
+            <button
+              type="button"
+              onClick={() => setSelectedUnit('mi')}
+              style={{
+                flex: 1, maxWidth: 200, padding: '1.5rem 1rem',
+                borderRadius: 'var(--radius-lg)',
+                border: selectedUnit === 'mi' ? '2px solid var(--apollo-gold)' : '2px solid var(--border)',
+                background: selectedUnit === 'mi' ? 'var(--apollo-gold-dim)' : 'var(--bg)',
+                color: selectedUnit === 'mi' ? 'var(--apollo-gold)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🇺🇸</div>
+              <strong style={{ fontSize: '1.1rem', display: 'block', fontFamily: 'var(--font-display)' }}>Miles</strong>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>min/mi · ft · mi</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedUnit('km')}
+              style={{
+                flex: 1, maxWidth: 200, padding: '1.5rem 1rem',
+                borderRadius: 'var(--radius-lg)',
+                border: selectedUnit === 'km' ? '2px solid var(--apollo-teal)' : '2px solid var(--border)',
+                background: selectedUnit === 'km' ? 'var(--apollo-teal-dim)' : 'var(--bg)',
+                color: selectedUnit === 'km' ? 'var(--apollo-teal)' : 'var(--text-secondary)',
+                cursor: 'pointer',
+                textAlign: 'center',
+                transition: 'all var(--transition-fast)',
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🌍</div>
+              <strong style={{ fontSize: '1.1rem', display: 'block', fontFamily: 'var(--font-display)' }}>Kilometers</strong>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>min/km · m · km</span>
+            </button>
+          </div>
+
+          <div className="welcome-actions">
+            <button type="button" className="btn btn-primary welcome-btn" onClick={handleConfirmUnit}>
+              Next
+            </button>
+            <button type="button" className="btn btn-secondary welcome-btn" onClick={() => setStep('start-date')}>
+              Back
+            </button>
+          </div>
         </div>
       </div>
     );

@@ -15,36 +15,13 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import LoadingScreen from '../components/LoadingScreen';
 import RouteMap, { RouteMapThumbnail } from '../components/RouteMap';
 import { getEffortRecognition, type AchievementTier } from '../services/effortService';
-
-function formatDistance(m: number): string {
-  if (m >= 1000) return `${(m / 1000).toFixed(2)} km`;
-  return `${Math.round(m)} m`;
-}
-
-function formatPace(meters: number, seconds: number): string {
-  if (!seconds || !meters) return '—';
-  const km = meters / 1000;
-  const minPerKm = (seconds / 60) / km;
-  const totalSec = Math.round(minPerKm * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/km`;
-}
-
-function formatPaceMinPerMi(paceMinPerMi: number): string {
-  if (!paceMinPerMi) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
-}
-
-function formatDuration(sec: number): string {
-  const h = Math.floor(sec / 3600);
-  const m = Math.floor((sec % 3600) / 60);
-  if (h) return `${h}h ${m}m`;
-  return `${m}m`;
-}
+import {
+  formatDistanceShort,
+  formatPace as fmtPace,
+  formatDuration,
+  formatMiles,
+  formatPaceFromMinPerMi,
+} from '../services/unitPreferences';
 
 /** Stat card with icon, label, value */
 function StatCard({ label, value, color, sub }: { label: string; value: string; color: string; sub?: string }) {
@@ -232,7 +209,7 @@ export default function Dashboard() {
               </div>
               {todayWorkout.distanceMi != null && (
                 <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>
-                  {todayWorkout.distanceMi} mi ({(todayWorkout.distanceMi * 1.60934).toFixed(1)} km)
+                  {formatMiles(todayWorkout.distanceMi)}
                 </div>
               )}
             </div>
@@ -263,8 +240,8 @@ export default function Dashboard() {
               border: '1px solid var(--border)',
             }}>
               <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
-                <span style={{ color: 'var(--apollo-gold)', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>{todaySyncMeta.actualDistanceMi.toFixed(1)} mi</span>
-                <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{formatPaceMinPerMi(todaySyncMeta.actualPaceMinPerMi)} pace</span>
+                <span style={{ color: 'var(--apollo-gold)', fontWeight: 700, fontFamily: 'var(--font-display)', fontSize: '1.1rem' }}>{formatMiles(todaySyncMeta.actualDistanceMi)}</span>
+                <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{formatPaceFromMinPerMi(todaySyncMeta.actualPaceMinPerMi)} pace</span>
                 <span style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)' }}>{Math.floor(todaySyncMeta.movingTimeSec / 60)}m {todaySyncMeta.movingTimeSec % 60}s</span>
               </div>
               <div style={{ color: 'var(--text)', fontStyle: 'italic', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>{todaySyncMeta.feedback}</div>
@@ -333,7 +310,7 @@ export default function Dashboard() {
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                 <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.06em' }}>This week</span>
                 <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', fontWeight: 600 }}>
-                  {weeklyMileage.actualMi.toFixed(1)} / {weeklyMileage.plannedMi.toFixed(1)} mi
+                  {formatMiles(weeklyMileage.actualMi)} / {formatMiles(weeklyMileage.plannedMi)}
                 </span>
               </div>
               <div style={{
@@ -367,7 +344,7 @@ export default function Dashboard() {
                   <span style={{ fontWeight: 600, color: 'var(--apollo-gold)' }}>
                     {r.isNew ? 'Auto-completed' : 'Synced'}:
                   </span>{' '}
-                  <span style={{ color: 'var(--text-secondary)' }}>{r.plannedDay.label} — {r.actualDistanceMi.toFixed(1)} mi</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>{r.plannedDay.label} — {formatMiles(r.actualDistanceMi)}</span>
                 </div>
               ))}
             </div>
@@ -449,8 +426,8 @@ export default function Dashboard() {
           </div>
           {dailyRecap.synced && (
             <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', margin: '0.75rem 0', fontSize: 'var(--text-sm)' }}>
-              <span style={{ color: 'var(--apollo-gold)', fontWeight: 600 }}>{dailyRecap.actualDistanceMi.toFixed(1)} mi</span>
-              <span style={{ color: 'var(--text-secondary)' }}>{formatPaceMinPerMi(dailyRecap.actualPaceMinPerMi)}</span>
+              <span style={{ color: 'var(--apollo-gold)', fontWeight: 600 }}>{formatMiles(dailyRecap.actualDistanceMi)}</span>
+              <span style={{ color: 'var(--text-secondary)' }}>{formatPaceFromMinPerMi(dailyRecap.actualPaceMinPerMi)}</span>
               {dailyRecap.avgHR && <span style={{ color: 'var(--text-secondary)' }}>{dailyRecap.avgHR} bpm</span>}
               {dailyRecap.primaryZone && <span style={{ color: 'var(--text-secondary)' }}>Zone: {dailyRecap.primaryZone}</span>}
             </div>
@@ -545,9 +522,9 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-display)', whiteSpace: 'nowrap' }}>
-                    {formatDistance(a.distance)} · {formatDuration(a.moving_time)}
+                    {formatDistanceShort(a.distance)} · {formatDuration(a.moving_time)}
                     {a.average_speed != null && a.average_speed > 0 && (
-                      <> · {formatPace(a.distance, a.moving_time)}</>
+                      <> · {fmtPace(a.distance, a.moving_time)}</>
                     )}
                   </div>
                 </li>
