@@ -2,7 +2,7 @@ const logoUrl = new URL('/assets/logo-1024.png', import.meta.url).href;
 
 export default function LoadingScreen({ message = 'Preparing your training…' }: { message?: string }) {
   return (
-    <div style={{
+    <div role="status" aria-live="polite" style={{
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',

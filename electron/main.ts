@@ -6,9 +6,10 @@ import url from 'url';
 
 let mainWindow: BrowserWindow | null = null;
 let oauthServer: http.Server | null = null;
+let oauthState: string | null = null;
+let oauthPort: number | null = null;
 
 const isDev = !app.isPackaged;
-const OAUTH_CALLBACK_PORT = 45678;
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
 const STRAVA_SCOPES = 'activity:read_all,activity:write,profile:read_all';
@@ -75,7 +76,7 @@ function createWindow() {
       nodeIntegration: false,
       webSecurity: !isDev, // Enable webSecurity in production
       // Enable these for better debugging in production
-      devTools: true,
+      devTools: isDev,
       nodeIntegrationInWorker: false,
       webviewTag: false,
     },
@@ -197,6 +198,11 @@ app.on('activate', () => {
 
 // ----- Strava OAuth -----
 
+/** Generate a cryptographically random state string for OAuth CSRF protection. */
+function generateOAuthState(): string {
+  return require('crypto').randomBytes(32).toString('hex');
+}
+
 function startOAuthServer(): Promise<{ code: string; scope?: string }> {
   return new Promise((resolve, reject) => {
     if (oauthServer) {
@@ -206,6 +212,18 @@ function startOAuthServer(): Promise<{ code: string; scope?: string }> {
     oauthServer = http.createServer((req, res) => {
       const parsed = url.parse(req.url || '', true);
       if (parsed.pathname === '/callback' && parsed.query.code) {
+        // Validate CSRF state parameter
+        if (!oauthState || parsed.query.state !== oauthState) {
+          res.writeHead(403, { 'Content-Type': 'text/html' });
+          res.end(`
+            <html><body style="font-family:sans-serif;text-align:center;padding:40px;">
+              <h2>Authentication failed</h2>
+              <p>Invalid state parameter. Please try connecting again from the app.</p>
+            </body></html>
+          `);
+          return;
+        }
+        oauthState = null; // Consume the state (one-time use)
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end(`
           <html><body style="font-family:sans-serif;text-align:center;padding:40px;">
@@ -226,18 +244,25 @@ function startOAuthServer(): Promise<{ code: string; scope?: string }> {
         res.end();
       }
     });
-    oauthServer.listen(OAUTH_CALLBACK_PORT, '127.0.0.1', () => {});
+    // Use a random ephemeral port instead of a hardcoded one
+    oauthServer.listen(0, '127.0.0.1', () => {
+      const addr = oauthServer!.address();
+      oauthPort = typeof addr === 'object' && addr ? addr.port : null;
+    });
     oauthServer.on('error', reject);
   });
 }
 
 ipcMain.handle('strava:get-auth-url', (_, clientId: string) => {
-  const redirectUri = `http://127.0.0.1:${OAUTH_CALLBACK_PORT}/callback`;
-  return `${STRAVA_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(STRAVA_SCOPES)}&approval_prompt=force`;
+  if (!oauthPort) return null;
+  oauthState = generateOAuthState();
+  const redirectUri = `http://127.0.0.1:${oauthPort}/callback`;
+  return `${STRAVA_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(STRAVA_SCOPES)}&approval_prompt=force&state=${encodeURIComponent(oauthState)}`;
 });
 
 ipcMain.handle('strava:exchange-code', async (_, { clientId, clientSecret, code }: { clientId: string; clientSecret: string; code: string }) => {
-  const redirectUri = `http://127.0.0.1:${OAUTH_CALLBACK_PORT}/callback`;
+  if (!oauthPort) throw new Error('OAuth server is not running');
+  const redirectUri = `http://127.0.0.1:${oauthPort}/callback`;
   const body = new URLSearchParams({
     client_id: clientId,
     client_secret: clientSecret,
@@ -289,7 +314,8 @@ ipcMain.handle('open-external', (_, targetUrl: string) => {
   // Only allow http/https URLs to prevent opening arbitrary protocols
   try {
     const parsed = new URL(targetUrl);
-    if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+    const TRUSTED_DOMAINS = ['strava.com', 'www.strava.com', 'connect.garmin.com'];
+    if (parsed.protocol === 'https:' && TRUSTED_DOMAINS.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d))) {
       shell.openExternal(targetUrl);
     }
   } catch {

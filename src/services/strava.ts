@@ -21,8 +21,11 @@ const requestTimestamps: number[] = [];
 
 function pruneTimestamps(): void {
   const cutoff = Date.now() - ONE_DAY_MS;
-  while (requestTimestamps.length > 0 && requestTimestamps[0] < cutoff) {
-    requestTimestamps.shift();
+  const idx = requestTimestamps.findIndex((t) => t >= cutoff);
+  if (idx > 0) {
+    requestTimestamps.splice(0, idx);
+  } else if (idx === -1 && requestTimestamps.length > 0) {
+    requestTimestamps.length = 0;
   }
 }
 

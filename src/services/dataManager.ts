@@ -3,7 +3,7 @@
  * Uses the persistence service (IndexedDB + localStorage) for all storage operations.
  */
 
-import { persistence, isApolloKey } from './db/persistence';
+import { persistence, isApolloKey, CREDENTIAL_KEYS } from './db/persistence';
 
 export interface BackupMetadata {
   exportDate: string;
@@ -29,7 +29,7 @@ export function exportAllData(): BackupData {
   const metadata: BackupMetadata = {
     exportDate: new Date().toISOString(),
     appName: 'Apollo Running',
-    version: '1.0',
+    version: '1.0.2',
     keyCount: Object.keys(data).length,
   };
 
@@ -74,10 +74,12 @@ export function importAllData(backup: unknown): boolean {
   }
 
   // Import only allowed keys — reject anything outside the safe set
+  // Never import credential keys from external files for security
   try {
     const allowed: Record<string, string> = {};
     Object.entries(backupData.data).forEach(([key, value]) => {
       if (typeof value !== 'string') return;
+      if (CREDENTIAL_KEYS.has(key)) return;
       if (isApolloKey(key)) {
         allowed[key] = value;
       }

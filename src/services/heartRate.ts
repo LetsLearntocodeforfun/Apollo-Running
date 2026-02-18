@@ -161,7 +161,9 @@ export function buildHRDataFromStrava(
 
   const profile = getHRProfile();
   // Update max HR if we see a higher value from an activity
-  if (maxHR > profile.maxHR && maxHR < 230) {
+  // Guard against sensor spikes: must be between 120-230 and within 15% of current maxHR
+  if (maxHR > profile.maxHR && maxHR < 230 && maxHR >= 120 && maxHR <= profile.maxHR * 1.15) {
+    console.info(`[Apollo HR] Auto-updated maxHR: ${profile.maxHR} → ${maxHR} (from activity ${activityId})`);
     setHRProfile({ ...profile, maxHR, source: 'strava', updatedAt: new Date().toISOString() });
   }
 

@@ -17,7 +17,8 @@ export default class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('Apollo ErrorBoundary:', error, errorInfo);
+    console.error('[Apollo] Uncaught error:', error);
+    console.error('[Apollo] Component stack:', errorInfo.componentStack);
   }
 
   render() {

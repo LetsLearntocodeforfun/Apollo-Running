@@ -561,12 +561,14 @@ export async function importFromFile(
     // Create a safety backup before importing
     await createBackup('manual');
 
-    // Validate and import only allowed keys
+    // Validate and import only allowed keys — exclude credential keys for security
     const allowed: Record<string, string> = {};
     for (const [key, value] of sourceEntries) {
       if (typeof value !== 'string') continue;
       if (new Blob([value]).size > MAX_IMPORT_VALUE_BYTES) continue;
-      if ((key.startsWith('apollo_') || isCredentialKey(key)) && key.length <= 128) {
+      // Never import credential keys from external files — they could be attacker-controlled
+      if (isCredentialKey(key)) continue;
+      if (key.startsWith('apollo_') && key.length <= 128) {
         allowed[key] = value;
       }
     }
