@@ -82,13 +82,15 @@ async function migrateToSecureStorage(): Promise<void> {
     const plaintext = persistence.getItem(key);
     if (plaintext) {
       // Migrate to secure storage
-      await api.secureStorage.set(key, plaintext);
-      secureCache.set(key, plaintext);
-      // Remove the plaintext copy
-      persistence.removeItem(key);
-      // Also remove from raw localStorage as extra safety
-      try { localStorage.removeItem(key); } catch { /* ignore */ }
-      console.info(`[Apollo] Migrated ${key} to secure storage`);
+      const result = await api.secureStorage.set(key, plaintext);
+      if (result.success) {
+        secureCache.set(key, plaintext);
+        persistence.removeItem(key);
+        try { localStorage.removeItem(key); } catch { /* ignore */ }
+        console.info(`[Apollo] Migrated ${key} to secure storage`);
+      } else {
+        console.warn(`[Apollo] Failed to migrate ${key} to secure storage: ${result.error ?? 'unknown error'}`);
+      }
     }
   }
 }
@@ -135,10 +137,19 @@ function getSecure(key: string): string | null {
 function setSecure(key: string, value: string): void {
   if (isElectron()) {
     secureCache.set(key, value);
-    // Async write to encrypted storage (fire-and-forget)
-    window.electronAPI!.secureStorage.set(key, value).catch((err) =>
-      console.error(`[Apollo] Failed to encrypt ${key}:`, err),
-    );
+    window.electronAPI!
+      .secureStorage
+      .set(key, value)
+      .then((result) => {
+        if (!result.success) {
+          secureCache.delete(key);
+          console.error(`[Apollo] Failed to securely persist ${key}: ${result.error ?? 'unknown error'}`);
+        }
+      })
+      .catch((err) => {
+        secureCache.delete(key);
+        console.error(`[Apollo] Failed to encrypt ${key}:`, err);
+      });
     // Do NOT write to persistence/localStorage for sensitive data
     return;
   }

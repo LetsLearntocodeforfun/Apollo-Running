@@ -25,7 +25,7 @@ import { generateDailyRecap } from './dailyRecap';
 import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveTraining';
 import { storeActivities } from './analyticsService';
 import { processActivityEffort } from './effortService';
-import { formatMiles, formatPaceFromMinPerMi } from './unitPreferences';
+import { formatMiles, formatPaceFromMinPerMi, metersToMiles, calcPaceMinPerMi } from './unitPreferences';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -46,29 +46,6 @@ export interface WeeklyMileage {
   actualMi: number;
   status: 'on_track' | 'ahead' | 'behind' | 'way_behind';
   message: string;
-}
-
-const METERS_TO_MILES = 0.000621371;
-
-/** Convert meters to miles. */
-export function metersToMiles(m: number): number {
-  return m * METERS_TO_MILES;
-}
-
-/** Calculate pace in minutes per mile from raw distance/time. */
-export function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
-  if (!distanceMeters || !movingTimeSec) return 0;
-  const miles = metersToMiles(distanceMeters);
-  return (movingTimeSec / 60) / miles;
-}
-
-/** Format pace as "M:SS/mi" string. */
-export function formatPaceMinPerMi(paceMinPerMi: number): string {
-  if (!paceMinPerMi) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
 /** Check if a Strava activity is a running type */

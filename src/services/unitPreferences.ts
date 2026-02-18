@@ -147,6 +147,21 @@ export function metersToKm(m: number): number {
   return m / 1000;
 }
 
+/** Calculate pace in min/mi from raw distance (meters) and time (seconds). */
+export function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
+  if (!distanceMeters || !movingTimeSec) return 0;
+  return (movingTimeSec / 60) / metersToMiles(distanceMeters);
+}
+
+/** Format a pace value as "M:SS" (no unit suffix). Used for PRs and compact display. */
+export function formatPaceShort(paceMinPerUnit: number): string {
+  if (!paceMinPerUnit || paceMinPerUnit > 30) return '—';
+  const totalSec = Math.round(paceMinPerUnit * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
 // ─── Mile-based Data Converters ──────────────────────────────
 // Plan data, sync data, and recap data are stored in miles.
 // These helpers convert to the user's preferred unit for display.

@@ -61,17 +61,28 @@ const DEFAULT_PREFS: AdaptivePreferences = {
   aggressiveness: 'balanced',
 };
 
+function readJsonFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = persistence.getItem(key);
+    if (!raw) return fallback;
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function logNonCritical(scope: string, err: unknown): void {
+  if (import.meta.env.DEV) {
+    console.warn(`[Apollo Adaptive] ${scope}:`, err);
+  }
+}
+
 // ── Preferences ───────────────────────────────────────────────────────────────
 
 /** Retrieve adaptive recommendation preferences. */
 export function getAdaptivePreferences(): AdaptivePreferences {
-  try {
-    const raw = persistence.getItem(PREFERENCES_KEY);
-    if (!raw) return { ...DEFAULT_PREFS };
-    return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
-  } catch {
-    return { ...DEFAULT_PREFS };
-  }
+  const saved = readJsonFromStorage<Partial<AdaptivePreferences>>(PREFERENCES_KEY, {});
+  return { ...DEFAULT_PREFS, ...saved };
 }
 
 /** Persist adaptive recommendation preferences. */
@@ -84,12 +95,7 @@ export function setAdaptivePreferences(prefs: Partial<AdaptivePreferences>): voi
 
 /** Get all stored recommendations. */
 function getStoredRecommendations(): AdaptiveRecommendation[] {
-  try {
-    const raw = persistence.getItem(RECOMMENDATIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return readJsonFromStorage<AdaptiveRecommendation[]>(RECOMMENDATIONS_KEY, []);
 }
 
 /** Save recommendations array. */
@@ -140,12 +146,7 @@ export function acceptRecommendation(id: string, optionKey: string): void {
 
 /** Get all plan modifications. */
 export function getPlanModifications(): PlanModification[] {
-  try {
-    const raw = persistence.getItem(MODIFICATIONS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return readJsonFromStorage<PlanModification[]>(MODIFICATIONS_KEY, []);
 }
 
 /** Save modifications array. */
@@ -279,8 +280,7 @@ function trackAnalytics(
   selectedOptionKey?: string,
 ): void {
   try {
-    const raw = persistence.getItem(ANALYTICS_KEY);
-    const entries: RecommendationAnalytics[] = raw ? JSON.parse(raw) : [];
+    const entries = readJsonFromStorage<RecommendationAnalytics[]>(ANALYTICS_KEY, []);
     entries.push({
       recommendationId: rec.id,
       scenario: rec.scenario,
@@ -292,19 +292,14 @@ function trackAnalytics(
     // Keep last 2000 entries (IndexedDB has ample capacity)
     if (entries.length > 2000) entries.splice(0, entries.length - 2000);
     persistence.setItem(ANALYTICS_KEY, JSON.stringify(entries));
-  } catch {
-    // non-critical
+  } catch (err) {
+    logNonCritical('trackAnalytics failed', err);
   }
 }
 
 /** Retrieve analytics history. */
 export function getAnalyticsHistory(): RecommendationAnalytics[] {
-  try {
-    const raw = persistence.getItem(ANALYTICS_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+  return readJsonFromStorage<RecommendationAnalytics[]>(ANALYTICS_KEY, []);
 }
 
 // ── Rate-Limiting ─────────────────────────────────────────────────────────────
@@ -537,6 +532,172 @@ function computeStats(input: TrainingAnalysisInput): AnalysisStats {
   };
 }
 
+function detectAheadOfSchedule(
+  input: TrainingAnalysisInput,
+  aggrFactor: number,
+): DetectedScenario | null {
+  const triggers: string[] = [];
+  let confidence = 0;
+
+  const longRuns = input.syncedRuns.filter(
+    (r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0,
+  );
+  if (longRuns.length >= 4) {
+    const recentLong = longRuns.slice(-4);
+    const avgPace = recentLong.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentLong.length;
+    if (avgPace < 9.5) {
+      triggers.push(
+        `Last ${recentLong.length} long runs averaged ${formatPaceFromMinPerMi(avgPace)} — faster than typical training pace`,
+      );
+      confidence += 30;
+    }
+  }
+
+  if (input.readinessScore > 85 * aggrFactor && input.weeksRemaining >= 6) {
+    triggers.push(`Readiness score ${input.readinessScore}% with ${input.weeksRemaining} weeks remaining`);
+    confidence += 30;
+  }
+
+  if (input.adherenceScore > 85) {
+    triggers.push(`Training adherence is ${input.adherenceScore}% — excellent consistency`);
+    confidence += 20;
+  }
+
+  const overAchievers = input.syncedRuns.filter(
+    (r) => r.plannedDistanceMi > 0 && r.actualDistanceMi > r.plannedDistanceMi * 1.1,
+  );
+  if (overAchievers.length >= 3) {
+    triggers.push(`${overAchievers.length} runs exceeded plan distance by 10%+`);
+    confidence += 20;
+  }
+
+  if (confidence < 40) return null;
+  return { scenario: 'ahead_of_schedule', confidence: Math.min(confidence, 100), triggers };
+}
+
+function detectBehindSchedule(
+  input: TrainingAnalysisInput,
+  stats: AnalysisStats,
+  aggrFactor: number,
+): DetectedScenario | null {
+  const triggers: string[] = [];
+  let confidence = 0;
+
+  if (stats.missedKeyWorkoutsLast2Weeks >= 3) {
+    triggers.push(`Missed ${stats.missedKeyWorkoutsLast2Weeks} key workouts in the last 2 weeks`);
+    confidence += 35;
+  }
+
+  if (stats.last2WeeksCompletionRate < 0.70 * aggrFactor) {
+    triggers.push(
+      `Completion rate is ${Math.round(stats.last2WeeksCompletionRate * 100)}% over the last 2 weeks`,
+    );
+    confidence += 30;
+  }
+
+  if (input.readinessScore > 0 && input.readinessScore < 60) {
+    triggers.push(`Readiness score is ${input.readinessScore}% — below target`);
+    confidence += 25;
+  }
+
+  if (input.overallCompletionRate < 0.65) {
+    triggers.push(`Overall plan completion is ${Math.round(input.overallCompletionRate * 100)}%`);
+    confidence += 15;
+  }
+
+  if (confidence < 40) return null;
+  return { scenario: 'behind_schedule', confidence: Math.min(confidence, 100), triggers };
+}
+
+function detectOvertraining(input: TrainingAnalysisInput, stats: AnalysisStats): DetectedScenario | null {
+  const triggers: string[] = [];
+  let confidence = 0;
+
+  if (stats.weeklyMileageChangePct > 0.25) {
+    triggers.push(
+      `Weekly mileage jumped ${Math.round(stats.weeklyMileageChangePct * 100)}% from previous week`,
+    );
+    confidence += 35;
+  }
+
+  if (stats.consecutiveDaysWithoutRest >= 7) {
+    triggers.push(`${stats.consecutiveDaysWithoutRest} consecutive days without a rest day`);
+    confidence += 30;
+  }
+
+  const recentRuns = input.syncedRuns.slice(-6);
+  const olderRuns = input.syncedRuns.slice(-12, -6);
+  if (recentRuns.length >= 3 && olderRuns.length >= 3) {
+    const recentAvgPace = recentRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentRuns.length;
+    const olderAvgPace = olderRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / olderRuns.length;
+    if (recentAvgPace > olderAvgPace * 1.05 && olderAvgPace > 0) {
+      triggers.push(
+        `Average pace slowed ${Math.round(((recentAvgPace - olderAvgPace) / olderAvgPace) * 100)}% — possible fatigue`,
+      );
+      confidence += 25;
+    }
+  }
+
+  if (confidence < 35) return null;
+  return { scenario: 'overtraining', confidence: Math.min(confidence, 100), triggers };
+}
+
+function detectInconsistentExecution(
+  input: TrainingAnalysisInput,
+  stats: AnalysisStats,
+): DetectedScenario | null {
+  const triggers: string[] = [];
+  let confidence = 0;
+
+  if (stats.easyDaysTooFast) {
+    triggers.push(
+      `Easy day pace (${formatPaceFromMinPerMi(stats.avgEasyPace)}) is too fast — should be conversational effort`,
+    );
+    confidence += 35;
+  }
+
+  if (stats.hardDaysTooSlow) {
+    triggers.push('Hard workout paces are nearly the same as easy paces — not enough distinction');
+    confidence += 30;
+  }
+
+  const offTarget = input.syncedRuns.filter(
+    (r) =>
+      r.plannedDistanceMi > 0 &&
+      Math.abs(r.actualDistanceMi - r.plannedDistanceMi) / r.plannedDistanceMi > 0.2,
+  );
+  if (offTarget.length >= 4) {
+    triggers.push(`${offTarget.length} workouts were 20%+ off planned distance`);
+    confidence += 25;
+  }
+
+  if (confidence < 35) return null;
+  return { scenario: 'inconsistent_execution', confidence: Math.min(confidence, 100), triggers };
+}
+
+function detectRaceWeekOptimization(input: TrainingAnalysisInput): DetectedScenario | null {
+  const triggers: string[] = [];
+  let confidence = 0;
+
+  if (input.weeksRemaining <= 2 && input.weeksRemaining >= 0) {
+    triggers.push(`Only ${input.weeksRemaining} week(s) to race day`);
+    confidence += 50;
+
+    if (input.readinessScore >= 75) {
+      triggers.push(`Readiness score is strong at ${input.readinessScore}%`);
+      confidence += 25;
+    }
+
+    if (input.syncedRuns.length >= 5) {
+      triggers.push('Sufficient training data for race-day pacing strategy');
+      confidence += 15;
+    }
+  }
+
+  if (confidence < 50) return null;
+  return { scenario: 'race_week_optimization', confidence: Math.min(confidence, 100), triggers };
+}
+
 /** Detect which training scenarios are present. */
 function detectScenarios(
   input: TrainingAnalysisInput,
@@ -544,166 +705,23 @@ function detectScenarios(
 ): DetectedScenario[] {
   const scenarios: DetectedScenario[] = [];
   const prefs = getAdaptivePreferences();
-  const aggrFactor = prefs.aggressiveness === 'aggressive' ? 0.8 : prefs.aggressiveness === 'conservative' ? 1.2 : 1.0;
+  const aggrFactor =
+    prefs.aggressiveness === 'aggressive' ? 0.8 : prefs.aggressiveness === 'conservative' ? 1.2 : 1.0;
 
-  // ── SCENARIO 1: Ahead of Schedule ──
-  {
-    const triggers: string[] = [];
-    let confidence = 0;
+  const ahead = detectAheadOfSchedule(input, aggrFactor);
+  if (ahead) scenarios.push(ahead);
 
-    // Long runs faster than target
-    const longRuns = input.syncedRuns.filter((r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0);
-    if (longRuns.length >= 4) {
-      const recentLong = longRuns.slice(-4);
-      const avgPace = recentLong.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentLong.length;
-      // If running faster than ~10:00/mi average on long runs, they're doing well
-      if (avgPace < 9.5) {
-        triggers.push(`Last ${recentLong.length} long runs averaged ${formatPaceFromMinPerMi(avgPace)} — faster than typical training pace`);
-        confidence += 30;
-      }
-    }
+  const behind = detectBehindSchedule(input, stats, aggrFactor);
+  if (behind) scenarios.push(behind);
 
-    // High readiness with weeks remaining
-    if (input.readinessScore > 85 * aggrFactor && input.weeksRemaining >= 6) {
-      triggers.push(`Readiness score ${input.readinessScore}% with ${input.weeksRemaining} weeks remaining`);
-      confidence += 30;
-    }
+  const overtraining = detectOvertraining(input, stats);
+  if (overtraining) scenarios.push(overtraining);
 
-    // High adherence
-    if (input.adherenceScore > 85) {
-      triggers.push(`Training adherence is ${input.adherenceScore}% — excellent consistency`);
-      confidence += 20;
-    }
+  const inconsistent = detectInconsistentExecution(input, stats);
+  if (inconsistent) scenarios.push(inconsistent);
 
-    // Completing workouts with extra distance
-    const overAchievers = input.syncedRuns.filter(
-      (r) => r.plannedDistanceMi > 0 && r.actualDistanceMi > r.plannedDistanceMi * 1.1,
-    );
-    if (overAchievers.length >= 3) {
-      triggers.push(`${overAchievers.length} runs exceeded plan distance by 10%+`);
-      confidence += 20;
-    }
-
-    if (confidence >= 40) {
-      scenarios.push({ scenario: 'ahead_of_schedule', confidence: Math.min(confidence, 100), triggers });
-    }
-  }
-
-  // ── SCENARIO 2: Behind Schedule ──
-  {
-    const triggers: string[] = [];
-    let confidence = 0;
-
-    if (stats.missedKeyWorkoutsLast2Weeks >= 3) {
-      triggers.push(`Missed ${stats.missedKeyWorkoutsLast2Weeks} key workouts in the last 2 weeks`);
-      confidence += 35;
-    }
-
-    if (stats.last2WeeksCompletionRate < 0.70 * aggrFactor) {
-      triggers.push(`Completion rate is ${Math.round(stats.last2WeeksCompletionRate * 100)}% over the last 2 weeks`);
-      confidence += 30;
-    }
-
-    if (input.readinessScore > 0 && input.readinessScore < 60) {
-      triggers.push(`Readiness score is ${input.readinessScore}% — below target`);
-      confidence += 25;
-    }
-
-    if (input.overallCompletionRate < 0.65) {
-      triggers.push(`Overall plan completion is ${Math.round(input.overallCompletionRate * 100)}%`);
-      confidence += 15;
-    }
-
-    if (confidence >= 40) {
-      scenarios.push({ scenario: 'behind_schedule', confidence: Math.min(confidence, 100), triggers });
-    }
-  }
-
-  // ── SCENARIO 3: Overtraining / Fatigue ──
-  {
-    const triggers: string[] = [];
-    let confidence = 0;
-
-    if (stats.weeklyMileageChangePct > 0.25) {
-      triggers.push(`Weekly mileage jumped ${Math.round(stats.weeklyMileageChangePct * 100)}% from previous week`);
-      confidence += 35;
-    }
-
-    if (stats.consecutiveDaysWithoutRest >= 7) {
-      triggers.push(`${stats.consecutiveDaysWithoutRest} consecutive days without a rest day`);
-      confidence += 30;
-    }
-
-    // Same mileage but slower pace (fatigue indicator)
-    const recentRuns = input.syncedRuns.slice(-6);
-    const olderRuns = input.syncedRuns.slice(-12, -6);
-    if (recentRuns.length >= 3 && olderRuns.length >= 3) {
-      const recentAvgPace = recentRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentRuns.length;
-      const olderAvgPace = olderRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / olderRuns.length;
-      if (recentAvgPace > olderAvgPace * 1.05 && olderAvgPace > 0) {
-        triggers.push(`Average pace slowed ${Math.round(((recentAvgPace - olderAvgPace) / olderAvgPace) * 100)}% — possible fatigue`);
-        confidence += 25;
-      }
-    }
-
-    if (confidence >= 35) {
-      scenarios.push({ scenario: 'overtraining', confidence: Math.min(confidence, 100), triggers });
-    }
-  }
-
-  // ── SCENARIO 4: Inconsistent Execution ──
-  {
-    const triggers: string[] = [];
-    let confidence = 0;
-
-    if (stats.easyDaysTooFast) {
-      triggers.push(`Easy day pace (${formatPaceFromMinPerMi(stats.avgEasyPace)}) is too fast — should be conversational effort`);
-      confidence += 35;
-    }
-
-    if (stats.hardDaysTooSlow) {
-      triggers.push('Hard workout paces are nearly the same as easy paces — not enough distinction');
-      confidence += 30;
-    }
-
-    // Check if workouts are completed but off-target on distance
-    const offTarget = input.syncedRuns.filter(
-      (r) => r.plannedDistanceMi > 0 && Math.abs(r.actualDistanceMi - r.plannedDistanceMi) / r.plannedDistanceMi > 0.2,
-    );
-    if (offTarget.length >= 4) {
-      triggers.push(`${offTarget.length} workouts were 20%+ off planned distance`);
-      confidence += 25;
-    }
-
-    if (confidence >= 35) {
-      scenarios.push({ scenario: 'inconsistent_execution', confidence: Math.min(confidence, 100), triggers });
-    }
-  }
-
-  // ── SCENARIO 5: Race Week Optimization ──
-  {
-    const triggers: string[] = [];
-    let confidence = 0;
-
-    if (input.weeksRemaining <= 2 && input.weeksRemaining >= 0) {
-      triggers.push(`Only ${input.weeksRemaining} week(s) to race day`);
-      confidence += 50;
-
-      if (input.readinessScore >= 75) {
-        triggers.push(`Readiness score is strong at ${input.readinessScore}%`);
-        confidence += 25;
-      }
-
-      if (input.syncedRuns.length >= 5) {
-        triggers.push('Sufficient training data for race-day pacing strategy');
-        confidence += 15;
-      }
-    }
-
-    if (confidence >= 50) {
-      scenarios.push({ scenario: 'race_week_optimization', confidence: Math.min(confidence, 100), triggers });
-    }
-  }
+  const raceWeek = detectRaceWeekOptimization(input);
+  if (raceWeek) scenarios.push(raceWeek);
 
   return scenarios.sort((a, b) => b.confidence - a.confidence);
 }

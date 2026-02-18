@@ -12,18 +12,19 @@ import {
   calculatePaceProgression, calculateTrainingLoad,
   detectPersonalRecords, calculateConsistency, calculateStreaks,
   calculateHREfficiency, weekOverWeek,
-  formatDuration,
   type SummaryStats, type WeeklyMileagePoint, type PaceProgressionPoint,
   type TrainingLoadData, type PersonalRecord, type ConsistencyDay,
   type HREfficiencyPoint, type WeekCompare,
 } from '../services/analyticsService';
 import LoadingScreen from '../components/LoadingScreen';
+import ConnectStravaCTA from '../components/ConnectStravaCTA';
 import {
   getDistanceUnit,
   metersToUnit,
   unitLabel,
   paceUnitLabel,
   milesToUnit,
+  formatDuration,
 } from '../services/unitPreferences';
 
 // ─── Time Period ─────────────────────────────────────────────
@@ -323,17 +324,11 @@ export default function Analytics() {
     return (
       <div>
         <h1 className="page-title">Analytics</h1>
-        <div className="card" style={{
-          textAlign: 'center', padding: '2.5rem',
-          background: 'linear-gradient(135deg, rgba(212,165,55,0.04) 0%, var(--bg-card) 100%)',
-        }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📊</div>
-          <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: '0.5rem' }}>Legendary Analytics</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.6, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>
-            Connect Strava to unlock comprehensive training analytics — weekly mileage trends,
-            pace progression, training load, personal records, and more.
-          </p>
-        </div>
+        <ConnectStravaCTA
+          emoji="📊"
+          title="Legendary Analytics"
+          description="Connect Strava to unlock comprehensive training analytics — weekly mileage trends, pace progression, training load, personal records, and more."
+        />
       </div>
     );
   }

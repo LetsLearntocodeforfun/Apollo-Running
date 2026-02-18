@@ -9,8 +9,8 @@ import { persistence } from './db/persistence';
 import type { StravaActivity } from './strava';
 import {
   metersToMiles,
+  calcPaceMinPerMi,
   formatPaceFromMinPerMi,
-  formatDuration,
   formatMiles,
   formatElevation,
   unitLabel,
@@ -137,23 +137,6 @@ function filterRuns(activities: StravaActivity[]): StravaActivity[] {
   return activities.filter(a =>
     runTypes.includes(a.type) || runTypes.includes(a.sport_type)
   );
-}
-
-// ─── Utility ─────────────────────────────────────────────────
-
-/** Calculate pace in min/mi from raw distance/time (internal analytics — always in miles). */
-function calcPaceMinPerMi(distMeters: number, timeSec: number): number {
-  if (!distMeters || !timeSec) return 0;
-  return (timeSec / 60) / metersToMiles(distMeters);
-}
-
-/** Format pace as "M:SS" (no unit suffix — used in PRs and internal display). */
-function formatPaceShort(paceMinPerMi: number): string {
-  if (!paceMinPerMi || paceMinPerMi > 30) return '—';
-  const totalSec = Math.round(paceMinPerMi * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 function getWeekStart(dateStr: string): string {
@@ -666,4 +649,4 @@ export function getCachedSnapshot(): AnalyticsSnapshot | null {
 
 // ─── Exported formatters ─────────────────────────────────────
 
-export { formatPaceShort, formatDuration, metersToMiles, filterRuns };
+export { filterRuns };

@@ -14,7 +14,9 @@ import AdaptiveRecommendations from '../components/AdaptiveRecommendations';
 import ErrorBoundary from '../components/ErrorBoundary';
 import LoadingScreen from '../components/LoadingScreen';
 import RouteMap, { RouteMapThumbnail } from '../components/RouteMap';
-import { getEffortRecognition, type AchievementTier } from '../services/effortService';
+import { getEffortRecognition } from '../services/effortService';
+import { TIER_CONFIG } from '../components/TierBadge';
+import ConnectStravaCTA from '../components/ConnectStravaCTA';
 import {
   formatDistanceShort,
   formatPace as fmtPace,
@@ -91,7 +93,7 @@ export default function Dashboard() {
         ]);
         if (!cancelled) {
           setAthlete(athleteRes);
-          setRecent(Array.isArray(activitiesRes) ? activitiesRes : []);
+          setRecent(activitiesRes);
         }
 
         if (activePlanKey && autoSyncedPlanRef.current !== activePlanKey) {
@@ -265,18 +267,13 @@ export default function Dashboard() {
           {todaySyncMeta && (() => {
             const rec = getEffortRecognition(todaySyncMeta.stravaActivityId);
             if (!rec || (rec.insights.length === 0 && !rec.paceTier)) return null;
-            const tierColors: Record<AchievementTier, { label: string; color: string; bg: string }> = {
-              gold: { label: 'Gold Split', color: 'var(--apollo-gold)', bg: 'var(--apollo-gold-dim)' },
-              silver: { label: 'Silver Split', color: 'var(--text-secondary)', bg: 'rgba(184, 178, 168, 0.12)' },
-              bronze: { label: 'Bronze Split', color: '#CD7F32', bg: 'rgba(205, 127, 50, 0.12)' },
-            };
             return (
               <div style={{
                 marginTop: '0.65rem', padding: '0.6rem 0.85rem',
                 background: 'rgba(212, 165, 55, 0.03)', borderRadius: 'var(--radius-md)',
                 border: '1px solid var(--border)',
                 borderLeftWidth: 3,
-                borderLeftColor: rec.paceTier ? tierColors[rec.paceTier].color : 'var(--border)',
+                borderLeftColor: rec.paceTier ? TIER_CONFIG[rec.paceTier].color : 'var(--border)',
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: rec.insights.length > 0 ? '0.4rem' : 0 }}>
                   <span style={{ fontSize: '0.68rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)' }}>
@@ -286,10 +283,10 @@ export default function Dashboard() {
                     <span style={{
                       fontSize: '0.68rem', fontWeight: 600, padding: '0.12rem 0.5rem',
                       borderRadius: 'var(--radius-full)',
-                      background: tierColors[rec.paceTier].bg,
-                      color: tierColors[rec.paceTier].color,
+                      background: TIER_CONFIG[rec.paceTier].bg,
+                      color: TIER_CONFIG[rec.paceTier].color,
                       fontFamily: 'var(--font-display)',
-                    }}>{tierColors[rec.paceTier].label}</span>
+                    }}>{TIER_CONFIG[rec.paceTier].label}</span>
                   )}
                 </div>
                 {rec.insights.slice(0, 2).map((ins, i) => (
@@ -556,20 +553,7 @@ export default function Dashboard() {
       )}
 
       {/* ═══ Not Connected CTA ═══ */}
-      {!stravaConnected && (
-        <div className="card" style={{
-          display: 'flex', gap: '1.5rem', alignItems: 'center', flexWrap: 'wrap',
-          borderColor: 'var(--border)',
-        }}>
-          <div style={{ flex: 1, minWidth: 200 }}>
-            <h3 style={{ margin: '0 0 0.5rem', color: 'var(--strava)' }}>Connect Strava</h3>
-            <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-              Unlock auto-sync, race predictions, and personalized coaching by connecting your Strava account.
-            </p>
-          </div>
-          <Link to="/settings" className="btn btn-primary">Connect Now</Link>
-        </div>
-      )}
+      {!stravaConnected && <ConnectStravaCTA />}
     </div>
   );
 }

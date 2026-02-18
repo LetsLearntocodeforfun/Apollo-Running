@@ -1,15 +1,15 @@
 import { useState, useEffect } from 'react';
 import { getActivities, getActivityDetail, type StravaActivity } from '../services/strava';
 import { getStravaTokens } from '../services/storage';
-import { Link } from 'react-router-dom';
 import RouteMap, { RouteMapThumbnail } from '../components/RouteMap';
 import { processRoute, getPolylineForActivity, bearingToCompass } from '../services/routeService';
 import {
   processActivityEffort,
   getEffortRecognition,
-  type AchievementTier,
   type EffortInsight,
 } from '../services/effortService';
+import { TIER_CONFIG, TierBadge, TierDot } from '../components/TierBadge';
+import ConnectStravaCTA from '../components/ConnectStravaCTA';
 import {
   analyzeSplits,
   getCachedSplitAnalysis,
@@ -48,41 +48,6 @@ function DetailStat({ label, value, sub, color }: { label: string; value: string
       }}>{value}</div>
       {sub && <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{sub}</div>}
     </div>
-  );
-}
-
-const TIER_COLORS: Record<AchievementTier, { label: string; color: string; bg: string }> = {
-  gold: { label: 'Gold Split', color: 'var(--apollo-gold)', bg: 'var(--apollo-gold-dim)' },
-  silver: { label: 'Silver Split', color: 'var(--text-secondary)', bg: 'rgba(184, 178, 168, 0.12)' },
-  bronze: { label: 'Bronze Split', color: '#CD7F32', bg: 'rgba(205, 127, 50, 0.12)' },
-};
-
-function TierBadge({ tier }: { tier: AchievementTier }) {
-  const c = TIER_COLORS[tier];
-  return (
-    <span style={{
-      fontSize: '0.72rem', fontWeight: 600,
-      padding: '0.15rem 0.6rem',
-      borderRadius: 'var(--radius-full)',
-      background: c.bg,
-      color: c.color,
-      fontFamily: 'var(--font-display)',
-      letterSpacing: '0.02em',
-    }}>
-      {c.label}
-    </span>
-  );
-}
-
-/** Small colored dot indicating a tier achievement — used in list rows */
-function TierDot({ tier }: { tier: AchievementTier }) {
-  const color = tier === 'gold' ? 'var(--apollo-gold)' : tier === 'silver' ? 'var(--text-secondary)' : '#CD7F32';
-  return (
-    <span style={{
-      display: 'inline-block', width: 8, height: 8, borderRadius: '50%',
-      background: color, marginLeft: '0.4rem', verticalAlign: 'middle',
-      boxShadow: tier === 'gold' ? '0 0 6px rgba(212,165,55,0.4)' : 'none',
-    }} title={TIER_COLORS[tier].label} />
   );
 }
 
@@ -131,11 +96,11 @@ function EffortRecognitionPanel({ activityId }: { activityId: number }) {
             <span style={{
               fontSize: '0.68rem', fontWeight: 600, padding: '0.12rem 0.5rem',
               borderRadius: 'var(--radius-full)',
-              background: TIER_COLORS[recognition.hrEfficiencyTier].bg,
-              color: TIER_COLORS[recognition.hrEfficiencyTier].color,
+              background: TIER_CONFIG[recognition.hrEfficiencyTier].bg,
+              color: TIER_CONFIG[recognition.hrEfficiencyTier].color,
               fontFamily: 'var(--font-display)',
             }}>
-              HR Efficiency {TIER_COLORS[recognition.hrEfficiencyTier].label.split(' ')[0]}
+              HR Efficiency {TIER_CONFIG[recognition.hrEfficiencyTier].label.split(' ')[0]}
             </span>
           )}
         </div>
@@ -274,7 +239,7 @@ export default function Activities() {
     getActivities({ page, per_page: 30 })
       .then((data) => {
         if (!cancelled) {
-          const list = Array.isArray(data) ? data : [];
+          const list = data;
           setActivities(list);
           // Process effort recognitions for loaded activities
           for (const a of list) {
@@ -295,17 +260,11 @@ export default function Activities() {
     return (
       <div>
         <h1 className="page-title">Activities</h1>
-        <div className="card" style={{
-          textAlign: 'center', padding: '2.5rem',
-          background: 'linear-gradient(135deg, rgba(212,165,55,0.04) 0%, var(--bg-card) 100%)',
-        }}>
-          <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🏅</div>
-          <h3 style={{ fontSize: 'var(--text-lg)', marginBottom: '0.5rem' }}>Your Hall of Victories</h3>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.6 }}>
-            Connect Strava to see all your activities catalogued here — every run is an achievement.
-          </p>
-          <Link to="/settings" className="btn btn-primary">Connect Strava</Link>
-        </div>
+        <ConnectStravaCTA
+          emoji="🏅"
+          title="Your Hall of Victories"
+          description="Connect Strava to see all your activities catalogued here — every run is an achievement."
+        />
       </div>
     );
   }

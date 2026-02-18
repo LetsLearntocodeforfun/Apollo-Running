@@ -75,6 +75,9 @@ const DEFAULT_CONFIG: BackupConfig = {
   verifyOnStartup: true,
 };
 
+const MAX_IMPORT_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_IMPORT_VALUE_BYTES = 1024 * 1024; // 1 MB per key
+
 // ── SHA-256 Hashing ───────────────────────────────────────────────────────────
 
 /**
@@ -498,6 +501,13 @@ export async function importFromFile(
   file: File,
 ): Promise<{ success: boolean; message: string }> {
   try {
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      return {
+        success: false,
+        message: `Import file is too large (${formatBytes(file.size)}). Maximum supported size is ${formatBytes(MAX_IMPORT_FILE_BYTES)}.`,
+      };
+    }
+
     const text = await file.text();
     let parsed: unknown;
     try {
@@ -507,13 +517,26 @@ export async function importFromFile(
     }
 
     const data = parsed as Record<string, unknown>;
-    if (!data.metadata || !data.data) {
+    if (!data.metadata || !data.data || typeof data.metadata !== 'object' || typeof data.data !== 'object') {
       return { success: false, message: 'Not an Apollo backup file.' };
     }
 
     const metadata = data.metadata as Record<string, unknown>;
     if (metadata.appName !== 'Apollo Running') {
       return { success: false, message: 'This file is not from Apollo Running.' };
+    }
+
+    if (typeof metadata.keyCount !== 'number' || !Number.isFinite(metadata.keyCount) || metadata.keyCount < 0) {
+      return { success: false, message: 'Backup metadata is invalid (keyCount missing or malformed).' };
+    }
+
+    const importData = data.data as Record<string, unknown>;
+    const sourceEntries = Object.entries(importData);
+    if (metadata.keyCount !== sourceEntries.length) {
+      return {
+        success: false,
+        message: 'Backup metadata key count does not match payload. File may be corrupted or tampered.',
+      };
     }
 
     // Verify checksum if embedded
@@ -539,10 +562,11 @@ export async function importFromFile(
     await createBackup('manual');
 
     // Validate and import only allowed keys
-    const importData = data.data as Record<string, unknown>;
     const allowed: Record<string, string> = {};
-    for (const [key, value] of Object.entries(importData)) {
-      if (typeof value === 'string' && (key.startsWith('apollo_') || isCredentialKey(key))) {
+    for (const [key, value] of sourceEntries) {
+      if (typeof value !== 'string') continue;
+      if (new Blob([value]).size > MAX_IMPORT_VALUE_BYTES) continue;
+      if ((key.startsWith('apollo_') || isCredentialKey(key)) && key.length <= 128) {
         allowed[key] = value;
       }
     }

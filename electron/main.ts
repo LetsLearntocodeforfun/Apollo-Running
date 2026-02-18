@@ -13,28 +13,55 @@ const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
 const STRAVA_SCOPES = 'activity:read_all,activity:write,profile:read_all';
 
-// Debug paths (only in development)
-if (isDev) {
-  console.log('App is packaged:', app.isPackaged);
-  console.log('App path:', app.getAppPath());
-  console.log('Exec path:', process.execPath);
-  console.log('CWD:', process.cwd());
-  console.log('__dirname:', __dirname);
+function logDev(...args: unknown[]): void {
+  if (isDev) {
+    console.log('[Apollo Main]', ...args);
+  }
+}
+
+function getCandidateIndexPaths(): string[] {
+  const appPath = app.getAppPath();
+  return [
+    path.join(appPath, 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'index.html'),
+    path.join(__dirname, '..', 'dist', 'index.html'),
+  ];
+}
+
+async function loadProductionWindow(win: BrowserWindow): Promise<void> {
+  const candidates = getCandidateIndexPaths();
+  let lastError: unknown = null;
+
+  for (const indexPath of candidates) {
+    if (!fs.existsSync(indexPath)) continue;
+    try {
+      await win.loadFile(indexPath);
+      logDev('Loaded app from', indexPath);
+      return;
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  if (lastError instanceof Error) {
+    throw new Error(`Failed to load index.html from known locations: ${lastError.message}`);
+  }
+  throw new Error('Failed to load index.html from known locations');
 }
 
 function createWindow() {
   const iconPath = path.join(__dirname, '..', 'public', 'assets', 'logo-256.png');
   // Preload is emitted to dist-electron/preload.js (same dir level as main.js)
   const preloadPath = path.join(__dirname, 'preload.js');
-  
-  // Log important paths for debugging (dev only)
-  if (isDev) {
-    console.log('App path:', app.getAppPath());
-    console.log('Exec path:', process.execPath);
-    console.log('Resources path:', process.resourcesPath);
-    console.log('Preload path:', preloadPath);
-    console.log('Icon path:', iconPath);
-  }
+
+  logDev('Runtime paths', {
+    appPath: app.getAppPath(),
+    execPath: process.execPath,
+    resourcesPath: process.resourcesPath,
+    preloadPath,
+    iconPath,
+  });
 
   mainWindow = new BrowserWindow({
     width: 1200,
@@ -66,7 +93,7 @@ function createWindow() {
   const loadApp = async () => {
     if (isDev) {
       try {
-        console.log('Development mode: Loading from dev server...');
+        logDev('Loading app from Vite dev server');
         await mainWindow.loadURL('http://localhost:5173');
         mainWindow.webContents.openDevTools();
       } catch (error) {
@@ -74,53 +101,7 @@ function createWindow() {
       }
     } else {
       try {
-        console.log('Production mode: Attempting to load index.html...');
-        
-        // In production, prefer app.asar (app.getAppPath()) and fall back to unpacked/dev paths
-        const appPath = app.getAppPath(); // points to app.asar in packaged build
-        const possibleIndexPaths = [
-          path.join(appPath, 'dist', 'index.html'), // packaged (asar)
-          path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html'), // explicit asar path
-          path.join(process.resourcesPath, 'app.asar.unpacked', 'dist', 'index.html'), // unpacked fallback
-          path.join(__dirname, '..', 'dist', 'index.html'), // dev/dir run fallback
-        ];
-
-        console.log('Trying to load from possible paths:', possibleIndexPaths);
-        
-        let loaded = false;
-        for (const indexPath of possibleIndexPaths) {
-          try {
-            console.log('Attempting to load from:', indexPath);
-            const exists = fs.existsSync(indexPath);
-            console.log(`File exists at ${indexPath}:`, exists);
-            
-            if (exists) {
-              // First try with loadFile
-              try {
-                await mainWindow.loadFile(indexPath);
-                console.log(`Successfully loaded with loadFile: ${indexPath}`);
-                loaded = true;
-                break;
-              } catch (loadFileError) {
-                console.warn(`loadFile failed for ${indexPath}:`, (loadFileError as Error).message);
-                
-                // Try with loadURL as fallback
-                const fileUrl = `file://${indexPath.replace(/\\/g, '/')}`;
-                console.log(`Trying fallback with loadURL: ${fileUrl}`);
-                await mainWindow.loadURL(fileUrl);
-                console.log(`Successfully loaded with loadURL: ${fileUrl}`);
-                loaded = true;
-                break;
-              }
-            }
-          } catch (err) {
-            console.warn(`Failed to load from ${indexPath}:`, (err as Error).message);
-          }
-        }
-
-        if (!loaded) {
-          throw new Error('Failed to load index.html from any known location');
-        }
+        await loadProductionWindow(mainWindow);
       } catch (error) {
         console.error('Failed to load app:', error);
 
@@ -352,12 +333,10 @@ function writeSecureStore(store: Record<string, string>): void {
 ipcMain.handle('secure-storage:set', (_, key: string, value: string) => {
   try {
     if (!safeStorage.isEncryptionAvailable()) {
-      console.warn('[Apollo] safeStorage encryption not available, storing with basic protection');
-      // Fallback: still use the file-based store but without OS encryption
-      const store = readSecureStore();
-      store[key] = Buffer.from(value).toString('base64');
-      writeSecureStore(store);
-      return { success: true, encrypted: false };
+      return {
+        success: false,
+        error: 'OS-level encryption is unavailable. Refusing to store sensitive credentials insecurely.',
+      };
     }
     const encrypted = safeStorage.encryptString(value);
     const store = readSecureStore();
@@ -373,16 +352,15 @@ ipcMain.handle('secure-storage:set', (_, key: string, value: string) => {
 /** Retrieve and decrypt a stored credential */
 ipcMain.handle('secure-storage:get', (_, key: string) => {
   try {
+    if (!safeStorage.isEncryptionAvailable()) {
+      return null;
+    }
     const store = readSecureStore();
     const encoded = store[key];
     if (!encoded) return null;
 
     const buffer = Buffer.from(encoded, 'base64');
-    if (safeStorage.isEncryptionAvailable()) {
-      return safeStorage.decryptString(buffer);
-    }
-    // Fallback: was stored as plain base64
-    return buffer.toString('utf-8');
+    return safeStorage.decryptString(buffer);
   } catch (err) {
     console.error('[Apollo] secure-storage:get error:', err);
     return null;

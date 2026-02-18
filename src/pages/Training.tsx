@@ -17,15 +17,14 @@ import { getStravaTokens } from '../services/storage';
 import { runAutoSync, getWeeklyMileageSummary, type SyncResult } from '../services/autoSync';
 import { RouteMapThumbnail } from '../components/RouteMap';
 import { getStoredActivities } from '../services/analyticsService';
-import { getEffortRecognition, type AchievementTier } from '../services/effortService';
+import { getEffortRecognition } from '../services/effortService';
+import { TIER_CONFIG } from '../components/TierBadge';
 import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** Single day row in the training plan checklist. Memoized to avoid re-renders on sibling changes. */
 const DayRow = memo(function DayRow({
-  planId: _planId,
-  weekIndex: _weekIndex,
   dayIndex,
   day,
   date,
@@ -34,8 +33,6 @@ const DayRow = memo(function DayRow({
   syncMeta,
   onToggle,
 }: {
-  planId: string;
-  weekIndex: number;
   dayIndex: number;
   day: PlanDay;
   date: Date;
@@ -88,12 +85,7 @@ const DayRow = memo(function DayRow({
           {isSynced && syncMeta?.stravaActivityId && (() => {
             const rec = getEffortRecognition(syncMeta.stravaActivityId);
             if (!rec?.paceTier) return null;
-            const tierConfig: Record<AchievementTier, { label: string; color: string; bg: string }> = {
-              gold: { label: 'Gold Split', color: 'var(--apollo-gold)', bg: 'var(--apollo-gold-dim)' },
-              silver: { label: 'Silver Split', color: 'var(--text-secondary)', bg: 'rgba(184, 178, 168, 0.12)' },
-              bronze: { label: 'Bronze Split', color: '#CD7F32', bg: 'rgba(205, 127, 50, 0.12)' },
-            };
-            const tc = tierConfig[rec.paceTier];
+            const tc = TIER_CONFIG[rec.paceTier];
             return (
               <span style={{
                 marginLeft: '0.35rem', fontSize: '0.68rem',
@@ -435,8 +427,6 @@ export default function Training() {
                                   return (
                                     <DayRow
                                       key={dayIndex}
-                                      planId={plan.id}
-                                      weekIndex={week.weekNumber - 1}
                                       dayIndex={dayIndex}
                                       day={day}
                                       date={date}

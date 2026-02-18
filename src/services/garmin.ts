@@ -10,9 +10,9 @@ export async function getGarminActivities(_params: { limit?: number; offset?: nu
   if (!creds || !tokens) {
     return [];
   }
-  // Placeholder: Garmin Activity API base URL and endpoints depend on your approved APIs.
-  // Example: GET https://connectapi.garmin.com/activity-api/activities
-  // You will need to implement PKCE flow in electron/main and store tokens, then call their REST API here.
+  // Garmin Connect APIs require approved developer access and API-specific endpoints.
+  // Until that access is available, keep the integration in a safe no-op state.
+  console.info('[Apollo Garmin] Garmin account is configured, but activity sync is not enabled in this build.');
   return [];
 }
 

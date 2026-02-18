@@ -13,7 +13,7 @@
  */
 
 import type { StravaActivity, StravaSplit, StravaLap } from './strava';
-import { getDistanceUnit, type DistanceUnit } from './unitPreferences';
+import { getDistanceUnit, formatPaceShort, type DistanceUnit } from './unitPreferences';
 import { persistence } from './db/persistence';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -641,13 +641,4 @@ export function hasSplitData(activity: StravaActivity): boolean {
   );
 }
 
-/**
- * Format a pace value as "M:SS" (no unit suffix).
- */
-export function formatPaceShort(paceMinPerUnit: number): string {
-  if (!paceMinPerUnit || paceMinPerUnit > 30) return '—';
-  const totalSec = Math.round(paceMinPerUnit * 60);
-  const min = Math.floor(totalSec / 60);
-  const sec = totalSec % 60;
-  return `${min}:${sec.toString().padStart(2, '0')}`;
-}
+export { formatPaceShort };

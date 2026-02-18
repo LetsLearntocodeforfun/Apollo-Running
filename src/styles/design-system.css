@@ -247,3 +247,52 @@
   );
   margin: var(--space-6) 0;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   UTILITY CLASSES
+   Common patterns extracted from page components
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Section label — uppercase micro-text for stat labels, section headers */
+.label-micro {
+  font-size: 0.72rem;
+  font-family: var(--font-display);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+}
+
+/* Variant: bolder section label */
+.label-micro-bold {
+  font-size: 0.72rem;
+  font-family: var(--font-display);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+/* Large stat value */
+.stat-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: var(--font-display);
+  line-height: 1.2;
+}
+
+/* Stat subtitle / secondary text */
+.stat-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+/* Section heading — display font, standard weight */
+.section-heading {
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--text-lg);
+  color: var(--text);
+  margin: 0;
+}

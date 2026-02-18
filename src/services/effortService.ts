@@ -14,7 +14,7 @@
 import { persistence } from './db/persistence';
 import { decodePolyline, haversineDistance, type LatLng } from './routeService';
 import type { StravaActivity } from './strava';
-import { formatPaceFromMinPerMi } from './unitPreferences';
+import { formatPaceFromMinPerMi, calcPaceMinPerMi } from './unitPreferences';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -80,7 +80,6 @@ export interface EffortRecognition {
 
 const ROUTE_BUNDLES_KEY = 'apollo_route_bundles';
 const EFFORT_RECOGNITIONS_KEY = 'apollo_effort_recognitions';
-const METERS_TO_MILES = 0.000621371;
 
 /** Max haversine distance (m) for start / end points to be "same location". */
 const START_END_TOLERANCE_M = 300;
@@ -158,16 +157,6 @@ export function calcCentroid(coords: LatLng[]): LatLng {
     { lat: 0, lng: 0 },
   );
   return { lat: sum.lat / coords.length, lng: sum.lng / coords.length };
-}
-
-function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
-  if (!distanceMeters || !movingTimeSec) return 0;
-  return (movingTimeSec / 60) / (distanceMeters * METERS_TO_MILES);
-}
-
-/** @deprecated Use formatPaceFromMinPerMi from unitPreferences instead. */
-export function formatPace(paceMinPerMi: number): string {
-  return formatPaceFromMinPerMi(paceMinPerMi);
 }
 
 /** Percentage change from old to new (positive = increase). */

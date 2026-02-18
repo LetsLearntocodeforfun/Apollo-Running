@@ -14,10 +14,10 @@ import {
   findMatchingBundle,
   calcCentroid,
   assignTier,
-  formatPace,
   processAllStoredActivities,
   type RouteBundle,
 } from '@/services/effortService';
+import { formatPaceFromMinPerMi } from '@/services/unitPreferences';
 import type { StravaActivity } from '@/services/strava';
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -102,23 +102,23 @@ describe('assignTier', () => {
   });
 });
 
-// ─── Unit: formatPace ────────────────────────────────────────
+// ─── Unit: formatPaceFromMinPerMi ────────────────────────────────────
 
-describe('formatPace', () => {
+describe('formatPaceFromMinPerMi', () => {
   it('formats a normal pace', () => {
-    expect(formatPace(8.5)).toBe('8:30/mi');
+    expect(formatPaceFromMinPerMi(8.5)).toMatch(/^8:30/);
   });
 
   it('formats a fast pace', () => {
-    expect(formatPace(6.0)).toBe('6:00/mi');
+    expect(formatPaceFromMinPerMi(6.0)).toMatch(/^6:00/);
   });
 
   it('returns dash for zero', () => {
-    expect(formatPace(0)).toBe('—');
+    expect(formatPaceFromMinPerMi(0)).toBe('—');
   });
 
   it('returns dash for extremely slow pace', () => {
-    expect(formatPace(35)).toBe('—');
+    expect(formatPaceFromMinPerMi(35)).toBe('—');
   });
 });
 
