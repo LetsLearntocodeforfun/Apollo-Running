@@ -1,223 +1,498 @@
-# Apollo — Marathon Training Platform
+<p align="center">
+  <img src="public/assets/logo-1024.png" alt="Apollo" width="140" />
+</p>
 
-Apollo is a full-featured marathon training platform for desktop (Electron) and web (Vite + Azure Static Web Apps). Everything runs locally on your device — no cloud accounts, no data leaving your machine.
+<h1 align="center">Apollo</h1>
 
-**Core capabilities:**
+<p align="center">
+  <strong>The all-in-one marathon training platform.</strong><br />
+  Smart plans · Strava sync · Route maps · Race predictions · Coaching intelligence<br />
+  <em>100% local. Zero cloud accounts. Your data never leaves your device.</em>
+</p>
 
-- **8 built-in marathon plans** from top coaches (Hal Higdon, Hanson's, Pfitzinger, Nike, FIRST) + a custom plan builder
-- **Guided onboarding** with plan recommendation engine
-- **Smart Strava auto-sync** — matches runs to plan days, auto-completes workouts, generates coaching feedback
-- **Activity route maps** — pure SVG visualization of every run, zero external dependencies, works fully offline
-- **Route effort recognition** — tracks repeated routes, awards gold/silver/bronze for pace and HR efficiency, generates data-driven insights
-- **Race prediction engine** — VDOT + Riegel + pace extrapolation blend with confidence scoring
-- **Weekly Race Day Readiness** — 5-factor readiness score with coaching tips
-- **Adaptive training recommendations** — detects overtraining, schedule gaps, and race week, suggests plan adjustments
-- **Heart rate zone analysis** — 5-zone model, zone distribution, HR trends, aerobic efficiency tracking
-- **Daily training recaps** — grade + coach message comparing actual vs planned effort
+<p align="center">
+  <img src="https://img.shields.io/badge/tests-330%20passing-brightgreen" alt="330 tests passing" />
+  <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
+  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
+  <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
+</p>
 
 ---
 
-## What's New
+## Table of Contents
 
-### Activity Route Maps
-Every synced run is visualized as a pure SVG route map — no Leaflet, Mapbox, or API keys required. Works fully offline.
+- [Why Apollo](#why-apollo)
+- [Quick Start](#quick-start)
+- [Features at a Glance](#features-at-a-glance)
+- [The Training Calendar](#the-training-calendar)
+- [How the App Works — Page by Page](#how-the-app-works--page-by-page)
+  - [Dashboard](#-dashboard)
+  - [Training Plan](#-training-plan)
+  - [Activities](#-activities)
+  - [Analytics](#-analytics)
+  - [Insights](#-insights)
+  - [Settings](#-settings)
+- [Guided Onboarding](#guided-onboarding)
+- [Built-In Marathon Plans](#built-in-marathon-plans)
+- [Smart Auto-Sync](#smart-auto-sync)
+- [Route Maps](#route-maps)
+- [Route Effort Recognition](#route-effort-recognition)
+- [Split & Lap Analysis](#split--lap-analysis)
+- [Race Prediction Engine](#race-prediction-engine)
+- [Coaching Intelligence](#coaching-intelligence)
+- [Data Safety & Backups](#data-safety--backups)
+- [Integrations](#integrations)
+- [Your Training Playbook](#your-training-playbook)
+- [Setup & Installation](#setup--installation)
+- [Deploy to Azure Static Web Apps](#deploy-to-azure-static-web-apps)
+- [Running Tests](#running-tests)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [License](#license)
 
-- **Route drawing animation** on first render
-- **Start (S) / End (F) markers** with glow rings; loops detected automatically
+---
+
+## Why Apollo
+
+Most running apps fall into two camps: simple trackers that tell you what you already know, or complex platforms buried behind paywalls and subscription tiers.
+
+Apollo is different. It combines the depth of a professional coaching platform with the simplicity of a personal training log — and it runs entirely on your machine. No subscriptions. No data harvesting. No internet required after your initial Strava sync.
+
+What sets Apollo apart:
+
+- **Plans from the coaches who wrote the book** — Hal Higdon, Hanson's, Pfitzinger, Nike Run Club, and FIRST. Or build your own from scratch.
+- **Intelligence that earns its name** — Race predictions refined across your entire training block. Adaptive recommendations that detect overtraining before you feel it. Pacing analysis that holds you accountable to the 80/20 rule.
+- **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
+- **Your data, your device** — localStorage + IndexedDB. Automatic backups with SHA-256 integrity verification. Export everything as JSON. Nothing leaves your machine.
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/LetsLearntocodeforfun/Apollo-Running.git
+cd Apollo-Running
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173) in your browser. Apollo's guided onboarding will walk you through choosing a plan, setting your start date, picking your preferred units, and configuring coaching preferences.
+
+To connect Strava, see [Integrations](#integrations).
+
+---
+
+## Features at a Glance
+
+| Feature | What It Does |
+|---------|-------------|
+| **8 marathon plans** | Hal Higdon (4), Hanson's, Pfitzinger, Nike, FIRST — plus a custom plan builder |
+| **Training calendar** | Monthly grid with workout types, intensity colors, sync status, click-to-expand day detail |
+| **Smart auto-sync** | Matches Strava runs to plan days, auto-completes workouts, generates coaching feedback |
+| **Route maps** | Pure SVG visualization of every run — offline, no API keys, with animated drawing effects |
+| **Effort recognition** | Tracks repeated routes, awards Gold/Silver/Bronze for pace and HR efficiency |
+| **Split analysis** | Per-mile/km pacing charts, consistency grading, interval detection, pattern recognition |
+| **Race predictions** | VDOT + Riegel blend for marathon, half, 10K, and 5K with confidence scoring |
+| **Weekly readiness** | 5-factor score (A+ to D) with coaching tips for the week ahead |
+| **Daily recaps** | Grade + coach message comparing your actual effort to the plan |
+| **Adaptive coaching** | Detects overtraining, schedule gaps, and race week — suggests plan adjustments |
+| **HR zone analysis** | 5-zone model, distribution charts, efficiency tracking, 80/20 rule guidance |
+| **Data backups** | Automatic SHA-256 verified backups with export/import and one-click restore |
+| **Miles & kilometers** | One toggle changes every number in the entire app |
+
+---
+
+## The Training Calendar
+
+The crown jewel of the Training page. A full monthly calendar view that shows your entire training block at a glance — designed to rival and surpass what you'd find in TrainingPeaks or Strava.
+
+**At the grid level:**
+- Each day cell shows the **workout type** with color-coded intensity bars (green = easy, gold = long run, orange = tempo, red = speed, teal = cross training)
+- **Workout icons** indicate the session type (🟢 Easy · 🟡 Long · 🟠 Tempo · 🔴 Speed · 🏁 Race · 🏅 Marathon)
+- **Distance** displayed per day — with actual/planned shown side-by-side when a Strava activity is synced
+- **Mini progress bars** visualize how close your actual distance came to the plan target
+- **Completion badges** — gold ✓ for Strava-synced days, green ✓ for manually completed
+- Today is highlighted with a gold ring and filled badge so you never lose your place
+
+**Weekly summary column:**
+- Plan week number, actual vs planned total mileage, and a progress bar — visible alongside every row
+
+**Click any day to expand the detail panel:**
+- **Plan vs Actual** side-by-side comparison — workout type, distance, pace, duration, and a ± delta showing exactly how you tracked against the plan
+- **Full route map** of the synced activity (animated, with mile markers and compass badge)
+- **Effort recognition** tier badge (Gold/Silver/Bronze) when you've run this route before
+- **Coaching feedback** — the AI-generated message from auto-sync
+- **Mark Complete / Incomplete** button for manual tracking
+
+**Navigation:**
+- Month-by-month browsing with ‹ › arrows
+- **Today** button for instant jump to the current date
+- **Calendar ↔ Checklist** toggle to switch between the visual calendar and the traditional week-by-week accordion
+
+Everything updates live — complete a day, sync a run, and the calendar reflects it immediately.
+
+---
+
+## How the App Works — Page by Page
+
+### ◈ Dashboard
+
+Your home base. Everything you need in one view.
+
+- **Personalized greeting** with your Strava athlete name and connection status
+- **Today's Quest** — a hero card showing today's planned workout, with distance, type, and (once synced) your actual metrics, coaching feedback, route map, and effort recognition
+- **Plan progress bar** — percentage complete with days-completed count
+- **Stats strip** — race prediction, training adherence, and readiness grade at a glance
+- **Adaptive recommendations** — intelligent coaching cards when Apollo detects something actionable (overtraining, schedule gap, race week)
+- **Daily recap** — pop-up card with your training grade and coach message
+- **Weekly readiness** — pop-up with your composite score, strengths, and tips for the week ahead
+- **Recent activities** — your last five runs with route thumbnails, distance, pace, and effort tier indicators
+
+Auto-sync triggers on load when Strava is connected and a plan is active. No manual action needed.
+
+### ⚡ Training Plan
+
+Where your plan lives.
+
+- **Plan selection** — browse all eight built-in plans displayed as cards, or access the custom plan builder through the Welcome Flow
+- **Calendar view** *(new)* — the monthly training calendar described above
+- **Checklist view** — the traditional week-by-week accordion with expandable day rows showing checkboxes, dates, workout labels, sync badges, tier badges, route thumbnails, and detailed metrics
+- **Weekly mileage bars** — per-week actual vs planned with color-coded status (on track / ahead / behind)
+- **Smart Auto-Sync card** — manual sync trigger, last sync timestamp, and detailed results for every matched activity
+
+### 🏅 Activities
+
+Your complete run history.
+
+- **Paginated activity list** — 30 per page, each row showing route thumbnail, activity name with tier dot, date, distance, duration, pace, elevation, and heart rate
+- **Expandable detail panel** (click any activity):
+  - Full-size route map with animation, mile markers, and compass
+  - Stats grid: distance, duration, pace, elevation, HR (avg + max), cadence, route type, suffer score
+  - **Split analysis** — tabbed view with pace bar chart, per-split table, per-lap table, consistency grade, pattern detection, interval detection, and coaching insights
+  - **Effort recognition** — effort count, route name, pace and HR efficiency tiers, and data-driven insight messages
+
+### 📈 Analytics
+
+Deep dive into your training data.
+
+- **Time period selector** — 7 days, 30 days, 90 days, 6 months, or all time
+- **Summary stats** with period-over-period deltas — total miles, time, average pace, run count, average HR, elevation
+- **Week-over-week comparison** — this week vs last across key metrics
+- **Charts** (powered by Recharts):
+  - Weekly mileage bar chart
+  - Pace progression line chart (average + fastest per week)
+  - Training load area chart — acute (7-day) vs chronic (28-day) with optimal ratio guidance
+  - HR efficiency scatter plot — pace vs heart rate with trend highlighting
+- **Consistency heatmap** — GitHub-style contribution grid showing your training frequency over 90 days, with streak counts
+- **Personal records** — fastest pace, longest run, and more, with activity names and dates
+
+### 📊 Insights
+
+Your coaching intelligence hub, organized into four tabs.
+
+**Overview** — Race prediction with marathon, half, 10K, and 5K times. VDOT score and confidence percentage. Score gauges for adherence, readiness, distance match, and consistency. Detailed adherence and readiness breakdowns with strengths, improvements, and tips. Today's training recap. Readiness history across weeks.
+
+**Heart Rate Zones** — Editable HR profile (max HR, resting HR, LTHR). Five-zone definitions with BPM ranges. Zone distribution chart (last 30 days) with 80/20 rule coaching. HR trend chart showing daily average across activities.
+
+**Daily Recaps** — Today's detailed recap with grade, distance comparison (± percentage vs plan), pace, duration, HR zone, and coach message. Scrollable history of the past seven days.
+
+**Coaching Settings** — Toggle daily recaps on/off with time-of-day scheduling. Toggle weekly readiness on/off with day-of-week picker. Methodology explanations for VDOT, Riegel, adherence scoring, readiness factors, and HR zones.
+
+### ⚙ Settings
+
+Configuration and data management.
+
+- **Strava connection** — one-click OAuth on web; Client ID + Secret fields on desktop
+- **Garmin Connect** — credential fields ready for integration
+- **Distance units** — miles or kilometers, one toggle that changes everything app-wide
+- **Coaching preferences** — daily recap scheduling, weekly readiness scheduling, HR profile inputs
+- **Adaptive training** — enable/disable, frequency (daily / weekly / before key workouts), aggressiveness (conservative / balanced / aggressive)
+- **Data management** — backup health status, auto-backup configuration (interval + retention), manual backup, export/import as JSON, backup history with integrity verification, per-backup download and restore
+
+---
+
+## Guided Onboarding
+
+On first launch, Apollo walks you through a seven-step setup:
+
+1. **Choose your path** — browse plans, get a recommendation, or build from scratch
+2. **Get recommended** *(if selected)* — enter your weekly mileage and running days; Apollo scores and ranks the top three plans with reasons
+3. **Browse all plans** *(if selected)* — expandable week-by-week previews with total and long-run mileage
+4. **Build custom** *(if selected)* — set name, weeks (10–30), running days (3–6), current and peak mileage; Apollo generates a progressive plan with cutback weeks and taper
+5. **Set your start date** — Apollo calculates the full schedule through race day
+6. **Pick your units** — miles (🇺🇸) or kilometers (🌍)
+7. **Configure coaching** — daily recaps and weekly readiness scheduling
+
+You're running in under two minutes.
+
+---
+
+## Built-In Marathon Plans
+
+Eight proven plans from the coaches who defined the discipline.
+
+| Plan | Author | Days/Week | Peak (~mi/wk) | Philosophy |
+|------|--------|-----------|----------------|------------|
+| Novice 1 | Hal Higdon | 4 + cross | ~45 | The most popular first-marathon plan in the world |
+| Novice 2 | Hal Higdon | 4 + cross | ~48 | One step up — slightly more volume, same structure |
+| Intermediate 1 | Hal Higdon | 5 + cross | ~50 | For runners with a solid base who want more |
+| Advanced 1 | Hal Higdon | 5 + cross | ~57 | PR-focused with dedicated speedwork sessions |
+| Beginner | Hanson's | 6 | ~55 | Cumulative fatigue philosophy — long run capped at 16 mi |
+| 18/55 | Pete Pfitzinger | 5 | ~55 | Performance-focused with marathon-pace workouts |
+| Marathon Plan | Nike Run Club | 5 | ~52 | Modern digital-first design with guided speed sessions |
+| Run Less, Run Faster | FIRST | 3 + 2 cross | ~40 | Three quality runs per week (tempo, intervals, long) |
+
+**Custom Plan Builder** generates progressive plans with cutback weeks every 4th week (86% volume), a two-week taper (72% then 45%), and varied workout types (easy, long, tempo, speed, cross training). Mileage builds from your current weekly volume to your target peak.
+
+---
+
+## Smart Auto-Sync
+
+Connect Strava once and Apollo handles the rest.
+
+**How it works:**
+1. Apollo fetches your last 14 days of Strava activities
+2. Each run is matched to a plan day by date (if multiple runs on the same day, the longest one is used)
+3. Matched workouts are auto-completed
+4. For each match, Apollo generates **coaching feedback** — distance analysis against the target, pace commentary tailored to the workout type (easy, tempo, speed, long), and weekly mileage status
+
+**After every sync, Apollo also:**
+- Captures heart rate data for zone analysis and efficiency tracking
+- Processes route effort recognitions (repeated route detection + tier ranking)
+- Updates race predictions with the latest data
+- Recalculates training adherence and weekly readiness
+- Generates daily recap and adaptive recommendations if due
+
+All of this happens automatically when you open the Dashboard or Training page.
+
+---
+
+## Route Maps
+
+Every synced run is rendered as a pure SVG route visualization. No Leaflet. No Mapbox. No API keys. Works fully offline.
+
+- **Polyline decoding** — Strava's encoded polyline is decoded into coordinates
+- **Equirectangular projection** with latitude correction — coordinates mapped to SVG points
+- **Ramer-Douglas-Peucker simplification** — long routes stay performant
+- **Animated route drawing** — the path "draws itself" on first render
+- **Start (S) and Finish (F) markers** with glow rings; **loop detection** shown automatically
 - **Mile markers** numbered along the path
-- **Compass bearing badge** with direction and loop detection (↻)
-- **Three color modes**: Apollo gold, teal, Strava orange
-- **Three sizes**: thumbnail (activity lists), card (expanded detail), detail (full view)
-- **Hover tooltips** showing distance-at-point
-- Integrated into Activities, Dashboard (Today's Quest + Recent Activities), and Training pages
+- **Compass badge** showing route bearing direction
+- **Three sizes** — thumbnail (activity lists), card (expanded panels), detail (full view)
+- **Hover tooltips** — distance at any point along the route
+- **Art Deco styling** — gold gradients, grid pattern background, corner accents, three color modes (Apollo gold, teal, Strava orange)
+- **Offline caching** — up to 200 routes cached locally with LRU eviction
 
-### Route Effort Recognition
-When you run the same route more than once, Apollo recognizes it and compares your performances with real data.
+Visible throughout the app: Activities, Dashboard, Training Calendar, and the expanded detail panels.
 
-- **Route fingerprinting** — matches repeated routes by start/end location, centroid, and distance (tolerant of GPS drift)
-- **Pace ranking**: gold (course record), silver (2nd fastest), bronze (3rd)
-- **HR efficiency ranking**: gold/silver/bronze based on pace-to-heart-rate ratio
-- **Data-driven insights** — contextual statements like:
-  - *"Your pace was 7:42/mi — 4.2% faster than your last effort on this route"*
-  - *"Heart rate averaged 148 bpm — 13% lower than your last effort"*
-  - *"Improved efficiency — 7:42/mi at 148 bpm vs 8:03/mi at 170 bpm last time"*
-  - *"Cadence was 174 spm — 14 spm higher than your route average"*
-- **Automatic processing** — runs during auto-sync so history builds as you train
-- Visible on Activities (detail panel + list badges), Dashboard (Today's Quest + Recent), and Training (synced day rows)
+---
+
+## Route Effort Recognition
+
+Run the same route twice and Apollo starts building your performance history.
+
+**How routes are matched:**
+Routes are fingerprinted by start/end proximity (300m tolerance), centroid distance (500m), and total distance (±20%). This is deliberately tolerant of GPS drift — if you run the same neighborhood loop but start from a different corner, Apollo still recognizes it.
+
+**What you earn:**
+- 🥇 **Gold** — your course record (fastest pace)
+- 🥈 **Silver** — second fastest
+- 🥉 **Bronze** — third fastest
+- Separate tiers for **HR efficiency** (pace-to-heart-rate ratio) — recognizes when you run the same pace at lower cardiac cost
+
+**What you learn:**
+Apollo generates contextual insights based on real data, not generic encouragement:
+
+> *"Your pace was 7:42/mi — 4.2% faster than your last effort on this route."*
+>
+> *"Heart rate averaged 148 bpm — 13% lower than last time. Your cardiovascular fitness is improving."*
+>
+> *"Improved efficiency — 7:42/mi at 148 bpm vs 8:03/mi at 170 bpm last time."*
+>
+> *"Cadence was 174 spm — 14 spm higher than your route average."*
+>
+> *"Strong improvement — faster pace with lower heart rate."*
+
+Effort history builds automatically during every auto-sync. Up to 100 route bundles, 50 efforts each — stored locally, always available.
+
+---
+
+## Split & Lap Analysis
+
+Every activity with split data gets a detailed pacing breakdown.
+
+**Pace bar chart** — a pure SVG visualization showing pace per split with color-coded bars (fastest, slowest, faster/slower than mean, near mean). Includes a mean pace reference line and optional HR overlay dots.
+
+**Consistency grading:**
+- 🥇 Gold — CV < 4% (metronomic pacing)
+- 🥈 Silver — CV 4–7% (strong consistency)
+- 🥉 Bronze — CV 7–12% (moderate variation)
+- 🔩 Iron — CV ≥ 12% (significant variation)
+
+**Pattern detection:** negative split, positive split, even, fade (slowing in final quarter), surge, variable.
+
+**Interval recognition:** detects alternating fast/slow lap patterns with work × rest count and ratio — so tempo runs and speed sessions are analyzed differently from steady-state efforts.
+
+**Coaching insights** with sentiment coloring — pacing consistency commentary, split pattern analysis, HR drift detection, and progression observations.
+
+---
+
+## Race Prediction Engine
+
+Apollo blends three established models to predict your race times:
+
+| Model | Weight | Method |
+|-------|--------|--------|
+| VDOT | 50% | Jack Daniels' VO2max-equivalent tables |
+| Riegel | 30% | Pete Riegel's time-distance formula (exponent 1.06) |
+| Pace Extrapolation | 20% | Direct pace projection from recent training |
+
+**Predictions for:** Marathon · Half Marathon · 10K · 5K
+
+**Confidence score** (0–100) based on:
+- Number of synced runs (more data = higher confidence)
+- Weeks of plan completed
+- Availability of heart rate data
+- HR efficiency bonus: 2% time improvement when training shows strong pace at low cardiac cost
+
+**Trend tracking:** improving, stable, or declining — so you can see whether your predicted marathon time is moving in the right direction week over week.
+
+---
+
+## Coaching Intelligence
+
+### Daily Training Recaps
+
+After each training day, Apollo grades your effort and delivers a focused coach message.
+
+**Grades:** Outstanding · Strong · Solid · Missed · Rest Day
+
+Each recap includes actual distance vs planned (with ± percentage), pace, duration, HR zone, and a workout-specific message. If you ran an easy day at threshold pace, Apollo will flag it. If you crushed a long run, Apollo acknowledges it. Up to 365 days of recap history.
+
+### Weekly Race Day Readiness
+
+A composite 0–100 score with a letter grade (A+ through D), built from five weighted factors:
+
+| Factor | Weight | What It Measures |
+|--------|--------|-----------------|
+| Volume | 25% | Weekly mileage vs plan target |
+| Consistency | 25% | Run frequency and gap analysis |
+| Long Run | 20% | Longest run completion and distance |
+| Intensity | 15% | Workout type distribution |
+| Recovery | 15% | Rest day compliance and easy run pacing |
+
+Includes: auto-generated strengths and areas to improve, actionable tips for the following week, trend vs previous week, and a days-until-race countdown.
 
 ### Adaptive Training Recommendations
-Apollo monitors your training patterns and surfaces intelligent recommendations when it detects something actionable.
 
-- **5 detection scenarios**: ahead of schedule, behind schedule, overtraining/fatigue, inconsistent execution, race week optimization
-- **Plan modification suggestions** with undo support (original plan snapshot preserved)
-- Rate-limited by frequency setting (daily / weekly / before key workouts)
-- Configurable aggressiveness: conservative / balanced / aggressive
-- Safety guardrails: never increases mileage >10%, taper lock in final week
+Apollo monitors five training scenarios and surfaces recommendations when action is needed:
 
----
+| Scenario | Example Recommendation |
+|----------|----------------------|
+| **Ahead of schedule** | Suggest a 10% mileage increase or maintain current pace |
+| **Behind schedule** | Reduce mileage 20% for two weeks, or add a recovery week at 50% |
+| **Overtraining / fatigue** | Full recovery week (30% reduction) or moderate pullback (15%) |
+| **Inconsistent execution** | Pacing education — easy runs too fast, hard runs too slow, gray zone warnings |
+| **Race week** | Taper advice, estimated race pace, and race-day strategy |
 
-## Features
+All plan modifications are **reversible** — Apollo snapshots the original plan before making changes, and every recommendation includes an undo option. Safety guardrails prevent mileage increases above 10% and lock taper in the final week.
 
-### 1) Guided Onboarding + Plan Selection
+Configurable in Settings: frequency (daily / weekly / before key workouts) and aggressiveness (conservative / balanced / aggressive).
 
-On first launch, runners choose from three paths:
+### Heart Rate Zone Analysis
 
-1. **Browse popular plans** — see all 8 plans with expandable week-by-week schedules (mileage + long runs)
-2. **Find my best plan** — enter current weekly mileage and running days → Apollo recommends the top 3 plans with reasons
-3. **Build from scratch** — set plan name, duration (10–30 weeks), running days, current mileage, and peak mileage → Apollo generates a progressive custom plan with cutback weeks and taper
+Standard five-zone model:
 
-After selecting a plan and start date, a coaching setup step configures daily recaps and weekly readiness notifications.
+| Zone | Name | Effort |
+|------|------|--------|
+| 1 | Recovery | Very easy conversational pace |
+| 2 | Aerobic | Comfortable pace — the engine builder |
+| 3 | Tempo | Comfortably hard — lactate threshold development |
+| 4 | Threshold | Hard — sustainable for ~30 minutes |
+| 5 | VO2 Max | Very hard — peak oxygen uptake training |
 
-### 2) Built-In Marathon Plans
-
-| Plan | Author | Days/Week | Peak (~mi/wk) | Approach |
-|------|--------|-----------|----------------|----------|
-| Novice 1 | Hal Higdon | 4 + cross | ~45 | Most popular first-marathon plan |
-| Novice 2 | Hal Higdon | 4 + cross | ~48 | Step up from Novice 1 |
-| Intermediate 1 | Hal Higdon | 5 + cross | ~50 | For runners with a base |
-| Advanced 1 | Hal Higdon | 5 + cross | ~57 | For PR seekers with speedwork |
-| Beginner (Just Finish) | Hanson's | 6 | ~55 | Cumulative fatigue, long run capped at 16 mi |
-| 18/55 | Pete Pfitzinger | 5 | ~55 | Performance-focused, marathon pace workouts |
-| Marathon Plan | Nike Run Club | 5 | ~52 | Digital-first, guided speed sessions |
-| Run Less, Run Faster | FIRST | 3 + 2 cross | ~40 | 3 quality runs (tempo, intervals, long) |
-
-**Custom Plan Builder**: generates progressive plans with cutback weeks every 4th week (86%), taper (72%/45% final 2 weeks), and varied workouts.
-
-### 3) Plan Tracking + Smart Auto-Sync
-
-- **Week-by-week accordion checklist** with day-by-day toggles
-- **Weekly mileage progress bars** (actual vs planned) per week
-- **Smart Strava auto-sync** (fetches last 14 days):
-  - Matches runs to plan days by date (longest run if multiple on same day)
-  - Auto-completes matched workouts
-  - Generates **workout-specific coaching feedback** (easy pace analysis, tempo/speed session tips, long run guidance)
-  - Tracks **weekly mileage status** (on track / ahead / behind / way behind)
-  - Route thumbnails appear inline on synced training days
-  - Effort recognition badges (gold/silver/bronze) on synced rows
-
-### 4) Activity Route Maps
-
-Pure SVG route visualization for every Strava activity — no external map services or API keys:
-
-- **Polyline decoding** (Google Encoded Polyline Algorithm) into lat/lng coordinates
-- **Equirectangular projection** with latitude correction to SVG x/y points
-- **Ramer-Douglas-Peucker simplification** for performance on long routes
-- **Route analytics**: total distance, segments with cumulative/segment distance, compass bearing, loop detection
-- **Art Deco styled visualization**: gradient paths, start/end markers with glow, mile markers, compass badge, grid pattern background
-- **Local caching**: routes cached for offline access (up to 200 entries with LRU eviction)
-- Displayed in **Activities** (thumbnails + detail maps), **Dashboard** (Today's Quest + Recent), and **Training** (synced day thumbnails)
-
-### 5) Route Effort Recognition
-
-Tracks your performance on repeated routes and provides genuine, data-driven recognition:
-
-- **Route fingerprinting**: identifies same route across runs via start/end proximity (300m), centroid distance (500m), and total distance (±20%). Tolerant of GPS variation
-- **Pace tiers**: gold (course record), silver (2nd), bronze (3rd) — only awarded when there are enough efforts to compare
-- **HR efficiency tiers**: gold/silver/bronze based on pace÷heart rate ratio — recognizes when you run the same pace at lower cardiac cost
-- **Contextual insights** (not generic praise):
-  - **Pace**: "7:42/mi — 4.2% faster than your last effort" or "consistent with your last effort"
-  - **Heart rate**: "148 bpm — 13% lower than your last effort" or "7% below your route average of 162 bpm — your cardiovascular fitness is improving"
-  - **Efficiency**: "Improved efficiency — 7:42/mi at 148 bpm vs 8:03/mi at 170 bpm"
-  - **Cadence**: "174 spm — 14 spm higher than your route average"
-  - **Overall synthesis**: "Strong improvement — faster pace with lower heart rate" or "Your fitness is showing — similar pace at 14% lower cardiac cost"
-- **Processed automatically** during auto-sync — effort history builds as you train
-- All data stored locally, up to 100 route bundles with 50 efforts each
-
-### 6) Insights + Coaching
-
-**Race Prediction Engine**
-- Blends VDOT (50%), Riegel formula (30%), and pace extrapolation (20%)
-- Predicts marathon, half marathon, 10K, and 5K times
-- Confidence score (0–100) based on number of synced runs, weeks completed, and HR data availability
-- HR efficiency bonus: 2% time reduction when training at low HR with strong pace
-- Trend tracking: improving / stable / declining
-
-**Training Adherence Score**
-- Completion rate (35%), distance adherence (25%), consistency (20%), intensity balance (20%)
-- Rated excellent / good / fair / poor
-- Tracks current streak, weekly scores, max gap between runs
-
-**Weekly Race Day Readiness**
-- 0–100 score with letter grade (A+ to D)
-- Five sub-scores: Volume (25%), Consistency (25%), Long Run (20%), Intensity (15%), Recovery (15%)
-- Auto-generated strengths, improvements, and next-week tips
-- Trend detection vs previous week
-- Includes current marathon prediction and days-until-race countdown
-
-**Daily Training Recap**
-- Grade: outstanding / strong / solid / missed / rest_day
-- Actual distance vs planned, pace, duration, HR zone
-- Workout-specific coach messages with HR zone warnings (e.g., easy day at threshold pace)
-- Stores up to 365 days
-
-**Heart Rate Zones**
-- 5-zone model: Recovery, Aerobic, Tempo, Threshold, VO2 Max
-- Zone distribution chart (last 30 days) with 80/20 rule coaching tip
-- HR trend chart (daily avg/max over 30 days)
-- Aerobic efficiency tracking (pace-to-HR ratio)
-- Auto-updates max HR when higher values detected from Strava
-
-**Adaptive Training Recommendations**
-- Ahead of schedule: suggest mileage upgrade (10%) or maintain
-- Behind schedule: reduce mileage (20% for 2 weeks), add recovery week (50%), or self-manage
-- Overtraining/fatigue: recovery week (30% reduction) or moderate reduction (15%)
-- Inconsistent execution: pacing education (easy too fast, hard too slow, gray zone warning)
-- Race week: taper advice, estimated race pace, race-day strategy
-- All modifications reversible with undo
-- Configurable frequency and aggressiveness in Settings
-
-### 7) Integrations
-
-**Strava**
-- OAuth2 flow for both desktop (Electron with redirect to 127.0.0.1) and web (Azure Functions token exchange)
-- Fetches activities, heart rate, cadence, elevation, suffer score, route polylines
-- All data stored locally after sync
-
-**Garmin** (scaffolded)
-- Client ID/Secret fields ready for Garmin developer credentials
-- Full integration ready to build on existing infrastructure
+**Zone distribution chart** (last 30 days) with 80/20 rule guidance — most training should be in Zones 1–2. **HR trend chart** showing daily averages. **Aerobic efficiency tracking** (pace-to-HR ratio over time). Auto-detects and updates max HR when Strava reports a higher value.
 
 ---
 
-## How to Use Apollo for Marathon Training
+## Data Safety & Backups
 
-### Getting Started
+Your training data is important. Apollo protects it at multiple levels.
 
-1. **Launch Apollo** (desktop or web)
-2. **Choose your plan**: browse the 8 built-in plans, use the recommendation engine, or build a custom plan
-3. **Set your start date**: Apollo calculates your full week-by-week schedule through race day
-4. **Connect Strava**: link your Strava account in Settings
-5. **Configure coaching**: enable daily recaps and weekly readiness in the coaching setup
-
-### Daily Workflow
-
-1. **Run your planned workout** — check the Training page for today's scheduled run
-2. **Record on Strava** as usual — with GPS and heart rate if possible
-3. **Open Apollo** — the auto-sync runs automatically on the Dashboard
-4. Your run is matched to today's plan day, workout is auto-completed, and you see:
-   - **Route map** of your run
-   - **Coaching feedback** (distance analysis, pace tips)
-   - **Effort recognition** if you've run this route before (pace/HR rankings, data-driven insights)
-   - **Daily recap** with grade and coach message
-
-### Weekly Check-In
-
-- Review your **Weekly Readiness Score** on the Insights page — see where you're strong and what to improve
-- Check your **race prediction** trend — is your projected time improving?
-- Look at **HR zone distribution** — are you following the 80/20 rule (most training in easy zones)?
-- If Apollo surfaces an **adaptive recommendation**, review and accept/dismiss
-
-### Building to Race Day
-
-- **Track repeat routes** — as you run the same loops, Apollo builds your effort history and you'll start seeing gold/silver/bronze for your best performances
-- **Monitor adherence** — stay above 85% for best results
-- **Watch your readiness grade** climb week by week
-- **Trust the taper** — Apollo adjusts recommendations in race week
-- On race day, check your **estimated marathon time** (refined over your entire training block)
+- **Dual persistence:** every write goes to both localStorage (instant, synchronous) and IndexedDB (durable, async). If either is cleared, the other restores it automatically on next launch.
+- **Automatic backups** — configurable interval (12 hours to 1 week), retention count (how many backups to keep), runs silently on app startup
+- **SHA-256 integrity checksums** — every backup is verified on creation and on restore. Tampered backups are flagged immediately.
+- **One-click export** — download everything as a single JSON file
+- **Safe import** — file size limits (10 MB), per-key size limits (1 MB), key allowlist validation, checksum verification, and a safety backup created before any restore
+- **Backup health monitoring** — Settings shows a status badge (Protected / Warning / At Risk) based on backup age and integrity
+- **Backup history** — every backup listed with date, size, key count, trigger type (auto/manual), and integrity status
 
 ---
 
-## Setup
+## Integrations
+
+### Strava
+
+Full OAuth2 integration for both platforms:
+
+| Platform | Method |
+|----------|--------|
+| **Desktop (Electron)** | Enter Client ID + Client Secret in Settings → OAuth redirect to `127.0.0.1` |
+| **Web** | One-click OAuth via Azure Functions token exchange |
+
+Apollo fetches: activities, heart rate (average + max), cadence, elevation, suffer score, GPS polylines, split data (metric + standard), and lap data.
+
+**Setup (desktop):**
+1. Create an app at [Strava API Settings](https://www.strava.com/settings/api)
+2. Set Authorization Callback Domain to `127.0.0.1`
+3. In Apollo Settings, enter your Client ID and Client Secret
+4. Click **Connect Strava**
+
+**Setup (web):** see [Deploy to Azure Static Web Apps](#deploy-to-azure-static-web-apps).
+
+**Rate limiting:** Apollo tracks Strava's rate limits via response headers and maintains a buffer below the 15-minute and daily caps. Token refresh is mutex-protected to prevent concurrent refresh races.
+
+### Garmin *(scaffolded)*
+
+Client ID and Secret fields are ready in Settings. The integration infrastructure (Activity, Health, Training, and Courses API endpoints) is stubbed and designed to build on the same patterns as the Strava integration.
+
+---
+
+## Your Training Playbook
+
+A guide to getting the most out of Apollo across your training block.
+
+### Week 1 — Getting Started
+
+1. **Launch Apollo** and complete the onboarding — choose a plan, set your start date, pick units, configure coaching
+2. **Connect Strava** in Settings
+3. **Run your first planned workout** and record it on Strava as usual
+4. **Open Apollo** — your run syncs automatically, your day is marked complete, and you receive your first coaching feedback
+
+### Every Run Day
+
+1. Check the **Training Calendar** for today's workout
+2. Run and record on Strava (GPS + heart rate for the richest insights)
+3. Open Apollo — auto-sync fires on the Dashboard. You'll see your route map, coaching feedback, and (once you have repeat routes) effort recognition
+
+### Every Week
+
+- Review **Weekly Readiness** on the Insights page — identify strengths and areas to improve
+- Check your **race prediction** trend — is your projected time getting faster?
+- Look at **HR zone distribution** — are you following the 80/20 rule?
+- If Apollo surfaces an **adaptive recommendation**, review the reasoning and accept or dismiss
+
+### Building Toward Race Day
+
+- **Run your regular routes often** — effort history builds with every repeat, and you'll start earning Gold/Silver/Bronze tiers
+- **Monitor adherence** — above 85% correlates with stronger race outcomes
+- **Watch your readiness grade climb** week by week as consistency compounds
+- **Trust the taper** — Apollo adjusts recommendations in race week and will tell you when to ease off
+- **On race day**, check your predicted marathon time on the Insights page — it's been refined across your entire training block
+
+---
+
+## Setup & Installation
 
 ### Desktop (Electron)
 
@@ -226,35 +501,35 @@ npm install
 npm run dev
 ```
 
-Create production installer:
+This starts both the Vite dev server and the Electron shell. The app opens automatically.
+
+**Production build:**
 
 ```bash
 npm run electron:build
 ```
 
-Output is written to `release/`.
+Output: `release/` directory with platform-specific installers (NSIS on Windows, DMG on macOS, AppImage on Linux).
 
-**Strava (desktop):**
-1. Create an app at [Strava API Settings](https://www.strava.com/settings/api)
-2. Set Authorization Callback Domain to `127.0.0.1`
-3. In Apollo **Settings**, enter Client ID and Client Secret
-4. Click **Connect Strava**
+### Web (Browser Only)
 
-### Web (Browser)
+**Development:**
 
-Build frontend only:
+```bash
+npm install
+npm run dev
+```
+
+Open [http://localhost:5173](http://localhost:5173).
+
+**Production build:**
 
 ```bash
 npm run build:web
-```
-
-Preview static build locally:
-
-```bash
 npm run preview:web
 ```
 
-Run full local stack (frontend + API):
+**Full local stack (frontend + Azure Functions API):**
 
 ```bash
 npm run build:web
@@ -263,121 +538,176 @@ npm --prefix api install
 npm run swa
 ```
 
-Then open `http://localhost:4280`.
+Open [http://localhost:4280](http://localhost:4280).
 
-Create `api/local.settings.json` with:
+Create `api/local.settings.json`:
 
-- `STRAVA_CLIENT_ID`
-- `STRAVA_CLIENT_SECRET`
-- `BASE_URL` (for example `http://localhost:4280`)
-
-### Running Tests
-
-```bash
-npm test
+```json
+{
+  "IsEncrypted": false,
+  "Values": {
+    "STRAVA_CLIENT_ID": "your-client-id",
+    "STRAVA_CLIENT_SECRET": "your-client-secret",
+    "BASE_URL": "http://localhost:4280"
+  }
+}
 ```
-
-219 tests across 8 test files covering:
-- Plan library, custom plan builder, recommendation engine
-- Auto-sync matching, feedback generation, effort processing pipeline
-- Route service (polyline decoding, projection, haversine, bearing, caching, formatting)
-- Effort recognition (fingerprinting, matching, tier ranking, insight generation, persistence)
-- Race prediction (VDOT, Riegel, blending, confidence)
-- Weekly readiness scoring
-- Adaptive training detection
-- Storage layer
 
 ---
 
 ## Deploy to Azure Static Web Apps
 
-Apollo is configured for Azure Static Web Apps (SPA frontend + Azure Functions API).
+Apollo is configured for Azure Static Web Apps with an Azure Functions API backend for Strava OAuth.
 
-### 1) Create Strava App (Web)
+### 1. Create a Strava App
 
 1. Go to [Strava API Settings](https://www.strava.com/settings/api)
 2. Create an app
-3. Set callback domain to your site hostname only (no protocol/path), e.g. `your-app.azurestaticapps.net`
-4. Save Client ID + Client Secret
+3. Set the callback domain to your site hostname only (no protocol or path), e.g., `your-app.azurestaticapps.net`
+4. Save the Client ID and Client Secret
 
-### 2) Create Static Web App in Azure
+### 2. Create the Static Web App
 
-In Azure Portal:
+In the Azure Portal:
 
-- Create **Static Web App**
-- Connect this GitHub repo + branch
+- Create a **Static Web App**
+- Connect this GitHub repository and branch
 - Build settings:
-  - App location: `/`
-  - Output location: `dist`
-  - API location: `api`
-  - App build command: `npm ci && npm run build:web`
+  - **App location:** `/`
+  - **Output location:** `dist`
+  - **API location:** `api`
+  - **App build command:** `npm ci && npm run build:web`
 
-### 3) Add GitHub Secret
+### 3. Add the GitHub Secret
 
-Add repository secret:
+Add a repository secret:
 
-- `AZURE_STATIC_WEB_APPS_API_TOKEN`
+- `AZURE_STATIC_WEB_APPS_API_TOKEN` — the deployment token from Azure
 
-### 4) Add Azure App Settings
+### 4. Add Azure App Settings
 
 | Name | Value |
 |------|-------|
-| `STRAVA_CLIENT_ID` | Strava Client ID |
-| `STRAVA_CLIENT_SECRET` | Strava Client Secret |
+| `STRAVA_CLIENT_ID` | Your Strava Client ID |
+| `STRAVA_CLIENT_SECRET` | Your Strava Client Secret |
 | `BASE_URL` | `https://<your-app>.azurestaticapps.net` |
 
-### 5) Deploy
+### 5. Deploy
 
-Push to your deployment branch and GitHub Actions will build/deploy.
+Push to your deployment branch. GitHub Actions builds and deploys automatically.
 
-Workflow file: `.github/workflows/azure-static-web-apps.yml`
+---
+
+## Running Tests
+
+```bash
+npm test              # single run
+npm run test:watch    # watch mode
+npm run test:coverage # with coverage report
+```
+
+**330 tests** across **11 test files**, all passing:
+
+| Test File | Tests | Coverage Area |
+|-----------|-------|--------------|
+| plans | 52 | Plan library, custom builder, recommendation engine |
+| effortService | 43 | Route fingerprinting, tier ranking, insight generation |
+| splitService | 43 | Split processing, consistency grading, pattern detection |
+| routeService | 41 | Polyline decoding, projection, haversine, bearing, caching |
+| unitPreferences | 41 | Unit conversion, formatting, distance/pace/elevation |
+| autoSync | 28 | Activity matching, mileage tracking, pace classification |
+| backupService | 27 | Create, restore, verify, import, export, health monitoring |
+| racePrediction | 20 | VDOT, Riegel, blending, confidence scoring |
+| adaptiveTraining | 15 | Preference persistence, recommendation lifecycle, analytics |
+| storage | 11 | Token management, credential security, web-mode guards |
+| weeklyReadiness | 9 | Letter grading, boundary values, monotonic ordering |
 
 ---
 
 ## Tech Stack
 
-- **Frontend:** React 18, TypeScript 5, Vite 7, React Router
-- **Desktop shell:** Electron 40
-- **Web backend:** Azure Functions (Node)
-- **Integrations:** Strava API v3 OAuth2
-- **Persistence:** localStorage + IndexedDB (via Dexie) — all data stored locally on device
-- **Route visualization:** Pure SVG (zero external map dependencies)
-- **Testing:** Vitest (219 tests)
-- **Design system:** Art Deco — dark navy (#0D1B2A) + gold (#D4A537), Montserrat / Inter / JetBrains Mono
+| Layer | Technology |
+|-------|-----------|
+| **Frontend** | React 18, TypeScript 5 (strict), Vite 7, React Router 6 |
+| **Desktop** | Electron 40 with secure preload IPC |
+| **Charts** | Recharts 3 (analytics) + custom pure SVG (routes, splits, gauges) |
+| **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
+| **Web API** | Azure Functions (Node) for Strava OAuth token exchange |
+| **Integrations** | Strava API v3 (OAuth2, rate-limited, mutex-protected refresh) |
+| **Testing** | Vitest 4 with jsdom, 330 tests, v8 coverage |
+| **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
+
+---
 
 ## Project Structure
 
 ```
 src/
-  pages/           Dashboard, Training, Activities, Insights, Settings, Welcome flow
-  components/      RouteMap (SVG), AdaptiveRecommendations, ErrorBoundary, LoadingScreen
-  data/plans.ts    Built-in plan library, custom plan generator, recommendation engine
-  services/
-    autoSync.ts         Smart Strava sync + effort processing pipeline
-    routeService.ts     Polyline decoding, projection, route analytics, caching
-    effortService.ts    Route fingerprinting, effort ranking, insight generation
-    analyticsService.ts Training adherence + analytics aggregation
-    racePrediction.ts   VDOT/Riegel/pace prediction blend
-    weeklyReadiness.ts  5-factor readiness scoring
-    adaptiveTraining.ts Training pattern detection + recommendations
-    dailyRecap.ts       Daily grade + coach messaging
-    heartRate.ts        HR zones, distribution, trends, efficiency
-    coachingPreferences.ts  User coaching settings
-    strava.ts           Strava API client
-    garmin.ts           Garmin API scaffolding
-    storage.ts          Cross-platform storage utilities
-    dataManager.ts      Import/export
-    db/
-      apolloDB.ts       Dexie database schema
-      persistence.ts    Unified persistence layer (localStorage + IndexedDB)
-  styles/
-    design-system.css   Full Art Deco design system (CSS custom properties)
-  types/
-    recommendations.ts  Adaptive recommendation types
-  hooks/
-    useAdaptiveRecommendations.ts  React hook for recommendation UI
-  __tests__/        219 tests across 8 test files
-electron/           Electron main + preload
-api/                Azure Functions (Strava token exchange)
-public/             Static assets + SWA config
+├── pages/                  Six app pages + auth callback + 404
+│   ├── Dashboard.tsx         Home — today's quest, stats, recaps, recommendations
+│   ├── Training.tsx          Plan tracking — calendar + checklist + auto-sync
+│   ├── Activities.tsx        Run history — list, detail, splits, effort recognition
+│   ├── Analytics.tsx         Charts — mileage, pace, load, HR, consistency, PRs
+│   ├── Insights.tsx          Coaching — predictions, readiness, recaps, HR zones
+│   ├── Settings.tsx          Config — Strava, units, coaching, backups
+│   └── WelcomeFlow.tsx       Guided onboarding wizard
+│
+├── components/
+│   ├── CalendarView.tsx      Monthly training calendar with day detail panel
+│   ├── RouteMap.tsx          Pure SVG route visualization (thumbnail/card/detail)
+│   ├── SplitAnalysis.tsx     Pace charts, split tables, consistency grading
+│   ├── AdaptiveRecommendations.tsx  Coaching recommendation cards
+│   ├── TierBadge.tsx         Gold/Silver/Bronze achievement badges
+│   ├── ConnectStravaCTA.tsx  Strava connection prompt
+│   ├── ErrorBoundary.tsx     React error boundary
+│   └── LoadingScreen.tsx     Boot loading state
+│
+├── data/
+│   └── plans.ts              8 built-in plans + custom builder + recommendation engine
+│
+├── services/
+│   ├── autoSync.ts           Smart Strava-to-plan matching + feedback generation
+│   ├── routeService.ts       Polyline decoding, projection, caching
+│   ├── effortService.ts      Route fingerprinting + effort ranking + insights
+│   ├── splitService.ts       Split/lap processing + consistency analysis
+│   ├── analyticsService.ts   Stats aggregation, charts data, PRs, streaks
+│   ├── racePrediction.ts     VDOT + Riegel race time predictions
+│   ├── weeklyReadiness.ts    5-factor readiness scoring
+│   ├── adaptiveTraining.ts   Training pattern detection + recommendations
+│   ├── dailyRecap.ts         Daily grade + coach messaging
+│   ├── heartRate.ts          HR zones, distribution, trends, efficiency
+│   ├── backupService.ts      Automatic backups with SHA-256 verification
+│   ├── coachingPreferences.ts  Scheduling and notification settings
+│   ├── unitPreferences.ts    Miles/km toggle + all conversion helpers
+│   ├── strava.ts             Strava API client (rate-limited, mutex refresh)
+│   ├── stravaWeb.ts          Web-mode Strava OAuth helpers
+│   ├── garmin.ts             Garmin API scaffolding
+│   ├── storage.ts            Cross-platform token/credential management
+│   ├── dataManager.ts        Export/import with validation
+│   ├── planProgress.ts       Plan state, completion tracking, sync metadata
+│   └── db/
+│       ├── apolloDB.ts         Dexie IndexedDB schema
+│       └── persistence.ts      Unified persistence layer (cache + IDB + localStorage)
+│
+├── styles/
+│   └── design-system.css     Full Art Deco design system (CSS custom properties)
+│
+├── hooks/
+│   └── useAdaptiveRecommendations.ts
+│
+├── types/
+│   └── recommendations.ts
+│
+└── __tests__/                330 tests across 11 files
+    └── setup.ts              Test harness with in-memory persistence mock
+
+electron/                     Electron main process + secure preload
+api/                          Azure Functions (Strava token exchange)
+public/                       Static assets, PWA manifest, SWA config
 ```
+
+---
+
+## License
+
+MIT © Marc Copeland

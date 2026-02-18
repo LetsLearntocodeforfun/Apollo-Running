@@ -7,6 +7,9 @@ dist/
 dist-electron/
 release/
 
+# Test coverage
+coverage/
+
 # Local API secrets (do not commit)
 api/local.settings.json
 

@@ -20,6 +20,9 @@ import { getStoredActivities } from '../services/analyticsService';
 import { getEffortRecognition } from '../services/effortService';
 import { TIER_CONFIG } from '../components/TierBadge';
 import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
+import CalendarView from '../components/CalendarView';
+
+type TrainingViewMode = 'calendar' | 'checklist';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -148,6 +151,7 @@ export default function Training() {
   const [startDate, setStartDate] = useState(active?.startDate ?? formatDateKey(new Date()));
   const [expandedWeek, setExpandedWeek] = useState<number | null>(() => (getActivePlan() ? 0 : null));
   const [showPicker, setShowPicker] = useState(!active);
+  const [viewMode, setViewMode] = useState<TrainingViewMode>('calendar');
   const [syncing, setSyncing] = useState(false);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [lastSync, setLastSync] = useState<string | null>(() => getLastSyncTime());
@@ -300,6 +304,26 @@ export default function Training() {
                 </div>
               </div>
 
+              {/* View toggle */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                <div className="cal-view-toggle">
+                  <button
+                    type="button"
+                    className={`cal-view-toggle-btn ${viewMode === 'calendar' ? 'cal-view-toggle-btn--active' : ''}`}
+                    onClick={() => setViewMode('calendar')}
+                  >
+                    📅 Calendar
+                  </button>
+                  <button
+                    type="button"
+                    className={`cal-view-toggle-btn ${viewMode === 'checklist' ? 'cal-view-toggle-btn--active' : ''}`}
+                    onClick={() => setViewMode('checklist')}
+                  >
+                    ☰ Checklist
+                  </button>
+                </div>
+              </div>
+
               {showPicker && (
                 <div className="card">
                   <h3>Switch Plan</h3>
@@ -334,8 +358,23 @@ export default function Training() {
                 </div>
               )}
 
+              {/* Calendar view */}
+              {viewMode === 'calendar' && (
+                <div className="card">
+                  <CalendarView
+                    plan={plan}
+                    active={active}
+                    onToggleDay={(weekIndex, dayIndex) => {
+                      toggleDayCompleted(plan.id, weekIndex, dayIndex);
+                      setActiveState(getActivePlan());
+                      forceUpdate((n) => n + 1);
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Week-by-week checklist */}
-              <div className="card">
+              {viewMode === 'checklist' && <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
                   <h3 style={{ margin: 0 }}>Week-by-Week Checklist</h3>
                   <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
@@ -449,7 +488,7 @@ export default function Training() {
                     );
                   })}
                 </div>
-              </div>
+              </div>}
             </>
           )}
         </>
