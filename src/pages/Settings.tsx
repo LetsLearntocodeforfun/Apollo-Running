@@ -34,6 +34,7 @@ import {
   formatBytes,
   type BackupConfig,
 } from '../services/backupService';
+import { getAppPreferences, setAppPreferences, type AppPreferences } from '../services/appPreferences';
 
 export default function Settings() {
   const [stravaClientId, setStravaClientId] = useState('');
@@ -55,6 +56,9 @@ export default function Settings() {
   const [backupHealth] = useState(() => getBackupHealth());
   const [backupRecords, setBackupRecords] = useState(() => getBackupRecords());
   const [backupBusy, setBackupBusy] = useState(false);
+  const [appPrefs, setAppPrefsState] = useState<AppPreferences>(() => getAppPreferences());
+  const [updateState, setUpdateState] = useState<UpdateState | null>(null);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
 
   const showMessage = useCallback((text: string, ms = 3000) => {
     if (messageTimeoutRef.current != null) {
@@ -81,12 +85,26 @@ export default function Settings() {
       setGarminSecret(gcreds.clientSecret);
     }
     setGarminConnected(!!getGarminTokens());
+    // Load initial updater state if available
+    if (window.electronAPI?.updater) {
+      window.electronAPI.updater.getState().then(setUpdateState);
+    }
     return () => {
       if (messageTimeoutRef.current != null) {
         window.clearTimeout(messageTimeoutRef.current);
         messageTimeoutRef.current = null;
       }
     };
+  }, []);
+
+  // Listen for real-time update state changes from main process
+  useEffect(() => {
+    if (!window.electronAPI?.updater) return;
+    const unsub = window.electronAPI.updater.onStateChanged((state) => {
+      setUpdateState(state);
+      setCheckingUpdate(false);
+    });
+    return unsub;
   }, []);
 
   const saveStravaCredentials = () => {
@@ -276,6 +294,203 @@ export default function Settings() {
               <button type="button" onClick={disconnectGarmin} className="btn btn-secondary">Disconnect</button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* ── Auto-Sync & Updates ── */}
+      <div className="card" style={{
+        borderLeftWidth: 3, borderLeftStyle: 'solid',
+        borderLeftColor: 'var(--apollo-teal)',
+      }}>
+        <h3 style={{ color: 'var(--apollo-teal)' }}>Auto-Sync & Updates</h3>
+        <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+          Keep your data fresh and your app up to date automatically. Both features are opt-in.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: 520 }}>
+          {/* Auto Strava Sync on Launch */}
+          <div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={appPrefs.autoSyncOnLaunch}
+                onChange={(e) => {
+                  const next = { ...appPrefs, autoSyncOnLaunch: e.target.checked };
+                  setAppPreferences(next);
+                  setAppPrefsState(next);
+                  showMessage('Auto Strava sync on launch ' + (e.target.checked ? 'enabled' : 'disabled') + '.');
+                }}
+                style={{ width: 18, height: 18, accentColor: 'var(--strava)' }}
+              />
+              <span style={{ fontWeight: 500 }}>Sync Strava when app opens</span>
+              {!stravaConnected && (
+                <span style={{
+                  fontSize: '0.68rem', background: 'var(--color-warning-dim, rgba(224,123,48,0.12))',
+                  color: 'var(--color-warning, #E07B30)', padding: '0.1rem 0.5rem',
+                  borderRadius: 'var(--radius-full)', fontWeight: 600,
+                  fontFamily: 'var(--font-display)',
+                }}>Connect Strava first</span>
+              )}
+            </label>
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.35rem 0 0 1.65rem', lineHeight: 1.4 }}>
+              Automatically sync your latest runs from Strava each time Apollo opens. Uses a 5-minute cooldown to avoid redundant requests.
+            </p>
+          </div>
+
+          {/* Auto-Update (Electron only) */}
+          {window.electronAPI?.updater && (
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1.25rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>App Updates</span>
+                <span style={{
+                  fontSize: '0.65rem', background: 'rgba(76, 175, 80, 0.12)',
+                  color: 'var(--color-success, #4CAF50)', padding: '0.1rem 0.5rem',
+                  borderRadius: 'var(--radius-full)', fontWeight: 600,
+                  fontFamily: 'var(--font-display)',
+                }}>Recommended</span>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={appPrefs.autoCheckUpdates}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      const next: AppPreferences = {
+                        ...appPrefs,
+                        autoCheckUpdates: checked,
+                        // If unchecking auto-check, also disable auto-download
+                        autoDownloadUpdates: checked ? appPrefs.autoDownloadUpdates : false,
+                      };
+                      setAppPreferences(next);
+                      setAppPrefsState(next);
+                      // Reconfigure the main process immediately
+                      window.electronAPI?.updater.configure({
+                        autoCheck: next.autoCheckUpdates,
+                        autoDownload: next.autoDownloadUpdates,
+                      });
+                      showMessage('Auto-check for updates ' + (checked ? 'enabled' : 'disabled') + '.');
+                    }}
+                    style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                  />
+                  <span style={{ fontWeight: 500 }}>Check for updates on launch</span>
+                </label>
+
+                {appPrefs.autoCheckUpdates && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', marginLeft: '1.65rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={appPrefs.autoDownloadUpdates}
+                      onChange={(e) => {
+                        const next = { ...appPrefs, autoDownloadUpdates: e.target.checked };
+                        setAppPreferences(next);
+                        setAppPrefsState(next);
+                        window.electronAPI?.updater.configure({
+                          autoCheck: next.autoCheckUpdates,
+                          autoDownload: next.autoDownloadUpdates,
+                        });
+                        showMessage('Auto-download updates ' + (e.target.checked ? 'enabled' : 'disabled') + '.');
+                      }}
+                      style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
+                    />
+                    <span style={{ fontWeight: 500 }}>Download updates automatically</span>
+                  </label>
+                )}
+              </div>
+
+              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.5rem 0 0 1.65rem', lineHeight: 1.4 }}>
+                Apollo checks GitHub for new releases. Updates are never forced — you always decide when to install. Enabling auto-update keeps you on the latest version with the newest features and bug fixes.
+              </p>
+
+              {/* Manual update controls & status */}
+              <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={checkingUpdate}
+                    style={{ fontSize: 'var(--text-sm)' }}
+                    onClick={async () => {
+                      setCheckingUpdate(true);
+                      try {
+                        const state = await window.electronAPI!.updater.check();
+                        setUpdateState(state);
+                        if (state.status === 'not-available') {
+                          showMessage('You\'re on the latest version.');
+                        }
+                      } catch {
+                        showMessage('Could not check for updates.');
+                      } finally {
+                        setCheckingUpdate(false);
+                      }
+                    }}
+                  >
+                    {checkingUpdate ? 'Checking…' : 'Check for Updates'}
+                  </button>
+
+                  {updateState?.status === 'available' && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ fontSize: 'var(--text-sm)' }}
+                      onClick={async () => {
+                        const state = await window.electronAPI!.updater.download();
+                        setUpdateState(state);
+                      }}
+                    >
+                      Download v{updateState.version}
+                    </button>
+                  )}
+
+                  {updateState?.status === 'downloaded' && (
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      style={{ fontSize: 'var(--text-sm)' }}
+                      onClick={() => window.electronAPI!.updater.install()}
+                    >
+                      Restart & Install
+                    </button>
+                  )}
+                </div>
+
+                {/* Progress / status display */}
+                {updateState?.status === 'downloading' && updateState.downloadProgress != null && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{
+                      flex: 1, height: 6, background: 'var(--bg-surface, #1B2838)',
+                      borderRadius: 'var(--radius-full)', overflow: 'hidden',
+                    }}>
+                      <div style={{
+                        width: `${updateState.downloadProgress}%`, height: '100%',
+                        background: 'var(--apollo-teal)', borderRadius: 'var(--radius-full)',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                    <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums', minWidth: 36 }}>
+                      {updateState.downloadProgress}%
+                    </span>
+                  </div>
+                )}
+
+                {updateState?.status === 'downloaded' && (
+                  <div style={{
+                    fontSize: '0.82rem', color: 'var(--color-success, #4CAF50)',
+                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                  }}>
+                    <span>✓</span> Update v{updateState.version} downloaded — ready to install
+                  </div>
+                )}
+
+                {updateState?.status === 'error' && (
+                  <div style={{ fontSize: '0.82rem', color: 'var(--color-error, #f44336)' }}>
+                    {updateState.error}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

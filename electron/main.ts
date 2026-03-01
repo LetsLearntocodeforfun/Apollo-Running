@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell, safeStorage } from 'electron';
+import { autoUpdater, type UpdateInfo } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
 import http from 'http';
@@ -409,4 +410,135 @@ ipcMain.handle('secure-storage:remove', (_, key: string) => {
 /** Check if safeStorage encryption is available */
 ipcMain.handle('secure-storage:is-available', () => {
   return safeStorage.isEncryptionAvailable();
+});
+
+// ----- Auto-Updater -----
+// Uses electron-updater with GitHub releases. Opt-in only — the renderer
+// sends preferences via IPC and the main process respects them.
+
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = false;
+autoUpdater.logger = isDev ? console : null;
+
+type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+
+interface UpdateState {
+  status: UpdateStatus;
+  version: string | null;
+  releaseNotes: string | null;
+  downloadProgress: number | null;
+  error: string | null;
+}
+
+const updateState: UpdateState = {
+  status: 'idle',
+  version: null,
+  releaseNotes: null,
+  downloadProgress: null,
+  error: null,
+};
+
+function sendUpdateState(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+  mainWindow.webContents.send('updater:state-changed', { ...updateState });
+}
+
+autoUpdater.on('checking-for-update', () => {
+  updateState.status = 'checking';
+  updateState.error = null;
+  sendUpdateState();
+});
+
+autoUpdater.on('update-available', (info: UpdateInfo) => {
+  updateState.status = 'available';
+  updateState.version = info.version;
+  updateState.releaseNotes = typeof info.releaseNotes === 'string'
+    ? info.releaseNotes
+    : Array.isArray(info.releaseNotes)
+      ? info.releaseNotes.map(n => typeof n === 'string' ? n : n.note).join('\n')
+      : null;
+  sendUpdateState();
+});
+
+autoUpdater.on('update-not-available', () => {
+  updateState.status = 'not-available';
+  updateState.error = null;
+  sendUpdateState();
+});
+
+autoUpdater.on('download-progress', (progress) => {
+  updateState.status = 'downloading';
+  updateState.downloadProgress = Math.round(progress.percent);
+  sendUpdateState();
+});
+
+autoUpdater.on('update-downloaded', () => {
+  updateState.status = 'downloaded';
+  updateState.downloadProgress = 100;
+  sendUpdateState();
+});
+
+autoUpdater.on('error', (err) => {
+  updateState.status = 'error';
+  updateState.error = err?.message ?? 'Unknown update error';
+  sendUpdateState();
+});
+
+/** Renderer asks for current update state */
+ipcMain.handle('updater:get-state', () => {
+  return { ...updateState };
+});
+
+/** Renderer triggers a manual check for updates */
+ipcMain.handle('updater:check', async () => {
+  if (isDev) {
+    return { status: 'not-available', version: null, releaseNotes: null, downloadProgress: null, error: 'Updates disabled in development mode' };
+  }
+  try {
+    await autoUpdater.checkForUpdates();
+    return { ...updateState };
+  } catch (err) {
+    updateState.status = 'error';
+    updateState.error = err instanceof Error ? err.message : String(err);
+    return { ...updateState };
+  }
+});
+
+/** Renderer triggers download of the available update */
+ipcMain.handle('updater:download', async () => {
+  if (updateState.status !== 'available') return { ...updateState };
+  try {
+    await autoUpdater.downloadUpdate();
+    return { ...updateState };
+  } catch (err) {
+    updateState.status = 'error';
+    updateState.error = err instanceof Error ? err.message : String(err);
+    return { ...updateState };
+  }
+});
+
+/** Install the downloaded update and restart */
+ipcMain.handle('updater:install', () => {
+  if (updateState.status === 'downloaded') {
+    autoUpdater.quitAndInstall(false, true);
+  }
+  return { ...updateState };
+});
+
+/**
+ * Renderer sends auto-update preferences so the main process can
+ * act on them (e.g. auto-check + auto-download on launch).
+ */
+ipcMain.handle('updater:configure', async (_, prefs: { autoCheck: boolean; autoDownload: boolean }) => {
+  if (isDev) return { ...updateState };
+  autoUpdater.autoDownload = prefs.autoDownload;
+  autoUpdater.autoInstallOnAppQuit = prefs.autoDownload;
+  if (prefs.autoCheck) {
+    try {
+      await autoUpdater.checkForUpdates();
+    } catch {
+      // Non-fatal — user will see error state in UI
+    }
+  }
+  return { ...updateState };
 });

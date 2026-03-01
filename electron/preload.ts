@@ -31,4 +31,36 @@ contextBridge.exposeInMainWorld('electronAPI', {
     isAvailable: (): Promise<boolean> =>
       ipcRenderer.invoke('secure-storage:is-available'),
   },
+  updater: {
+    /** Get current update state */
+    getState: (): Promise<UpdateState> =>
+      ipcRenderer.invoke('updater:get-state'),
+    /** Manually check for updates */
+    check: (): Promise<UpdateState> =>
+      ipcRenderer.invoke('updater:check'),
+    /** Download an available update */
+    download: (): Promise<UpdateState> =>
+      ipcRenderer.invoke('updater:download'),
+    /** Install downloaded update and restart */
+    install: (): Promise<UpdateState> =>
+      ipcRenderer.invoke('updater:install'),
+    /** Send auto-update preferences to main process */
+    configure: (prefs: { autoCheck: boolean; autoDownload: boolean }): Promise<UpdateState> =>
+      ipcRenderer.invoke('updater:configure', prefs),
+    /** Listen for update state changes from the main process */
+    onStateChanged: (callback: (state: UpdateState) => void): (() => void) => {
+      const handler = (_event: unknown, state: UpdateState) => callback(state);
+      ipcRenderer.on('updater:state-changed', handler);
+      return () => ipcRenderer.removeListener('updater:state-changed', handler);
+    },
+  },
 });
+
+// Type used by the updater bridge (mirrors main process UpdateState)
+interface UpdateState {
+  status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
+  version: string | null;
+  releaseNotes: string | null;
+  downloadProgress: number | null;
+  error: string | null;
+}
