@@ -1,15 +1,4 @@
-/**
- * effortService.ts — Route Effort Recognition Engine for Apollo Running.
- *
- * Identifies repeated routes from Strava activities, tracks every effort
- * on each route, and generates data-driven achievements and insights.
- *
- * Capabilities:
- *   - Route fingerprinting via start/end/centroid/distance matching
- *   - Effort ranking: gold / silver / bronze for pace and HR efficiency
- *   - Comparative insights: pace deltas, HR improvements, cadence changes
- *   - All data stored locally, computed during the auto-sync pipeline
- */
+// Route effort recognition — identifies repeated routes and tracks performance.
 
 import { persistence } from './db/persistence';
 import { decodePolyline, haversineDistance, type LatLng } from './routeService';
@@ -28,9 +17,7 @@ export interface RouteFingerprint {
   endLng: number;
   centroidLat: number;
   centroidLng: number;
-  /** Reference distance in meters (average of all efforts). */
   referenceDistanceMeters: number;
-  /** Human-readable name derived from activity names. */
   name: string;
 }
 
@@ -56,7 +43,7 @@ export interface RouteBundle {
 export interface EffortInsight {
   category: 'pace' | 'heart_rate' | 'efficiency' | 'cadence' | 'overall';
   message: string;
-  /** positive = improvement, neutral = baseline/no change, negative = regression */
+  /** positive = improvement, negative = regression */
   sentiment: 'positive' | 'neutral' | 'negative';
 }
 
@@ -64,14 +51,10 @@ export interface EffortRecognition {
   activityId: number;
   routeId: string;
   routeName: string;
-  /** Which effort this is, e.g. 5 = 5th time running this route. */
   effortNumber: number;
   totalEfforts: number;
-  /** Pace ranking tier (null if < 2 efforts or not in top 3). */
   paceTier: AchievementTier | null;
-  /** HR efficiency ranking tier (null if insufficient HR data or not top 3). */
   hrEfficiencyTier: AchievementTier | null;
-  /** Data-driven insight statements. */
   insights: EffortInsight[];
   analyzedAt: string;
 }

@@ -1,10 +1,3 @@
-/**
- * effortService.test.ts — Tests for the Route Effort Recognition Engine.
- *
- * Covers: route fingerprinting & matching, effort ranking, pace / HR / cadence
- * insight generation, tier assignment, persistence, and edge cases.
- */
-
 import { describe, it, expect } from 'vitest';
 import {
   processActivityEffort,
@@ -106,11 +99,11 @@ describe('assignTier', () => {
 
 describe('formatPaceFromMinPerMi', () => {
   it('formats a normal pace', () => {
-    expect(formatPaceFromMinPerMi(8.5)).toMatch(/^8:30/);
+    expect(formatPaceFromMinPerMi(8.5)).toBe('8:30/mi');
   });
 
   it('formats a fast pace', () => {
-    expect(formatPaceFromMinPerMi(6.0)).toMatch(/^6:00/);
+    expect(formatPaceFromMinPerMi(6.0)).toBe('6:00/mi');
   });
 
   it('returns dash for zero', () => {

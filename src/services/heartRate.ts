@@ -1,8 +1,4 @@
-/**
- * Heart Rate Zones — zone definitions, HR data storage, and zone analysis.
- * Supports both Strava and Garmin HR data sources.
- * Uses standard 5-zone model (identical to Strava's zone display).
- */
+// Heart rate zones — zone definitions, HR data storage, and zone analysis.
 
 import { persistence } from './db/persistence';
 

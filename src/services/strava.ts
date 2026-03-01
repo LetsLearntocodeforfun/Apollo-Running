@@ -1,7 +1,4 @@
-/**
- * Strava API client — handles token refresh, authenticated requests,
- * and typed wrappers for athlete/activity endpoints.
- */
+// Strava API client — token refresh, rate limiting, typed endpoint wrappers.
 
 import { getStravaTokens, setStravaTokens, getStravaCredentials, type StravaTokens } from './storage';
 import { refreshStravaToken, isWeb } from './stravaWeb';

@@ -10,6 +10,7 @@ import Insights from './pages/Insights';
 import WelcomeFlow from './pages/WelcomeFlow';
 import AuthStravaCallback from './pages/AuthStravaCallback';
 import NotFound from './pages/NotFound';
+import RaceStrategyPage from './pages/RaceStrategy';
 import { getWelcomeCompleted } from './services/planProgress';
 
 const logoUrl = new URL('/assets/logo-1024.png', import.meta.url).href;
@@ -47,6 +48,9 @@ function AppShell() {
           <NavLink to="/insights" className={({ isActive }) => (isActive ? 'active' : '')}>
             <span className="nav-icon">📊</span> Insights
           </NavLink>
+          <NavLink to="/race-strategy" className={({ isActive }) => (isActive ? 'active' : '')}>
+            <span className="nav-icon">🏅</span> Race Strategy
+          </NavLink>
           <NavLink to="/settings" className={({ isActive }) => (isActive ? 'active' : '')}>
             <span className="nav-icon">⚙</span> Settings
           </NavLink>
@@ -60,6 +64,7 @@ function AppShell() {
             <Route path="/analytics" element={<Analytics />} />
             <Route path="/activities" element={<Activities />} />
             <Route path="/insights" element={<Insights />} />
+            <Route path="/race-strategy" element={<RaceStrategyPage />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/auth/strava/callback" element={<AuthStravaCallback />} />
             <Route path="*" element={<NotFound />} />

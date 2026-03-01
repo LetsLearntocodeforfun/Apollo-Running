@@ -1,22 +1,5 @@
-/**
- * Credential and token persistence layer.
- *
- * Security model:
- *   - **Electron**: Sensitive credentials (client secrets, OAuth tokens) are
- *     encrypted at rest using the OS keychain via Electron's safeStorage API
- *     and stored in a separate file in the app's userData directory. This
- *     protects against localStorage/XSS-based credential theft.
- *   - **Web**: Client secrets are NEVER stored in the browser. The frontend
- *     only holds short-lived access tokens; refresh/exchange flows go through
- *     the Azure Functions backend (BFF pattern). The setStravaCredentials and
- *     setGarminCredentials functions are no-ops on web.
- *   - **Non-sensitive data** continues to flow through the persistence service
- *     (IndexedDB primary, localStorage fallback).
- *
- * Migration: On first run in Electron, any existing plaintext credentials in
- * persistence/localStorage are automatically migrated to secure storage and
- * the plaintext copies are removed.
- */
+// Credential & token storage.
+// Electron: encrypted via OS keychain (safeStorage). Web: short-lived tokens only (BFF pattern).
 
 import { persistence } from './db/persistence';
 

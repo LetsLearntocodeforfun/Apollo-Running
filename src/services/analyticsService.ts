@@ -1,9 +1,4 @@
-/**
- * analyticsService.ts — Comprehensive analytics engine for Apollo Running.
- * Calculates weekly mileage trends, pace progression, training load,
- * personal records, HR efficiency, consistency, and race predictions.
- * All data derived from Strava activities stored locally.
- */
+// Analytics engine: weekly mileage, pace trends, training load, PRs, HR efficiency.
 
 import { persistence } from './db/persistence';
 import type { StravaActivity } from './strava';
@@ -14,6 +9,8 @@ import {
   formatMiles,
   formatElevation,
   unitLabel,
+  calcPaceMinPerMi,
+  formatPaceShort,
 } from './unitPreferences';
 
 const ANALYTICS_CACHE_KEY = 'apollo_analytics_cache';

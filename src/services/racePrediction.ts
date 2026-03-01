@@ -1,8 +1,4 @@
-/**
- * Race Time Prediction Engine — uses VDOT tables, Riegel formula, and
- * training load analysis to predict marathon finish times.
- * Updates daily after Strava sync with fresh data.
- */
+// Race time prediction — VDOT tables, Riegel formula, training load analysis.
 
 import { getAllSyncMeta, getActivePlan, getCompletedCount } from './planProgress';
 import { getPlanById } from '../data/plans';

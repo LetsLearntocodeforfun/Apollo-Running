@@ -1,24 +1,6 @@
-/**
- * Persistence Layer — unified storage abstraction for Apollo Running.
- *
- * Architecture:
- *   1. In-memory cache for instant synchronous reads (React demands this)
- *   2. IndexedDB (via Dexie) as the durable backing store
- *   3. localStorage as a sync fallback and migration source
- *
- * How it works:
- *   - On construction, cache is populated from localStorage (synchronous, instant)
- *   - In background, IndexedDB is loaded; any keys missing from cache are restored
- *   - If IndexedDB is empty (first run), localStorage data is migrated into it
- *   - All writes go to: cache → IndexedDB (async) → localStorage (sync fallback)
- *   - If localStorage is cleared (browser cache clear), IndexedDB restores the data
- *
- * Benefits over raw localStorage:
- *   - ~100s MB capacity vs 5-10 MB
- *   - Self-healing: clears to localStorage are recovered from IndexedDB
- *   - Foundation for structured tables, offline sync, and larger datasets
- *   - All existing service code continues to work with synchronous reads
- */
+// Persistence layer — in-memory cache + IndexedDB (Dexie) + localStorage fallback.
+// Writes go to: cache → IndexedDB (async) → localStorage (sync fallback).
+// If localStorage is cleared, IndexedDB restores the data.
 
 import { db } from './apolloDB';
 

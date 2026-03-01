@@ -1,6 +1,4 @@
-/**
- * Strava API helpers for web (no Electron): call our backend to refresh tokens.
- */
+// Strava API helpers for web (no Electron) — backend-proxied token exchange.
 
 const API = '/api';
 

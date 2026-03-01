@@ -1,31 +1,14 @@
-/**
- * backupService.ts — Automated Backup & Data Integrity Engine for Apollo Running.
- *
- * Protects months and years of training data with:
- *   - Automated periodic backups (configurable interval)
- *   - SHA-256 integrity checksums for tamper/corruption detection
- *   - Backup rotation (keeps last N backups, prunes oldest)
- *   - Backup health monitoring and alerts
- *   - Electron: saves to filesystem (userData/backups/)
- *   - Web: stores in IndexedDB backup table + prompts download
- *   - Manual export/import with checksum verification
- *
- * All data stays local — the user is always in control.
- */
+// Automated backup & data integrity — periodic backups, SHA-256 checksums, rotation.
 
-import { persistence } from './db/persistence';
+import { persistence, CREDENTIAL_KEYS } from './db/persistence';
 import { exportAllData, type BackupData } from './dataManager';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface BackupConfig {
-  /** Whether automatic backups are enabled. */
   autoBackupEnabled: boolean;
-  /** Interval between automatic backups in hours. */
   intervalHours: number;
-  /** Maximum number of backups to keep. Oldest are pruned. */
   maxBackups: number;
-  /** Whether to verify integrity on app startup. */
   verifyOnStartup: boolean;
 }
 
@@ -592,8 +575,6 @@ export async function importFromFile(
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-const CREDENTIAL_KEYS = new Set(['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials']);
 
 function isCredentialKey(key: string): boolean {
   return CREDENTIAL_KEYS.has(key);

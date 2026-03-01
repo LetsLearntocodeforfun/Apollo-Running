@@ -1,18 +1,5 @@
-/**
- * Adaptive Training Recommendations Engine
- *
- * Analyzes Strava sync data, plan progress, and readiness scores to generate
- * intelligent, coach-style plan adjustment recommendations.
- *
- * Detects five scenarios:
- *   1. Ahead of schedule — suggest upgrading or faster goals
- *   2. Behind schedule — suggest reducing load or extending timeline
- *   3. Overtraining / fatigue — force rest, reduce mileage
- *   4. Inconsistent execution — pacing education, target adjustment
- *   5. Race week optimization — taper and race-day strategy
- *
- * All state is persisted via IndexedDB (with localStorage fallback) for offline-first operation.
- */
+// Adaptive training recommendations — analyzes sync data, plan progress, and readiness
+// to generate coach-style plan adjustment suggestions.
 
 import {
   getActivePlan,

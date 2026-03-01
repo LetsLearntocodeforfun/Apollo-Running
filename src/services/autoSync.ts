@@ -48,10 +48,19 @@ export interface WeeklyMileage {
   message: string;
 }
 
-/** Check if a Strava activity is a running type */
+const RUN_TYPES = ['Run', 'VirtualRun', 'TrailRun'];
+
 export function isRunActivity(activity: StravaActivity): boolean {
-  const runTypes = ['Run', 'VirtualRun', 'TrailRun'];
-  return runTypes.includes(activity.type) || runTypes.includes(activity.sport_type);
+  return RUN_TYPES.includes(activity.type) || RUN_TYPES.includes(activity.sport_type);
+}
+
+/** Format pace as "M:SS/mi" (hardcoded unit — for internal feedback strings). */
+export function formatPaceMinPerMi(paceMinPerMi: number): string {
+  if (!paceMinPerMi) return '—';
+  const totalSec = Math.round(paceMinPerMi * 60);
+  const min = Math.floor(totalSec / 60);
+  const sec = totalSec % 60;
+  return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
 /** Get the date string (YYYY-MM-DD) from a Strava activity */

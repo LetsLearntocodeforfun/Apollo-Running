@@ -21,6 +21,7 @@ import { getEffortRecognition } from '../services/effortService';
 import { TIER_CONFIG } from '../components/TierBadge';
 import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
 import CalendarView from '../components/CalendarView';
+import { isRaceStrategyEnabled, enableRaceStrategy } from '../services/raceStrategy';
 
 type TrainingViewMode = 'calendar' | 'checklist';
 
@@ -278,6 +279,33 @@ export default function Training() {
                   Begin Training
                 </button>
               </div>
+            </div>
+          )}
+
+          {/* Race Strategy suggestion — shown when picking a plan if feature not yet enabled */}
+          {plan && !isRaceStrategyEnabled() && (
+            <div className="card" style={{
+              background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
+              borderLeft: '3px solid var(--apollo-teal)',
+              display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
+            }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--apollo-teal)', marginBottom: '0.25rem' }}>
+                  Planning a specific race?
+                </div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', margin: 0, lineHeight: 1.5 }}>
+                  Enable <strong>Race Strategy</strong> to build mile-by-mile pacing plans for World Major
+                  Marathons or any race. Course profiles, elevation analysis, and nutrition planning included.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => { enableRaceStrategy(); forceUpdate((n) => n + 1); }}
+                style={{ fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' }}
+              >
+                Enable Race Strategy
+              </button>
             </div>
           )}
         </>

@@ -8,9 +8,9 @@ import { describe, it, expect } from 'vitest';
 import {
   metersToMiles,
   calcPaceMinPerMi,
-  formatPaceFromMinPerMi,
 } from '@/services/unitPreferences';
 import {
+  formatPaceMinPerMi,
   isRunActivity,
 } from '@/services/autoSync';
 import type { StravaActivity } from '@/services/strava';
@@ -90,33 +90,33 @@ describe('calcPaceMinPerMi', () => {
 
 // ── formatPaceMinPerMi ────────────────────────────────────────────────────────
 
-describe('formatPaceFromMinPerMi', () => {
+describe('formatPaceMinPerMi', () => {
   it('should format a 10:00 pace', () => {
-    expect(formatPaceFromMinPerMi(10)).toMatch(/^10:00/);
+    expect(formatPaceMinPerMi(10)).toBe('10:00/mi');
   });
 
   it('should format an 8:30 pace', () => {
-    expect(formatPaceFromMinPerMi(8.5)).toMatch(/^8:30/);
+    expect(formatPaceMinPerMi(8.5)).toBe('8:30/mi');
   });
 
   it('should format a 7:15 pace', () => {
-    expect(formatPaceFromMinPerMi(7.25)).toMatch(/^7:15/);
+    expect(formatPaceMinPerMi(7.25)).toBe('7:15/mi');
   });
 
   it('should format a 6:00 pace', () => {
-    expect(formatPaceFromMinPerMi(6)).toMatch(/^6:00/);
+    expect(formatPaceMinPerMi(6)).toBe('6:00/mi');
   });
 
   it('should pad seconds with leading zero', () => {
-    expect(formatPaceFromMinPerMi(9.0833)).toMatch(/^9:05/);
+    expect(formatPaceMinPerMi(9.0833)).toBe('9:05/mi');
   });
 
   it('should return dash for 0 pace', () => {
-    expect(formatPaceFromMinPerMi(0)).toBe('—');
+    expect(formatPaceMinPerMi(0)).toBe('—');
   });
 
   it('should handle decimal paces correctly', () => {
-    expect(formatPaceFromMinPerMi(8.75)).toMatch(/^8:45/);
+    expect(formatPaceMinPerMi(8.75)).toBe('8:45/mi');
   });
 });
 

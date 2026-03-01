@@ -1,8 +1,4 @@
-/**
- * Race Day Readiness Score — weekly recap engine that evaluates training quality,
- * generates actionable suggestions, and builds toward race-day confidence.
- * Score is 0-100, updated weekly, with trend analysis.
- */
+// Race Day Readiness Score — weekly training quality evaluation, 0-100 with trend analysis.
 
 import { getActivePlan, getAllSyncMeta, getWeekDayForDate } from './planProgress';
 import { getPlanById } from '../data/plans';

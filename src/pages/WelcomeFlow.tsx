@@ -17,8 +17,9 @@ import {
   WEEKDAY_NAMES,
 } from '../services/coachingPreferences';
 import { getDistanceUnit, setDistanceUnit, type DistanceUnit } from '../services/unitPreferences';
+import { enableRaceStrategy } from '../services/raceStrategy';
 
-type Step = 'choice' | 'recommend' | 'overview' | 'custom-builder' | 'start-date' | 'unit-select' | 'coaching';
+type Step = 'choice' | 'recommend' | 'overview' | 'custom-builder' | 'start-date' | 'unit-select' | 'race-strategy' | 'coaching';
 
 export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState<Step>('choice');
@@ -38,6 +39,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
   const [weeklyRecapEnabled, setWeeklyRecapEnabled] = useState(true);
   const [weeklyRecapDay, setWeeklyRecapDay] = useState(6);
   const [selectedUnit, setSelectedUnit] = useState<DistanceUnit>(getDistanceUnit());
+  const [raceStrategyInterested, setRaceStrategyInterested] = useState(false);
 
   const plan = selectedPlanId ? getPlanById(selectedPlanId) : null;
 
@@ -76,6 +78,13 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
 
   const handleConfirmUnit = () => {
     setDistanceUnit(selectedUnit);
+    setStep('race-strategy');
+  };
+
+  const handleRaceStrategyNext = () => {
+    if (raceStrategyInterested) {
+      enableRaceStrategy();
+    }
     setStep('coaching');
   };
 
@@ -458,6 +467,70 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
     );
   }
 
+  if (step === 'race-strategy') {
+    return (
+      <div className="welcome-flow">
+        <div className="welcome-card" style={{ maxWidth: 580 }}>
+          <h1 className="welcome-title">Race Strategy Planner</h1>
+          <p className="welcome-text">
+            Are you training for a specific marathon? Apollo can help you build a
+            <strong> course-specific race strategy</strong> with mile-by-mile pacing,
+            elevation analysis, and nutrition planning.
+          </p>
+          <p className="welcome-hint">
+            Includes all six World Marathon Majors (Boston, London, Berlin, Chicago, NYC, Tokyo)
+            with full course data, plus the ability to import any other marathon.
+          </p>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', margin: '1.5rem 0' }}>
+            <button
+              type="button"
+              onClick={() => setRaceStrategyInterested(true)}
+              style={{
+                flex: 1, maxWidth: 220, padding: '1.5rem 1rem',
+                borderRadius: 'var(--radius-lg)',
+                border: raceStrategyInterested ? '2px solid var(--apollo-gold)' : '2px solid var(--border)',
+                background: raceStrategyInterested ? 'var(--apollo-gold-dim)' : 'var(--bg)',
+                color: raceStrategyInterested ? 'var(--apollo-gold)' : 'var(--text-secondary)',
+                cursor: 'pointer', textAlign: 'center', transition: 'all var(--transition-fast)',
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🏅</div>
+              <strong style={{ fontSize: '1.05rem', display: 'block', fontFamily: 'var(--font-display)' }}>Yes, I'm interested!</strong>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>Enable race strategy planning</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setRaceStrategyInterested(false)}
+              style={{
+                flex: 1, maxWidth: 220, padding: '1.5rem 1rem',
+                borderRadius: 'var(--radius-lg)',
+                border: !raceStrategyInterested ? '2px solid var(--apollo-teal)' : '2px solid var(--border)',
+                background: !raceStrategyInterested ? 'var(--apollo-teal-dim)' : 'var(--bg)',
+                color: !raceStrategyInterested ? 'var(--apollo-teal)' : 'var(--text-secondary)',
+                cursor: 'pointer', textAlign: 'center', transition: 'all var(--transition-fast)',
+              }}
+            >
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>⏭️</div>
+              <strong style={{ fontSize: '1.05rem', display: 'block', fontFamily: 'var(--font-display)' }}>Maybe Later</strong>
+              <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>You can enable it anytime</span>
+            </button>
+          </div>
+
+          <div className="welcome-actions">
+            <button type="button" className="btn btn-primary welcome-btn" onClick={handleRaceStrategyNext}>
+              Next
+            </button>
+            <button type="button" className="btn btn-secondary welcome-btn" onClick={() => setStep('unit-select')}>
+              Back
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // step === 'coaching'
   return (
     <div className="welcome-flow">
@@ -558,7 +631,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
           <button type="button" className="btn btn-primary welcome-btn" onClick={handleFinishCoaching}>
             Let&apos;s go!
           </button>
-          <button type="button" className="btn btn-secondary welcome-btn" onClick={() => setStep('start-date')}>
+          <button type="button" className="btn btn-secondary welcome-btn" onClick={() => setStep('race-strategy')}>
             Back
           </button>
         </div>

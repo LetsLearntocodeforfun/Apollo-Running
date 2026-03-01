@@ -1,16 +1,4 @@
-/**
- * splitService.ts — Split & Lap Analysis Engine for Apollo Running.
- *
- * Analyzes per-split and per-lap data from Strava to provide:
- *   - Per-split pace, HR, elevation breakdowns
- *   - Pace consistency scoring (coefficient of variation)
- *   - Negative/positive split detection and grading
- *   - Interval workout recognition from lap patterns
- *   - Even-split gold badge system
- *   - Detailed split-by-split comparison insights
- *
- * All data stays local. Works with both metric (km) and standard (mi) splits.
- */
+// Split & lap analysis — pace consistency, split patterns, interval detection.
 
 import type { StravaActivity, StravaSplit, StravaLap } from './strava';
 import { getDistanceUnit, formatPaceShort, type DistanceUnit } from './unitPreferences';
@@ -19,120 +7,75 @@ import { persistence } from './db/persistence';
 // ─── Types ───────────────────────────────────────────────────
 
 export interface SplitData {
-  /** 1-indexed split number */
   number: number;
-  /** Distance in meters */
   distanceMeters: number;
-  /** Moving time in seconds */
   movingTimeSec: number;
-  /** Pace in min per user unit */
   paceMinPerUnit: number;
-  /** Average heart rate (null if unavailable) */
   avgHR: number | null;
-  /** Elevation change in meters (+ or -) */
   elevationDiffMeters: number;
-  /** Average speed in m/s */
   avgSpeedMs: number;
-  /** Whether this is the fastest split */
   isFastest: boolean;
-  /** Whether this is the slowest split */
   isSlowest: boolean;
-  /** Deviation from mean pace as percentage (negative = faster, positive = slower) */
+  /** Negative = faster than mean, positive = slower */
   paceDeviationPct: number;
 }
 
 export interface LapData {
-  /** 0-indexed lap position */
   index: number;
-  /** Lap name (e.g. "Lap 1", "Interval", or custom) */
   name: string;
-  /** Distance in meters */
   distanceMeters: number;
-  /** Moving time in seconds */
   movingTimeSec: number;
-  /** Elapsed time in seconds (includes stops) */
   elapsedTimeSec: number;
-  /** Pace in min per user unit */
   paceMinPerUnit: number;
-  /** Average heart rate (null if unavailable) */
   avgHR: number | null;
-  /** Max heart rate (null if unavailable) */
   maxHR: number | null;
-  /** Average cadence in spm (null if unavailable) */
   avgCadenceSpm: number | null;
-  /** Total elevation gain in meters */
   elevationGainMeters: number;
-  /** Average speed in m/s */
   avgSpeedMs: number;
 }
 
 export type PaceConsistencyGrade = 'gold' | 'silver' | 'bronze' | 'iron';
 
 export interface PaceConsistencyAnalysis {
-  /** Coefficient of variation of split paces (lower = more consistent) */
   coefficientOfVariation: number;
-  /** Grade based on CV: gold (<4%), silver (<7%), bronze (<12%), iron (>=12%) */
+  /** gold (<4%), silver (<7%), bronze (<12%), iron (>=12%) */
   grade: PaceConsistencyGrade;
-  /** Mean pace in min/unit */
   meanPace: number;
-  /** Standard deviation of pace in min/unit */
   stdDevPace: number;
-  /** Fastest split pace in min/unit */
   fastestPace: number;
-  /** Slowest split pace in min/unit */
   slowestPace: number;
-  /** Fastest-to-slowest range in seconds */
   rangeSec: number;
 }
 
 export type SplitPattern = 'negative' | 'positive' | 'even' | 'variable' | 'fade' | 'surge';
 
 export interface SplitPatternAnalysis {
-  /** Detected split pattern */
   pattern: SplitPattern;
-  /** Human-readable description */
   description: string;
-  /** Average pace of first half in min/unit */
   firstHalfPace: number;
-  /** Average pace of second half in min/unit */
   secondHalfPace: number;
-  /** Percentage difference: negative = negative split (faster 2nd half) */
+  /** Negative = negative split (faster 2nd half) */
   halfDiffPct: number;
 }
 
 export interface IntervalDetection {
-  /** Whether the laps suggest an interval workout */
   isInterval: boolean;
-  /** Number of work intervals detected */
   workIntervals: number;
-  /** Number of recovery intervals detected */
   recoveryIntervals: number;
-  /** Average work interval pace */
   avgWorkPace: number;
-  /** Average recovery interval pace */
   avgRecoveryPace: number;
-  /** Work:rest ratio description */
   workRestRatio: string;
 }
 
 export interface SplitAnalysis {
-  /** Processed splits in the user's preferred unit */
   splits: SplitData[];
-  /** Processed laps (if available) */
   laps: LapData[];
-  /** Pace consistency grade + metrics */
   consistency: PaceConsistencyAnalysis;
-  /** Split pattern detection (negative/positive/even/etc) */
   pattern: SplitPatternAnalysis;
-  /** Interval workout detection (from laps) */
   intervals: IntervalDetection | null;
-  /** Data-driven insight strings */
   insights: SplitInsight[];
-  /** Which unit system was used for analysis */
   unit: DistanceUnit;
-  /** Activity ID this analysis belongs to */
   activityId: number;
-  /** Timestamp of analysis */
   analyzedAt: string;
 }
 
