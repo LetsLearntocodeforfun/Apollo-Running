@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-330%20passing-brightgreen" alt="330 tests passing" />
+  <img src="https://img.shields.io/badge/tests-360%20passing-brightgreen" alt="360 tests passing" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
@@ -31,6 +31,7 @@
   - [Activities](#-activities)
   - [Analytics](#-analytics)
   - [Insights](#-insights)
+  - [Race Strategy](#-race-strategy)
   - [Settings](#-settings)
 - [Guided Onboarding](#guided-onboarding)
 - [Built-In Marathon Plans](#built-in-marathon-plans)
@@ -40,6 +41,10 @@
 - [Split & Lap Analysis](#split--lap-analysis)
 - [Race Prediction Engine](#race-prediction-engine)
 - [Coaching Intelligence](#coaching-intelligence)
+- [Race Strategy](#race-strategy)
+  - [World Marathon Majors Database](#world-marathon-majors-database)
+  - [Strategy Builder](#strategy-builder)
+  - [Custom Marathon Import](#custom-marathon-import)
 - [Data Safety & Backups](#data-safety--backups)
 - [Integrations](#integrations)
 - [Your Training Playbook](#your-training-playbook)
@@ -98,6 +103,9 @@ To connect Strava, see [Integrations](#integrations).
 | **Adaptive coaching** | Detects overtraining, schedule gaps, and race week — suggests plan adjustments |
 | **HR zone analysis** | 5-zone model, distribution charts, efficiency tracking, 80/20 rule guidance |
 | **Data backups** | Automatic SHA-256 verified backups with export/import and one-click restore |
+| **Race strategy** | Grade-adjusted pacing plans for World Majors + custom marathons, elevation charts, nutrition planning |
+| **Auto-sync on launch** | Opt-in automatic Strava sync when the app opens, with 5-minute cooldown |
+| **Auto-updates** | Opt-in update checking, downloading, and installing (Electron desktop) |
 | **Miles & kilometers** | One toggle changes every number in the entire app |
 
 ---
@@ -198,6 +206,20 @@ Your coaching intelligence hub, organized into four tabs.
 
 **Coaching Settings** — Toggle daily recaps on/off with time-of-day scheduling. Toggle weekly readiness on/off with day-of-week picker. Methodology explanations for VDOT, Riegel, adherence scoring, readiness factors, and HR zones.
 
+### 🏅 Race Strategy
+
+Plan your race with course-specific pacing, elevation-adjusted splits, and nutrition timing.
+
+- **Opt-in activation** — hero card explaining the feature with an "Enable Race Strategy" button; can also be enabled during onboarding
+- **Marathon browser** — browse all six World Marathon Majors plus any custom-imported marathons with filtering, search, and expandable course details
+- **Strategy builder** — enter your target finish time, choose a pacing strategy (negative-split, even-split, positive-split, or effort-based), and Apollo generates a mile-by-mile plan adjusted for elevation
+- **Elevation charts** — interactive SVG elevation profiles with landmark labels and mile highlighting
+- **My Strategies** — view, compare, and manage all saved strategies
+- **Custom marathon import** — add any marathon with name, city, date, elevation, temperature, and notes
+- **Nutrition planning** — auto-generated gel and hydration timing based on aid station locations
+
+See [Race Strategy](#race-strategy) for the full deep-dive.
+
 ### ⚙ Settings
 
 Configuration and data management.
@@ -205,23 +227,28 @@ Configuration and data management.
 - **Strava connection** — one-click OAuth on web; Client ID + Secret fields on desktop
 - **Garmin Connect** — credential fields ready for integration
 - **Distance units** — miles or kilometers, one toggle that changes everything app-wide
+- **Auto-sync on launch** — opt-in automatic Strava sync every time the app opens (5-minute cooldown prevents redundant syncs)
+- **Auto-updates (Electron)** — opt-in update checking with granular controls: auto-check, auto-download, manual check button, download/install buttons with real-time progress bar, and version display
 - **Coaching preferences** — daily recap scheduling, weekly readiness scheduling, HR profile inputs
 - **Adaptive training** — enable/disable, frequency (daily / weekly / before key workouts), aggressiveness (conservative / balanced / aggressive)
+- **Race strategy** — enable/disable the race strategy feature
 - **Data management** — backup health status, auto-backup configuration (interval + retention), manual backup, export/import as JSON, backup history with integrity verification, per-backup download and restore
 
 ---
 
 ## Guided Onboarding
 
-On first launch, Apollo walks you through a seven-step setup:
+On first launch, Apollo walks you through a nine-step setup:
 
 1. **Choose your path** — browse plans, get a recommendation, or build from scratch
 2. **Get recommended** *(if selected)* — enter your weekly mileage and running days; Apollo scores and ranks the top three plans with reasons
 3. **Browse all plans** *(if selected)* — expandable week-by-week previews with total and long-run mileage
 4. **Build custom** *(if selected)* — set name, weeks (10–30), running days (3–6), current and peak mileage; Apollo generates a progressive plan with cutback weeks and taper
 5. **Set your start date** — Apollo calculates the full schedule through race day
-6. **Pick your units** — miles (🇺🇸) or kilometers (🌍)
-7. **Configure coaching** — daily recaps and weekly readiness scheduling
+6. **Pick your units** — miles (🇺🇸) or kilometers (🌍) with visual selection buttons
+7. **Race strategy** *(optional)* — opt in to the race strategy feature for course-specific pacing plans with World Majors data and custom marathon imports
+8. **Configure coaching** — daily recaps and weekly readiness scheduling
+9. **Complete** — ready to train
 
 You're running in under two minutes.
 
@@ -398,6 +425,79 @@ Apollo monitors five training scenarios and surfaces recommendations when action
 All plan modifications are **reversible** — Apollo snapshots the original plan before making changes, and every recommendation includes an undo option. Safety guardrails prevent mileage increases above 10% and lock taper in the final week.
 
 Configurable in Settings: frequency (daily / weekly / before key workouts) and aggressiveness (conservative / balanced / aggressive).
+
+---
+
+## Race Strategy
+
+Apollo's Race Strategy feature lets you build course-specific pacing plans with grade-adjusted splits, elevation visualization, and nutrition timing — for any of the six World Marathon Majors or any custom marathon you import.
+
+### World Marathon Majors Database
+
+Six complete course profiles, built from real race data:
+
+| Marathon | Date (2026) | Course | Difficulty | Notes |
+|----------|-------------|--------|:----------:|-------|
+| **Tokyo** | March 1 | Point-to-point | 3/10 | Flattest major. Ideal for a PR. |
+| **Boston** | April 20 | Point-to-point | 8/10 | Net downhill but deceptive — Heartbreak Hill at mile 20. |
+| **London** | April 26 | Loop | 3/10 | Flat and fast along the Thames. |
+| **Berlin** | September 27 | Loop | 2/10 | THE fastest course. Multiple world records. |
+| **Chicago** | October 11 | Loop | 3/10 | Flat tour of 29 neighborhoods. |
+| **New York City** | November 1 | Point-to-point | 9/10 | Five boroughs, five bridges. The hardest major. |
+
+**Each course includes:**
+- **Elevation profile** — 15+ data points with named landmarks (e.g., Heartbreak Hill, Queensboro Bridge)
+- **Mile-by-mile splits** — terrain classification and landmark notes per segment
+- **Aid stations** — locations, names, and offerings (water, electrolyte, gel)
+- **Race tips** — 8–12 course-specific tips (e.g., "Bank time on the Newton downhills before Heartbreak Hill")
+- **Environmental data** — typical temperature range, humidity, and field size
+- **Qualifying info** — entry requirements, lottery odds, charity options
+- **Time limits** — official cutoff in hours
+- **PR-friendly / BQ-friendly badges** — at-a-glance course suitability
+
+### Strategy Builder
+
+Select a marathon → enter your target finish time → choose a pacing strategy → Apollo generates a complete race plan.
+
+**Four pacing strategies:**
+
+| Strategy | How It Works |
+|----------|-------------|
+| **Negative Split** | Start conservatively, finish strong — second half faster than the first |
+| **Even Split** | Consistent pace throughout, adjusted only for elevation |
+| **Positive Split** | Faster early pace, banking time for a slower finish |
+| **Effort-Based** | Maintains consistent effort rather than consistent pace — uphill slows, downhill quickens naturally |
+
+**What Apollo calculates per mile:**
+- **Target pace** — adjusted for that mile's elevation gain/loss (uphill slower, downhill faster with quad-protection limits)
+- **Cumulative time** — running total so you can check your watch at every mile marker
+- **Elevation change** — gain or loss for the mile with directional indicators
+- **Notes** — landmarks, terrain callouts, and pacing advice
+
+**Strategy summary includes:**
+- Target finish time and average pace
+- First half / second half split times and the difference between them
+- Interactive elevation chart with pace overlay
+- Full mile-by-mile pace table
+- Nutrition plan with gel and hydration timing
+
+### Custom Marathon Import
+
+Running a race that isn't a World Major? Import it.
+
+- **Required fields:** name, city, country, date
+- **Optional fields:** distance, course type (loop, point-to-point, out-and-back), elevation gain, temperature range, website URL, notes
+- Custom marathons appear alongside World Majors in the marathon browser
+- Build strategies for custom races the same way — pacing adjustments use whatever elevation data you provide
+- Deleting a custom marathon cascades to remove all its associated strategies
+
+### Nutrition Planning
+
+Every strategy includes an auto-generated nutrition plan:
+
+- **Gel timing** — approximately every 5 miles, coordinated with aid station positions
+- **Hydration** — water and electrolyte intake at aid stations
+- **Per-item notes** — what to take, when, and why
 
 ### Heart Rate Zone Analysis
 
@@ -634,7 +734,7 @@ npm run test:coverage # with coverage report
 | **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
 | **Web API** | Azure Functions (Node) for Strava OAuth token exchange |
 | **Integrations** | Strava API v3 (OAuth2, rate-limited, mutex-protected refresh) |
-| **Testing** | Vitest 4 with jsdom, 330 tests, v8 coverage |
+| **Testing** | Vitest 4 with jsdom, 360 tests, v8 coverage |
 | **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
 
 ---
@@ -643,14 +743,15 @@ npm run test:coverage # with coverage report
 
 ```
 src/
-├── pages/                  Six app pages + auth callback + 404
+├── pages/                  Seven app pages + auth callback + 404
 │   ├── Dashboard.tsx         Home — today's quest, stats, recaps, recommendations
 │   ├── Training.tsx          Plan tracking — calendar + checklist + auto-sync
 │   ├── Activities.tsx        Run history — list, detail, splits, effort recognition
 │   ├── Analytics.tsx         Charts — mileage, pace, load, HR, consistency, PRs
 │   ├── Insights.tsx          Coaching — predictions, readiness, recaps, HR zones
-│   ├── Settings.tsx          Config — Strava, units, coaching, backups
-│   └── WelcomeFlow.tsx       Guided onboarding wizard
+│   ├── RaceStrategy.tsx      Race pacing — marathon browser, strategy builder, imports
+│   ├── Settings.tsx          Config — Strava, units, coaching, auto-sync, updates, backups
+│   └── WelcomeFlow.tsx       Guided onboarding wizard (9 steps)
 │
 ├── components/
 │   ├── CalendarView.tsx      Monthly training calendar with day detail panel
@@ -659,11 +760,16 @@ src/
 │   ├── AdaptiveRecommendations.tsx  Coaching recommendation cards
 │   ├── TierBadge.tsx         Gold/Silver/Bronze achievement badges
 │   ├── ConnectStravaCTA.tsx  Strava connection prompt
+│   ├── StrategyBuilder.tsx    Target time + pacing strategy → mile-by-mile plan
+│   ├── MarathonBrowser.tsx   Filterable marathon card grid with course details
+│   ├── MarathonImport.tsx    Custom marathon import form
+│   ├── ElevationChart.tsx    Interactive SVG elevation profile with landmarks
 │   ├── ErrorBoundary.tsx     React error boundary
 │   └── LoadingScreen.tsx     Boot loading state
 │
 ├── data/
-│   └── plans.ts              8 built-in plans + custom builder + recommendation engine
+│   ├── plans.ts              8 built-in plans + custom builder + recommendation engine
+│   └── worldMajors.ts        6 World Marathon Majors with full course profiles
 │
 ├── services/
 │   ├── autoSync.ts           Smart Strava-to-plan matching + feedback generation
@@ -677,6 +783,8 @@ src/
 │   ├── dailyRecap.ts         Daily grade + coach messaging
 │   ├── heartRate.ts          HR zones, distribution, trends, efficiency
 │   ├── backupService.ts      Automatic backups with SHA-256 verification
+│   ├── raceStrategy.ts        Strategy building, pacing, custom imports, persistence
+│   ├── appPreferences.ts     Auto-sync and auto-update preferences
 │   ├── coachingPreferences.ts  Scheduling and notification settings
 │   ├── unitPreferences.ts    Miles/km toggle + all conversion helpers
 │   ├── strava.ts             Strava API client (rate-limited, mutex refresh)
@@ -696,9 +804,10 @@ src/
 │   └── useAdaptiveRecommendations.ts
 │
 ├── types/
-│   └── recommendations.ts
+│   ├── recommendations.ts
+│   └── raceStrategy.ts       Marathon, strategy, pacing, elevation types
 │
-└── __tests__/                330 tests across 11 files
+└── __tests__/                360 tests across 12 files
     └── setup.ts              Test harness with in-memory persistence mock
 
 electron/                     Electron main process + secure preload
