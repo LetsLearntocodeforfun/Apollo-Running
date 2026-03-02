@@ -33,9 +33,7 @@ const HUMIDITY_COEFF = 5; // ml/hr per % above 40
 const INTENSITY_COEFF = 0.3; // multiplier for pace factor
 /** Body mass adjustment: heavier = more sweat */
 const MASS_REFERENCE_KG = 70;
-/** Sodium concentration in sweat: mg per liter */
-const SODIUM_MG_PER_L_LOW = 200;
-const SODIUM_MG_PER_L_HIGH = 700;
+/** Sodium concentration in sweat: mg per liter (average) */
 const SODIUM_MG_PER_L_AVG = 450;
 /** Maximum safe fluid intake rate (ml/hr) — hyponatremia risk above this */
 const MAX_SAFE_INTAKE_ML_HR = 1000;

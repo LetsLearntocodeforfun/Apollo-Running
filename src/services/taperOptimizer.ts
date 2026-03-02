@@ -126,7 +126,7 @@ export function getCurrentFitness(history: DailyTrainingLoad[]): FitnessFatigueS
  */
 export function generateTaperPlan(
   history: DailyTrainingLoad[],
-  raceDateStr: string,
+  _raceDateStr: string,
 ): TaperRecommendation {
   const snapshots = calculateFitnessFatigue(history);
   const current = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { ctl: 50, atl: 50, tsb: 0, date: '' };

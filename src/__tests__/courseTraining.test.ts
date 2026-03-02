@@ -121,7 +121,7 @@ describe('generateCourseTraining', () => {
         totalGainFt: 2000, totalLossFt: 2000, netChangeFt: 0,
         highPointFt: 500, lowPointFt: 0, difficulty: 8,
         bqFriendly: false, prFriendly: false,
-        elevationPoints: [], aidStations: [], courseSplits: [],
+        elevationPoints: [],
       },
     });
     const plan = generateCourseTraining(race);
@@ -136,7 +136,7 @@ describe('generateCourseTraining', () => {
         totalGainFt: 50, totalLossFt: 50, netChangeFt: 0,
         highPointFt: 20, lowPointFt: 0, difficulty: 1,
         bqFriendly: true, prFriendly: true,
-        elevationPoints: [], aidStations: [], courseSplits: [],
+        elevationPoints: [],
       },
     });
     const plan = generateCourseTraining(race);

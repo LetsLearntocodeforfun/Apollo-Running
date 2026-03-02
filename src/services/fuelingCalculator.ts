@@ -27,8 +27,6 @@ const MARATHON_MI = 26.2;
 
 /** Standard gel: 25g carbs */
 const GEL_CARBS_G = 25;
-/** Standard chew pack: 25g carbs */
-const CHEW_CARBS_G = 25;
 /** Sports drink per serving (250ml): 15g carbs */
 const DRINK_CARBS_PER_250ML = 15;
 /** Caffeinated gel: 25g carbs + 100mg caffeine */
@@ -144,7 +142,6 @@ function buildFuelingItems(
   const startTimeMin = (startMile * paceSecPerMi) / 60;
 
   let timeMin = startTimeMin;
-  let mile = startMile;
 
   while (timeMin < durationMin - 15) { // stop ~15min before finish
     const currentMile = Math.round((timeMin / paceSecPerMi) * 60 * 10) / 10;
@@ -162,7 +159,6 @@ function buildFuelingItems(
     });
 
     timeMin += intervalMin;
-    mile = currentMile;
   }
 
   return items;

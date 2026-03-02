@@ -10,11 +10,9 @@
  * - Long run benefit: ~0.5-1% improvement per additional 20+ mile run
  */
 
-import { vdotToMarathonSec, estimateVDOT, formatTimeSec } from './racePrediction';
-import { getSavedTrainingPaces } from './paceCalculator';
+import { vdotToMarathonSec, formatTimeSec } from './racePrediction';
 
 const MARATHON_MI = 26.2;
-const MARATHON_METERS = 42195;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

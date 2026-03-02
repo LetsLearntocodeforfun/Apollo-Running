@@ -10,7 +10,7 @@ import { simulateGlycogenDepletion, willGlycogenLast } from '@/services/glycogen
 import { calculateSweatRate, assessDehydrationRisk } from '@/services/hydrationCalculator';
 import { getDailyCarbTarget, getRaceMorningCarbTarget } from '@/services/carbLoading';
 import { generateFuelingPlan, getGelSchedule } from '@/services/fuelingCalculator';
-import { simulateWhatIf, type WhatIfScenario } from '@/services/whatIfSimulator';
+import { simulateWhatIf, type WhatIfScenario, type WhatIfType } from '@/services/whatIfSimulator';
 import { calculateFRI } from '@/services/fatigueResistance';
 import { fitDecayModel, predictRacePacing, compareDecayToIdeal } from '@/services/pacingDecay';
 import { normalizeToIdeal, normalizeMarathonTime } from '@/services/raceEquivalence';
@@ -91,8 +91,10 @@ describe('Glycogen Model — Edge Cases', () => {
   it('handles excessive fueling (100g/hr)', () => {
     const manyGels = Array.from({ length: 20 }, (_, i) => ({
       mile: i + 3,
-      name: 'Mega Gel',
+      raceTimeMin: (i + 3) * 8,
+      item: 'Mega Gel',
       carbsG: 50,
+      notes: '',
     }));
     const sim = simulateGlycogenDepletion({
       athlete: { weightKg: 70, sex: 'male', vo2max: 50 },
@@ -292,7 +294,7 @@ describe('Fueling Calculator — Edge Cases', () => {
 // ── What-If Simulator Edge Cases ──────────────────────────────────────────────
 
 describe('What-If Simulator — Edge Cases', () => {
-  const mkScenario = (type: string, value: number): WhatIfScenario => ({
+  const mkScenario = (type: WhatIfType, value: number): WhatIfScenario => ({
     type, label: `Test ${type}`, description: `Edge case test for ${type}`, value,
   });
 

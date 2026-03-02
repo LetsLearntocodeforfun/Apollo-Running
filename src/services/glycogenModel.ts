@@ -35,8 +35,6 @@ const CRITICAL_GLYCOGEN_G = 75;
 const KCAL_PER_KG_PER_MI = 1.609;
 /** Glycogen energy density: 4 kcal per gram */
 const GLYCOGEN_KCAL_PER_G = 4;
-/** Fat energy density: 9 kcal per gram */
-const FAT_KCAL_PER_G = 9;
 /** Marathon distance */
 const MARATHON_MI = 26.2;
 

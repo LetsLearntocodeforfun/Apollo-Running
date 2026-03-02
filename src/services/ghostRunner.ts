@@ -165,7 +165,7 @@ export function getGhostHistory(): GhostComparison[] {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function buildSummary(
-  current: GhostRun,
+  _current: GhostRun,
   ghost: GhostRun,
   miles: GhostComparisonMile[],
   totalDelta: number,

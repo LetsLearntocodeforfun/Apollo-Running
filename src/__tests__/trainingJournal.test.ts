@@ -2,7 +2,7 @@
  * Training Journal service tests
  */
 
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getJournalPreferences,
   setJournalPreferences,
@@ -176,7 +176,7 @@ describe('Quick-Set Helpers', () => {
   });
 
   it('setWeather creates/updates entry', () => {
-    const entry = setWeather('2025-01-15', { tempF: 45, conditions: 'cloudy' });
+    const entry = setWeather('2025-01-15', { tempF: 45, conditions: 'cloudy', source: 'manual' });
     expect(entry.weather!.tempF).toBe(45);
     expect(entry.weather!.conditions).toBe('cloudy');
   });
