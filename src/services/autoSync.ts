@@ -26,6 +26,7 @@ import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveT
 import { storeActivities } from './analyticsService';
 import { processActivityEffort } from './effortService';
 import { formatMiles, formatPaceFromMinPerMi, metersToMiles, calcPaceMinPerMi } from './unitPreferences';
+import { analyzeCompliance, saveComplianceResult } from './complianceAnalysis';
 
 /** Result of a single auto-sync match */
 export interface SyncResult {
@@ -236,8 +237,31 @@ export async function runAutoSync(): Promise<SyncResult[]> {
     const weeklyMileage = buildWeeklyMileage(plan, plan.id, weekIndex);
     const feedback = generateFeedback(plannedDay, activity, actualMi, paceMinPerMi, weeklyMileage);
 
-    // Update meta with feedback
-    meta.feedback = feedback;
+    // Run compliance analysis against VDOT-derived targets
+    let complianceFeedback = '';
+    if (plannedDay.note) {
+      try {
+        const compliance = analyzeCompliance(
+          plannedDay.note,
+          paceMinPerMi,
+          actualMi,
+          plannedDay.distanceMi ?? 0,
+        );
+        if (compliance) {
+          saveComplianceResult(weekIndex, dayIndex, compliance);
+          complianceFeedback = compliance.feedback;
+          if (compliance.coachingSuggestion) {
+            complianceFeedback += ' ' + compliance.coachingSuggestion;
+          }
+        }
+      } catch { /* non-critical */ }
+    }
+
+    // Update meta with feedback (original + compliance)
+    const fullFeedback = complianceFeedback
+      ? feedback + ' ' + complianceFeedback
+      : feedback;
+    meta.feedback = fullFeedback;
     setSyncMeta(plan.id, weekIndex, dayIndex, meta);
 
     results.push({

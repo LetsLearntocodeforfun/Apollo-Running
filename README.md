@@ -6,12 +6,12 @@
 
 <p align="center">
   <strong>The all-in-one marathon training platform.</strong><br />
-  Smart plans · Strava sync · Route maps · Race predictions · Coaching intelligence<br />
+  Smart plans · Strava sync · Nutrition science · Performance analytics · Race day intelligence<br />
   <em>100% local. Zero cloud accounts. Your data never leaves your device.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-360%20passing-brightgreen" alt="360 tests passing" />
+  <img src="https://img.shields.io/badge/tests-799%20passing-brightgreen" alt="799 tests passing" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
@@ -46,6 +46,25 @@
   - [Strategy Builder](#strategy-builder)
   - [Custom Marathon Import](#custom-marathon-import)
 - [Data Safety & Backups](#data-safety--backups)
+- [Nutrition Science Engine](#nutrition-science-engine)
+  - [Glycogen Depletion Model](#glycogen-depletion-model)
+  - [Hydration Calculator](#hydration-calculator)
+  - [Carb Loading Protocol](#carb-loading-protocol)
+  - [In-Race Fueling Calculator](#in-race-fueling-calculator)
+- [Performance Analytics](#performance-analytics)
+  - [What-If Simulator](#what-if-simulator)
+  - [Fatigue Resistance Index](#fatigue-resistance-index)
+  - [Pacing Decay Analysis](#pacing-decay-analysis)
+  - [Race Equivalence Engine](#race-equivalence-engine)
+  - [Aerobic Decoupling](#aerobic-decoupling)
+- [Race Day Intelligence](#race-day-intelligence)
+  - [Ghost Runner](#ghost-runner)
+  - [Race Day Timeline](#race-day-timeline)
+  - [Course-Specific Training](#course-specific-training)
+  - [Taper Optimizer](#taper-optimizer)
+  - [Bonk Risk Assessment](#bonk-risk-assessment)
+- [Structured Workouts & VDOT Pacing](#structured-workouts--vdot-pacing)
+- [Training Journal & Shoe Tracking](#training-journal--shoe-tracking)
 - [Integrations](#integrations)
 - [Your Training Playbook](#your-training-playbook)
 - [Setup & Installation](#setup--installation)
@@ -66,9 +85,13 @@ Apollo is different. It combines the depth of a professional coaching platform w
 What sets Apollo apart:
 
 - **Plans from the coaches who wrote the book** — Hal Higdon, Hanson's, Pfitzinger, Nike Run Club, and FIRST. Or build your own from scratch.
-- **Intelligence that earns its name** — Race predictions refined across your entire training block. Adaptive recommendations that detect overtraining before you feel it. Pacing analysis that holds you accountable to the 80/20 rule.
+- **A research-grade nutrition and physiology engine** — Mile-by-mile glycogen depletion modeling (Brooks & Mercier 1994), personalized sweat rate calculations (Sawka 2007), evidence-based carb loading protocols (Burke 2011), and in-race fueling plans with caffeine optimization (Jeukendrup 2014, Goldstein 2010). This is the science that sports dietitians charge $200+ to deliver.
+- **What-if scenario planning** — "What if I lose 10 lbs?" "What if I miss two weeks?" Apollo quantifies the time impact using published research (Hoogkamer 2016, Mujika & Padilla 2000) so you make informed decisions, not guesses.
+- **Intelligence that earns its name** — Race predictions refined across your entire training block. Adaptive recommendations that detect overtraining before you feel it. Fatigue resistance indexing, pacing decay curves, aerobic decoupling analysis, and a 7-factor bonk risk score.
+- **Race day as a system, not a hope** — Ghost runner comparisons, a complete race morning timeline, course-specific training for all six World Marathon Majors, Banister fitness-fatigue taper optimization, and bonk risk assessment. Every tool you need from taper through finish line.
 - **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
 - **Your data, your device** — localStorage + IndexedDB. Automatic backups with SHA-256 integrity verification. Export everything as JSON. Nothing leaves your machine.
+- **799 tests, zero failures** — Every formula, constant, and physiological model validated against peer-reviewed research with comprehensive edge case coverage.
 
 ---
 
@@ -107,6 +130,23 @@ To connect Strava, see [Integrations](#integrations).
 | **Auto-sync on launch** | Opt-in automatic Strava sync when the app opens, with 5-minute cooldown |
 | **Auto-updates** | Opt-in update checking, downloading, and installing (Electron desktop) |
 | **Miles & kilometers** | One toggle changes every number in the entire app |
+| **Glycogen model** | Mile-by-mile glycogen depletion simulation with substrate crossover from Brooks & Mercier (1994) |
+| **Hydration calculator** | Personalized sweat rate modeling with sex, temperature, humidity, and sun exposure adjustments (Sawka 2007) |
+| **Carb loading protocol** | 3-day evidence-based protocol generator with meal-specific targets (Burke 2011) |
+| **In-race fueling** | Complete fueling plan with carb rate, gel schedule, and caffeine strategy (Jeukendrup 2014) |
+| **What-If simulator** | "What if I lose 10 lbs?" — quantified time impact for 7 training scenarios (Hoogkamer 2016) |
+| **Fatigue Resistance Index** | Last 30%/first 70% pace ratio analysis with anomalous split filtering |
+| **Pacing decay** | Personal decay curve modeling with race-day pace predictions |
+| **Race equivalence** | Normalize race times across heat, humidity, altitude, and wind (Ely 2007, Péronnet 1991) |
+| **Aerobic decoupling** | Cardiac drift analysis with Friel-standard thresholds |
+| **Ghost runner** | Mile-by-mile race comparison with cumulative lead/deficit tracking |
+| **Race day timeline** | Complete race morning schedule — alarm, meal, travel, warmup, corral, all timed to gun time |
+| **Course training** | World Marathon Major-specific preparation plans for all 6 majors |
+| **Taper optimizer** | Banister fitness-fatigue model (CTL/ATL/TSB) with auto-generated taper plans |
+| **Bonk risk score** | 7-factor weighted assessment predicting wall probability (0-100) |
+| **Structured workouts** | VDOT-paced targets for easy, tempo, interval, repetition, and long runs |
+| **Training journal** | Rich-text journal entries with mood, effort, and searchable history |
+| **Shoe tracking** | Mileage tracking per shoe with rotation and retirement alerts |
 
 ---
 
@@ -515,6 +555,227 @@ Standard five-zone model:
 
 ---
 
+## Nutrition Science Engine
+
+Apollo includes a research-grade nutrition science engine — the kind of analysis that previously required a sports dietitian or lab testing. Every model is grounded in peer-reviewed literature.
+
+### Glycogen Depletion Model
+
+Mile-by-mile simulation of glycogen stores during a marathon, using the logistic crossover model from Brooks & Mercier (1994).
+
+- **Base glycogen:** 450g (normal) or 700g (carb-loaded) — per Romijn et al. (1993)
+- **Substrate partitioning:** VO2max-aware glycogen/fat ratio that shifts toward fat burning at lower intensities
+- **Critical threshold:** Predicts the exact mile where glycogen drops below 75g ("hitting the wall")
+- **Fueling simulation:** Model the effect of in-race carb intake on depletion timing
+- **`willGlycogenLast`:** Quick yes/no assessment with plain-language explanation
+
+### Hydration Calculator
+
+Personalized sweat rate modeling based on the ACSM Position Stand (Sawka et al. 2007).
+
+- **Base sweat rate:** 800 ml/hr adjusted for temperature (+10 ml/hr per °F above 55°F), humidity (+5 ml/hr per % above 40%), and sun exposure
+- **Sex adjustment:** Female runners at 0.83× male rate
+- **Replacement ratio:** 70% of sweat loss — the evidence-based target for performance maintenance
+- **Safety cap:** Recommended intake never exceeds 1000 ml/hr (hyponatremia prevention)
+- **Aid station planning:** Generates per-station fluid intake targets when aid station locations are provided
+- **Dehydration risk assessment:** Low/moderate/high/extreme rating with explanatory messaging
+
+### Carb Loading Protocol
+
+Evidence-based 3-day carb loading protocol generator following Burke et al. (2011).
+
+| Day | Target | Example (70kg runner) |
+|-----|--------|----------------------|
+| D-3 | 8 g/kg/day | 560g carbs |
+| D-2 | 10 g/kg/day | 700g carbs |
+| D-1 | 12 g/kg/day | 840g carbs |
+| Race morning | 2.5 g/kg | 175g carbs |
+
+- **Meal-by-meal breakdown** with specific food suggestions and portion sizes
+- **Scales to body weight** — works for 40kg to 130kg runners
+- **Race morning timing** — aligned with ACSM's 3-hour pre-race meal recommendation
+
+### In-Race Fueling Calculator
+
+Complete in-race fueling plan with carb rate optimization (Jeukendrup 2014) and caffeine strategy (Goldstein 2010).
+
+- **Carb rate:** 30-90 g/hr based on pace, experience level, and gut training status
+- **Gel schedule:** Mile-specific gel timing coordinated with aid stations
+- **Caffeine dosing:** 3-6 mg/kg range with timing recommendations (Goldstein 2010)
+- **GI risk assessment:** Warns when carb rate may exceed gut absorption capacity
+- **Product preferences:** Supports gels, chews, drinks, and real food
+
+---
+
+## Performance Analytics
+
+Novel analytical tools that quantify aspects of marathon performance no consumer app has measured before.
+
+### What-If Simulator
+
+Quantified "what if" scenarios with time impact projections grounded in published research.
+
+| Scenario | Research Basis | Example |
+|----------|---------------|--------|
+| **Weight change** | Hoogkamer (2016): ~2 sec/mi per lb | "Lose 10 lbs → save ~8:44" |
+| **Increase mileage** | Dose-response fitness curve | "+20% volume → ~12 min faster" |
+| **Skip days** | Mujika & Padilla (2000) detraining | "2 weeks off → ~8 min slower" |
+| **Add long runs** | Long run specificity research | "Add weekly 20-miler → ~5 min faster" |
+| **Marathon pace runs** | Race-specific endurance | "MP long runs → ~4 min faster" |
+| **Add tempo runs** | Lactate threshold development | "Weekly tempo → ~6 min faster" |
+| **Decrease mileage** | Inverse dose-response | "-30% volume → ~9 min slower" |
+
+All projections are VDOT-calibrated and capped at physiologically realistic bounds.
+
+### Fatigue Resistance Index
+
+Quantifies your ability to maintain pace in the final miles — the single most important predictor of marathon success.
+
+- **FRI formula:** (average pace, last 30% of run) / (average pace, first 70%) × 100
+- **Rating scale:** ≤100 Excellent · ≤103 Good · ≤106 Fair · ≤110 Needs Work · >110 Severe Fade
+- **Anomalous split filtering:** Removes bathroom breaks and GPS glitches (1.4× median threshold)
+- **Minimum requirements:** 16+ miles, 10+ splits — only long runs qualify
+- **Trend tracking:** FRI progression across your training block
+
+### Pacing Decay Analysis
+
+Models your personal pacing decay curve from long run data and predicts race-day pacing.
+
+- **Linear regression** fit across all qualifying long runs (16+ miles, 3+ runs minimum)
+- **Stable phase detection:** Miles 3-8 identified as "settled pace" baseline
+- **Ideal decay benchmarks** by target time:
+  - Sub-2:45: 0.4%/mi
+  - Sub-3:00: 0.5%/mi
+  - Sub-3:30: 0.7%/mi
+  - Sub-4:00: 0.9%/mi
+  - 4:00+: 1.2%/mi
+- **Race pacing projection:** Mile-by-mile predicted paces for your target pace
+- **Gap analysis:** Your decay vs ideal with coaching interpretation
+
+### Race Equivalence Engine
+
+Normalize any marathon time to ideal conditions — or convert between any two sets of conditions.
+
+| Factor | Coefficient | Source |
+|--------|------------|--------|
+| Heat | +1.75% per 10°F above 55°F | Ely et al. (2007) |
+| Humidity | +0.5% per 10% above 40% | Maughan (2010) |
+| Headwind | +1.5% per 10 mph | Pugh (1971) |
+| Altitude | +0.91% per 1000 ft | Péronnet et al. (1991) |
+
+- **Normalize to ideal:** "Your 3:15 in 80°F heat is equivalent to 3:07 in ideal conditions"
+- **Convert between conditions:** "Your 3:07 at sea level = 3:14 at 5,280 ft (Denver)"
+- **Bidirectional:** Works in both directions with approximately inverse results
+
+### Aerobic Decoupling
+
+Cardiac drift analysis following Joe Friel's methodology.
+
+- **Formula:** ((HR₂/Pace₂) / (HR₁/Pace₁) - 1) × 100
+- **Thresholds:** <5% Excellent (aerobically strong) · 5-10% Adequate · >10% Needs Work (insufficient base)
+- **Filters:** Removes low HR readings (<90 bpm) to exclude sensor errors
+- **Minimum:** 6+ splits, 8+ miles required
+- **What it tells you:** Whether your aerobic base is strong enough to support marathon distance
+
+---
+
+## Race Day Intelligence
+
+Five integrated tools that transform race week from stressful guesswork into a data-driven plan.
+
+### Ghost Runner
+
+Mile-by-mile comparison between any two runs — like racing against your past self.
+
+- **Cumulative delta tracking:** See exactly where you're ahead or behind at every mile marker
+- **Per-mile deltas:** Identify which segments made the difference
+- **Trend analysis:** Improving, stable, or declining across compared efforts
+- **Auto-alignment:** Compares to the shorter of two runs when distances differ
+
+### Race Day Timeline
+
+Complete race morning schedule, timed backward from the starting gun.
+
+- **Events generated:** Alarm, breakfast (3 hours pre-race per ACSM), leave for venue, arrive, gear check, warmup, corral entry, gun time, projected finish, post-race recovery
+- **Pre-race carb target:** 1-4 g/kg scaled to body weight with specific food suggestions
+- **Configurable:** Travel time, meal preference (light/moderate/full), warmup toggle
+- **Text export:** Share your race morning plan as formatted text
+
+### Course-Specific Training
+
+World Marathon Major-specific preparation plans tailored to each course's unique demands.
+
+| Major | Training Focus |
+|-------|---------------|
+| **Boston** | Hill repeats, downhill training, Heartbreak Hill simulation, quad-eccentric work |
+| **New York** | Bridge climbs, 5-borough terrain variety, Central Park finish hills |
+| **Chicago** | Wind resistance training, flat-course pacing discipline |
+| **London** | Even pacing on flat terrain, Thames path simulation |
+| **Berlin** | PB-focused speed work, pace discipline for the world's fastest course |
+| **Tokyo** | Heat/humidity adaptation, early-race conservative pacing |
+| **Generic** | Adapts to hilly vs flat based on course profile |
+
+### Taper Optimizer
+
+Banister fitness-fatigue model implementation with auto-generated taper plans.
+
+- **Chronic Training Load (CTL):** 42-day exponentially weighted average — your fitness
+- **Acute Training Load (ATL):** 7-day exponentially weighted average — your fatigue
+- **Training Stress Balance (TSB):** CTL - ATL — your freshness (positive = ready to race)
+- **TSS estimation:** Training Stress Score by workout type (easy, tempo, interval, long run, race)
+- **Auto-generated taper:** Progressive volume reduction targeting positive race-day TSB
+- **Weekly reduction schedule:** Gradual decrease over 2-3 weeks calibrated to your current ATL/CTL ratio
+
+### Bonk Risk Assessment
+
+7-factor weighted risk score (0-100) predicting the probability of hitting the wall.
+
+| Factor | Weight | What It Measures |
+|--------|--------|------------------|
+| Distance Readiness | 25% | Longest run distance relative to 26.2 mi |
+| Long Run Frequency | 15% | Number of 18+ mile runs completed |
+| Fueling Practice | 15% | In-race nutrition rehearsal during training |
+| Pace Aggression | 15% | Race pace vs training pace differential |
+| Carb Loading | 10% | Carb loading protocol completion |
+| Experience | 10% | Marathon experience level (beginner → advanced) |
+| Heat Risk | 10% | Race-day temperature impact |
+
+- **Risk levels:** Low (0-30) · Moderate (31-55) · High (56-75) · Very High (76-100)
+- **Actionable factors:** Each factor shows its individual score so you can address specific weaknesses
+- **Summary messaging:** Plain-language assessment of your wall risk and what to do about it
+
+---
+
+## Structured Workouts & VDOT Pacing
+
+Every workout in your plan includes VDOT-calculated pace targets based on Jack Daniels' methodology.
+
+- **Pace zones:** Easy, Marathon, Tempo, Interval, Repetition — each with per-mile and per-km targets
+- **Dynamic recalculation:** Paces update as your VDOT improves through training
+- **Workout compliance analysis:** Tracks whether you're hitting prescribed paces with grade-based feedback
+- **Structured workout types:** Easy runs, long runs, tempo runs, interval sessions, and repetition work — each with specific warm-up and cool-down guidance
+
+---
+
+## Training Journal & Shoe Tracking
+
+### Training Journal
+
+Rich training journal with mood tracking, effort ratings, and full-text search.
+
+- **Per-run entries:** Notes, mood (1-5), perceived effort (1-10), tags (weather, terrain, etc.)
+- **Searchable history:** Full-text search across all journal entries
+- **Calendar integration:** Journal entries linked to training days and Strava activities
+
+### Shoe Tracking
+
+- **Shoe inventory:** Track multiple pairs with name, brand, model, and purchase date
+- **Mileage tracking:** Automatic mileage accumulation from synced activities
+- **Rotation alerts:** Notifications when a shoe approaches retirement mileage (default 400 mi)
+- **Active/retired status:** Archive shoes without losing history
+
+---
+
 ## Data Safety & Backups
 
 Your training data is important. Apollo protects it at multiple levels.
@@ -734,7 +995,7 @@ npm run test:coverage # with coverage report
 | **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
 | **Web API** | Azure Functions (Node) for Strava OAuth token exchange |
 | **Integrations** | Strava API v3 (OAuth2, rate-limited, mutex-protected refresh) |
-| **Testing** | Vitest 4 with jsdom, 360 tests, v8 coverage |
+| **Testing** | Vitest 4 with jsdom, 799 tests, v8 coverage |
 | **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
 
 ---
@@ -784,6 +1045,25 @@ src/
 │   ├── heartRate.ts          HR zones, distribution, trends, efficiency
 │   ├── backupService.ts      Automatic backups with SHA-256 verification
 │   ├── raceStrategy.ts        Strategy building, pacing, custom imports, persistence
+│   ├── glycogenModel.ts       Mile-by-mile glycogen depletion simulation
+│   ├── hydrationCalculator.ts  Sweat rate modeling and hydration planning
+│   ├── carbLoading.ts         3-day carb loading protocol generator
+│   ├── fuelingCalculator.ts   In-race fueling plan with caffeine strategy
+│   ├── whatIfSimulator.ts     What-if scenario projections
+│   ├── fatigueResistance.ts   Fatigue Resistance Index calculation
+│   ├── pacingDecay.ts         Pacing decay curve modeling
+│   ├── raceEquivalence.ts     Weather/altitude race time normalization
+│   ├── aerobicDecoupling.ts   Cardiac drift analysis
+│   ├── ghostRunner.ts         Mile-by-mile run comparison
+│   ├── raceDayTimeline.ts     Race morning schedule generator
+│   ├── courseTraining.ts      World Major-specific training plans
+│   ├── taperOptimizer.ts      Banister CTL/ATL/TSB taper planning
+│   ├── bonkRisk.ts            7-factor bonk risk assessment
+│   ├── paceCalculator.ts      VDOT pace zone calculator
+│   ├── workoutTargets.ts      Structured workout generation
+│   ├── complianceAnalysis.ts  Workout compliance tracking
+│   ├── trainingJournal.ts     Training journal with mood/effort
+│   ├── shoeTracker.ts         Shoe mileage tracking and rotation
 │   ├── appPreferences.ts     Auto-sync and auto-update preferences
 │   ├── coachingPreferences.ts  Scheduling and notification settings
 │   ├── unitPreferences.ts    Miles/km toggle + all conversion helpers
@@ -807,7 +1087,7 @@ src/
 │   ├── recommendations.ts
 │   └── raceStrategy.ts       Marathon, strategy, pacing, elevation types
 │
-└── __tests__/                360 tests across 12 files
+└── __tests__/                799 tests across 33 files
     └── setup.ts              Test harness with in-memory persistence mock
 
 electron/                     Electron main process + secure preload

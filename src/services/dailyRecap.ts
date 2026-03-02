@@ -10,6 +10,10 @@ import { getHRHistory, getHRZones, type ActivityHRData } from './heartRate';
 import { getSavedPrediction } from './racePrediction';
 import { persistence } from './db/persistence';
 import { formatPaceFromMinPerMi, formatMiles } from './unitPreferences';
+import { getComplianceResult } from './complianceAnalysis';
+import type { ComplianceResult } from '../types/workout';
+import { isJournalEnabled, getJournalEntry } from './trainingJournal';
+import { MOOD_LABELS, ENERGY_LABELS } from '../types/journal';
 
 const RECAP_KEY = 'apollo_daily_recaps';
 
@@ -43,6 +47,15 @@ export interface DailyRecap {
   grade: string;
   /** Current predicted marathon time */
   predictedMarathon?: string;
+  /** Workout compliance analysis (0-100 score with feedback) */
+  complianceScore?: number;
+  complianceFeedback?: string;
+  /** Journal data (only if journal is enabled and entry exists) */
+  journalMood?: number;
+  journalEnergy?: number;
+  journalRPE?: number;
+  journalSleepHours?: number;
+  journalNotes?: string;
   generatedAt: string;
 }
 
@@ -130,10 +143,38 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
   const coachMessage = buildCoachMessage(
     grade, plannedDay.type, plannedDay.note ?? '',
     actualDistanceMi, plannedDistanceMi, actualPaceMinPerMi,
-    weeklyMileage, primaryZone
+    weeklyMileage, primaryZone, journalMood, journalEnergy, journalSleepHours, metPlan
   );
 
+  // Compliance data (from auto-sync compliance analysis)
+  const compliance = getComplianceResult(weekIndex, dayIndex);
+  let complianceScore: number | undefined;
+  let complianceFeedback: string | undefined;
+  if (compliance) {
+    complianceScore = compliance.score;
+    const parts: string[] = [compliance.feedback];
+    if (compliance.coachingSuggestion) parts.push(compliance.coachingSuggestion);
+    complianceFeedback = parts.join(' ');
+  }
+
   const prediction = getSavedPrediction();
+
+  // Journal data (opt-in — only populated if journal is enabled)
+  let journalMood: number | undefined;
+  let journalEnergy: number | undefined;
+  let journalRPE: number | undefined;
+  let journalSleepHours: number | undefined;
+  let journalNotes: string | undefined;
+  if (isJournalEnabled()) {
+    const journalEntry = getJournalEntry(date);
+    if (journalEntry) {
+      journalMood = journalEntry.mood;
+      journalEnergy = journalEntry.energy;
+      journalRPE = journalEntry.rpe;
+      journalSleepHours = journalEntry.sleepHours;
+      journalNotes = journalEntry.notes;
+    }
+  }
 
   const recap: DailyRecap = {
     date,
@@ -156,6 +197,13 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
     coachMessage,
     grade,
     predictedMarathon: prediction?.marathonTimeFormatted,
+    complianceScore,
+    complianceFeedback,
+    journalMood,
+    journalEnergy,
+    journalRPE,
+    journalSleepHours,
+    journalNotes,
     generatedAt: new Date().toISOString(),
   };
 
@@ -183,6 +231,10 @@ function buildCoachMessage(
   pace: number,
   weeklyMileage: WeeklyMileage | null,
   primaryZone?: string,
+  mood?: number,
+  energy?: number,
+  sleepHours?: number,
+  metPlan?: boolean,
 ): string {
   const lines: string[] = [];
   const paceStr = formatPaceFromMinPerMi(pace);
@@ -232,6 +284,19 @@ function buildCoachMessage(
   if (weeklyMileage && weeklyMileage.actualMi > 0) {
     const pct = weeklyMileage.plannedMi > 0 ? Math.round((weeklyMileage.actualMi / weeklyMileage.plannedMi) * 100) : 0;
     lines.push(`Week ${weeklyMileage.weekIndex + 1} progress: ${formatMiles(weeklyMileage.actualMi)}/${formatMiles(weeklyMileage.plannedMi)} (${pct}%).`);
+  }
+
+  // Journal-aware coaching (only when journal data is present)
+  if (grade !== 'rest_day' && grade !== 'missed') {
+    if (energy !== undefined && energy <= 2 && metPlan) {
+      lines.push(`You rated energy ${ENERGY_LABELS[energy as keyof typeof ENERGY_LABELS]?.split(' ')[0] ?? energy}/5 but still hit your targets — impressive resilience.`);
+    }
+    if (sleepHours !== undefined && sleepHours < 6) {
+      lines.push('Short sleep last night. Prioritize recovery tonight — most adaptation happens while you sleep.');
+    }
+    if (mood !== undefined && mood <= 2 && metPlan) {
+      lines.push('Tough mental day but you showed up anyway. That\'s what builds championship mindset.');
+    }
   }
 
   return lines.join(' ');
