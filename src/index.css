@@ -359,6 +359,378 @@ select {
 }
 
 /* Responsive: stack nav on narrow screens */
+
+/* ── Plan Builder ───────────────────────────────────────────────────────────── */
+
+.plan-builder {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.plan-builder-header {
+  margin-bottom: 1.5rem;
+}
+
+.plan-builder-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  margin: 0 0 0.5rem;
+  color: var(--text);
+}
+
+.plan-builder-subtitle {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.plan-builder-form {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan-builder-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+}
+
+.plan-builder-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--text-secondary);
+  font-family: var(--font-display);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+}
+
+.plan-builder-input {
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.plan-builder-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.plan-builder-range-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.plan-builder-slider {
+  flex: 1;
+  accent-color: var(--apollo-gold);
+  height: 6px;
+}
+
+.plan-builder-range-value {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  color: var(--apollo-gold);
+  min-width: 80px;
+  text-align: right;
+  font-size: var(--text-sm);
+}
+
+/* Day assignment grid */
+.plan-builder-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.plan-builder-day-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.5rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.plan-builder-day-name {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.plan-builder-day-select {
+  width: 100%;
+  padding: 0.4rem;
+  border: 2px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.72rem;
+  font-family: var(--font-display);
+  cursor: pointer;
+  transition: border-color var(--transition-base);
+}
+
+.plan-builder-day-indicator {
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  transition: background var(--transition-base);
+}
+
+.plan-builder-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  font-family: var(--font-display);
+  margin-bottom: 1rem;
+}
+
+.plan-builder-valid {
+  color: var(--success);
+  font-weight: var(--weight-medium);
+}
+
+.plan-builder-invalid {
+  color: var(--error);
+  font-weight: var(--weight-medium);
+}
+
+/* Pace preview card */
+.plan-builder-pace-card {
+  background: linear-gradient(135deg, rgba(212, 165, 55, 0.06) 0%, var(--bg-card) 100%);
+  border: 1px solid var(--apollo-gold-dark);
+  border-radius: var(--radius-lg);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan-builder-pace-title {
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--apollo-gold);
+  margin-bottom: 0.5rem;
+}
+
+.plan-builder-pace-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.5rem;
+}
+
+.plan-builder-pace-label {
+  font-size: var(--text-xs);
+  color: var(--text-muted);
+  margin-right: 0.35rem;
+}
+
+.plan-builder-pace-value {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+/* Mileage chart */
+.plan-builder-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+  padding: 0.5rem 0;
+  margin-bottom: 1.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+}
+
+.plan-builder-chart-bar-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  cursor: pointer;
+}
+
+.plan-builder-chart-bar {
+  width: 100%;
+  min-width: 8px;
+  border-radius: 2px 2px 0 0;
+  transition: height 0.3s ease, background 0.2s ease;
+}
+
+.plan-builder-chart-bar-wrap:hover .plan-builder-chart-bar {
+  opacity: 0.8;
+}
+
+.plan-builder-chart-label {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: var(--font-display);
+}
+
+/* Week accordion */
+.plan-builder-weeks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.plan-builder-week {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.plan-builder-week-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-sm);
+  text-align: left;
+  transition: background var(--transition-base);
+}
+
+.plan-builder-week-header:hover {
+  background: rgba(212, 165, 55, 0.04);
+}
+
+.plan-builder-week-num {
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.plan-builder-week-badge {
+  font-size: 0.65rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-full);
+  font-weight: var(--weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.plan-builder-week-badge--race {
+  background: var(--apollo-gold-dim);
+  color: var(--apollo-gold);
+}
+
+.plan-builder-week-badge--taper {
+  background: rgba(91, 181, 181, 0.15);
+  color: var(--apollo-teal);
+}
+
+.plan-builder-week-miles {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.plan-builder-week-chevron {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.plan-builder-week-body {
+  padding: 0 1rem 0.75rem;
+}
+
+.plan-builder-week-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+
+.plan-builder-week-table th,
+.plan-builder-week-table td {
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.plan-builder-week-table th {
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.plan-builder-cell-day {
+  font-family: var(--font-display);
+  font-weight: var(--weight-medium);
+  width: 50px;
+}
+
+.plan-builder-cell-dist {
+  color: var(--apollo-gold);
+  font-family: var(--font-display);
+  font-weight: var(--weight-bold);
+  width: 80px;
+}
+
+.plan-builder-cell-pace {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  font-family: var(--font-display);
+}
+
+.plan-builder-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .plan-builder-grid {
+    grid-template-columns: 1fr;
+  }
+  .plan-builder-day-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .plan-builder-chart {
+    height: 80px;
+  }
+}
 @media (max-width: 768px) {
   .app {
     flex-direction: column;

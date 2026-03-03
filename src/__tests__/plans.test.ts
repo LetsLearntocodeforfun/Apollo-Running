@@ -15,6 +15,7 @@ import {
   createCustomPlanFromScratch,
   suggestPlansForRunner,
   type TrainingPlan,
+  type CustomDayType,
 } from '@/data/plans';
 
 // ── Built-in Plans Structure ──────────────────────────────────────────────────
@@ -337,5 +338,271 @@ describe('suggestPlansForRunner', () => {
   it('should handle edge case inputs gracefully', () => {
     expect(suggestPlansForRunner(0, 1).length).toBeGreaterThan(0);
     expect(suggestPlansForRunner(200, 7).length).toBeGreaterThan(0);
+  });
+});
+
+// ── createCustomPlanFromScratch with dayAssignments ───────────────────────────
+
+describe('createCustomPlanFromScratch with dayAssignments', () => {
+  const makeAssignments = (map: Partial<Record<number, CustomDayType>>): Record<number, CustomDayType> => {
+    const result: Record<number, CustomDayType> = {};
+    for (let d = 0; d < 7; d++) {
+      result[d] = map[d] ?? 'rest';
+    }
+    return result;
+  };
+
+  it('should respect explicit day assignments for workout types', () => {
+    const assignments = makeAssignments({
+      1: 'easy',    // Tue
+      2: 'tempo',   // Wed
+      4: 'speed',   // Fri
+      6: 'long',    // Sun
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'Assigned Plan',
+      totalWeeks: 16,
+      runningDays: 4,
+      currentWeeklyMiles: 20,
+      peakWeeklyMiles: 45,
+      dayAssignments: assignments,
+    });
+
+    // Check a mid-plan week (not race week)
+    const midWeek = plan.weeks[8];
+    expect(midWeek.days[1].note).toBe('Easy');
+    expect(midWeek.days[2].note).toBe('Tempo');
+    expect(midWeek.days[4].note).toBe('Speed');
+    expect(midWeek.days[6].note).toBe('Long');
+    // Rest days should be rest
+    expect(midWeek.days[0].type).toBe('rest');
+    expect(midWeek.days[3].type).toBe('rest');
+    expect(midWeek.days[5].type).toBe('rest');
+  });
+
+  it('should handle marathon_pace day assignment', () => {
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'marathon_pace',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'MP Plan',
+      totalWeeks: 18,
+      runningDays: 3,
+      currentWeeklyMiles: 25,
+      peakWeeklyMiles: 50,
+      dayAssignments: assignments,
+    });
+    const midWeek = plan.weeks[8];
+    expect(midWeek.days[3].note).toBe('Marathon Pace');
+    expect(midWeek.days[3].type).toBe('run');
+  });
+
+  it('should handle medium_long day assignment', () => {
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'medium_long',
+      5: 'tempo',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'ML Plan',
+      totalWeeks: 16,
+      runningDays: 4,
+      currentWeeklyMiles: 30,
+      peakWeeklyMiles: 55,
+      dayAssignments: assignments,
+    });
+    const midWeek = plan.weeks[8];
+    expect(midWeek.days[3].note).toBe('Medium Long');
+    expect(midWeek.days[3].type).toBe('run');
+    // Medium long distance should be meaningful and less than long
+    const mlDist = midWeek.days[3].distanceMi!;
+    const longDist = midWeek.days[6].distanceMi!;
+    expect(mlDist).toBeGreaterThanOrEqual(5);
+    expect(mlDist).toBeLessThanOrEqual(longDist);
+  });
+
+  it('should handle cross-training day assignment', () => {
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'cross',
+      5: 'tempo',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'Cross Plan',
+      totalWeeks: 14,
+      runningDays: 3,
+      currentWeeklyMiles: 20,
+      peakWeeklyMiles: 40,
+      dayAssignments: assignments,
+    });
+    const midWeek = plan.weeks[6];
+    expect(midWeek.days[3].type).toBe('cross');
+  });
+
+  it('should auto-assign long run when missing from assignments', () => {
+    // All run days marked as easy — should auto-convert last one to long
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'easy',
+      5: 'easy',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'No Long Plan',
+      totalWeeks: 16,
+      runningDays: 3,
+      currentWeeklyMiles: 20,
+      peakWeeklyMiles: 40,
+      dayAssignments: assignments,
+    });
+    const midWeek = plan.weeks[8];
+    // At least one day should be a long run
+    const hasLong = midWeek.days.some((d) => d.note === 'Long');
+    expect(hasLong).toBe(true);
+  });
+
+  it('should place marathon on the long run day in the final week', () => {
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'tempo',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'Race Week Test',
+      totalWeeks: 16,
+      runningDays: 3,
+      currentWeeklyMiles: 20,
+      peakWeeklyMiles: 40,
+      dayAssignments: assignments,
+    });
+    const lastWeek = plan.weeks[plan.weeks.length - 1];
+    expect(lastWeek.days[6].type).toBe('marathon');
+  });
+
+  it('should generate correct mileage distribution with day assignments', () => {
+    const assignments = makeAssignments({
+      0: 'easy',
+      1: 'tempo',
+      3: 'medium_long',
+      5: 'easy',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'Full Distribution',
+      totalWeeks: 18,
+      runningDays: 5,
+      currentWeeklyMiles: 30,
+      peakWeeklyMiles: 55,
+      dayAssignments: assignments,
+    });
+    const overview = getPlanOverview(plan);
+
+    // Peak week mileage should be near peakWeeklyMiles
+    const peakWeekMiles = Math.max(...overview.slice(0, -2).map((w) => w.totalMiles));
+    expect(peakWeekMiles).toBeGreaterThan(40);
+    expect(peakWeekMiles).toBeLessThanOrEqual(60);
+  });
+
+  it('should have 6 run days when all 6 are assigned', () => {
+    const assignments = makeAssignments({
+      0: 'easy',
+      1: 'tempo',
+      2: 'easy',
+      3: 'medium_long',
+      4: 'speed',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: '6-Day Plan',
+      totalWeeks: 16,
+      runningDays: 6,
+      currentWeeklyMiles: 40,
+      peakWeeklyMiles: 65,
+      dayAssignments: assignments,
+    });
+    const midWeek = plan.weeks[8];
+    const runDays = midWeek.days.filter((d) => d.type === 'run').length;
+    expect(runDays).toBe(6);
+    // Saturday should be rest
+    expect(midWeek.days[5].type).toBe('rest');
+  });
+
+  it('should have minimum 3 run days with assignments', () => {
+    const assignments = makeAssignments({
+      2: 'easy',
+      4: 'tempo',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: '3-Day Plan',
+      totalWeeks: 12,
+      runningDays: 3,
+      currentWeeklyMiles: 15,
+      peakWeeklyMiles: 35,
+      dayAssignments: assignments,
+    });
+    const midWeek = plan.weeks[5];
+    const runDays = midWeek.days.filter((d) => d.type === 'run').length;
+    expect(runDays).toBe(3);
+  });
+
+  it('should fall back gracefully when dayAssignments is empty object', () => {
+    const plan = createCustomPlanFromScratch({
+      name: 'Empty assignments',
+      totalWeeks: 16,
+      runningDays: 4,
+      currentWeeklyMiles: 25,
+      peakWeeklyMiles: 45,
+      dayAssignments: {},
+    });
+    // Should behave like no assignments — default layout
+    expect(plan.totalWeeks).toBe(16);
+    expect(plan.weeks).toHaveLength(16);
+    const midWeek = plan.weeks[8];
+    const runDays = midWeek.days.filter((d) => d.type === 'run').length;
+    expect(runDays).toBeGreaterThanOrEqual(3);
+  });
+
+  it('should still produce cutback weeks with assignments', () => {
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'tempo',
+      5: 'easy',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'Cutback Test',
+      totalWeeks: 20,
+      runningDays: 4,
+      currentWeeklyMiles: 25,
+      peakWeeklyMiles: 50,
+      dayAssignments: assignments,
+    });
+    const overview = getPlanOverview(plan);
+    // Week 3 (index 3) is a cutback, should be less than week 2 (index 2)
+    expect(overview[3].totalMiles).toBeLessThan(overview[2].totalMiles);
+  });
+
+  it('should taper in the last two weeks with assignments', () => {
+    const assignments = makeAssignments({
+      1: 'easy',
+      3: 'tempo',
+      6: 'long',
+    });
+    const plan = createCustomPlanFromScratch({
+      name: 'Taper Test',
+      totalWeeks: 16,
+      runningDays: 3,
+      currentWeeklyMiles: 25,
+      peakWeeklyMiles: 45,
+      dayAssignments: assignments,
+    });
+    const overview = getPlanOverview(plan);
+    const peakMiles = Math.max(...overview.slice(0, -2).map((w) => w.totalMiles));
+    const taperMiles = overview[overview.length - 2].totalMiles;
+    expect(taperMiles).toBeLessThan(peakMiles);
   });
 });

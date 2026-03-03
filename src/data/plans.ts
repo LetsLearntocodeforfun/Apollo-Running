@@ -43,7 +43,12 @@ export interface CustomPlanBuilderInput {
   runningDays: number;
   currentWeeklyMiles: number;
   peakWeeklyMiles: number;
+  /** Optional per-day workout type assignment (0=Mon … 6=Sun). Keys are day indices, values are workout types. */
+  dayAssignments?: Record<number, CustomDayType>;
 }
+
+/** Workout types available for custom plan day assignment */
+export type CustomDayType = 'easy' | 'long' | 'tempo' | 'speed' | 'marathon_pace' | 'medium_long' | 'rest' | 'cross';
 
 export const CUSTOM_PLAN_ID = 'custom-built-marathon-plan';
 const CUSTOM_PLAN_STORAGE_KEY = 'apollo_custom_marathon_plan';
@@ -368,13 +373,56 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
   const baseMiles = clamp(input.currentWeeklyMiles, 8, 80);
   const peakMiles = clamp(Math.max(input.peakWeeklyMiles, baseMiles + 4), baseMiles + 4, 90);
   const buildWeeks = Math.max(totalWeeks - 2, 6);
-  const runDayMap: Record<number, number[]> = {
+
+  // Default day layouts if no assignments provided
+  const defaultRunDayMap: Record<number, number[]> = {
     3: [1, 3, 6],
     4: [1, 2, 4, 6],
     5: [1, 2, 3, 5, 6],
     6: [0, 1, 2, 3, 5, 6],
   };
-  const runDays = runDayMap[runningDays] ?? runDayMap[4];
+
+  // Build the ordered run-day list and per-day workout types
+  const assignments = input.dayAssignments;
+  let runDays: number[];
+  let dayTypes: Record<number, CustomDayType>;
+
+  if (assignments && Object.keys(assignments).length > 0) {
+    // Use explicit day assignments: run days are any day that isn't 'rest' or 'cross'
+    runDays = [];
+    dayTypes = {};
+    for (let d = 0; d < 7; d++) {
+      const assigned = assignments[d] ?? 'rest';
+      dayTypes[d] = assigned;
+      if (assigned !== 'rest' && assigned !== 'cross') {
+        runDays.push(d);
+      }
+    }
+    // Ensure at least one long run day exists
+    if (!runDays.some(d => dayTypes[d] === 'long')) {
+      const lastRunDay = runDays[runDays.length - 1] ?? 6;
+      dayTypes[lastRunDay] = 'long';
+    }
+  } else {
+    // Fallback to default layout
+    runDays = defaultRunDayMap[runningDays] ?? defaultRunDayMap[4];
+    dayTypes = {};
+    const longDay = runDays.includes(6) ? 6 : runDays[runDays.length - 1];
+    for (const d of runDays) {
+      if (d === longDay) {
+        dayTypes[d] = 'long';
+      } else {
+        dayTypes[d] = 'easy';
+      }
+    }
+    // Add a tempo day if enough running days
+    if (runningDays >= 4) {
+      const qualityDay = runDays[Math.floor(runDays.length / 2) - 1] ?? runDays[0];
+      if (dayTypes[qualityDay] !== 'long') {
+        dayTypes[qualityDay] = 'tempo';
+      }
+    }
+  }
 
   const weeks: PlanWeek[] = [];
   for (let w = 0; w < totalWeeks; w++) {
@@ -387,25 +435,53 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     weekMiles = roundToTenth(weekMiles);
 
     const isRaceWeek = w === totalWeeks - 1;
+
+    // Calculate mileage distribution based on assigned workout types
     const longMiles = isRaceWeek ? 26.2 : roundToTenth(clamp(weekMiles * 0.32, 6, 22));
-    const qualityMiles = runningDays >= 4 && !isRaceWeek ? roundToTenth(clamp(weekMiles * 0.2, 3, 10)) : 0;
-    const remainingMiles = Math.max(weekMiles - longMiles - qualityMiles, runningDays);
-    const easyRuns = Math.max(runningDays - (qualityMiles > 0 ? 2 : 1), 1);
-    const easyMiles = roundToTenth(remainingMiles / easyRuns);
+    const hasQuality = runDays.some(d => dayTypes[d] === 'tempo' || dayTypes[d] === 'speed' || dayTypes[d] === 'marathon_pace');
+    const qualityMiles = hasQuality && !isRaceWeek ? roundToTenth(clamp(weekMiles * 0.2, 3, 10)) : 0;
+    const hasMedLong = runDays.some(d => dayTypes[d] === 'medium_long');
+    const medLongMiles = hasMedLong && !isRaceWeek ? roundToTenth(clamp(weekMiles * 0.22, 5, 14)) : 0;
+    const easyCount = runDays.filter(d => dayTypes[d] === 'easy').length;
+    const remainingMiles = Math.max(weekMiles - longMiles - qualityMiles - medLongMiles, easyCount || 1);
+    const easyMiles = easyCount > 0 ? roundToTenth(remainingMiles / easyCount) : roundToTenth(remainingMiles);
 
     const days: PlanDay[] = Array.from({ length: 7 }, () => REST);
-    const longRunDay = runDays.includes(6) ? 6 : runDays[runDays.length - 1];
-    for (const day of runDays) {
-      if (day === longRunDay) {
-        days[day] = isRaceWeek ? MARATHON : { type: 'run', label: `${longMiles} mi long`, distanceMi: longMiles, note: 'Long' };
-      } else {
-        days[day] = { type: 'run', label: `${easyMiles} mi easy`, distanceMi: easyMiles, note: 'Easy' };
+
+    // Set cross-training days
+    if (assignments) {
+      for (let d = 0; d < 7; d++) {
+        if (assignments[d] === 'cross') {
+          days[d] = CROSS;
+        }
       }
     }
-    if (qualityMiles > 0) {
-      const qualityDay = runDays[Math.floor(runDays.length / 2) - 1] ?? runDays[0];
-      if (qualityDay !== longRunDay) {
-        days[qualityDay] = { type: 'run', label: `${qualityMiles} mi tempo`, distanceMi: qualityMiles, note: 'Tempo' };
+
+    for (const day of runDays) {
+      const dtype = dayTypes[day];
+      if (isRaceWeek && dtype === 'long') {
+        days[day] = MARATHON;
+      } else {
+        switch (dtype) {
+          case 'long':
+            days[day] = { type: 'run', label: `${longMiles} mi long`, distanceMi: longMiles, note: 'Long' };
+            break;
+          case 'tempo':
+            days[day] = { type: 'run', label: `${qualityMiles || easyMiles} mi tempo`, distanceMi: qualityMiles || easyMiles, note: 'Tempo' };
+            break;
+          case 'speed':
+            days[day] = { type: 'run', label: `${qualityMiles || easyMiles} mi speed`, distanceMi: qualityMiles || easyMiles, note: 'Speed' };
+            break;
+          case 'marathon_pace':
+            days[day] = { type: 'run', label: `${qualityMiles || easyMiles} mi MP`, distanceMi: qualityMiles || easyMiles, note: 'Marathon Pace' };
+            break;
+          case 'medium_long':
+            days[day] = { type: 'run', label: `${medLongMiles || easyMiles} mi medium long`, distanceMi: medLongMiles || easyMiles, note: 'Medium Long' };
+            break;
+          default:
+            days[day] = { type: 'run', label: `${easyMiles} mi easy`, distanceMi: easyMiles, note: 'Easy' };
+            break;
+        }
       }
     }
 
@@ -416,7 +492,7 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     id: CUSTOM_PLAN_ID,
     name: input.name.trim() || 'Custom Marathon Plan',
     author: 'You + Apollo Builder',
-    description: `Built from scratch for ${runningDays} running days/week, starting near ${baseMiles} mpw and peaking around ${peakMiles} mpw.`,
+    description: `Built from scratch for ${runDays.length} running days/week, starting near ${baseMiles} mpw and peaking around ${peakMiles} mpw.`,
     totalWeeks,
     weeks,
   };

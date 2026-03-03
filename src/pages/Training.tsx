@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { BUILT_IN_PLANS, getPlanById, type PlanDay } from '../data/plans';
+import { BUILT_IN_PLANS, CUSTOM_PLAN_ID, getPlanById, setCustomPlan, type PlanDay } from '../data/plans';
+import PlanBuilder from '../components/PlanBuilder';
 import {
   getActivePlan,
   setActivePlan,
@@ -152,6 +153,7 @@ export default function Training() {
   const [startDate, setStartDate] = useState(active?.startDate ?? formatDateKey(new Date()));
   const [expandedWeek, setExpandedWeek] = useState<number | null>(() => (getActivePlan() ? 0 : null));
   const [showPicker, setShowPicker] = useState(!active);
+  const [showBuilder, setShowBuilder] = useState(false);
   const [viewMode, setViewMode] = useState<TrainingViewMode>('calendar');
   const [syncing, setSyncing] = useState(false);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
@@ -256,8 +258,39 @@ export default function Training() {
                   <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{p.description}</div>
                 </button>
               ))}
+              <button
+                type="button"
+                className="plan-card"
+                onClick={() => setShowBuilder(true)}
+                style={{
+                  border: '2px dashed var(--apollo-gold)',
+                  textAlign: 'left',
+                  padding: '1.25rem',
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  cursor: 'pointer',
+                  transition: 'all var(--transition-base)',
+                }}
+              >
+                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--apollo-gold)' }}>+ Build Custom Plan</div>
+                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>Design your own marathon plan from scratch with custom mileage, workout assignments, and VDOT-based pacing.</div>
+              </button>
             </div>
           </div>
+
+          {showBuilder && (
+            <div className="card">
+              <PlanBuilder
+                onComplete={(plan) => {
+                  setCustomPlan(plan);
+                  setSelectedPlanId(CUSTOM_PLAN_ID);
+                  setShowBuilder(false);
+                }}
+                onCancel={() => setShowBuilder(false)}
+              />
+            </div>
+          )}
 
           {plan && (
             <div className="card" style={{ borderColor: 'var(--apollo-gold)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
@@ -368,6 +401,14 @@ export default function Training() {
                         {p.name}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={() => { setShowPicker(false); setShowBuilder(true); }}
+                      style={{ fontSize: 'var(--text-sm)', borderStyle: 'dashed', color: 'var(--apollo-gold)' }}
+                    >
+                      + Custom Plan
+                    </button>
                   </div>
                   <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
                     {plan && (

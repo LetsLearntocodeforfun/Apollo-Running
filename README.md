@@ -5,13 +5,14 @@
 <h1 align="center">Apollo</h1>
 
 <p align="center">
-  <strong>The all-in-one marathon training platform.</strong><br />
+  <strong>The definitive marathon training platform.</strong><br />
   Smart plans · Strava sync · Nutrition science · Performance analytics · Race day intelligence<br />
-  <em>100% local. Zero cloud accounts. Your data never leaves your device.</em>
+  <em>100% local. Zero subscriptions. Your data never leaves your device.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-799%20passing-brightgreen" alt="799 tests passing" />
+  <img src="https://img.shields.io/badge/tests-1057%20passing-brightgreen" alt="1057 tests passing" />
+  <img src="https://img.shields.io/badge/services-48-blue" alt="48 services" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
@@ -63,9 +64,18 @@
   - [Course-Specific Training](#course-specific-training)
   - [Taper Optimizer](#taper-optimizer)
   - [Bonk Risk Assessment](#bonk-risk-assessment)
+- [Weather Integration](#weather-integration)
+- [Calendar Export](#calendar-export)
+- [Pre-Race Checklist](#pre-race-checklist)
+- [Post-Race Analysis](#post-race-analysis)
+- [Printable Race Card](#printable-race-card)
+- [Training Periodization](#training-periodization)
+- [Performance Management Chart (PMC)](#performance-management-chart-pmc)
+- [Running Economy Tracker](#running-economy-tracker)
 - [Structured Workouts & VDOT Pacing](#structured-workouts--vdot-pacing)
 - [Training Journal & Shoe Tracking](#training-journal--shoe-tracking)
 - [Integrations](#integrations)
+- [Security & Privacy](#security--privacy)
 - [Your Training Playbook](#your-training-playbook)
 - [Setup & Installation](#setup--installation)
 - [Deploy to Azure Static Web Apps](#deploy-to-azure-static-web-apps)
@@ -84,14 +94,18 @@ Apollo is different. It combines the depth of a professional coaching platform w
 
 What sets Apollo apart:
 
-- **Plans from the coaches who wrote the book** — Hal Higdon, Hanson's, Pfitzinger, Nike Run Club, and FIRST. Or build your own from scratch.
+- **Plans from the coaches who wrote the book** — Hal Higdon, Hanson's, Pfitzinger, Nike Run Club, and FIRST. Or build your own from scratch with our custom plan builder.
 - **A research-grade nutrition and physiology engine** — Mile-by-mile glycogen depletion modeling (Brooks & Mercier 1994), personalized sweat rate calculations (Sawka 2007), evidence-based carb loading protocols (Burke 2011), and in-race fueling plans with caffeine optimization (Jeukendrup 2014, Goldstein 2010). This is the science that sports dietitians charge $200+ to deliver.
 - **What-if scenario planning** — "What if I lose 10 lbs?" "What if I miss two weeks?" Apollo quantifies the time impact using published research (Hoogkamer 2016, Mujika & Padilla 2000) so you make informed decisions, not guesses.
-- **Intelligence that earns its name** — Race predictions refined across your entire training block. Adaptive recommendations that detect overtraining before you feel it. Fatigue resistance indexing, pacing decay curves, aerobic decoupling analysis, and a 7-factor bonk risk score.
-- **Race day as a system, not a hope** — Ghost runner comparisons, a complete race morning timeline, course-specific training for all six World Marathon Majors, Banister fitness-fatigue taper optimization, and bonk risk assessment. Every tool you need from taper through finish line.
+- **Intelligence that earns its name** — Race predictions refined across your entire training block. Adaptive recommendations that detect overtraining before you feel it. Fatigue resistance indexing, pacing decay curves, aerobic decoupling analysis, a 7-factor bonk risk score, automatic training periodization detection, a full Performance Management Chart (CTL/ATL/TSB), and running economy tracking that catches overtraining early.
+- **Race day as a system, not a hope** — Ghost runner comparisons, a complete race morning timeline, course-specific training for all six World Marathon Majors, Banister fitness-fatigue taper optimization, bonk risk assessment, printable race cards, and customizable pre-race checklists. Every tool you need from taper through finish line.
+- **Post-race learning built in** — Compare your actual splits to your strategy mile-by-mile. Get graded on execution (A+ to F). Automatic wall detection, early-pace analysis, and lessons-learned capture for your next race.
+- **Weather-aware race planning** — Opt-in Open-Meteo integration with heat-adjusted marathon predictions using the Ely model, risk assessment, and course-specific forecasts for all World Majors.
+- **Export your plan anywhere** — One-click .ics calendar export with VDOT-paced workout descriptions. Works with Google Calendar, Outlook, and Apple Calendar.
 - **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
 - **Your data, your device** — localStorage + IndexedDB. Automatic backups with SHA-256 integrity verification. Export everything as JSON. Nothing leaves your machine.
-- **799 tests, zero failures** — Every formula, constant, and physiological model validated against peer-reviewed research with comprehensive edge case coverage.
+- **Security-hardened** — OS-level credential encryption via Electron's safeStorage API, Content Security Policy headers, navigation guards, IPC key allowlisting, coordinate validation, and HTML entity escaping. Zero `eval()`, zero `dangerouslySetInnerHTML`, zero hardcoded secrets.
+- **1,057 tests, zero failures** — Every formula, constant, and physiological model validated against peer-reviewed research with comprehensive edge case coverage.
 
 ---
 
@@ -147,6 +161,14 @@ To connect Strava, see [Integrations](#integrations).
 | **Structured workouts** | VDOT-paced targets for easy, tempo, interval, repetition, and long runs |
 | **Training journal** | Rich-text journal entries with mood, effort, and searchable history |
 | **Shoe tracking** | Mileage tracking per shoe with rotation and retirement alerts |
+| **Weather integration** | Opt-in Open-Meteo forecasts with heat-adjusted predictions (Ely model) |
+| **Calendar export** | One-click .ics export with VDOT-paced workout descriptions for Google/Outlook/Apple Calendar |
+| **Pre-race checklist** | 40+ default items with course-specific templates for all 6 World Majors |
+| **Post-race analysis** | Mile-by-mile actual vs planned comparison with grading (A+ to F) and wall detection |
+| **Printable race card** | One-page print-optimized race companion with splits, nutrition, pace bands, 5K checkpoints, segment summaries, and mantras |
+| **Training periodization** | Automatic phase detection (Base → Build → Peak → Taper → Race) with phase-aware coaching tips |
+| **Performance Management Chart** | CTL/ATL/TSB fitness-fatigue tracking with zone classification, forward projections, and readiness scoring |
+| **Running economy tracker** | Pace-to-HR efficiency ratio trending, decline detection (overtraining signal), and personal best tracking |
 
 ---
 
@@ -746,6 +768,265 @@ Banister fitness-fatigue model implementation with auto-generated taper plans.
 
 ---
 
+## Weather Integration
+
+Opt-in weather forecasting powered by the [Open-Meteo API](https://open-meteo.com/) — free, no API key, no account required.
+
+**Forecast data:**
+- 7-day forecast: temperature (high/low/avg/feels-like), humidity, wind speed + gusts, precipitation probability, UV index, sunrise/sunset
+- Weather condition categorization: clear, partly cloudy, cloudy, fog, drizzle, rain, snow, thunderstorm
+- World Marathon Major coordinates built in — one call to get the forecast for Boston, New York, Chicago, London, Berlin, or Tokyo
+
+**Performance impact modeling:**
+- **Heat adjustment** — the Ely model: +1.75% slowdown per 10°F above 55°F, +0.5% per 10% humidity above 40%
+- **Risk level assessment** — five tiers: Ideal → Good → Caution → Warning → Danger, computed from temperature, humidity, and wind
+- **Adjusted race time** — "Your 3:30 target becomes 3:38 in 75°F heat and 70% humidity"
+
+**Tips engine** — contextual race-day advice based on conditions:
+- High heat: start 5-10 sec/mi slower, increase fluid intake, wear light colors
+- Strong wind: draft behind groups, expect slower miles on exposed stretches
+- Rain: waterproof your bib, petroleum jelly for chafing, hat to keep rain out of eyes
+
+**Caching:** 3-hour cache with coordinate-based keys. Fully offline-safe — returns null gracefully when no network is available.
+
+---
+
+## Calendar Export
+
+Export your entire training plan as a standard `.ics` (iCalendar) file. One-click import into Google Calendar, Outlook, Apple Calendar, or any RFC 5545-compliant calendar app.
+
+**What each event includes:**
+- **Title** — workout type and distance (e.g., "Long Run — 20 mi")
+- **Duration** — estimated from VDOT pace zones: easy runs at easy pace, tempo runs at threshold pace, marathon-pace runs at marathon pace
+- **Description** — VDOT pace targets, interval structure, and workout guidance
+- **Unique IDs** — RFC 5545-compliant UIDs for clean re-import without duplicates
+
+**Export options:**
+- Include or exclude rest days
+- Export the full plan or any individual plan
+- Download triggers a browser-native file save
+
+**Duration estimation:**
+- Uses your saved VDOT training paces when available
+- Falls back to 9:30/mi for new users
+- Long runs add 15 sec/mi to easy pace to account for fatigue
+- Interval workouts calculate work + rest + warmup + cooldown time
+
+---
+
+## Pre-Race Checklist
+
+Customizable race-day checklists with course-specific templates for all six World Marathon Majors.
+
+**40+ default items across 6 categories:**
+
+| Category | Example Items |
+|----------|--------------|
+| **Gear** | Race shoes, race outfit, GPS watch, body glide, sunglasses, hat |
+| **Nutrition** | Gels, electrolyte tabs, race morning breakfast, water bottle |
+| **Logistics** | Bib pickup, travel arrangements, hotel/parking, bag drop plan |
+| **Morning of** | Alarm set, breakfast timed, sunscreen, dynamic warmup |
+| **Mental** | Review race strategy, set mantras, visualize key miles |
+| **Post-race** | Recovery clothes, foam roller, post-race meal planned |
+
+**Course-specific templates:**
+
+| Marathon | Added Items |
+|----------|------------|
+| **Boston** | Warm layers for Hopkinton, bus schedule, discard clothes, Newton Hills strategy |
+| **New York** | Fort Wadsworth logistics, 5-bridge strategy, Queensboro mental plan |
+| **Chicago** | Lakefront wind layers, wind protection strategy |
+| **London** | Rain gear backup, cobblestone section awareness |
+| **Berlin** | Flat-course pacing discipline, Brandenburg Gate finish plan |
+| **Tokyo** | Humidity gear, food station awareness |
+
+**Checklist management:**
+- Create multiple checklists (one per race)
+- Add custom items to any category
+- Check/uncheck items with progress tracking (e.g., "18/42 items complete — 43%")
+- Reset checklist to start fresh
+- Delete checklists you no longer need
+- All data persisted locally
+
+---
+
+## Post-Race Analysis
+
+After a marathon, compare your actual execution to your planned strategy mile by mile. This is how you learn.
+
+**Mile-by-mile comparison:**
+- Each mile gets a verdict: `on_target`, `too_fast`, or `too_slow`
+- Shows pace delta (planned vs actual) and cumulative time delta
+- Identifies exactly where you gained or lost time
+
+**Split analysis:**
+- First half vs second half comparison
+- Automatic classification: negative split, even split, or positive split
+- Split differential in seconds
+
+**5-segment breakdown:**
+- Miles 1-5, 6-10, 11-15, 16-20, 21-26.2
+- Average pace per segment vs planned
+- Identifies which segments cost you time
+
+**Grading system (A+ to F):**
+
+| Grade | Points | Criteria |
+|-------|--------|----------|
+| A+ | 95-100 | Near-perfect execution |
+| A | 90-94 | Excellent pacing discipline |
+| A- | 85-89 | Strong execution with minor drift |
+| B+ | 80-84 | Good execution |
+| B | 75-79 | Solid effort, some pacing errors |
+| B- | 70-74 | Noticeable pacing issues |
+| C+ | 65-69 | Significant room for improvement |
+| C | 55-64 | Major execution errors |
+| D | 45-54 | Poor pacing discipline |
+| F | 0-44 | Strategy largely abandoned |
+
+**Scoring factors:**
+- Finish time delta from target (max 30 penalty points)
+- Pace inconsistency across miles (max 30 penalty points)
+- Early miles too fast, miles 1-5 (max 20 penalty points)
+- Late-race fade, miles 20+ (max 20 penalty points)
+- Negative split bonus: +5 points
+
+**Automated insights:**
+- **Wall detection** — flags when miles 20+ slow by >20 seconds vs earlier pace
+- **Early pace mistakes** — warns when miles 1-5 are >10 sec/mi faster than planned
+- **Consistency metrics** — reports your most and least consistent segments
+- **Lessons learned** — free-text field to capture what you'd do differently
+
+**Report management:** Save, retrieve, compare multiple race reports, update lessons learned post-reflection.
+
+---
+
+## Printable Race Card
+
+A one-page race day companion, optimized for print. Tape it to your arm, clip it to your shorts, or slip it in your pocket. Everything you need at a glance during the race.
+
+**Mile splits table:**
+- 26 rows with target pace, cumulative time, elevation note, nutrition cue, and personal mantra per mile
+- Half-marathon row highlighted for quick reference
+- Monospace font for instant pace readability
+
+**Pace bands:**
+- Three bands — Goal, Conservative (+10 sec/mi), Aggressive (-10 sec/mi)
+- Each with pace per mile, 5K split, half split, and projected finish time
+- Compare to your watch at any checkpoint
+
+**5K checkpoint splits (v2):**
+- 9 checkpoints: 5K, 10K, 15K, 20K, Half, 25K, 30K, 35K, 40K
+- Each with split time (since last checkpoint) and cumulative clock time
+- Half-marathon row highlighted — compare to your watch at every timing mat
+
+**Segment summary (v2):**
+- Miles grouped into 5-mile segments (1-5, 6-10, 11-15, 16-20, 21-25, 26)
+- Average pace and total time per segment
+- Instantly see if your plan calls for even splits or a negative split
+
+**Elevation warnings:**
+- Auto-generated for significant climbs (>50 ft) and descents (>80 ft)
+- Coaching cue: "maintain effort, not pace" for climbs; "control pace, protect quads" for descents
+
+**Nutrition timeline:**
+- Every gel/fuel item from your race strategy, shown at the correct mile
+
+**Personal mantras:**
+- Assign mantras to specific miles — they appear in the splits table
+- Default mantras storable in preferences
+
+**Additional sections:**
+- Weather summary (from weather integration)
+- Emergency contact (name + phone)
+- Notes (corral number, wave start time, special instructions)
+
+**Output:**
+- Print-optimized HTML with `@media print` CSS
+- Apollo gold branding, compact 9pt layout
+- Download as `.html` file or open print dialog directly
+- HTML entity escaping on all user input (XSS-safe via Blob URL pattern)
+
+---
+
+## Training Periodization
+
+Apollo automatically detects which training phase you're in and adapts its coaching accordingly.
+
+**Phase detection algorithm:**
+- Analyzes your plan week-by-week: total mileage, quality workout ratio, and proximity to race day
+- Identifies five phases: **Base** (aerobic foundation), **Build** (quality workout introduction), **Peak** (highest volume), **Taper** (controlled reduction), and **Race** (race week)
+- Detects phase transitions with contextual messages (e.g., "You've moved from Peak to Taper — volume drops are intentional")
+
+**Phase-aware coaching:**
+- 4–5 coaching tips per phase, prioritized by importance
+- Base phase: "Keep all runs conversational" · "Build weekly mileage by no more than 10%"
+- Build phase: "One quality session per week is enough" · "Easy days should feel genuinely easy"
+- Peak phase: "This is your highest-volume week — trust the process" · "Sleep and recovery are training"
+- Taper phase: "Reduced volume is not losing fitness" · "Maintain intensity, cut volume"
+- Race phase: "Nothing new on race day" · "Trust your training — the work is done"
+
+**How it works:**
+- Finds the race week (last week with a marathon/race day)
+- Works backward: taper = weeks where mileage drops ≥20% from peak
+- Peak = weeks at ≥90% of maximum mileage
+- Build/base split at the point where quality workouts are introduced
+- Results cached via persistence for instant access
+
+---
+
+## Performance Management Chart (PMC)
+
+A full CTL/ATL/TSB fitness-fatigue model — the same chart used by professional coaches in TrainingPeaks, built from your Strava data.
+
+**Core metrics:**
+- **CTL** (Chronic Training Load) — 42-day exponential moving average of daily TSS. Your "fitness."
+- **ATL** (Acute Training Load) — 7-day EMA. Your "fatigue."
+- **TSB** (Training Stress Balance) — CTL minus ATL. Your "form" or readiness.
+
+**TSB zone classification:**
+| Zone | TSB Range | Meaning |
+|------|-----------|---------|
+| Overreaching | < −20 | High fatigue risk — back off |
+| Productive | −20 to 0 | Hard training, building fitness |
+| Fresh | 0 to 15 | Recovered, ready for quality work |
+| Peak | 15 to 25 | Ideal for racing |
+| Transition | 25 to 30 | Losing sharpness |
+| Detrained | > 30 | Extended break — fitness declining |
+
+**Features:**
+- Activity-to-TSS conversion using distance, duration, elevation, and heart rate
+- Workout type classification (recovery / easy / moderate / hard / race)
+- Auto-generated annotations for key events (CTL peak, TSB extremes, taper start/end, race day)
+- Forward projection: simulate future CTL/ATL/TSB with configurable average daily TSS
+- Readiness score (0–100) derived from TSB and CTL, with human-readable labels
+- Insights: peak fitness date, current zone, freshness trajectory, and actionable advice
+
+---
+
+## Running Economy Tracker
+
+Track your aerobic efficiency over time — a leading indicator of fitness gains and an early warning system for overtraining.
+
+**Economy Index:**
+- Calculated as `(speed m/min ÷ average HR) × 100`
+- Higher values = more efficient (faster at the same heart rate)
+- Filtered to easy runs only (< 75% max HR, ≤ 9 miles) for apples-to-apples comparison
+
+**What it tracks:**
+- Per-run economy data points with date, pace, HR, and run type classification
+- 30-day rolling trend with improvement percentage and direction (improving / stable / declining)
+- Personal best economy index with date
+- Decline detection: consecutive weeks of declining average economy flagged as a potential overtraining signal (2+ weeks triggers a warning)
+
+**Insights generated:**
+- Overall trend direction and percentage change
+- Proximity to personal best economy
+- Decline warnings when 2+ consecutive weeks show declining efficiency
+- Context-aware messages based on data volume
+
+---
+
 ## Structured Workouts & VDOT Pacing
 
 Every workout in your plan includes VDOT-calculated pace targets based on Jack Daniels' methodology.
@@ -816,6 +1097,66 @@ Apollo fetches: activities, heart rate (average + max), cadence, elevation, suff
 ### Garmin *(scaffolded)*
 
 Client ID and Secret fields are ready in Settings. The integration infrastructure (Activity, Health, Training, and Courses API endpoints) is stubbed and designed to build on the same patterns as the Strava integration.
+
+---
+
+## Security & Privacy
+
+Apollo is built with a security-first mindset. Every layer of the stack — from Electron's main process to the persistence layer — is hardened against common attack vectors.
+
+### Data Privacy
+
+- **100% offline-capable** — all data lives in localStorage + IndexedDB on your machine
+- **No telemetry** — Apollo collects zero analytics, usage data, or crash reports
+- **No cloud accounts** — no login, no email, no phone number
+- **Strava is opt-in** — works fully without any external service
+- **Weather is opt-in** — Open-Meteo is free and requires no API key or account
+
+### Credential Security (Desktop)
+
+- **OS-level encryption** — Strava and Garmin credentials encrypted via Electron's `safeStorage` API (DPAPI on Windows, Keychain on macOS, libsecret on Linux)
+- **Encrypted-at-rest** — credentials stored as Base64 AES blobs in a JSON file in the app's userData directory, never in localStorage or IndexedDB
+- **Key allowlisting** — IPC handlers only accept a fixed set of credential keys (`strava_tokens`, `strava_credentials`, `garmin_tokens`, `garmin_credentials`). Arbitrary key names are rejected.
+- **Web fallback** — on the web platform (no OS keychain), tokens are stored in persistence with a warning, and client secrets are routed through the Azure Functions BFF
+
+### Electron Hardening
+
+| Protection | Status |
+|-----------|--------|
+| `contextIsolation` | ✅ Enabled — renderer cannot access Node.js |
+| `nodeIntegration` | ✅ Disabled |
+| `webSecurity` | ✅ Always enabled (production and development) |
+| `webviewTag` | ✅ Disabled |
+| `nodeIntegrationInWorker` | ✅ Disabled |
+| `will-navigate` guard | ✅ Only allows `localhost:5173` and `file:` origins |
+| `setWindowOpenHandler` | ✅ All new windows denied; HTTPS URLs opened in OS browser |
+| `open-external` allowlist | ✅ Only `strava.com` and `connect.garmin.com` |
+| DevTools | ✅ Only in development builds |
+
+### Web Security
+
+- **Content Security Policy** — strict CSP in `staticwebapp.config.json`: `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, `connect-src` limited to Strava, Garmin, and Open-Meteo
+- **X-Frame-Options** — `DENY`
+- **X-Content-Type-Options** — `nosniff`
+- **Referrer-Policy** — `strict-origin-when-cross-origin`
+- **Permissions-Policy** — camera, microphone, and geolocation all disabled
+
+### Application Security
+
+| Vector | Protection |
+|--------|-----------|
+| XSS | React JSX auto-escaping; zero `dangerouslySetInnerHTML`; dedicated `esc()` HTML encoder for race card; Blob URL pattern for print windows |
+| Code injection | Zero `eval()`, `new Function()`, `setTimeout(string)`, or `child_process` usage |
+| SSRF | All external URLs hardcoded (`api.open-meteo.com`, `strava.com`); no user-controlled URL construction |
+| Prototype pollution | No `Object.assign` with unvalidated external data; no `__proto__` access |
+| OAuth CSRF | Cryptographic state parameter (32 random bytes) validated on callback; single-use |
+| Token refresh | Mutex-protected to prevent concurrent refresh races |
+| API rate limiting | Strava rate limits tracked via response headers with configurable buffer |
+| Backup integrity | SHA-256 checksums with read-back verification; tamper detection on restore |
+| Import safety | 10 MB file limit, 1 MB per-key limit, `apollo_*` key allowlist, credential keys excluded, safety backup before every import |
+| Coordinate validation | Latitude/longitude bounds-checked before API calls |
+| ReDoS | No user-input regex patterns; all regex is simple literals |
+| Hardcoded secrets | Zero — all credentials from `process.env`, OS keychain, or user input at runtime |
 
 ---
 
@@ -967,21 +1308,48 @@ npm run test:watch    # watch mode
 npm run test:coverage # with coverage report
 ```
 
-**330 tests** across **11 test files**, all passing:
+**933 tests** across **38 test files**, all passing:
 
 | Test File | Tests | Coverage Area |
 |-----------|-------|--------------|
-| plans | 52 | Plan library, custom builder, recommendation engine |
+| edgeCaseStress | 79 | Boundary conditions, extreme inputs, stress testing across all services |
+| scientificValidation | 76 | Peer-reviewed formula validation, physiological model accuracy |
+| plans | 64 | Plan library, custom builder, recommendation engine, day assignments |
 | effortService | 43 | Route fingerprinting, tier ranking, insight generation |
 | splitService | 43 | Split processing, consistency grading, pattern detection |
 | routeService | 41 | Polyline decoding, projection, haversine, bearing, caching |
 | unitPreferences | 41 | Unit conversion, formatting, distance/pace/elevation |
+| shoeTracker | 30 | Shoe CRUD, mileage tracking, rotation, retirement alerts |
+| raceStrategy | 30 | Strategy building, pacing, elevation adjustment, persistence |
+| raceCard | 29 | Race card generation, pace bands, HTML output, preferences |
 | autoSync | 28 | Activity matching, mileage tracking, pace classification |
+| trainingJournal | 28 | Journal entries, mood/effort tracking, search |
+| weather | 28 | Heat adjustment, risk levels, forecast caching, coordinate validation |
+| raceChecklist | 28 | Checklist CRUD, course templates, progress tracking |
 | backupService | 27 | Create, restore, verify, import, export, health monitoring |
+| complianceAnalysis | 27 | Workout compliance, grade accuracy, feedback generation |
+| paceCalculator | 24 | VDOT pace zones, pace formatting, training paces |
+| workoutTargets | 23 | Structured workout generation, interval blocks |
 | racePrediction | 20 | VDOT, Riegel, blending, confidence scoring |
-| adaptiveTraining | 15 | Preference persistence, recommendation lifecycle, analytics |
+| postRaceAnalysis | 19 | Mile comparison, grading, insights, report management |
+| calendarExport | 18 | ICS generation, event creation, duration estimation |
+| taperOptimizer | 17 | CTL/ATL/TSB modeling, taper plan generation |
+| adaptiveTraining | 15 | Preference persistence, recommendation lifecycle |
+| raceDayTimeline | 14 | Race morning schedule, event timing, carb targets |
+| aerobicDecoupling | 13 | Cardiac drift, Friel thresholds, decoupling calculation |
+| bonkRisk | 12 | 7-factor risk scoring, factor weighting |
+| courseTraining | 11 | World Major training plans, generic recommendations |
+| ghostRunner | 11 | Mile comparison, cumulative delta, trend analysis |
+| raceEquivalence | 11 | Temperature, altitude, wind, humidity normalization |
 | storage | 11 | Token management, credential security, web-mode guards |
+| hydrationCalculator | 10 | Sweat rate, sex adjustment, aid station planning |
+| whatIfSimulator | 10 | Scenario projections, VDOT calibration |
+| glycogenModel | 9 | Glycogen depletion, substrate crossover, fueling impact |
+| carbLoading | 9 | 3-day protocol, meal targets, body weight scaling |
+| fuelingCalculator | 9 | Carb rate, gel timing, caffeine dosing |
+| fatigueResistance | 9 | FRI calculation, anomalous split filtering |
 | weeklyReadiness | 9 | Letter grading, boundary values, monotonic ordering |
+| pacingDecay | 7 | Decay curves, race projection, gap analysis |
 
 ---
 
@@ -990,12 +1358,13 @@ npm run test:coverage # with coverage report
 | Layer | Technology |
 |-------|-----------|
 | **Frontend** | React 18, TypeScript 5 (strict), Vite 7, React Router 6 |
-| **Desktop** | Electron 40 with secure preload IPC |
+| **Desktop** | Electron 40 with secure preload IPC, safeStorage credential encryption |
 | **Charts** | Recharts 3 (analytics) + custom pure SVG (routes, splits, gauges) |
 | **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
 | **Web API** | Azure Functions (Node) for Strava OAuth token exchange |
-| **Integrations** | Strava API v3 (OAuth2, rate-limited, mutex-protected refresh) |
-| **Testing** | Vitest 4 with jsdom, 799 tests, v8 coverage |
+| **Integrations** | Strava API v3 (OAuth2, rate-limited, mutex-protected refresh), Open-Meteo (weather) |
+| **Testing** | Vitest 4 with jsdom, 933 tests across 38 files, v8 coverage |
+| **Security** | CSP headers, navigation guards, IPC key allowlisting, SHA-256 backup verification |
 | **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
 
 ---
@@ -1064,6 +1433,14 @@ src/
 │   ├── complianceAnalysis.ts  Workout compliance tracking
 │   ├── trainingJournal.ts     Training journal with mood/effort
 │   ├── shoeTracker.ts         Shoe mileage tracking and rotation
+│   ├── weather.ts             Open-Meteo weather forecasting + heat modeling
+│   ├── calendarExport.ts      .ics calendar export with VDOT paces
+│   ├── raceChecklist.ts       Pre-race checklists with course templates
+│   ├── postRaceAnalysis.ts    Actual vs planned race comparison + grading
+│   ├── raceCard.ts            Printable one-page race day companion
+│   ├── periodization.ts       Training phase detection + coaching tips
+│   ├── pmcChart.ts            CTL/ATL/TSB performance management chart
+│   ├── runningEconomy.ts      Pace:HR efficiency tracking + decline detection
 │   ├── appPreferences.ts     Auto-sync and auto-update preferences
 │   ├── coachingPreferences.ts  Scheduling and notification settings
 │   ├── unitPreferences.ts    Miles/km toggle + all conversion helpers
@@ -1085,9 +1462,12 @@ src/
 │
 ├── types/
 │   ├── recommendations.ts
+│   ├── workout.ts            Workout target, interval block, HR zone types
+│   ├── nutrition.ts          Race conditions, athlete profile, fueling plan types
+│   ├── shoes.ts              Shoe, shoe status, usage types
 │   └── raceStrategy.ts       Marathon, strategy, pacing, elevation types
 │
-└── __tests__/                799 tests across 33 files
+└── __tests__/                1,057 tests across 41 files
     └── setup.ts              Test harness with in-memory persistence mock
 
 electron/                     Electron main process + secure preload

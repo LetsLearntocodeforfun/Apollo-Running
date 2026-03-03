@@ -75,8 +75,7 @@ function createWindow() {
       preload: preloadPath,
       contextIsolation: true,
       nodeIntegration: false,
-      webSecurity: !isDev, // Enable webSecurity in production
-      // Enable these for better debugging in production
+      webSecurity: true,
       devTools: isDev,
       nodeIntegrationInWorker: false,
       webviewTag: false,
@@ -86,6 +85,30 @@ function createWindow() {
     icon: iconPath
   });
   
+  // Prevent the renderer from navigating to untrusted origins
+  mainWindow.webContents.on('will-navigate', (event, navigationUrl) => {
+    try {
+      const parsed = new URL(navigationUrl);
+      const allowedOrigins = ['http://localhost:5173', 'file:'];
+      if (!allowedOrigins.some(o => parsed.origin === o || parsed.protocol === o)) {
+        event.preventDefault();
+      }
+    } catch {
+      event.preventDefault();
+    }
+  });
+
+  // Block new-window requests; open trusted external URLs in the OS browser
+  mainWindow.webContents.setWindowOpenHandler(({ url: targetUrl }) => {
+    try {
+      const parsed = new URL(targetUrl);
+      if (parsed.protocol === 'https:') {
+        shell.openExternal(targetUrl);
+      }
+    } catch { /* invalid URL — ignore */ }
+    return { action: 'deny' };
+  });
+
   // Show window when page is ready
   mainWindow.once('ready-to-show', () => {
     mainWindow?.show();
@@ -356,9 +379,17 @@ function writeSecureStore(store: Record<string, string>): void {
   }
 }
 
+const ALLOWED_SECURE_KEYS = new Set([
+  'strava_tokens', 'strava_credentials',
+  'garmin_tokens', 'garmin_credentials',
+]);
+
 /** Store a credential securely using OS-level encryption */
 ipcMain.handle('secure-storage:set', (_, key: string, value: string) => {
   try {
+    if (!ALLOWED_SECURE_KEYS.has(key)) {
+      return { success: false, error: 'Invalid credential key' };
+    }
     if (!safeStorage.isEncryptionAvailable()) {
       return {
         success: false,
@@ -379,9 +410,8 @@ ipcMain.handle('secure-storage:set', (_, key: string, value: string) => {
 /** Retrieve and decrypt a stored credential */
 ipcMain.handle('secure-storage:get', (_, key: string) => {
   try {
-    if (!safeStorage.isEncryptionAvailable()) {
-      return null;
-    }
+    if (!ALLOWED_SECURE_KEYS.has(key)) return null;
+    if (!safeStorage.isEncryptionAvailable()) return null;
     const store = readSecureStore();
     const encoded = store[key];
     if (!encoded) return null;
@@ -397,6 +427,7 @@ ipcMain.handle('secure-storage:get', (_, key: string) => {
 /** Remove a stored credential */
 ipcMain.handle('secure-storage:remove', (_, key: string) => {
   try {
+    if (!ALLOWED_SECURE_KEYS.has(key)) return { success: false, error: 'Invalid credential key' };
     const store = readSecureStore();
     delete store[key];
     writeSecureStore(store);

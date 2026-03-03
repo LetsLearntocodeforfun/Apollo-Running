@@ -88,7 +88,7 @@ export function importAllData(backup: unknown): boolean {
     persistence.bulkSet(allowed);
     return true;
   } catch (e) {
-    console.error('Failed to import data:', e);
+    console.error('[Apollo] Failed to import data:', e);
     return false;
   }
 }

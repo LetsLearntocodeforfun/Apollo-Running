@@ -2,13 +2,13 @@ import { useState } from 'react';
 import {
   BUILT_IN_PLANS,
   CUSTOM_PLAN_ID,
-  createCustomPlanFromScratch,
   getPlanById,
   getPlanOverview,
   setCustomPlan,
   suggestPlansForRunner,
   type PlanRecommendation,
 } from '../data/plans';
+import PlanBuilder from '../components/PlanBuilder';
 import { setActivePlan, setWelcomeCompleted, formatDateKey } from '../services/planProgress';
 import {
   setCoachingPreferences,
@@ -29,11 +29,6 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
   const [weeklyMilesInput, setWeeklyMilesInput] = useState(22);
   const [runningDaysInput, setRunningDaysInput] = useState(4);
   const [recommendations, setRecommendations] = useState<PlanRecommendation[]>([]);
-  const [customName, setCustomName] = useState('My Custom Marathon Plan');
-  const [customWeeks, setCustomWeeks] = useState(18);
-  const [customRunningDays, setCustomRunningDays] = useState(4);
-  const [customCurrentMiles, setCustomCurrentMiles] = useState(24);
-  const [customPeakMiles, setCustomPeakMiles] = useState(40);
   const [dailyRecapEnabled, setDailyRecapEnabled] = useState(true);
   const [dailyRecapTime, setDailyRecapTime] = useState('20:00');
   const [weeklyRecapEnabled, setWeeklyRecapEnabled] = useState(true);
@@ -52,19 +47,6 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
   const handleSuggestPlans = () => {
     const top = suggestPlansForRunner(weeklyMilesInput, runningDaysInput);
     setRecommendations(top);
-  };
-
-  const handleCreateCustomPlan = () => {
-    const customPlan = createCustomPlanFromScratch({
-      name: customName,
-      totalWeeks: customWeeks,
-      runningDays: customRunningDays,
-      currentWeeklyMiles: customCurrentMiles,
-      peakWeeklyMiles: customPeakMiles,
-    });
-    setCustomPlan(customPlan);
-    setSelectedPlanId(CUSTOM_PLAN_ID);
-    setStep('start-date');
   };
 
   const handleConfirmStartDate = () => {
@@ -290,73 +272,14 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
     return (
       <div className="welcome-flow">
         <div className="welcome-card welcome-overview">
-          <h1 className="welcome-title">Build your plan from scratch</h1>
-          <p className="welcome-text">
-            Define your own starting mileage, peak mileage, plan length, and running days per week. Apollo will generate a progressive plan for you.
-          </p>
-          <div className="custom-builder-grid">
-            <label>
-              <span className="start-date-label">Plan name</span>
-              <input
-                type="text"
-                value={customName}
-                onChange={(e) => setCustomName(e.target.value)}
-                className="start-date-input"
-              />
-            </label>
-            <label>
-              <span className="start-date-label">Plan length (weeks)</span>
-              <input
-                type="number"
-                min={10}
-                max={30}
-                value={customWeeks}
-                onChange={(e) => setCustomWeeks(Number(e.target.value))}
-                className="start-date-input"
-              />
-            </label>
-            <label>
-              <span className="start-date-label">Running days / week</span>
-              <input
-                type="number"
-                min={3}
-                max={6}
-                value={customRunningDays}
-                onChange={(e) => setCustomRunningDays(Number(e.target.value))}
-                className="start-date-input"
-              />
-            </label>
-            <label>
-              <span className="start-date-label">Current weekly miles</span>
-              <input
-                type="number"
-                min={8}
-                max={80}
-                value={customCurrentMiles}
-                onChange={(e) => setCustomCurrentMiles(Number(e.target.value))}
-                className="start-date-input"
-              />
-            </label>
-            <label>
-              <span className="start-date-label">Peak weekly miles target</span>
-              <input
-                type="number"
-                min={12}
-                max={90}
-                value={customPeakMiles}
-                onChange={(e) => setCustomPeakMiles(Number(e.target.value))}
-                className="start-date-input"
-              />
-            </label>
-          </div>
-          <div className="welcome-actions" style={{ marginTop: '1rem' }}>
-            <button type="button" className="btn btn-primary" onClick={handleCreateCustomPlan}>
-              Build this custom plan
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={() => setStep('choice')}>
-              Back
-            </button>
-          </div>
+          <PlanBuilder
+            onComplete={(plan) => {
+              setCustomPlan(plan);
+              setSelectedPlanId(CUSTOM_PLAN_ID);
+              setStep('start-date');
+            }}
+            onCancel={() => setStep('choice')}
+          />
         </div>
       </div>
     );
