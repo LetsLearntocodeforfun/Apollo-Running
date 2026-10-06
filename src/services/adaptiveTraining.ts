@@ -13,7 +13,7 @@ import { getPlanById } from '../data/plans';
 import { getAllWeeklyMileage } from './autoSync';
 import { getLatestReadinessScore } from './weeklyReadiness';
 import { getSavedAdherence } from './racePrediction';
-import { getStravaTokens } from './storage';
+import { isActivitySourceConnected } from './activitySource';
 import { persistence } from './db/persistence';
 import { formatPaceFromMinPerMi } from './unitPreferences';
 import type {
@@ -344,10 +344,10 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   const readiness = getLatestReadinessScore();
   const adherence = getSavedAdherence();
   const lastSync = getLastSyncTime();
-  const stravaConnected = !!getStravaTokens();
+  const dataSourceConnected = isActivitySourceConnected();
 
-  // Build synced run data
-  const syncedRuns: SyncedRunData[] = allMeta.map((m) => {
+  // Build synced run data (cross-training days have no run pace to analyze)
+  const syncedRuns: SyncedRunData[] = allMeta.filter((m) => !m.meta.crossTraining).map((m) => {
     const day = plan.weeks[m.weekIndex]?.days[m.dayIndex];
     return {
       weekIndex: m.weekIndex,
@@ -357,7 +357,8 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
       plannedDistanceMi: day?.distanceMi ?? 0,
       plannedNote: day?.note ?? '',
       movingTimeSec: m.meta.movingTimeSec,
-      date: m.meta.syncedAt.slice(0, 10),
+      // Syncs backfill the whole plan, so prefer the activity's own date.
+      date: m.meta.activityDate ?? m.meta.syncedAt.slice(0, 10),
     };
   });
 
@@ -412,7 +413,7 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
     readinessScore: readiness?.score ?? 0,
     adherenceScore: adherence?.score ?? 0,
     daysSinceLastSync,
-    stravaConnected,
+    dataSourceConnected,
   };
 }
 

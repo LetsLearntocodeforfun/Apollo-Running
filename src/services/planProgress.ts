@@ -147,8 +147,33 @@ export function setWelcomeCompleted(completed: boolean): void {
 const SYNC_META_KEY = 'apollo_sync_meta';
 const LAST_SYNC_KEY = 'apollo_last_sync';
 
+/** Details recorded when a cross-training activity (ride, swim…) fulfils a plan day. */
+export interface CrossTrainingMeta {
+  /** Sport category, e.g. 'ride', 'swim', 'strength' (see activity/sports.ts). */
+  category: string;
+  /** Human label, e.g. "Virtual Ride". */
+  label: string;
+  distanceMeters: number;
+  /** TSS-like training load (from the source platform or estimated). */
+  trainingLoad?: number;
+  averageWatts?: number;
+  averageHR?: number;
+}
+
 export interface SyncMeta {
-  stravaActivityId: number;
+  /** ID of the matched activity in the local activity store. */
+  activityId: number;
+  /** @deprecated Legacy field written by versions ≤ 1.0.4 — read `activityId` instead. */
+  stravaActivityId?: number;
+  /** Source the matched activity was synced from ('strava' | 'intervals'). */
+  activitySource?: string;
+  /** Raw sport type of the matched activity, e.g. "Run", "VirtualRide". */
+  activityType?: string;
+  /** Local date (YYYY-MM-DD) the activity took place. */
+  activityDate?: string;
+  /** Present when the plan day was fulfilled by cross-training instead of a run. */
+  crossTraining?: CrossTrainingMeta;
+  /** Running distance in miles (0 for cross-training so weekly run mileage stays accurate). */
   actualDistanceMi: number;
   actualPaceMinPerMi: number;
   movingTimeSec: number;
@@ -156,10 +181,20 @@ export interface SyncMeta {
   syncedAt: string; // ISO timestamp
 }
 
+/** Upgrade records written by older versions (which only had `stravaActivityId`). */
+function normalizeSyncMeta(meta: SyncMeta): SyncMeta {
+  if (meta && typeof meta.activityId !== 'number' && typeof meta.stravaActivityId === 'number') {
+    return { ...meta, activityId: meta.stravaActivityId, activitySource: meta.activitySource ?? 'strava' };
+  }
+  return meta;
+}
+
 function getSyncMetaMap(): Record<string, SyncMeta> {
   try {
     const raw = persistence.getItem(SYNC_META_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const map: Record<string, SyncMeta> = raw ? JSON.parse(raw) : {};
+    for (const k of Object.keys(map)) map[k] = normalizeSyncMeta(map[k]);
+    return map;
   } catch {
     return {};
   }

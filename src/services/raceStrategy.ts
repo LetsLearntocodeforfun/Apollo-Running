@@ -10,7 +10,6 @@ import type {
   NutritionPlan,
   PacingStrategy,
   RaceStrategyPreferences,
-  CourseProfile,
   ElevationPoint,
   CourseSplit,
   AidStation,
@@ -239,7 +238,7 @@ export function buildRaceStrategy(
   });
 
   // Apply pacing strategy
-  const adjustedPaces = applyPacingStrategy(basePaces, pacingStrategy, totalMiles);
+  const adjustedPaces = applyPacingStrategy(basePaces, pacingStrategy);
 
   // Normalize paces so total time matches target
   const rawTotal = adjustedPaces.reduce((sum, p, i) => {
@@ -342,8 +341,9 @@ function interpolateElevation(points: ElevationPoint[], distanceMi: number): num
 }
 
 /** Apply pacing strategy adjustments to base paces */
-function applyPacingStrategy(basePaces: number[], strategy: PacingStrategy, totalMiles: number): number[] {
-  const n = basePaces.length;
+function applyPacingStrategy(basePaces: number[], strategy: PacingStrategy): number[] {
+  // Guard against a single-split course (n - 1 === 0 would yield NaN paces).
+  const n = Math.max(2, basePaces.length);
 
   switch (strategy) {
     case 'even-split':
@@ -408,20 +408,19 @@ function buildMileNotes(elevChangeFt: number, split: CourseSplit | undefined, is
 function buildNutritionPlan(marathon: MarathonRace, paces: number[]): NutritionPlan[] {
   const plan: NutritionPlan[] = [];
 
-  // General guidelines: water every 2-3 miles, gel every 45 min (~5 miles), electrolytes
+  // General guidelines: water every 2-3 miles, gel every ~40 min, electrolytes
   plan.push({ mile: 0, item: 'Pre-race: Gel + water', notes: '15-20 min before start' });
 
-  // Gel roughly every 5 miles or 4-5 times total
-  const gelMiles = [5, 10, 15, 20, 23];
+  // Gels are time-based, so place them from the projected per-mile paces —
+  // slower runners are out longer and get more gels.
+  const gelMiles = getGelMiles(marathon.distanceMi, paces);
   for (const mile of gelMiles) {
-    if (mile < Math.floor(marathon.distanceMi)) {
-      const nearAid = marathon.aidStations.find((a) => Math.abs(a.distanceMi - mile) <= 1.5);
-      plan.push({
-        mile,
-        item: `Energy gel + water`,
-        notes: nearAid ? `Near ${nearAid.name} (mi ${nearAid.distanceMi})` : 'Carry your own gel',
-      });
-    }
+    const nearAid = marathon.aidStations.find((a) => Math.abs(a.distanceMi - mile) <= 1.5);
+    plan.push({
+      mile,
+      item: `Energy gel + water`,
+      notes: nearAid ? `Near ${nearAid.name} (mi ${nearAid.distanceMi})` : 'Carry your own gel',
+    });
   }
 
   // Water at aid stations not covered by gel miles
@@ -437,6 +436,35 @@ function buildNutritionPlan(marathon: MarathonRace, paces: number[]): NutritionP
   }
 
   return plan.sort((a, b) => a.mile - b.mile);
+}
+
+/** Target gap between gels, in seconds of projected race time. */
+const GEL_INTERVAL_SEC = 40 * 60;
+
+/**
+ * Whole-mile markers for gels roughly every {@link GEL_INTERVAL_SEC} of
+ * projected race time (using the course-adjusted per-mile paces), with none in
+ * the final two miles where a gel can't be absorbed in time. Falls back to the
+ * classic 5/10/15/20/23 schedule when the paces are unusable.
+ */
+function getGelMiles(distanceMi: number, paces: number[]): number[] {
+  const wholeMiles = Math.floor(distanceMi);
+  if (paces.length === 0 || !paces.every((p) => Number.isFinite(p) && p > 0)) {
+    return [5, 10, 15, 20, 23].filter((m) => m < wholeMiles);
+  }
+
+  const lastGelMile = wholeMiles - 2;
+  const miles: number[] = [];
+  let elapsedSec = 0;
+  let nextGelSec = GEL_INTERVAL_SEC;
+  for (let i = 0; i < paces.length && i + 1 <= lastGelMile; i++) {
+    elapsedSec += paces[i];
+    if (elapsedSec >= nextGelSec) {
+      miles.push(i + 1);
+      while (nextGelSec <= elapsedSec) nextGelSec += GEL_INTERVAL_SEC;
+    }
+  }
+  return miles;
 }
 
 // ── Helpers ──

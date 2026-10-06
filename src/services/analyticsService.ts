@@ -2,6 +2,9 @@
 
 import { persistence } from './db/persistence';
 import type { StravaActivity } from './strava';
+import { mergeIntoStore } from './activity/dedupe';
+import { isRunActivity } from './activity/sports';
+import { estimateActivityLoad } from './crossTraining';
 import {
   metersToMiles,
   calcPaceMinPerMi,
@@ -9,8 +12,6 @@ import {
   formatMiles,
   formatElevation,
   unitLabel,
-  calcPaceMinPerMi,
-  formatPaceShort,
 } from './unitPreferences';
 
 const ANALYTICS_CACHE_KEY = 'apollo_analytics_cache';
@@ -104,25 +105,56 @@ export interface AnalyticsSnapshot {
 
 // ─── Activity Storage ────────────────────────────────────────
 
-/** Store activities for analytics (deduplicated by ID) */
-export function storeActivities(activities: StravaActivity[]): void {
-  const existing = getStoredActivities();
-  const map = new Map(existing.map(a => [a.id, a]));
-  for (const a of activities) {
-    map.set(a.id, a);
-  }
-  const all = Array.from(map.values())
-    .sort((a, b) => b.start_date_local.localeCompare(a.start_date_local));
-  // Keep max 5000 (IndexedDB has ample capacity)
-  const trimmed = all.slice(0, 5000);
-  persistence.setItem(ACTIVITIES_STORE_KEY, JSON.stringify(trimmed));
+/** Most activities kept on the device (IndexedDB has ample capacity). */
+export const MAX_STORED_ACTIVITIES = 5000;
+
+let storeCache: { raw: string; activities: StravaActivity[] } | null = null;
+
+/** Outcome of `storeActivities`. */
+export interface StoreActivitiesResult {
+  added: number;
+  updated: number;
+  /**
+   * Oldest activities that no longer fit under MAX_STORED_ACTIVITIES and were
+   * removed from the device by this write (possibly some of those just added).
+   */
+  dropped: number;
 }
 
-/** Retrieve all stored activities */
+/**
+ * Store activities from any source. Records are merged by ID and the same
+ * workout synced from two sources (Strava + intervals.icu) is kept once.
+ * Returns how many activities were added and updated, and how many of the
+ * oldest were dropped to stay within MAX_STORED_ACTIVITIES.
+ */
+export function storeActivities(activities: StravaActivity[]): StoreActivitiesResult {
+  if (activities.length === 0) return { added: 0, updated: 0, dropped: 0 };
+  const { activities: merged, added, updated } = mergeIntoStore(getStoredActivities(), activities);
+  if (added === 0 && updated === 0) return { added, updated, dropped: 0 };
+  const trimmed = merged.slice(0, MAX_STORED_ACTIVITIES);
+  const dropped = merged.length - trimmed.length;
+  if (dropped > 0) {
+    console.warn(
+      `[Apollo] Activity store is full: kept the newest ${MAX_STORED_ACTIVITIES}, removed ${dropped} older ${dropped === 1 ? 'activity' : 'activities'}.`,
+    );
+  }
+  const raw = JSON.stringify(trimmed);
+  persistence.setItem(ACTIVITIES_STORE_KEY, raw);
+  storeCache = { raw, activities: trimmed };
+  return { added, updated, dropped };
+}
+
+/** Retrieve all stored activities (every sport), newest first. */
 export function getStoredActivities(): StravaActivity[] {
   try {
     const raw = persistence.getItem(ACTIVITIES_STORE_KEY);
-    return raw ? JSON.parse(raw) : [];
+    if (!raw) return [];
+    if (!storeCache || storeCache.raw !== raw) {
+      const parsed = JSON.parse(raw);
+      storeCache = { raw, activities: Array.isArray(parsed) ? parsed : [] };
+    }
+    // Callers may sort/splice the array, so hand out a copy.
+    return storeCache.activities.slice();
   } catch {
     return [];
   }
@@ -130,10 +162,7 @@ export function getStoredActivities(): StravaActivity[] {
 
 /** Filter to running activities only */
 function filterRuns(activities: StravaActivity[]): StravaActivity[] {
-  const runTypes = ['Run', 'VirtualRun', 'TrailRun'];
-  return activities.filter(a =>
-    runTypes.includes(a.type) || runTypes.includes(a.sport_type)
-  );
+  return activities.filter(isRunActivity);
 }
 
 function getWeekStart(dateStr: string): string {
@@ -315,17 +344,40 @@ function activityLoad(a: StravaActivity): number {
   return miles * intensityMultiplier;
 }
 
-export function calculateTrainingLoad(activities: StravaActivity[], days: number = 56): TrainingLoadData[] {
-  const runs = filterRuns(activities);
+/**
+ * Cross-training sessions have no run pace, so convert their TSS-like load
+ * into run-load units: an easy hour of running scores ~8–11 here and ~60–70
+ * TSS, hence the divisor.
+ */
+const TSS_PER_RUN_LOAD_UNIT = 7;
+
+function crossTrainingLoad(a: StravaActivity): number {
+  return estimateActivityLoad(a) / TSS_PER_RUN_LOAD_UNIT;
+}
+
+export interface TrainingLoadOptions {
+  /** Count rides, swims, strength etc. toward load (default true). */
+  includeCrossTraining?: boolean;
+}
+
+export function calculateTrainingLoad(
+  activities: StravaActivity[],
+  days: number = 56,
+  options: TrainingLoadOptions = {},
+): TrainingLoadData[] {
+  const includeCross = options.includeCrossTraining ?? true;
   const cutoff = daysAgo(days);
-  const filtered = runs.filter(a => a.start_date_local.slice(0, 10) >= cutoff)
+  const filtered = activities
+    .filter(a => includeCross || isRunActivity(a))
+    .filter(a => a.start_date_local.slice(0, 10) >= cutoff)
     .sort((a, b) => a.start_date_local.localeCompare(b.start_date_local));
 
   // Build daily load map
   const dailyLoad = new Map<string, number>();
   for (const a of filtered) {
     const dateKey = a.start_date_local.slice(0, 10);
-    dailyLoad.set(dateKey, (dailyLoad.get(dateKey) ?? 0) + activityLoad(a));
+    const load = isRunActivity(a) ? activityLoad(a) : crossTrainingLoad(a);
+    dailyLoad.set(dateKey, (dailyLoad.get(dateKey) ?? 0) + load);
   }
 
   const result: TrainingLoadData[] = [];

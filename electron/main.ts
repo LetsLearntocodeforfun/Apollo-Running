@@ -199,20 +199,14 @@ function createWindow() {
 
   mainWindow.on('closed', () => { 
     mainWindow = null; 
-    if (oauthServer) {
-      oauthServer.close();
-      oauthServer = null;
-    }
+    closeOAuthServer();
   });
 }
 
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
-  if (oauthServer) {
-    oauthServer.close();
-    oauthServer = null;
-  }
+  closeOAuthServer();
   if (process.platform !== 'darwin') app.quit();
 });
 
@@ -222,66 +216,121 @@ app.on('activate', () => {
 
 // ----- Strava OAuth -----
 
+/** How long to wait for the user to approve access in the browser. */
+const OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
+
+interface OAuthCallbackResult { code: string; scope?: string }
+interface PendingOAuth {
+  /** Resolves with the loopback port once the callback server is listening. */
+  listening: Promise<number>;
+  /** Resolves when Strava redirects back with an authorization code. */
+  result: Promise<OAuthCallbackResult>;
+}
+let pendingOAuth: PendingOAuth | null = null;
+
 /** Generate a cryptographically random state string for OAuth CSRF protection. */
 function generateOAuthState(): string {
   return require('crypto').randomBytes(32).toString('hex');
 }
 
-function startOAuthServer(): Promise<{ code: string; scope?: string }> {
-  return new Promise((resolve, reject) => {
-    if (oauthServer) {
-      oauthServer.close();
-      oauthServer = null;
-    }
-    oauthServer = http.createServer((req, res) => {
-      const parsed = url.parse(req.url || '', true);
-      if (parsed.pathname === '/callback' && parsed.query.code) {
-        // Validate CSRF state parameter
-        if (!oauthState || parsed.query.state !== oauthState) {
-          res.writeHead(403, { 'Content-Type': 'text/html' });
-          res.end(`
-            <html><body style="font-family:sans-serif;text-align:center;padding:40px;">
-              <h2>Authentication failed</h2>
-              <p>Invalid state parameter. Please try connecting again from the app.</p>
-            </body></html>
-          `);
-          return;
-        }
-        oauthState = null; // Consume the state (one-time use)
-        res.writeHead(200, { 'Content-Type': 'text/html' });
-        res.end(`
-          <html><body style="font-family:sans-serif;text-align:center;padding:40px;">
-            <h2>Strava connected</h2>
-            <p>You can close this window and return to the app.</p>
-          </body></html>
-        `);
-        resolve({
-          code: parsed.query.code as string,
-          scope: parsed.query.scope as string | undefined,
-        });
-        setTimeout(() => {
-          oauthServer?.close();
-          oauthServer = null;
-        }, 500);
-      } else {
-        res.writeHead(404);
-        res.end();
-      }
-    });
-    // Use a random ephemeral port instead of a hardcoded one
-    oauthServer.listen(0, '127.0.0.1', () => {
-      const addr = oauthServer!.address();
-      oauthPort = typeof addr === 'object' && addr ? addr.port : null;
-    });
-    oauthServer.on('error', reject);
-  });
+function oauthPage(title: string, message: string): string {
+  return `<html><body style="font-family:sans-serif;text-align:center;padding:40px;">
+    <h2>${title}</h2><p>${message}</p></body></html>`;
 }
 
-ipcMain.handle('strava:get-auth-url', (_, clientId: string) => {
-  if (!oauthPort) return null;
+/** Close a callback server (the current one by default). */
+function closeOAuthServer(server: http.Server | null = oauthServer): void {
+  if (!server) return;
+  server.close();
+  if (oauthServer === server) {
+    oauthServer = null;
+    pendingOAuth = null;
+  }
+}
+
+/**
+ * Start — or reuse — the loopback server that receives Strava's redirect.
+ * Idempotent, so the renderer can request the auth URL and start waiting for
+ * the code in either order. `oauthPort` is kept after the server closes
+ * because the token exchange must send the same redirect_uri.
+ */
+function ensureOAuthServer(): PendingOAuth {
+  if (pendingOAuth) return pendingOAuth;
+
+  let resolveResult!: (value: OAuthCallbackResult) => void;
+  let rejectResult!: (err: Error) => void;
+  const result = new Promise<OAuthCallbackResult>((resolve, reject) => {
+    resolveResult = resolve;
+    rejectResult = reject;
+  });
+  result.catch(() => { /* handled by whoever awaits it */ });
+
+  const server = http.createServer((req, res) => {
+    const parsed = url.parse(req.url || '', true);
+    if (parsed.pathname !== '/callback') {
+      res.writeHead(404);
+      res.end();
+      return;
+    }
+    if (parsed.query.error) {
+      res.writeHead(200, { 'Content-Type': 'text/html' });
+      res.end(oauthPage('Strava not connected', 'Authorization was cancelled. You can close this window.'));
+      clearTimeout(timer);
+      rejectResult(new Error('Strava authorization was cancelled.'));
+      setTimeout(() => closeOAuthServer(server), 500);
+      return;
+    }
+    // Validate CSRF state parameter
+    if (!parsed.query.code || !oauthState || parsed.query.state !== oauthState) {
+      res.writeHead(403, { 'Content-Type': 'text/html' });
+      res.end(oauthPage('Authentication failed', 'Invalid state parameter. Please try connecting again from the app.'));
+      return;
+    }
+    oauthState = null; // Consume the state (one-time use)
+    res.writeHead(200, { 'Content-Type': 'text/html' });
+    res.end(oauthPage('Strava connected', 'You can close this window and return to the app.'));
+    clearTimeout(timer);
+    // The next connect attempt gets a fresh server.
+    if (oauthServer === server) pendingOAuth = null;
+    resolveResult({
+      code: parsed.query.code as string,
+      scope: parsed.query.scope as string | undefined,
+    });
+    setTimeout(() => closeOAuthServer(server), 500);
+  });
+
+  const timer = setTimeout(() => {
+    rejectResult(new Error('Timed out waiting for Strava authorization. Please try again.'));
+    closeOAuthServer(server);
+  }, OAUTH_TIMEOUT_MS);
+
+  const listening = new Promise<number>((resolve, reject) => {
+    server.once('error', (err) => {
+      clearTimeout(timer);
+      rejectResult(err);
+      closeOAuthServer(server);
+      reject(err);
+    });
+    // Random ephemeral port, loopback only
+    server.listen(0, '127.0.0.1', () => {
+      const addr = server.address();
+      oauthPort = typeof addr === 'object' && addr ? addr.port : null;
+      if (oauthPort) resolve(oauthPort);
+      else reject(new Error('Could not start the Strava callback server'));
+    });
+  });
+  listening.catch(() => { /* surfaced through the IPC handlers */ });
+
+  oauthServer = server;
+  pendingOAuth = { listening, result };
+  return pendingOAuth;
+}
+
+ipcMain.handle('strava:get-auth-url', async (_, clientId: string) => {
+  const port = await ensureOAuthServer().listening;
   oauthState = generateOAuthState();
-  const redirectUri = `http://127.0.0.1:${oauthPort}/callback`;
-  return `${STRAVA_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(STRAVA_SCOPES)}&approval_prompt=force&state=${encodeURIComponent(oauthState)}`;
+  const redirectUri = `http://127.0.0.1:${port}/callback`;
+  return `${STRAVA_AUTH_URL}?client_id=${encodeURIComponent(clientId)}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(STRAVA_SCOPES)}&approval_prompt=force&state=${encodeURIComponent(oauthState)}`;
 });
 
 ipcMain.handle('strava:exchange-code', async (_, { clientId, clientSecret, code }: { clientId: string; clientSecret: string; code: string }) => {
@@ -322,7 +371,11 @@ ipcMain.handle('strava:refresh-token', async (_, { clientId, clientSecret, refre
   return res.json();
 });
 
-ipcMain.handle('oauth:start-server', () => startOAuthServer());
+ipcMain.handle('oauth:start-server', async () => {
+  const pending = ensureOAuthServer();
+  await pending.listening;
+  return pending.result;
+});
 
 // Garmin: placeholder for when you have API access (OAuth 2.0 + PKCE)
 ipcMain.handle('garmin:get-auth-url', (_, _config: { clientId: string; codeChallenge: string; state: string }) => {
@@ -338,7 +391,7 @@ ipcMain.handle('open-external', (_, targetUrl: string) => {
   // Only allow http/https URLs to prevent opening arbitrary protocols
   try {
     const parsed = new URL(targetUrl);
-    const TRUSTED_DOMAINS = ['strava.com', 'www.strava.com', 'connect.garmin.com'];
+    const TRUSTED_DOMAINS = ['strava.com', 'www.strava.com', 'connect.garmin.com', 'intervals.icu'];
     if (parsed.protocol === 'https:' && TRUSTED_DOMAINS.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d))) {
       shell.openExternal(targetUrl);
     }
@@ -382,6 +435,7 @@ function writeSecureStore(store: Record<string, string>): void {
 const ALLOWED_SECURE_KEYS = new Set([
   'strava_tokens', 'strava_credentials',
   'garmin_tokens', 'garmin_credentials',
+  'intervals_credentials',
 ]);
 
 /** Store a credential securely using OS-level encryption */

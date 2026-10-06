@@ -174,8 +174,8 @@ export interface TrainingAnalysisInput {
   adherenceScore: number;
   /** Days since last sync */
   daysSinceLastSync: number;
-  /** Whether Strava is connected */
-  stravaConnected: boolean;
+  /** Whether an activity source (intervals.icu or Strava) is connected */
+  dataSourceConnected: boolean;
 }
 
 /** Simplified synced run data for analysis */

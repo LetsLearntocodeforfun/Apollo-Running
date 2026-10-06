@@ -144,14 +144,18 @@ export function estimateTimeInZones(avgHR: number, maxHR: number, movingTimeSec:
   return timeInZones;
 }
 
-/** Build HR data from a Strava activity (uses average_heartrate / max_heartrate) */
-export function buildHRDataFromStrava(
+/**
+ * Build HR data from a synced activity (uses average_heartrate / max_heartrate).
+ * @param source Where the activity came from ('intervals' | 'strava').
+ */
+export function buildHRDataFromActivity(
   activityId: number,
   date: string,
   averageHR: number,
   maxHR: number,
   movingTimeSec: number,
-  avgCadence?: number
+  avgCadence?: number,
+  source: string = 'strava',
 ): ActivityHRData | null {
   if (!averageHR || averageHR <= 0) return null;
 
@@ -160,7 +164,7 @@ export function buildHRDataFromStrava(
   // Guard against sensor spikes: must be between 120-230 and within 15% of current maxHR
   if (maxHR > profile.maxHR && maxHR < 230 && maxHR >= 120 && maxHR <= profile.maxHR * 1.15) {
     console.info(`[Apollo HR] Auto-updated maxHR: ${profile.maxHR} → ${maxHR} (from activity ${activityId})`);
-    setHRProfile({ ...profile, maxHR, source: 'strava', updatedAt: new Date().toISOString() });
+    setHRProfile({ ...profile, maxHR, source, updatedAt: new Date().toISOString() });
   }
 
   const timeInZones = estimateTimeInZones(averageHR, profile.maxHR, movingTimeSec);
@@ -171,10 +175,22 @@ export function buildHRDataFromStrava(
     averageHR,
     maxHR: maxHR || profile.maxHR,
     timeInZones,
-    source: 'strava',
+    source,
     movingTimeSec,
     avgCadence,
   };
+}
+
+/** @deprecated Use buildHRDataFromActivity (source-aware). Kept for backward compatibility. */
+export function buildHRDataFromStrava(
+  activityId: number,
+  date: string,
+  averageHR: number,
+  maxHR: number,
+  movingTimeSec: number,
+  avgCadence?: number
+): ActivityHRData | null {
+  return buildHRDataFromActivity(activityId, date, averageHR, maxHR, movingTimeSec, avgCadence, 'strava');
 }
 
 /** Get HR trend data: rolling average of avg HR over recent runs */

@@ -5,7 +5,7 @@
  * and data integrity of the World Majors database.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import {
   buildRaceStrategy,
   importCustomMarathon,
@@ -125,6 +125,21 @@ describe('World Major Marathons Database', () => {
     expect(tokyo).toBeDefined();
     expect(tokyo!.city).toBe('Tokyo');
   });
+
+  it('getNextWorldMajor returns the soonest upcoming major (or null when all have passed)', () => {
+    const now = Date.now();
+    const upcoming = WORLD_MAJOR_MARATHONS
+      .filter((m) => new Date(m.date).getTime() > now)
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const next = getNextWorldMajor();
+    if (upcoming.length === 0) {
+      expect(next).toBeNull();
+    } else {
+      expect(next).not.toBeNull();
+      expect(next!.id).toBe(upcoming[0].id);
+      expect(new Date(next!.date).getTime()).toBeGreaterThan(now);
+    }
+  });
 });
 
 // ── Race Strategy Preferences ─────────────────────────────────────────────────
@@ -195,6 +210,21 @@ describe('buildRaceStrategy', () => {
     const strategy = buildRaceStrategy('london-marathon-2026', 4 * 3600, 'even-split');
     expect(strategy).not.toBeNull();
     expect(strategy!.nutritionPlan.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('places gels by projected race time (slower = more gels, none in the last 2 miles)', () => {
+    const gelMiles = (targetSec: number) =>
+      buildRaceStrategy('chicago-marathon-2026', targetSec, 'even-split')!
+        .nutritionPlan.filter((n) => n.item.startsWith('Energy gel'))
+        .map((n) => n.mile);
+    const fast = gelMiles(2.75 * 3600);
+    const slow = gelMiles(5 * 3600);
+    expect(fast.length).toBeGreaterThanOrEqual(3);
+    expect(slow.length).toBeGreaterThan(fast.length);
+    for (const mile of [...fast, ...slow]) {
+      expect(mile).toBeGreaterThan(0);
+      expect(mile).toBeLessThanOrEqual(24);
+    }
   });
 
   it('should return null for an invalid marathon ID', () => {
@@ -297,7 +327,8 @@ describe('Custom Marathon Import', () => {
       courseType: 'out-and-back',
     });
 
-    expect(marathon.elevationGainFt ?? marathon.course.totalGainFt).toBeDefined();
+    expect(Number.isFinite(marathon.course.totalGainFt)).toBe(true);
+    expect(marathon.course.totalGainFt).toBeGreaterThanOrEqual(0);
     expect(marathon.course.elevationPoints.length).toBeGreaterThanOrEqual(2);
     expect(marathon.aidStations.length).toBeGreaterThanOrEqual(3);
   });

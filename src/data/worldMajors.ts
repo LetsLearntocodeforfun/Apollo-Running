@@ -1,6 +1,6 @@
 // World Marathon Majors + popular marathon course database.
 
-import type { MarathonRace, ElevationPoint, CourseSplit, AidStation } from '../types/raceStrategy';
+import type { MarathonRace, CourseSplit, AidStation } from '../types/raceStrategy';
 
 // ═══════════════════════════════════════════════════════════════
 //  TOKYO MARATHON — March 1, 2026

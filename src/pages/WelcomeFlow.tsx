@@ -88,7 +88,11 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
         <div className="welcome-card">
           <h1 className="welcome-title">Welcome to Apollo</h1>
           <p className="welcome-text">
-            Your all-in-one marathon training app. Connect Strava and Garmin, follow a day-by-day checklist, and stay on track.
+            Your free, all-in-one marathon training app. Follow a day-by-day checklist, sync every run, ride and workout automatically, and stay on track.
+          </p>
+          <p className="welcome-hint" style={{ marginBottom: '1rem' }}>
+            Activities sync through <strong>intervals.icu</strong> — free, and it works with Garmin, Zwift, Wahoo, COROS, Suunto, Polar and more.
+            Strava is available as an optional alternative. You can connect either one later in Settings.
           </p>
           <p className="welcome-question">
             Choose how you want to start your training plan.
@@ -546,8 +550,13 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
           )}
         </div>
 
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-          You&apos;ll also get a <strong>Race Day Time Prediction</strong> and <strong>Training Adherence Score</strong> updated daily after each Strava sync. These features use VDOT modeling, heart rate zones, and your training consistency to build an accurate race picture.
+        <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '0.75rem', lineHeight: 1.5 }}>
+          You&apos;ll also get a <strong>Race Day Time Prediction</strong> and <strong>Training Adherence Score</strong> updated daily after each activity sync. These features use VDOT modeling, heart rate zones, and your training consistency to build an accurate race picture.
+        </p>
+
+        <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+          <strong>Next:</strong> open <strong>Settings</strong> and connect <strong>intervals.icu</strong> (free — works with Garmin, Zwift, Wahoo, COROS…) so every activity syncs automatically. Strava is available there too as an optional alternative.
+          {' '}Or import files from Garmin/Strava (FIT, GPX, TCX or your full account export) on the <strong>Activities</strong> page.
         </p>
 
         <div className="welcome-actions">

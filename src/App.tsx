@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { HashRouter, Routes, Route, NavLink, useLocation } from 'react-router-dom';
 import './App.css';
 import Dashboard from './pages/Dashboard';
@@ -12,9 +12,15 @@ import AuthStravaCallback from './pages/AuthStravaCallback';
 import NotFound from './pages/NotFound';
 import RaceStrategyPage from './pages/RaceStrategy';
 import { getWelcomeCompleted } from './services/planProgress';
-import { getStravaTokens } from './services/storage';
-import { runAutoSync } from './services/autoSync';
+import { runSync } from './services/autoSync';
+import { syncPlanCalendarIfChanged } from './services/planCalendarSync';
 import {
+  getLastActivitySyncTime,
+  isActivitySourceConnected,
+  isSyncRunning,
+} from './services/activitySource';
+import {
+  APP_PREFS_CHANGED_EVENT,
   getAppPreferences,
   isAutoSyncCooldownElapsed,
   markAutoSyncRan,
@@ -34,35 +40,96 @@ function PageWrapper({ children }: { children: React.ReactNode }) {
 function AppShell() {
   const [syncToast, setSyncToast] = useState<string | null>(null);
   const [updateToast, setUpdateToast] = useState<{ message: string; action?: () => void; actionLabel?: string } | null>(null);
-  const autoSyncRanRef = useRef(false);
+  const [prefsVersion, setPrefsVersion] = useState(0);
+  const launchSyncRanRef = useRef(false);
+  const syncToastTimerRef = useRef<number | undefined>(undefined);
   const updaterConfiguredRef = useRef(false);
 
-  // Auto-sync Strava on launch (opt-in)
-  useEffect(() => {
-    if (autoSyncRanRef.current) return;
-    autoSyncRanRef.current = true;
+  /** Show a sync toast; autoHideMs = 0 keeps it up (progress messages). */
+  const showSyncToast = useCallback((message: string | null, autoHideMs: number = 4000) => {
+    window.clearTimeout(syncToastTimerRef.current);
+    setSyncToast(message);
+    if (message && autoHideMs > 0) {
+      syncToastTimerRef.current = window.setTimeout(() => setSyncToast(null), autoHideMs);
+    }
+  }, []);
 
+  // Re-read sync preferences when Settings changes them.
+  useEffect(() => {
+    const onPrefsChanged = () => setPrefsVersion((v) => v + 1);
+    window.addEventListener(APP_PREFS_CHANGED_EVENT, onPrefsChanged);
+    return () => window.removeEventListener(APP_PREFS_CHANGED_EVENT, onPrefsChanged);
+  }, []);
+
+  // Automatic activity sync (opt-in; turned on when a source is connected):
+  // once on launch, then every N minutes while Apollo is open.
+  useEffect(() => {
     const prefs = getAppPreferences();
     if (!prefs.autoSyncOnLaunch) return;
-    if (!getStravaTokens()) return;
-    if (!isAutoSyncCooldownElapsed()) return;
+    const intervalMs = Math.max(0, prefs.backgroundSyncMinutes) * 60_000;
 
-    setSyncToast('Syncing Strava activities…');
-    runAutoSync()
-      .then((results) => {
-        markAutoSyncRan();
-        const newCount = results.filter((r) => r.isNew).length;
-        if (newCount > 0) {
-          setSyncToast(`Synced ${newCount} new activit${newCount === 1 ? 'y' : 'ies'} from Strava`);
-        } else {
-          setSyncToast('Strava is up to date');
-        }
-        setTimeout(() => setSyncToast(null), 4000);
-      })
-      .catch(() => {
-        setSyncToast('Strava sync failed — will retry next launch');
-        setTimeout(() => setSyncToast(null), 4000);
-      });
+    const sync = (announce: boolean) => {
+      if (!isActivitySourceConnected() || isSyncRunning() || !isAutoSyncCooldownElapsed()) return;
+      markAutoSyncRan();
+      if (announce) showSyncToast('Syncing activities…', 0);
+      runSync({ onProgress: announce ? (p) => showSyncToast(p.message, 0) : undefined })
+        .then(({ summary }) => {
+          const added = summary?.added ?? 0;
+          const error = summary?.errors[0]?.message;
+          if (added > 0) {
+            showSyncToast(`Synced ${added} new activit${added === 1 ? 'y' : 'ies'}`);
+          } else if (!announce) {
+            return; // background syncs stay quiet unless something new arrived
+          } else if (error) {
+            showSyncToast(`Sync problem: ${error}`, 7000);
+          } else {
+            showSyncToast('Activities are up to date');
+          }
+        })
+        .catch(() => {
+          if (announce) showSyncToast('Sync failed — will retry later');
+        });
+    };
+
+    if (!launchSyncRanRef.current) {
+      launchSyncRanRef.current = true;
+      sync(true);
+    }
+    if (intervalMs === 0) return;
+
+    const timer = window.setInterval(() => sync(false), intervalMs);
+    // Timers pause while the computer sleeps — catch up on wake, refocus or reconnect.
+    const catchUp = () => {
+      if (document.visibilityState !== 'visible') return;
+      const last = getLastActivitySyncTime();
+      if (!last || Date.now() - Date.parse(last) >= intervalMs) sync(false);
+    };
+    document.addEventListener('visibilitychange', catchUp);
+    window.addEventListener('focus', catchUp);
+    window.addEventListener('online', catchUp);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener('visibilitychange', catchUp);
+      window.removeEventListener('focus', catchUp);
+      window.removeEventListener('online', catchUp);
+    };
+  }, [prefsVersion, showSyncToast]);
+
+  // "Send your plan to your watch" auto-update (opt-in, Training page): runs on
+  // launch and when Apollo regains focus, independent of activity auto-sync.
+  // The service only calls intervals.icu when the plan or paces changed (or a
+  // day has passed), and never throws.
+  useEffect(() => {
+    void syncPlanCalendarIfChanged();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void syncPlanCalendarIfChanged();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, []);
 
   // Configure auto-updater on launch (Electron only, opt-in)
@@ -110,15 +177,15 @@ function AppShell() {
     <div className="app">
       {/* Auto-sync toast notification */}
       {syncToast && (
-        <div style={{
+        <div role="status" aria-live="polite" style={{
           position: 'fixed', top: 16, right: 16, zIndex: 9999,
           background: 'var(--bg-elevated, #1B2838)', color: 'var(--text, #E0E0E0)',
-          border: '1px solid var(--strava, #FC4C02)', borderRadius: 'var(--radius-md, 8px)',
+          border: '1px solid var(--apollo-teal, #5BB5B5)', borderRadius: 'var(--radius-md, 8px)',
           padding: '0.75rem 1.25rem', fontSize: '0.88rem', fontWeight: 500,
           boxShadow: '0 4px 24px rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', gap: '0.5rem',
           animation: 'fadeIn 0.3s ease',
         }}>
-          <span style={{ color: 'var(--strava, #FC4C02)', fontSize: '1rem' }}>⟳</span>
+          <span aria-hidden="true" style={{ color: 'var(--apollo-teal, #5BB5B5)', fontSize: '1rem' }}>⟳</span>
           {syncToast}
         </div>
       )}
@@ -213,6 +280,25 @@ export default function App() {
 
   useEffect(() => {
     setWelcomeDone(getWelcomeCompleted());
+  }, []);
+
+  // A file dropped outside an import drop zone must not navigate the window to
+  // that file (the browser and Electron default), which would replace Apollo
+  // with the file's contents. Drop zones handle the event first and call
+  // preventDefault(); drags without files (text, links) are left alone.
+  // Lives here, not in AppShell, so onboarding is covered too.
+  useEffect(() => {
+    const guard = (e: DragEvent) => {
+      if (e.defaultPrevented || !e.dataTransfer || !Array.from(e.dataTransfer.types).includes('Files')) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'none';
+    };
+    window.addEventListener('dragover', guard);
+    window.addEventListener('drop', guard);
+    return () => {
+      window.removeEventListener('dragover', guard);
+      window.removeEventListener('drop', guard);
+    };
   }, []);
 
   if (!welcomeDone) {

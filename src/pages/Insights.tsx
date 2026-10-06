@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getActivePlan } from '../services/planProgress';
 import { getPlanById } from '../data/plans';
-import { getStravaTokens } from '../services/storage';
+import { isActivitySourceConnected, hasActivityData } from '../services/activitySource';
 import {
   calculateRacePrediction,
   calculateTrainingAdherence,
@@ -35,6 +35,8 @@ import {
   WEEKDAY_NAMES,
 } from '../services/coachingPreferences';
 import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
+import ErrorBoundary from '../components/ErrorBoundary';
+import RecoveryCard from '../components/RecoveryCard';
 
 /** Circular gauge component for scores */
 function ScoreGauge({ score, size = 120, label, color }: { score: number; size?: number; label: string; color: string }) {
@@ -137,7 +139,9 @@ export default function Insights() {
   const [hrResting, setHRResting] = useState(String(hrProfile.restingHR));
   const [tab, setTab] = useState<'overview' | 'hr' | 'recaps' | 'settings'>('overview');
 
-  const stravaConnected = !!getStravaTokens();
+  const connected = isActivitySourceConnected();
+  // History synced earlier or imported from files, without a live source (computed once — reads the store)
+  const [hasStoredHistory] = useState(hasActivityData);
   const activePlan = getActivePlan();
   const plan = activePlan ? getPlanById(activePlan.planId) : null;
   useEffect(() => {
@@ -298,9 +302,11 @@ export default function Insights() {
                 </div>
               ) : (
                 <p style={{ color: 'var(--text-muted)', marginTop: '1rem', fontSize: '0.9rem' }}>
-                  {stravaConnected
-                    ? 'Complete at least 3 runs to unlock your race time prediction. Sync your Strava activities to get started.'
-                    : 'Connect Strava in Settings to start tracking your runs and building a race prediction.'}
+                  {connected
+                    ? 'Complete at least 3 runs to unlock your race time prediction. Sync your activities to get started.'
+                    : hasStoredHistory
+                      ? 'Complete at least 3 runs to unlock your race time prediction. Connect a data source (intervals.icu or Strava) in Settings to sync new runs automatically.'
+                      : 'Connect a data source (intervals.icu or Strava) in Settings to start tracking your runs and building a race prediction.'}
                 </p>
               )}
             </div>
@@ -383,6 +389,13 @@ export default function Insights() {
                 </div>
               )}
             </div>
+          )}
+
+          {/* Today's recovery (sleep / HRV / resting HR via intervals.icu) — independent of the plan */}
+          {connected && (
+            <ErrorBoundary>
+              <RecoveryCard />
+            </ErrorBoundary>
           )}
 
           {/* Race Day Readiness */}
@@ -572,7 +585,7 @@ export default function Insights() {
               </div>
             )}
             <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.75rem 0 0', lineHeight: 1.4 }}>
-              Your max HR auto-updates when Strava activities with higher heart rate data are synced. Manually set it here for more accurate zone calculations.
+              Your max HR auto-updates when synced activities contain higher heart rate data. Manually set it here for more accurate zone calculations.
             </p>
           </div>
 
@@ -580,7 +593,7 @@ export default function Insights() {
           <div className="card">
             <h3>Running Heart Rate Zones</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.4 }}>
-              Based on your max HR of {hrProfile.maxHR} bpm. Zones match the standard 5-zone model used by Strava and Garmin.
+              Based on your max HR of {hrProfile.maxHR} bpm. Zones follow the standard 5-zone model used by most training platforms and watches.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {zones.map((z) => (
@@ -646,10 +659,10 @@ export default function Insights() {
             </div>
           )}
 
-          {!stravaConnected && (
+          {!connected && (
             <div className="card">
               <p style={{ color: 'var(--text-muted)' }}>
-                Connect <strong>Strava</strong> in Settings to automatically sync heart rate data from your runs. Garmin data is also supported when connected.
+                Connect a data source (intervals.icu or Strava) in Settings to automatically sync heart rate data from your runs — intervals.icu also brings in Garmin, COROS, Polar, Suunto and Wahoo data.
               </p>
             </div>
           )}
@@ -750,7 +763,7 @@ export default function Insights() {
 
           {recentRecaps.length === 0 && (
             <div className="card">
-              <p style={{ color: 'var(--text-muted)' }}>No recaps yet. Recaps are generated after each Strava sync or at your scheduled recap time.</p>
+              <p style={{ color: 'var(--text-muted)' }}>No recaps yet. Recaps are generated after each activity sync or at your scheduled recap time.</p>
             </div>
           )}
         </>
@@ -829,7 +842,7 @@ export default function Insights() {
               <p><strong>Race Day Prediction</strong> uses the VDOT model (Jack Daniels Running Formula) and Riegel formula, blended with your actual training pace data and heart rate efficiency. Predictions improve as you log more runs.</p>
               <p><strong>Training Adherence</strong> measures completion rate, distance accuracy, consistency, and intensity balance against your chosen plan.</p>
               <p><strong>Race Day Readiness</strong> is a weekly composite score evaluating volume, consistency, long run completion, effort appropriateness, and recovery balance.</p>
-              <p><strong>Heart Rate Zones</strong> are automatically populated from Strava or Garmin data. Your max HR updates when higher values are detected. Zone analysis helps ensure you&apos;re training at the right intensities.</p>
+              <p><strong>Heart Rate Zones</strong> are automatically populated from your connected data source (intervals.icu or Strava). Your max HR updates when higher values are detected. Zone analysis helps ensure you&apos;re training at the right intensities.</p>
             </div>
           </div>
         </>

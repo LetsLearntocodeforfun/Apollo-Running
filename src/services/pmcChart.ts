@@ -19,6 +19,8 @@
  */
 
 import type { StravaActivity } from './strava';
+import { isRunActivity } from './activity/sports';
+import { estimateActivityLoad } from './crossTraining';
 import {
   calculateFitnessFatigue,
   estimateTSS,
@@ -161,13 +163,15 @@ export function classifyWorkoutType(activity: StravaActivity): DailyTrainingLoad
 }
 
 /**
- * Convert Strava activities to daily training loads for CTL/ATL/TSB calculation.
+ * Convert activities to daily training loads for CTL/ATL/TSB calculation.
+ * Runs only by default; pass `includeCrossTraining` to add rides, swims,
+ * strength etc. using their source-reported (or estimated) training load.
  */
-export function activitiesToDailyLoads(activities: StravaActivity[]): DailyTrainingLoad[] {
-  const runTypes = ['Run', 'VirtualRun', 'TrailRun'];
-  const runs = activities.filter(
-    (a) => runTypes.includes(a.type) || runTypes.includes(a.sport_type),
-  );
+export function activitiesToDailyLoads(
+  activities: StravaActivity[],
+  options: { includeCrossTraining?: boolean } = {},
+): DailyTrainingLoad[] {
+  const runs = activities.filter(isRunActivity);
 
   // Group by date (sum TSS for multi-run days)
   const dayMap = new Map<string, DailyTrainingLoad>();
@@ -190,6 +194,18 @@ export function activitiesToDailyLoads(activities: StravaActivity[]): DailyTrain
       }
     } else {
       dayMap.set(date, { date, tss, distanceMi, type });
+    }
+  }
+
+  if (options.includeCrossTraining) {
+    for (const a of activities) {
+      if (isRunActivity(a)) continue;
+      const tss = estimateActivityLoad(a);
+      if (tss <= 0) continue;
+      const date = a.start_date_local.slice(0, 10);
+      const existing = dayMap.get(date);
+      if (existing) existing.tss += tss;
+      else dayMap.set(date, { date, tss, distanceMi: 0, type: 'easy' });
     }
   }
 

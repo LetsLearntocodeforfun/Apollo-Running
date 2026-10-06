@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { BUILT_IN_PLANS, CUSTOM_PLAN_ID, getPlanById, setCustomPlan, type PlanDay } from '../data/plans';
+import { Link } from 'react-router-dom';
+import { BUILT_IN_PLANS, CUSTOM_PLAN_ID, getPlanById, setCustomPlan, type PlanDay, type TrainingPlan } from '../data/plans';
 import PlanBuilder from '../components/PlanBuilder';
 import {
   getActivePlan,
@@ -10,23 +11,87 @@ import {
   getCompletedCount,
   formatDateKey,
   getSyncMeta,
-  getLastSyncTime,
   type ActivePlan,
   type SyncMeta,
 } from '../services/planProgress';
-import { getStravaTokens } from '../services/storage';
-import { runAutoSync, getWeeklyMileageSummary, type SyncResult } from '../services/autoSync';
+import {
+  isActivitySourceConnected,
+  hasActivityData,
+  getActiveSourceName,
+  getSourceDisplayName,
+  getStoredActivities,
+  getLastActivitySyncTime,
+  isActivitySyncFresh,
+  isSyncRunning,
+  PAGE_SYNC_FRESH_MS,
+  type SyncSummary,
+} from '../services/activitySource';
+import { runSync, refreshPlanFromStoredActivities, onPlanRefreshed, getWeeklyMileageSummary, type SyncResult } from '../services/autoSync';
+import { syncPlanCalendarIfChanged } from '../services/planCalendarSync';
+import { getSportIcon, getSportLabel, getSportCategoryIcon, SPORT_CATEGORIES, type SportCategory } from '../services/activity/sports';
+import { formatHoursMinutes } from '../services/crossTraining';
 import { RouteMapThumbnail } from '../components/RouteMap';
-import { getStoredActivities } from '../services/analyticsService';
 import { getEffortRecognition } from '../services/effortService';
 import { TIER_CONFIG } from '../components/TierBadge';
-import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
+import { formatMiles, formatPaceFromMinPerMi, formatDistanceShort } from '../services/unitPreferences';
 import CalendarView from '../components/CalendarView';
+import PlanCalendarPush from '../components/PlanCalendarPush';
 import { isRaceStrategyEnabled, enableRaceStrategy } from '../services/raceStrategy';
 
 type TrainingViewMode = 'calendar' | 'checklist';
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** When this page last started a network sync — module-level so it outlives the page; spaces out retries after failures. */
+let lastTrainingSyncAt = 0;
+
+/**
+ * Skip the network on a visit: a sync is running (its plan matches arrive via onPlanRefreshed), the last
+ * successful sync is fresh, or this page tried within PAGE_SYNC_FRESH_MS. "Sync activities" always syncs.
+ */
+function activitiesSyncedRecently(): boolean {
+  return isSyncRunning() || isActivitySyncFresh() || Date.now() - lastTrainingSyncAt < PAGE_SYNC_FRESH_MS;
+}
+
+/** "Today 7:41 AM", or "Oct 3, 7:41 AM" for an earlier day (year added when it differs). */
+function formatLastSynced(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === now.toDateString()) return `Today ${time}`;
+  const date = d.toLocaleDateString([], d.getFullYear() === now.getFullYear()
+    ? { month: 'short', day: 'numeric' }
+    : { month: 'short', day: 'numeric', year: 'numeric' });
+  return `${date}, ${time}`;
+}
+
+/** Icon for a stored cross-training category (falls back safely for unknown values). */
+function categoryIcon(category: string): string {
+  return (SPORT_CATEGORIES as readonly string[]).includes(category)
+    ? getSportCategoryIcon(category as SportCategory)
+    : '⚡';
+}
+
+/** "1h 05m · 32.1 km · 185 W · 142 bpm · Load 64" for a cross-training plan day. */
+function crossTrainingStats(meta: SyncMeta): string[] {
+  const ct = meta.crossTraining;
+  if (!ct) return [];
+  return [
+    formatHoursMinutes(meta.movingTimeSec),
+    ct.distanceMeters > 0 ? formatDistanceShort(ct.distanceMeters) : null,
+    ct.averageWatts ? `${Math.round(ct.averageWatts)} W` : null,
+    ct.averageHR ? `${Math.round(ct.averageHR)} bpm` : null,
+    ct.trainingLoad ? `Load ${Math.round(ct.trainingLoad)}` : null,
+  ].filter((s): s is string => !!s);
+}
+
+/** Stored activity behind a plan day (source-aware when the meta records its source). */
+function findSyncedActivity(meta: SyncMeta) {
+  const matches = getStoredActivities().filter((a) => a.id === meta.activityId);
+  if (matches.length <= 1 || !meta.activitySource) return matches[0];
+  return matches.find((a) => (a.source ?? 'strava') === meta.activitySource) ?? matches[0];
+}
 
 /** Single day row in the training plan checklist. Memoized to avoid re-renders on sibling changes. */
 const DayRow = memo(function DayRow({
@@ -77,18 +142,18 @@ const DayRow = memo(function DayRow({
             <span style={{
               marginLeft: '0.5rem',
               fontSize: '0.72rem',
-              background: 'var(--apollo-gold-dim)',
-              color: 'var(--apollo-gold)',
+              background: syncMeta?.crossTraining ? 'var(--apollo-teal-dim)' : 'var(--apollo-gold-dim)',
+              color: syncMeta?.crossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)',
               padding: '0.12rem 0.5rem',
               borderRadius: 'var(--radius-full)',
               fontWeight: 600,
               fontFamily: 'var(--font-display)',
             }}>
-              Synced
+              {syncMeta?.crossTraining ? `${categoryIcon(syncMeta.crossTraining.category)} ${syncMeta.crossTraining.label}` : 'Synced'}
             </span>
           )}
-          {isSynced && syncMeta?.stravaActivityId && (() => {
-            const rec = getEffortRecognition(syncMeta.stravaActivityId);
+          {syncMeta && !syncMeta.crossTraining && (() => {
+            const rec = getEffortRecognition(syncMeta.activityId);
             if (!rec?.paceTier) return null;
             const tc = TIER_CONFIG[rec.paceTier];
             return (
@@ -116,20 +181,27 @@ const DayRow = memo(function DayRow({
               flexWrap: 'wrap',
               alignItems: 'center',
             }}>
-              {/* Route thumbnail for synced activity */}
-              {syncMeta.stravaActivityId && (() => {
-                const stored = getStoredActivities();
-                const matched = stored.find(a => a.id === syncMeta.stravaActivityId);
+              {/* Route thumbnail for synced activity (any sport with GPS) */}
+              {(() => {
+                const matched = findSyncedActivity(syncMeta);
                 if (matched?.map?.summary_polyline) {
                   return <RouteMapThumbnail activity={matched} />;
                 }
                 return null;
               })()}
-              <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
-                {formatMiles(syncMeta.actualDistanceMi)}
-              </span>
-              <span>{formatPaceFromMinPerMi(syncMeta.actualPaceMinPerMi)} pace</span>
-              <span>{Math.floor(syncMeta.movingTimeSec / 60)}m {syncMeta.movingTimeSec % 60}s</span>
+              {syncMeta.crossTraining ? (
+                crossTrainingStats(syncMeta).map((s, i) => (
+                  <span key={i} style={i === 0 ? { color: 'var(--apollo-teal)', fontWeight: 600, fontFamily: 'var(--font-display)' } : undefined}>{s}</span>
+                ))
+              ) : (
+                <>
+                  <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
+                    {formatMiles(syncMeta.actualDistanceMi)}
+                  </span>
+                  <span>{formatPaceFromMinPerMi(syncMeta.actualPaceMinPerMi)} pace</span>
+                  <span>{Math.floor(syncMeta.movingTimeSec / 60)}m {syncMeta.movingTimeSec % 60}s</span>
+                </>
+              )}
             </div>
             <div style={{
               fontSize: '0.82rem',
@@ -157,7 +229,10 @@ export default function Training() {
   const [viewMode, setViewMode] = useState<TrainingViewMode>('calendar');
   const [syncing, setSyncing] = useState(false);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
-  const [lastSync, setLastSync] = useState<string | null>(() => getLastSyncTime());
+  const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
+  const [syncWasManual, setSyncWasManual] = useState(false);
+  const [syncProgress, setSyncProgress] = useState<string | null>(null);
+  const [lastSync, setLastSync] = useState<string | null>(() => getLastActivitySyncTime());
   const [, forceUpdate] = useState(0);
   const isMountedRef = useRef(true);
   const autoSyncedPlanRef = useRef<string | null>(null);
@@ -166,25 +241,37 @@ export default function Training() {
   const activePlanKey = active ? `${active.planId}:${active.startDate}` : null;
   const today = new Date();
   const todayKey = formatDateKey(today);
-  const stravaConnected = !!getStravaTokens();
+  const connected = isActivitySourceConnected();
+  const sourceName = getActiveSourceName();
 
-  const handleSync = useCallback(async () => {
+  const handleSync = useCallback(async (manual: boolean) => {
+    lastTrainingSyncAt = Date.now();
     setSyncing(true);
+    setSyncProgress(null);
     try {
-      const results = await runAutoSync();
+      // Imports new activities from every connected source, then matches plan days. Never throws for network errors.
+      const report = await runSync({
+        onProgress: (p) => { if (isMountedRef.current) setSyncProgress(p.message); },
+      });
       if (!isMountedRef.current) return;
-      setSyncResults(results);
-      setLastSync(getLastSyncTime());
+      setSyncResults(report.results);
+      setSyncSummary(report.summary);
+      setSyncWasManual(manual);
+      setLastSync(getLastActivitySyncTime());
       setActiveState(getActivePlan());
       forceUpdate((n) => n + 1);
     } catch {
-      // silent fail — user can retry
+      // unexpected failure — user can retry
     } finally {
-      if (isMountedRef.current) setSyncing(false);
+      if (isMountedRef.current) {
+        setSyncing(false);
+        setSyncProgress(null);
+      }
     }
   }, []);
 
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
       isMountedRef.current = false;
     };
@@ -192,20 +279,39 @@ export default function Training() {
 
   useEffect(() => {
     setActiveState(getActivePlan());
-    if (!stravaConnected) {
+    if (!connected) {
       autoSyncedPlanRef.current = null;
       return;
     }
-    // Auto-sync on mount if Strava is connected and a plan is active
+    // Auto-sync on mount if a data source is connected and a plan is active
     if (activePlanKey && autoSyncedPlanRef.current !== activePlanKey) {
       autoSyncedPlanRef.current = activePlanKey;
-      handleSync();
+      if (activitiesSyncedRecently()) {
+        // Synced recently, or a sync is running (its matches arrive via onPlanRefreshed):
+        // re-match the stored activities offline instead of hitting the network on every visit.
+        refreshPlanFromStoredActivities();
+        forceUpdate((n) => n + 1);
+      } else {
+        handleSync(false);
+      }
     }
-  }, [stravaConnected, activePlanKey, handleSync]);
+  }, [connected, activePlanKey, handleSync]);
+
+  // Plan days were re-matched (a sync anywhere, a file import or an offline re-match): re-read completed days,
+  // sync feedback, weekly mileage and the last-synced time. Results of a sync started here are left as they are.
+  useEffect(() => onPlanRefreshed(() => {
+    setActiveState(getActivePlan());
+    setLastSync(getLastActivitySyncTime());
+    forceUpdate((n) => n + 1);
+  }), []);
 
   const handleStartPlan = () => {
     if (!selectedPlanId || !plan) return;
     setActivePlan({ planId: selectedPlanId, startDate });
+    // A connected source matches via the effect above (syncing first unless it synced recently); otherwise match activities already on this device.
+    if (!connected && hasActivityData()) refreshPlanFromStoredActivities();
+    // New plan or start date: refresh the intervals.icu calendar (no-op unless auto-update is on; never throws).
+    void syncPlanCalendarIfChanged();
     setActiveState(getActivePlan());
     setShowPicker(false);
     setExpandedWeek(0);
@@ -217,6 +323,26 @@ export default function Training() {
     setSelectedPlanId(null);
     setShowPicker(true);
   };
+
+  const handleCustomPlanSaved = (custom: TrainingPlan) => {
+    setCustomPlan(custom);
+    setSelectedPlanId(CUSTOM_PLAN_ID);
+    setShowBuilder(false);
+    if (active) {
+      // Built from "Switch Plan": reopen the picker so "Switch & Start" is one click away.
+      setStartDate(formatDateKey(new Date()));
+      setShowPicker(true);
+    }
+    // Saving over the active custom plan changes its workouts — keep the intervals.icu calendar current.
+    void syncPlanCalendarIfChanged();
+  };
+
+  // Rendered in both branches — "+ Custom Plan" in the Switch Plan picker opens it while a plan is active.
+  const builderCard = showBuilder && (
+    <div className="card">
+      <PlanBuilder onComplete={handleCustomPlanSaved} onCancel={() => setShowBuilder(false)} />
+    </div>
+  );
 
   return (
     <div>
@@ -279,18 +405,7 @@ export default function Training() {
             </div>
           </div>
 
-          {showBuilder && (
-            <div className="card">
-              <PlanBuilder
-                onComplete={(plan) => {
-                  setCustomPlan(plan);
-                  setSelectedPlanId(CUSTOM_PLAN_ID);
-                  setShowBuilder(false);
-                }}
-                onCancel={() => setShowBuilder(false)}
-              />
-            </div>
-          )}
+          {builderCard}
 
           {plan && (
             <div className="card" style={{ borderColor: 'var(--apollo-gold)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
@@ -427,6 +542,8 @@ export default function Training() {
                 </div>
               )}
 
+              {builderCard}
+
               {/* Calendar view */}
               {viewMode === 'calendar' && (
                 <div className="card">
@@ -558,6 +675,9 @@ export default function Training() {
                   })}
                 </div>
               </div>}
+
+              {/* Send the plan to the watch via intervals.icu */}
+              <PlanCalendarPush />
             </>
           )}
         </>
@@ -566,59 +686,83 @@ export default function Training() {
       {/* Smart Auto-Sync Card */}
       <div className="card" style={{
         background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
-        borderColor: stravaConnected ? 'var(--apollo-teal-dark)' : 'var(--border)',
+        borderColor: connected ? 'var(--apollo-teal-dark)' : 'var(--border)',
         borderLeftWidth: 3, borderLeftStyle: 'solid',
-        borderLeftColor: stravaConnected ? 'var(--apollo-teal)' : 'var(--border)',
+        borderLeftColor: connected ? 'var(--apollo-teal)' : 'var(--border)',
       }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
           <span style={{ color: 'var(--apollo-teal)' }}>Smart Auto-Sync</span>
-          {stravaConnected && (
+          {connected && (
             <span style={{
               fontSize: '0.72rem', background: 'var(--apollo-teal-dim)',
               color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
               borderRadius: 'var(--radius-full)', fontWeight: 600,
               fontFamily: 'var(--font-display)',
-            }}>Active</span>
+            }}>Active · {sourceName}</span>
           )}
         </h3>
-        {!stravaConnected ? (
-          <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 'var(--text-sm)' }}>
-            Connect <strong>Strava</strong> in Settings to automatically sync your runs with the training plan.
+        {!connected ? (
+          <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+            <Link to="/settings" style={{ fontWeight: 600 }}>Connect a data source</Link> (intervals.icu or Strava) to automatically
+            match your runs and cross-training to the training plan.
           </p>
         ) : (
           <div>
             <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.75rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-              Your Strava runs are automatically matched to plan days. Distance, pace, and weekly mileage analyzed after every sync.
+              Activities from {sourceName} are automatically matched to plan days — runs by distance and pace,
+              rides, swims and strength sessions on cross-training days. Weekly mileage is analyzed after every sync.
               {lastSync && (
                 <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)' }}>
-                  Last synced: {new Date(lastSync).toLocaleTimeString()}
+                  Last synced: {formatLastSynced(lastSync)}
                 </span>
               )}
             </p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={handleSync}
-              disabled={syncing}
-              style={{ marginBottom: syncResults.length > 0 ? '0.75rem' : 0, fontSize: 'var(--text-sm)' }}
-            >
-              {syncing ? 'Syncing…' : 'Sync Now'}
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => handleSync(true)}
+                disabled={syncing}
+                style={{ fontSize: 'var(--text-sm)' }}
+              >
+                {syncing ? 'Syncing…' : 'Sync activities'}
+              </button>
+              <span role="status" style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{syncing ? syncProgress : null}</span>
+            </div>
+            {!syncing && syncSummary && (syncWasManual || syncSummary.added > 0 || syncSummary.errors.length > 0 || syncResults.length > 0) && (
+              <div style={{ marginTop: '0.6rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  {[
+                    syncSummary.added > 0
+                      ? `${syncSummary.added} new activit${syncSummary.added === 1 ? 'y' : 'ies'} imported`
+                      : 'No new activities',
+                    syncSummary.updated > 0 ? `${syncSummary.updated} updated` : null,
+                    syncResults.length > 0 ? `${syncResults.length} plan day${syncResults.length === 1 ? '' : 's'} updated` : null,
+                  ].filter(Boolean).join(' · ')}
+                </div>
+                {syncSummary.errors.map((e, i) => (
+                  <div key={i} style={{ color: 'var(--color-error)', marginTop: '0.2rem' }}>
+                    ⚠ {getSourceDisplayName(e.source)}: {e.message}
+                  </div>
+                ))}
+              </div>
+            )}
             {syncResults.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.5rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' }}>
                 {syncResults.map((r, i) => (
                   <div
                     key={i}
                     style={{
-                      background: 'var(--apollo-gold-dim)',
+                      background: r.isCrossTraining ? 'var(--apollo-teal-dim)' : 'var(--apollo-gold-dim)',
                       borderRadius: 'var(--radius-sm)',
                       padding: '0.65rem 1rem',
                       fontSize: 'var(--text-sm)',
                       lineHeight: 1.5,
                     }}
                   >
-                    <div style={{ fontWeight: 600, color: 'var(--apollo-gold)', marginBottom: '0.15rem', fontFamily: 'var(--font-display)' }}>
+                    <div style={{ fontWeight: 600, color: r.isCrossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)', marginBottom: '0.15rem', fontFamily: 'var(--font-display)' }}>
                       {r.isNew ? 'Auto-completed' : 'Updated'}: Week {r.weekIndex + 1}, {DAY_NAMES[r.dayIndex]} — {r.plannedDay.label}
+                      {r.isCrossTraining && ` · ${getSportIcon(r.activity)} ${getSportLabel(r.activity)}`}
                     </div>
                     <div style={{ color: 'var(--text-secondary)' }}>{r.feedback}</div>
                   </div>

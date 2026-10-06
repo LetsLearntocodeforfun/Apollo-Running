@@ -21,12 +21,21 @@ import {
   getWeekDayForDate,
 } from '../services/planProgress';
 import { getWeeklyMileageSummary } from '../services/autoSync';
-import { getStoredActivities } from '../services/analyticsService';
+import { getStoredActivities, getSourceDisplayName } from '../services/activitySource';
+import { getSportCategoryIcon, SPORT_CATEGORIES, type SportCategory } from '../services/activity/sports';
+import { formatHoursMinutes } from '../services/crossTraining';
 import { getEffortRecognition } from '../services/effortService';
 import { TIER_CONFIG } from './TierBadge';
 import RouteMap from './RouteMap';
-import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
+import { formatMiles, formatPaceFromMinPerMi, formatDistanceShort } from '../services/unitPreferences';
 import './CalendarView.css';
+
+/** Icon for a stored cross-training category (falls back safely for unknown values). */
+function categoryIcon(category: string): string {
+  return (SPORT_CATEGORIES as readonly string[]).includes(category)
+    ? getSportCategoryIcon(category as SportCategory)
+    : '⚡';
+}
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -78,7 +87,7 @@ interface CalendarDay {
   planDay: PlanDay | null;
   /** Whether the plan day is completed */
   completed: boolean;
-  /** Sync metadata if the day was matched to a Strava activity */
+  /** Sync metadata if the day was matched to a synced activity (any source) */
   syncMeta: SyncMeta | null;
   isToday: boolean;
 }
@@ -214,6 +223,7 @@ const DayCell = memo(function DayCell({
 
   const intensityColor = day.planDay ? getIntensityColor(day.planDay) : 'transparent';
   const hasSync = !!day.syncMeta;
+  const cross = day.syncMeta?.crossTraining;
   const noteKey = (day.planDay?.note || '').toLowerCase();
   const noteIcon = NOTE_ICONS[noteKey] || (day.planDay ? WORKOUT_ICONS[day.planDay.type] : null);
 
@@ -234,7 +244,13 @@ const DayCell = memo(function DayCell({
             {noteIcon && <span className="cal-day-icon">{noteIcon}</span>}{' '}
             {day.planDay.type === 'rest' ? 'Rest' : day.planDay.note || day.planDay.type}
           </div>
-          {day.planDay.distanceMi != null && day.planDay.distanceMi > 0 && (
+          {cross && day.syncMeta ? (
+            <div className="cal-day-distance">
+              <span style={{ color: 'var(--apollo-teal)' }}>
+                {categoryIcon(cross.category)} {formatHoursMinutes(day.syncMeta.movingTimeSec)}
+              </span>
+            </div>
+          ) : day.planDay.distanceMi != null && day.planDay.distanceMi > 0 && (
             <div className="cal-day-distance">
               {hasSync ? (
                 <>
@@ -247,8 +263,8 @@ const DayCell = memo(function DayCell({
               )}
             </div>
           )}
-          {/* Progress bar: actual vs planned */}
-          {hasSync && day.planDay.distanceMi != null && day.planDay.distanceMi > 0 && (
+          {/* Progress bar: actual vs planned (runs only) */}
+          {hasSync && !cross && day.planDay.distanceMi != null && day.planDay.distanceMi > 0 && (
             <div className="cal-day-progress">
               <div
                 className="cal-day-progress-fill"
@@ -324,18 +340,23 @@ function DayDetail({
   const { planDay, syncMeta, completed, weekIndex, dayIndex } = day;
   const dayName = WEEKDAYS[day.date.getDay() === 0 ? 6 : day.date.getDay() - 1];
 
-  // Find matching stored activity for route map
+  // Find matching stored activity for route map (source-aware when the meta records its source)
   const matchedActivity = useMemo(() => {
-    if (!syncMeta?.stravaActivityId) return null;
-    const stored = getStoredActivities();
-    return stored.find(a => a.id === syncMeta.stravaActivityId) ?? null;
+    if (!syncMeta) return null;
+    const matches = getStoredActivities().filter(a => a.id === syncMeta.activityId);
+    if (matches.length <= 1 || !syncMeta.activitySource) return matches[0] ?? null;
+    return matches.find(a => (a.source ?? 'strava') === syncMeta.activitySource) ?? matches[0];
   }, [syncMeta]);
 
-  // Effort recognition
+  // Effort recognition (runs only)
   const effortRec = useMemo(() => {
-    if (!syncMeta?.stravaActivityId) return null;
-    return getEffortRecognition(syncMeta.stravaActivityId);
+    if (!syncMeta || syncMeta.crossTraining) return null;
+    return getEffortRecognition(syncMeta.activityId);
   }, [syncMeta]);
+
+  // Older metas have no activitySource — those came from Strava, which getSourceDisplayName defaults to.
+  const sourceKey = matchedActivity?.source ?? syncMeta?.activitySource;
+  const sourceLabel = getSourceDisplayName(sourceKey);
 
   const dateFormatted = day.date.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -404,9 +425,46 @@ function DayDetail({
             borderColor: syncMeta ? 'rgba(212, 165, 55, 0.2)' : undefined,
           }}>
             <div className="cal-detail-col-label">
-              {syncMeta ? '⚡ Actual (Strava)' : '⏳ Actual'}
+              {syncMeta ? `⚡ Actual (${sourceLabel})` : '⏳ Actual'}
             </div>
-            {syncMeta ? (
+            {syncMeta?.crossTraining ? (
+              <>
+                <div className="cal-detail-stat">
+                  <span className="cal-detail-stat-label">Sport</span>
+                  <span className="cal-detail-stat-value" style={{ color: 'var(--apollo-teal)' }}>
+                    {categoryIcon(syncMeta.crossTraining.category)} {syncMeta.crossTraining.label}
+                  </span>
+                </div>
+                <div className="cal-detail-stat">
+                  <span className="cal-detail-stat-label">Duration</span>
+                  <span className="cal-detail-stat-value">{formatHoursMinutes(syncMeta.movingTimeSec)}</span>
+                </div>
+                {syncMeta.crossTraining.distanceMeters > 0 && (
+                  <div className="cal-detail-stat">
+                    <span className="cal-detail-stat-label">Distance</span>
+                    <span className="cal-detail-stat-value">{formatDistanceShort(syncMeta.crossTraining.distanceMeters)}</span>
+                  </div>
+                )}
+                {!!syncMeta.crossTraining.averageWatts && (
+                  <div className="cal-detail-stat">
+                    <span className="cal-detail-stat-label">Avg Power</span>
+                    <span className="cal-detail-stat-value">{Math.round(syncMeta.crossTraining.averageWatts)} W</span>
+                  </div>
+                )}
+                {!!syncMeta.crossTraining.averageHR && (
+                  <div className="cal-detail-stat">
+                    <span className="cal-detail-stat-label">Avg HR</span>
+                    <span className="cal-detail-stat-value">{Math.round(syncMeta.crossTraining.averageHR)} bpm</span>
+                  </div>
+                )}
+                {!!syncMeta.crossTraining.trainingLoad && (
+                  <div className="cal-detail-stat">
+                    <span className="cal-detail-stat-label">Load</span>
+                    <span className="cal-detail-stat-value">{Math.round(syncMeta.crossTraining.trainingLoad)}</span>
+                  </div>
+                )}
+              </>
+            ) : syncMeta ? (
               <>
                 <div className="cal-detail-stat">
                   <span className="cal-detail-stat-label">Distance</span>
@@ -471,7 +529,7 @@ function DayDetail({
               background: 'var(--apollo-gold-dim)',
               color: 'var(--apollo-gold)',
             }}>
-              Synced via Strava
+              {sourceKey === 'file' ? 'Imported from a file' : `Synced via ${sourceLabel}`}
             </span>
           )}
           {completed && !syncMeta && (

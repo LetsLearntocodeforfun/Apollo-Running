@@ -10,6 +10,7 @@ const CREDENTIAL_KEYS = new Set([
   'strava_credentials',
   'garmin_tokens',
   'garmin_credentials',
+  'intervals_credentials',
 ]);
 
 /** Check if a key belongs to Apollo Running */
@@ -146,7 +147,21 @@ class PersistenceService {
         this._failedWrites.add(key);
       });
     // Sync fallback write
-    try { localStorage.setItem(key, value); } catch { /* quota exceeded */ }
+    this.writeLocal(key, value);
+  }
+
+  /**
+   * Mirror a value to localStorage. If it no longer fits (quota exceeded),
+   * remove the stale copy: on the next launch localStorage is read first and
+   * IndexedDB only restores keys that are *missing*, so an outdated
+   * localStorage value would otherwise shadow the newer IndexedDB one.
+   */
+  private writeLocal(key: string, value: string): void {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      try { localStorage.removeItem(key); } catch { /* localStorage unavailable */ }
+    }
   }
 
   /** Remove from all storage layers */
@@ -180,7 +195,7 @@ class PersistenceService {
   bulkSet(entries: Record<string, string>): void {
     const dbEntries = Object.entries(entries).map(([key, value]) => {
       this.cache.set(key, value);
-      try { localStorage.setItem(key, value); } catch {}
+      this.writeLocal(key, value);
       return { key, value, updatedAt: Date.now() };
     });
     db.kvStore.bulkPut(dbEntries).catch((err) => {

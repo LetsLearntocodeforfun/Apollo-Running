@@ -1,13 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   BarChart, Bar, LineChart, Line, AreaChart, Area,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   Legend, Cell, ScatterChart, Scatter,
 } from 'recharts';
-import { getStravaTokens } from '../services/storage';
-import { getActivities, type StravaActivity } from '../services/strava';
 import {
-  storeActivities, getStoredActivities,
+  getActivities,
+  getStoredActivities,
+  isActivitySourceConnected,
+  hasActivityData,
+  onActivitiesUpdated,
+  type Activity,
+} from '../services/activitySource';
+import { isRunActivity, getSportCategoryColor, getSportCategoryLabel, SPORT_CATEGORIES, type SportCategory } from '../services/activity/sports';
+import { summarizeBySport, weeklySportVolume, formatHoursMinutes, type SportSummary, type WeeklySportVolume } from '../services/crossTraining';
+import { getHRProfile } from '../services/heartRate';
+import {
   calculateSummaryStats, calculateWeeklyMileage,
   calculatePaceProgression, calculateTrainingLoad,
   detectPersonalRecords, calculateConsistency, calculateStreaks,
@@ -17,7 +26,7 @@ import {
   type HREfficiencyPoint, type WeekCompare,
 } from '../services/analyticsService';
 import LoadingScreen from '../components/LoadingScreen';
-import ConnectStravaCTA from '../components/ConnectStravaCTA';
+import ConnectDataSourceCTA from '../components/ConnectDataSourceCTA';
 import {
   getDistanceUnit,
   metersToUnit,
@@ -25,6 +34,7 @@ import {
   paceUnitLabel,
   milesToUnit,
   formatDuration,
+  formatDistanceShort,
 } from '../services/unitPreferences';
 
 // ─── Time Period ─────────────────────────────────────────────
@@ -41,14 +51,14 @@ function periodDays(period: TimePeriod): number {
   }
 }
 
-function filterByPeriod(activities: StravaActivity[], period: TimePeriod): StravaActivity[] {
+function filterByPeriod(activities: Activity[], period: TimePeriod): Activity[] {
   const days = periodDays(period);
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   return activities.filter(a => new Date(a.start_date_local) >= cutoff);
 }
 
-function previousPeriod(activities: StravaActivity[], period: TimePeriod): StravaActivity[] {
+function previousPeriod(activities: Activity[], period: TimePeriod): Activity[] {
   const days = periodDays(period);
   const cutoffEnd = new Date();
   cutoffEnd.setDate(cutoffEnd.getDate() - days);
@@ -58,6 +68,19 @@ function previousPeriod(activities: StravaActivity[], period: TimePeriod): Strav
     const d = new Date(a.start_date_local);
     return d >= cutoffStart && d < cutoffEnd;
   });
+}
+
+/** `start_date_local` ends in a "Z" that isn't UTC — format its calendar date only. */
+function formatShortDate(startDateLocal: string): string {
+  const [y, m, d] = startDateLocal.slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return '';
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/** Recharts paints SVG attributes, so resolve `var(--x, #hex)` to its hex fallback. */
+function sportChartColor(category: SportCategory): string {
+  const color = getSportCategoryColor(category);
+  return color.match(/#[0-9a-fA-F]{3,8}/)?.[0] ?? color;
 }
 
 // ─── Chart Colors ────────────────────────────────────────────
@@ -235,7 +258,7 @@ function ConsistencyHeatmap({ data }: { data: ConsistencyDay[] }) {
 export default function Analytics() {
   const [period, setPeriod] = useState<TimePeriod>('30d');
   const [loading, setLoading] = useState(true);
-  const [allActivities, setAllActivities] = useState<StravaActivity[]>([]);
+  const [allActivities, setAllActivities] = useState<Activity[]>([]);
 
   // Derived state
   const [stats, setStats] = useState<SummaryStats | null>(null);
@@ -247,10 +270,16 @@ export default function Analytics() {
   const [streaks, setStreaks] = useState<{ longest: number; current: number; runsPerWeek: number }>({ longest: 0, current: 0, runsPerWeek: 0 });
   const [hrEfficiency, setHREfficiency] = useState<HREfficiencyPoint[]>([]);
   const [wow, setWow] = useState<WeekCompare[]>([]);
+  const [crossSummary, setCrossSummary] = useState<SportSummary[]>([]);
+  const [sportVolume, setSportVolume] = useState<WeeklySportVolume[]>([]);
 
-  const connected = !!getStravaTokens();
+  const connected = isActivitySourceConnected();
+  // Stored history stays viewable after disconnecting (computed once — reads the whole store)
+  const [available, setAvailable] = useState(hasActivityData);
+  // Only set when the sync failed and nothing is stored yet (the facade throws only then)
+  const [syncError, setSyncError] = useState<string | null>(null);
 
-  const computeAnalytics = useCallback((acts: StravaActivity[], p: TimePeriod) => {
+  const computeAnalytics = useCallback((acts: Activity[], p: TimePeriod) => {
     const periodActs = filterByPeriod(acts, p);
     const prevActs = previousPeriod(acts, p);
 
@@ -267,67 +296,65 @@ export default function Analytics() {
     setStreaks(calculateStreaks(conDays));
     setHREfficiency(calculateHREfficiency(acts, periodDays(p)));
     setWow(weekOverWeek(acts));
+
+    // Cross-training (rides, swims, strength…) for the selected period
+    const maxHR = getHRProfile().maxHR;
+    setCrossSummary(summarizeBySport(periodActs, { maxHR }).filter(s => s.category !== 'run'));
+    setSportVolume(weeklySportVolume(acts, Math.min(Math.max(weeks, 4), 52), maxHR));
   }, []);
 
-  // Load activities
+  // Load stored history right away, then refresh from connected sources (the facade only syncs when stale)
   useEffect(() => {
+    if (!available) {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setAllActivities(getStoredActivities());
     if (!connected) {
       setLoading(false);
       return;
     }
 
-    let cancelled = false;
-
     (async () => {
       setLoading(true);
-
-      // Load cached first
-      const cached = getStoredActivities();
-      if (cached.length > 0 && !cancelled) {
-        setAllActivities(cached);
-        computeAnalytics(cached, period);
-      }
-
-      // Fetch fresh from Strava (last 6 months)
+      setSyncError(null);
       try {
-        const sixMonthsAgo = Math.floor(Date.now() / 1000) - 182 * 24 * 60 * 60;
-        const pages: StravaActivity[] = [];
-        for (let page = 1; page <= 5; page++) {
-          const batch = await getActivities({ page, per_page: 100, after: sixMonthsAgo });
-          if (!cancelled) pages.push(...batch);
-          if (batch.length < 100) break;
-        }
-        if (!cancelled && pages.length > 0) {
-          storeActivities(pages);
-          const all = getStoredActivities();
-          setAllActivities(all);
-          computeAnalytics(all, period);
-        }
-      } catch {
-        // Use cached data
+        await getActivities({ page: 1, per_page: 1 });
+        if (!cancelled) setAllActivities(getStoredActivities());
+      } catch (e) {
+        // Keep showing stored data
+        if (!cancelled) setSyncError(e instanceof Error ? e.message : 'Could not sync activities.');
       } finally {
         if (!cancelled) setLoading(false);
       }
     })();
 
     return () => { cancelled = true; };
-  }, [connected, computeAnalytics, period]);
+  }, [connected, available]);
 
-  // Recompute when period changes
+  // Any source added/updated activities (e.g. a background sync or a file import) → recompute
+  useEffect(() => onActivitiesUpdated(() => {
+    setAvailable(true);
+    setSyncError(null);
+    setAllActivities(getStoredActivities());
+  }), []);
+
+  // Recompute when period or data changes
   useEffect(() => {
     if (allActivities.length > 0) {
       computeAnalytics(allActivities, period);
     }
   }, [period, allActivities, computeAnalytics]);
 
-  if (!connected) {
+  if (!available) {
     return (
       <div>
         <h1 className="page-title">Analytics</h1>
-        <ConnectStravaCTA
+        <ConnectDataSourceCTA
           emoji="📊"
           title="Legendary Analytics"
-          description="Connect Strava to unlock comprehensive training analytics — weekly mileage trends, pace progression, training load, personal records, and more."
+          description="Connect a data source to unlock comprehensive training analytics — weekly mileage trends, pace progression, training load, cross-training volume, personal records, and more."
         />
       </div>
     );
@@ -337,14 +364,23 @@ export default function Analytics() {
     return <LoadingScreen message="Analyzing your training data…" />;
   }
 
+  const recentRuns = filterByPeriod(allActivities, period).filter(isRunActivity).slice(0, 20);
+
   return (
     <div>
       {/* ── Header ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.75rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{
-          fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)',
-          fontWeight: 700, margin: 0, color: 'var(--text)',
-        }}>Analytics</h1>
+        <div>
+          <h1 style={{
+            fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)',
+            fontWeight: 700, margin: 0, color: 'var(--text)',
+          }}>Analytics</h1>
+          {!connected && (
+            <p style={{ color: 'var(--text-muted)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
+              Showing saved history — <Link to="/settings">connect a data source</Link> to keep it up to date.
+            </p>
+          )}
+        </div>
         <div style={{ display: 'flex', gap: '0.25rem' }}>
           {(['7d', '30d', '90d', '6mo', 'all'] as TimePeriod[]).map(p => (
             <button
@@ -452,7 +488,7 @@ export default function Analytics() {
 
         {/* Training Load */}
         {trainingLoad.length > 2 && (
-          <ChartCard title="Training Load" subtitle="Acute (7d) vs Chronic (28d) — ratio 0.8–1.3 is optimal" height={240}>
+          <ChartCard title="Training Load" subtitle="Acute (7d) vs Chronic (28d), incl. cross-training — ratio 0.8–1.3 is optimal" height={240}>
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={trainingLoad} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
@@ -467,6 +503,66 @@ export default function Analytics() {
           </ChartCard>
         )}
       </div>
+
+      {/* ── Cross-Training (selected period) ── */}
+      {crossSummary.length > 0 && (() => {
+        const volumeCategories = SPORT_CATEGORIES.filter(c => sportVolume.some(w => w.hours[c] > 0));
+        return (
+          <>
+            <div className="card" style={{ padding: '1.25rem 1.5rem' }}>
+              <h3 style={{ margin: '0 0 1rem' }}>
+                <span style={{ color: 'var(--apollo-teal)' }}>Cross-Training</span>
+              </h3>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                {crossSummary.map(s => (
+                  <div key={s.category} style={{
+                    flex: '1 1 160px', background: 'var(--bg)', border: '1px solid var(--border)',
+                    borderLeft: `3px solid ${getSportCategoryColor(s.category)}`,
+                    borderRadius: 'var(--radius-md)', padding: '0.9rem 1.1rem',
+                  }}>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-display)', fontWeight: 500, marginBottom: '0.35rem' }}>
+                      {s.icon} {s.label}
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
+                      {formatHoursMinutes(s.movingTimeSec)}
+                    </div>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                      {[
+                        `${s.count} session${s.count === 1 ? '' : 's'}`,
+                        s.distanceMeters > 0 ? formatDistanceShort(s.distanceMeters) : null,
+                        s.trainingLoad > 0 ? `Load ${Math.round(s.trainingLoad)}` : null,
+                      ].filter(Boolean).join(' · ')}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {sportVolume.length > 1 && volumeCategories.length > 0 && (
+              <ChartCard title="Weekly Hours by Sport" subtitle={`Hours per week, last ${sportVolume.length} weeks`} height={260}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={sportVolume} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                    <XAxis dataKey="weekLabel" tick={{ fill: '#8A8478', fontSize: 11 }} />
+                    <YAxis tick={{ fill: '#8A8478', fontSize: 11 }} />
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#B8B2A8' }} />
+                    {volumeCategories.map(c => (
+                      <Bar
+                        key={c}
+                        dataKey={(w: WeeklySportVolume) => w.hours[c]}
+                        name={getSportCategoryLabel(c)}
+                        stackId="hours"
+                        fill={sportChartColor(c)}
+                        fillOpacity={0.85}
+                      />
+                    ))}
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartCard>
+            )}
+          </>
+        );
+      })()}
 
       {/* ── HR Efficiency Scatter ── */}
       {hrEfficiency.length > 3 && (
@@ -573,10 +669,10 @@ export default function Analytics() {
         )}
       </div>
 
-      {/* ── Recent Activities Table ── */}
-      {allActivities.length > 0 && (
+      {/* ── Recent Runs Table ── */}
+      {recentRuns.length > 0 && (
         <div className="card" style={{ padding: '1.25rem 1.5rem' }}>
-          <h3 style={{ margin: '0 0 1rem' }}>Recent Activities</h3>
+          <h3 style={{ margin: '0 0 1rem' }}>Recent Runs</h3>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
               <thead>
@@ -591,17 +687,15 @@ export default function Analytics() {
                 </tr>
               </thead>
               <tbody>
-                {filterByPeriod(allActivities, period)
-                  .filter(a => ['Run', 'VirtualRun', 'TrailRun'].includes(a.type) || ['Run', 'VirtualRun', 'TrailRun'].includes(a.sport_type))
-                  .slice(0, 20)
+                {recentRuns
                   .map(a => {
                     const dist = metersToUnit(a.distance);
                     const mi = a.distance / 1609.344;
                     const paceMinPerMi = a.distance > 0 && a.moving_time > 0 ? (a.moving_time / 60) / mi : 0;
                     return (
-                      <tr key={a.id} style={{ borderBottom: '1px solid var(--border)', transition: 'background var(--transition-fast)' }}>
+                      <tr key={`${a.source ?? 'strava'}-${a.id}`} style={{ borderBottom: '1px solid var(--border)', transition: 'background var(--transition-fast)' }}>
                         <td style={{ padding: '0.6rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
-                          {new Date(a.start_date_local).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          {formatShortDate(a.start_date_local)}
                         </td>
                         <td style={{ padding: '0.6rem', fontFamily: 'var(--font-display)', fontWeight: 500 }}>{a.name}</td>
                         <td style={{ padding: '0.6rem', color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{dist.toFixed(1)} {unitLabel()}</td>
@@ -624,8 +718,12 @@ export default function Analytics() {
 
       {/* ── Empty state ── */}
       {allActivities.length === 0 && !loading && (
-        <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <p style={{ color: 'var(--text-muted)' }}>No activities found. Sync your Strava data from the Dashboard to see analytics.</p>
+        <div className="card" role={syncError ? 'alert' : undefined} style={{ textAlign: 'center', padding: '2rem' }}>
+          <p style={{ color: syncError ? 'var(--color-error)' : 'var(--text-muted)' }}>
+            {syncError
+              ? `Couldn\u2019t sync your activities: ${syncError}`
+              : 'No activities found yet. Once your connected data source syncs, your analytics will appear here.'}
+          </p>
         </div>
       )}
     </div>

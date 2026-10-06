@@ -6,13 +6,13 @@
 
 <p align="center">
   <strong>The definitive marathon training platform.</strong><br />
-  Smart plans · Strava sync · Nutrition science · Performance analytics · Race day intelligence<br />
-  <em>100% local. Zero subscriptions. Your data never leaves your device.</em>
+  Smart plans · Free sync via intervals.icu · Garmin/Strava/Zwift file import · Workouts to your watch · Nutrition science · Race day intelligence<br />
+  <em>Local-first. Zero subscriptions. No Apollo account, no Apollo servers — your data stays on your device.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-1057%20passing-brightgreen" alt="1057 tests passing" />
-  <img src="https://img.shields.io/badge/services-48-blue" alt="48 services" />
+  <img src="https://img.shields.io/badge/tests-1431%20passing-brightgreen" alt="1431 tests passing" />
+  <img src="https://img.shields.io/badge/services-53-blue" alt="53 services" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
@@ -42,6 +42,7 @@
 - [Split & Lap Analysis](#split--lap-analysis)
 - [Race Prediction Engine](#race-prediction-engine)
 - [Coaching Intelligence](#coaching-intelligence)
+  - [Daily Recovery Check](#daily-recovery-check)
 - [Race Strategy](#race-strategy)
   - [World Marathon Majors Database](#world-marathon-majors-database)
   - [Strategy Builder](#strategy-builder)
@@ -75,6 +76,10 @@
 - [Structured Workouts & VDOT Pacing](#structured-workouts--vdot-pacing)
 - [Training Journal & Shoe Tracking](#training-journal--shoe-tracking)
 - [Integrations](#integrations)
+  - [intervals.icu](#intervalsicu-free--recommended)
+  - [Workouts to Your Watch](#workouts-to-your-watch)
+  - [File & Archive Import](#file--archive-import-no-account-needed)
+  - [Strava (optional)](#strava-optional)
 - [Security & Privacy](#security--privacy)
 - [Your Training Playbook](#your-training-playbook)
 - [Setup & Installation](#setup--installation)
@@ -90,10 +95,13 @@
 
 Most running apps fall into two camps: simple trackers that tell you what you already know, or complex platforms buried behind paywalls and subscription tiers.
 
-Apollo is different. It combines the depth of a professional coaching platform with the simplicity of a personal training log — and it runs entirely on your machine. No subscriptions. No data harvesting. No internet required after your initial Strava sync.
+Apollo is different. It combines the depth of a professional coaching platform with the simplicity of a personal training log — and it runs entirely on your machine. No subscriptions. No data harvesting. No Apollo account.
 
 What sets Apollo apart:
 
+- **Free sync with every major platform** — Connect a free [intervals.icu](https://intervals.icu) account and Apollo pulls every run, ride, and swim recorded on Garmin, COROS, Suunto, Polar, Wahoo, Zwift, and more — full history on the first sync, incremental after that. Prefer zero accounts? Drag in FIT/GPX/TCX files or your whole Garmin/Strava data export. Strava's paid API is supported too, but never required.
+- **Your plan on your wrist** — Push your training plan to the intervals.icu calendar with VDOT-calibrated paces, and intervals.icu delivers each structured workout to your Garmin, COROS, Suunto, or Wahoo watch.
+- **Recovery that reads your watch** — Sleep, HRV, and resting heart rate sync free from intervals.icu into a daily recovery check that compares today against *your* normal ranges and tells you when to back off.
 - **Plans from the coaches who wrote the book** — Hal Higdon, Hanson's, Pfitzinger, Nike Run Club, and FIRST. Or build your own from scratch with our custom plan builder.
 - **A research-grade nutrition and physiology engine** — Mile-by-mile glycogen depletion modeling (Brooks & Mercier 1994), personalized sweat rate calculations (Sawka 2007), evidence-based carb loading protocols (Burke 2011), and in-race fueling plans with caffeine optimization (Jeukendrup 2014, Goldstein 2010). This is the science that sports dietitians charge $200+ to deliver.
 - **What-if scenario planning** — "What if I lose 10 lbs?" "What if I miss two weeks?" Apollo quantifies the time impact using published research (Hoogkamer 2016, Mujika & Padilla 2000) so you make informed decisions, not guesses.
@@ -105,7 +113,7 @@ What sets Apollo apart:
 - **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
 - **Your data, your device** — localStorage + IndexedDB. Automatic backups with SHA-256 integrity verification. Export everything as JSON. Nothing leaves your machine.
 - **Security-hardened** — OS-level credential encryption via Electron's safeStorage API, Content Security Policy headers, navigation guards, IPC key allowlisting, coordinate validation, and HTML entity escaping. Zero `eval()`, zero `dangerouslySetInnerHTML`, zero hardcoded secrets.
-- **1,057 tests, zero failures** — Every formula, constant, and physiological model validated against peer-reviewed research with comprehensive edge case coverage.
+- **1,431 tests, zero failures** — Every formula, constant, and physiological model validated against peer-reviewed research with comprehensive edge case coverage.
 
 ---
 
@@ -120,7 +128,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173) in your browser. Apollo's guided onboarding will walk you through choosing a plan, setting your start date, picking your preferred units, and configuring coaching preferences.
 
-To connect Strava, see [Integrations](#integrations).
+To bring in your runs — free via intervals.icu, by importing files/exports, or via Strava if you have API access — see [Integrations](#integrations).
 
 ---
 
@@ -129,8 +137,13 @@ To connect Strava, see [Integrations](#integrations).
 | Feature | What It Does |
 |---------|-------------|
 | **8 marathon plans** | Hal Higdon (4), Hanson's, Pfitzinger, Nike, FIRST — plus a custom plan builder |
+| **Free activity sync** | intervals.icu connection (free) pulls runs, rides, and swims from Garmin, COROS, Suunto, Polar, Wahoo, Zwift — full history, then incremental |
+| **File & archive import** | Drag-and-drop FIT, GPX, TCX (and `.gz`), or an entire Garmin/Strava account export ZIP — no account needed |
+| **Workouts to your watch** | Push the plan to your intervals.icu calendar with VDOT paces; intervals.icu uploads it to Garmin, COROS, Suunto, and Wahoo watches |
+| **Recovery check** | Sleep, HRV, and resting HR from your watch (via intervals.icu) → daily status and training suggestion; also feeds coach messages and your HR profile |
+| **Cross-training** | Rides, swims, strength, and Zwift sessions count toward cross-training days and training load |
 | **Training calendar** | Monthly grid with workout types, intensity colors, sync status, click-to-expand day detail |
-| **Smart auto-sync** | Matches Strava runs to plan days, auto-completes workouts, generates coaching feedback |
+| **Smart auto-sync** | Matches synced or imported runs to plan days, auto-completes workouts, generates coaching feedback |
 | **Route maps** | Pure SVG visualization of every run — offline, no API keys, with animated drawing effects |
 | **Effort recognition** | Tracks repeated routes, awards Gold/Silver/Bronze for pace and HR efficiency |
 | **Split analysis** | Per-mile/km pacing charts, consistency grading, interval detection, pattern recognition |
@@ -141,7 +154,7 @@ To connect Strava, see [Integrations](#integrations).
 | **HR zone analysis** | 5-zone model, distribution charts, efficiency tracking, 80/20 rule guidance |
 | **Data backups** | Automatic SHA-256 verified backups with export/import and one-click restore |
 | **Race strategy** | Grade-adjusted pacing plans for World Majors + custom marathons, elevation charts, nutrition planning |
-| **Auto-sync on launch** | Opt-in automatic Strava sync when the app opens, with 5-minute cooldown |
+| **Auto-sync on launch** | Opt-in automatic sync when the app opens, plus optional background re-sync while it's open (default hourly), with a 5-minute cooldown |
 | **Auto-updates** | Opt-in update checking, downloading, and installing (Electron desktop) |
 | **Miles & kilometers** | One toggle changes every number in the entire app |
 | **Glycogen model** | Mile-by-mile glycogen depletion simulation with substrate crossover from Brooks & Mercier (1994) |
@@ -179,9 +192,9 @@ The crown jewel of the Training page. A full monthly calendar view that shows yo
 **At the grid level:**
 - Each day cell shows the **workout type** with color-coded intensity bars (green = easy, gold = long run, orange = tempo, red = speed, teal = cross training)
 - **Workout icons** indicate the session type (🟢 Easy · 🟡 Long · 🟠 Tempo · 🔴 Speed · 🏁 Race · 🏅 Marathon)
-- **Distance** displayed per day — with actual/planned shown side-by-side when a Strava activity is synced
+- **Distance** displayed per day — with actual/planned shown side-by-side when an activity is synced or imported
 - **Mini progress bars** visualize how close your actual distance came to the plan target
-- **Completion badges** — gold ✓ for Strava-synced days, green ✓ for manually completed
+- **Completion badges** — gold ✓ for auto-synced days (intervals.icu, Strava, or file import), green ✓ for manually completed; cross-training days show the sport icon and duration
 - Today is highlighted with a gold ring and filled badge so you never lose your place
 
 **Weekly summary column:**
@@ -209,8 +222,9 @@ Everything updates live — complete a day, sync a run, and the calendar reflect
 
 Your home base. Everything you need in one view.
 
-- **Personalized greeting** with your Strava athlete name and connection status
+- **Personalized greeting** with your athlete name and data-source connection status
 - **Today's Quest** — a hero card showing today's planned workout, with distance, type, and (once synced) your actual metrics, coaching feedback, route map, and effort recognition
+- **Recovery check** — last night's sleep, resting HR, and HRV from your watch (via intervals.icu), with a daily status (*Recovered / OK / Caution*) and a one-line suggestion such as "keep today easy"
 - **Plan progress bar** — percentage complete with days-completed count
 - **Stats strip** — race prediction, training adherence, and readiness grade at a glance
 - **Adaptive recommendations** — intelligent coaching cards when Apollo detects something actionable (overtraining, schedule gap, race week)
@@ -218,7 +232,7 @@ Your home base. Everything you need in one view.
 - **Weekly readiness** — pop-up with your composite score, strengths, and tips for the week ahead
 - **Recent activities** — your last five runs with route thumbnails, distance, pace, and effort tier indicators
 
-Auto-sync triggers on load when Strava is connected and a plan is active. No manual action needed.
+Opening the Dashboard syncs when a data source (intervals.icu or Strava) is connected and a plan is active — or, if Apollo synced in the last 10 minutes, simply re-matches what's already on your device. Imported files are matched to the plan the moment they land. No manual action needed.
 
 ### ⚡ Training Plan
 
@@ -229,15 +243,19 @@ Where your plan lives.
 - **Checklist view** — the traditional week-by-week accordion with expandable day rows showing checkboxes, dates, workout labels, sync badges, tier badges, route thumbnails, and detailed metrics
 - **Weekly mileage bars** — per-week actual vs planned with color-coded status (on track / ahead / behind)
 - **Smart Auto-Sync card** — manual sync trigger, last sync timestamp, and detailed results for every matched activity
+- **Send to your watch** — push the plan to your intervals.icu calendar as structured workouts (warm-up, repeats, tempo, marathon-pace segments with your VDOT paces); intervals.icu forwards them to Garmin, COROS, Suunto, and Wahoo watches. Optional auto-update keeps the next 4 weeks in step when your plan, start date, paces, or units change
 
 ### 🏅 Activities
 
-Your complete run history.
+Your complete training history — runs, rides, swims, strength, and indoor sessions.
 
-- **Paginated activity list** — 30 per page, each row showing route thumbnail, activity name with tier dot, date, distance, duration, pace, elevation, and heart rate
+- **Sport filters** — All / Runs / Rides / Other, with counts
+- **Source badges** — where each activity came from (intervals.icu, Strava, or file import), plus an *Indoor* pill for trainer, Zwift, and treadmill sessions
+- **Import files** — add FIT/GPX/TCX files or a full Garmin/Strava export right from the Activities page (drag-and-drop or file picker)
+- **Paginated activity list** — 30 per page, each row showing route thumbnail, activity name with tier dot, date, and sport-appropriate metrics (pace, elevation, and HR for runs; speed, power, and HR for rides; HR and training load for everything else)
 - **Expandable detail panel** (click any activity):
-  - Full-size route map with animation, mile markers, and compass
-  - Stats grid: distance, duration, pace, elevation, HR (avg + max), cadence, route type, suffer score
+  - Full-size route map with animation, mile markers, and compass (any sport with GPS)
+  - Stats grid: distance, duration, pace, elevation, HR (avg + max), cadence, power, training load
   - **Split analysis** — tabbed view with pace bar chart, per-split table, per-lap table, consistency grade, pattern detection, interval detection, and coaching insights
   - **Effort recognition** — effort count, route name, pace and HR efficiency tiers, and data-driven insight messages
 
@@ -260,7 +278,7 @@ Deep dive into your training data.
 
 Your coaching intelligence hub, organized into four tabs.
 
-**Overview** — Race prediction with marathon, half, 10K, and 5K times. VDOT score and confidence percentage. Score gauges for adherence, readiness, distance match, and consistency. Detailed adherence and readiness breakdowns with strengths, improvements, and tips. Today's training recap. Readiness history across weeks.
+**Overview** — Race prediction with marathon, half, 10K, and 5K times. VDOT score and confidence percentage. Score gauges for adherence, readiness, distance match, and consistency. Detailed adherence and readiness breakdowns with strengths, improvements, and tips. The full [recovery check](#daily-recovery-check) — sleep, resting HR, and HRV against your own baselines, with the reasons behind today's status. Today's training recap. Readiness history across weeks.
 
 **Heart Rate Zones** — Editable HR profile (max HR, resting HR, LTHR). Five-zone definitions with BPM ranges. Zone distribution chart (last 30 days) with 80/20 rule coaching. HR trend chart showing daily average across activities.
 
@@ -286,10 +304,13 @@ See [Race Strategy](#race-strategy) for the full deep-dive.
 
 Configuration and data management.
 
-- **Strava connection** — one-click OAuth on web; Client ID + Secret fields on desktop
-- **Garmin Connect** — credential fields ready for integration
+- **intervals.icu (free, recommended)** — paste your API key once; Apollo verifies it, encrypts it at rest, and imports your full history. Buttons for *Sync now* and *Re-import full history*, with live progress and last-sync status. If the desktop keychain is unavailable (e.g. Linux without a keyring), Apollo says so instead of silently forgetting the key
+- **Sync sleep, HRV and resting HR** — on by default; powers the Recovery check and keeps your resting/max HR current (never overrides values you entered yourself)
+- **Import files** — FIT/GPX/TCX files (optionally `.gz`) or a whole Garmin Connect / Strava account export ZIP; duplicates are detected and merged automatically
+- **Workouts to your watch** — push the active plan to your intervals.icu calendar, remove it again, or keep it auto-updated
+- **Strava (optional)** — for accounts with Strava API access: one-click OAuth on web; Client ID + Secret fields on desktop
 - **Distance units** — miles or kilometers, one toggle that changes everything app-wide
-- **Auto-sync on launch** — opt-in automatic Strava sync every time the app opens (5-minute cooldown prevents redundant syncs)
+- **Auto-sync on launch** — opt-in automatic sync of every connected source when the app opens, plus an optional background re-sync interval while it stays open (5-minute cooldown prevents redundant syncs)
 - **Auto-updates (Electron)** — opt-in update checking with granular controls: auto-check, auto-download, manual check button, download/install buttons with real-time progress bar, and version display
 - **Coaching preferences** — daily recap scheduling, weekly readiness scheduling, HR profile inputs
 - **Adaptive training** — enable/disable, frequency (daily / weekly / before key workouts), aggressiveness (conservative / balanced / aggressive)
@@ -310,7 +331,7 @@ On first launch, Apollo walks you through a nine-step setup:
 6. **Pick your units** — miles (🇺🇸) or kilometers (🌍) with visual selection buttons
 7. **Race strategy** *(optional)* — opt in to the race strategy feature for course-specific pacing plans with World Majors data and custom marathon imports
 8. **Configure coaching** — daily recaps and weekly readiness scheduling
-9. **Complete** — ready to train
+9. **Complete** — ready to train; Apollo points you to Settings to connect intervals.icu (free), import your files, or link Strava
 
 You're running in under two minutes.
 
@@ -337,30 +358,31 @@ Eight proven plans from the coaches who defined the discipline.
 
 ## Smart Auto-Sync
 
-Connect Strava once and Apollo handles the rest.
+Connect a data source once — or import your files — and Apollo handles the rest.
 
 **How it works:**
-1. Apollo fetches your last 14 days of Strava activities
-2. Each run is matched to a plan day by date (if multiple runs on the same day, the longest one is used)
-3. Matched workouts are auto-completed
-4. For each match, Apollo generates **coaching feedback** — distance analysis against the target, pace commentary tailored to the workout type (easy, tempo, speed, long), and weekly mileage status
+1. **First sync imports your full history** from every connected source (intervals.icu and/or Strava), year by year; after that, each sync is incremental (new and recently edited activities only)
+2. **Duplicates are merged automatically** — the same run recorded on your watch, synced to intervals.icu, and imported from a FIT file is stored once, keeping the richest data from each copy
+3. Each run is matched to a plan day by date (if multiple runs on the same day, the longest one is used); **cross-training days** are fulfilled by rides, swims, Zwift, or strength sessions of 10+ minutes
+4. Matched workouts are auto-completed
+5. For each match, Apollo generates **coaching feedback** — distance analysis against the target, pace commentary tailored to the workout type (easy, tempo, speed, long), and weekly mileage status
 
-**After every sync, Apollo also:**
+**After every sync or import, Apollo also:**
 - Captures heart rate data for zone analysis and efficiency tracking
 - Processes route effort recognitions (repeated route detection + tier ranking)
 - Updates race predictions with the latest data
 - Recalculates training adherence and weekly readiness
 - Generates daily recap and adaptive recommendations if due
 
-All of this happens automatically when you open the Dashboard or Training page.
+This happens automatically when you open the Dashboard or Training page, on launch and in the background if you enable auto-sync, and immediately after a file import — no internet needed for imported files.
 
 ---
 
 ## Route Maps
 
-Every synced run is rendered as a pure SVG route visualization. No Leaflet. No Mapbox. No API keys. Works fully offline.
+Every synced or imported activity with GPS is rendered as a pure SVG route visualization. No Leaflet. No Mapbox. No API keys. Works fully offline.
 
-- **Polyline decoding** — Strava's encoded polyline is decoded into coordinates
+- **Polyline decoding** — GPS tracks from intervals.icu streams, imported FIT/GPX/TCX files, or Strava are stored as compact encoded polylines and decoded into coordinates
 - **Equirectangular projection** with latitude correction — coordinates mapped to SVG points
 - **Ramer-Douglas-Peucker simplification** — long routes stay performant
 - **Animated route drawing** — the path "draws itself" on first render
@@ -456,7 +478,22 @@ After each training day, Apollo grades your effort and delivers a focused coach 
 
 **Grades:** Outstanding · Strong · Solid · Missed · Rest Day
 
-Each recap includes actual distance vs planned (with ± percentage), pace, duration, HR zone, and a workout-specific message. If you ran an easy day at threshold pace, Apollo will flag it. If you crushed a long run, Apollo acknowledges it. Up to 365 days of recap history.
+Each recap includes actual distance vs planned (with ± percentage), pace, duration, HR zone, and a workout-specific message. If you ran an easy day at threshold pace, Apollo will flag it. If you crushed a long run, Apollo acknowledges it. Short sleep — from your journal or synced from your watch — gets a recovery reminder. Up to 365 days of recap history.
+
+### Daily Recovery Check
+
+With intervals.icu connected, Apollo syncs the wellness data your watch or ring records — sleep, resting heart rate, HRV (rMSSD), plus any fatigue/soreness/stress you log in intervals.icu — and compares today against **your own** baselines rather than population norms:
+
+| Signal | Compared with | Flagged when |
+|--------|---------------|--------------|
+| **HRV** | 7-day rolling average (log rMSSD) vs your 60-day normal range (mean ± 0.5 SD) | Below your normal range; strongly below = more than 1 SD under your mean |
+| **Resting HR** | Today vs your 30-day average | 5+ bpm above (10+ bpm is a strong signal) |
+| **Sleep** | Last night vs a 7-hour floor and your 7-night average | Under 6 h, or under 7 h and an hour below your usual (under 5 h is a strong signal) |
+| **How you feel** | Fatigue, soreness, or stress logged in intervals.icu | Rated 3+ on the 1–4 scale |
+
+**Recovered** means no warning signs; **OK** means one signal (train as planned, back off if the warm-up feels hard); **Caution** means one strong or two signals (keep today easy or swap with a rest day). Until there's about a week of data, Apollo says it's still learning your ranges. The approach follows rolling-average HRV guidance from Plews et al. (2013) and Buchheit (2014). It's training guidance, not medical advice.
+
+The same sync keeps your HR profile current: resting HR from the median of the last 14 days, and max HR / LTHR from your intervals.icu run settings — never overriding values you entered yourself.
 
 ### Weekly Race Day Readiness
 
@@ -573,7 +610,7 @@ Standard five-zone model:
 | 4 | Threshold | Hard — sustainable for ~30 minutes |
 | 5 | VO2 Max | Very hard — peak oxygen uptake training |
 
-**Zone distribution chart** (last 30 days) with 80/20 rule guidance — most training should be in Zones 1–2. **HR trend chart** showing daily averages. **Aerobic efficiency tracking** (pace-to-HR ratio over time). Auto-detects and updates max HR when Strava reports a higher value.
+**Zone distribution chart** (last 30 days) with 80/20 rule guidance — most training should be in Zones 1–2. **HR trend chart** showing daily averages. **Aerobic efficiency tracking** (pace-to-HR ratio over time). Auto-detects and updates max HR when a synced or imported activity reports a higher value. With intervals.icu connected, resting HR follows your watch's recent readings and max HR / LTHR come from your intervals.icu run settings — unless you've entered your own values.
 
 ---
 
@@ -977,7 +1014,7 @@ Apollo automatically detects which training phase you're in and adapts its coach
 
 ## Performance Management Chart (PMC)
 
-A full CTL/ATL/TSB fitness-fatigue model — the same chart used by professional coaches in TrainingPeaks, built from your Strava data.
+A full CTL/ATL/TSB fitness-fatigue model — the same chart used by professional coaches in TrainingPeaks, built from your synced and imported runs (cross-training load can be included).
 
 **Core metrics:**
 - **CTL** (Chronic Training Load) — 42-day exponential moving average of daily TSS. Your "fitness."
@@ -1046,7 +1083,7 @@ Rich training journal with mood tracking, effort ratings, and full-text search.
 
 - **Per-run entries:** Notes, mood (1-5), perceived effort (1-10), tags (weather, terrain, etc.)
 - **Searchable history:** Full-text search across all journal entries
-- **Calendar integration:** Journal entries linked to training days and Strava activities
+- **Calendar integration:** Journal entries linked to training days and synced activities
 
 ### Shoe Tracking
 
@@ -1073,9 +1110,64 @@ Your training data is important. Apollo protects it at multiple levels.
 
 ## Integrations
 
-### Strava
+Use any combination of these — or none at all. Everything except Strava is free.
 
-Full OAuth2 integration for both platforms:
+| Source | Cost | What you get |
+|--------|------|--------------|
+| **[intervals.icu](https://intervals.icu)** *(recommended)* | Free | Automatic sync of runs, rides, swims, and strength from Garmin, COROS, Suunto, Polar, Wahoo, Zwift, and more — plus sleep, HRV, and resting HR for the recovery check, and plan delivery to your watch |
+| **File & archive import** | Free, no account | FIT, GPX, TCX (and `.gz`), Garmin Connect data export, Strava bulk export |
+| **Strava** | Requires Strava API access | OAuth sync of activities, splits, and laps |
+| **Open-Meteo** | Free, no key | Weather forecasts and heat-adjusted predictions (opt-in) |
+
+### intervals.icu (free — recommended)
+
+intervals.icu is a free training platform that connects directly to Garmin Connect, COROS, Suunto, Polar, Wahoo, Zwift, and others. Apollo uses it as a free hub: your watch syncs to intervals.icu, and Apollo syncs from intervals.icu — no Strava subscription, no developer approval, no server.
+
+**Setup (about two minutes):**
+1. Create a free account at [intervals.icu](https://intervals.icu) and connect your watch or platform under **Settings → Connections**. To receive Apollo's plan on your watch, tick **Upload planned workouts** on that device's box.
+2. In intervals.icu, open **Settings → Developer Settings** and copy your **API key** (your athlete ID, e.g. `i12345`, is optional).
+3. In Apollo, open **Settings → intervals.icu**, paste the key, and click **Connect**.
+
+Apollo verifies the key, stores it encrypted (OS keychain on desktop), turns on auto-sync, and imports your full history. After that, every sync fetches only new and recently edited activities.
+
+**What Apollo fetches:** every activity type with distance, moving time, pace/speed, elevation, heart rate (average + max), cadence, power (average + normalized), training load, and indoor/trainer flags — plus GPS routes and per-mile/km splits from the activity streams. It also reads your **wellness** data (sleep, resting HR, HRV, and anything you log such as fatigue or soreness — up to a year back, then the last week on every sync) for the [Daily Recovery Check](#daily-recovery-check), and your **run settings** (max HR, LTHR, threshold pace). To get wellness data, let your watch or ring send it to intervals.icu (for Garmin, enable wellness data on the Garmin connection in intervals.icu → Settings → Connections).
+
+> [!NOTE]
+> Activities that reached intervals.icu *from Strava* aren't exposed through intervals.icu's API (a Strava licensing restriction). Connect your watch to intervals.icu directly, or import your Strava export ZIP once to bring in that history.
+
+### Workouts to Your Watch
+
+Apollo writes your training plan into your intervals.icu calendar as structured workouts, and intervals.icu delivers them to your watch. Use the **Send your plan to your watch** card on the Training page (also in Settings):
+
+- **Structured steps with your paces** — warm-up, repeats with recovery jogs, tempo and marathon-pace segments, cool-down, with pace ranges from your VDOT (race prediction first, then your saved training paces), written in intervals.icu's workout syntax. Until Apollo knows your paces, workouts go out as plain distances
+- **Delivered to your device** — intervals.icu uploads planned workouts to Garmin, COROS, Suunto, and Wahoo watches once you tick **Upload planned workouts** on your device's box in intervals.icu → Settings → Connections
+- **Safe to re-push** — every workout carries a stable Apollo ID, so sending again updates existing entries instead of duplicating them. Outdated Apollo workouts (plan switched, start date moved) are removed; past days and anything you created yourself are never touched, and **Remove Apollo workouts** deletes only Apollo's upcoming workouts
+- **Auto-update (optional)** — when your plan, paces, or units change, Apollo re-sends the next 4 weeks. It checks after every sync, at launch, and when Apollo regains focus, and only calls intervals.icu when something changed (or once a day)
+
+> [!TIP]
+> **Garmin:** the watch only shows pace targets when a **Run threshold pace** is set in intervals.icu (Settings → Sport settings) — Apollo checks this and warns you on the card if it's missing. If you set it after sending, click **Remove Apollo workouts** and send again so Garmin receives fresh copies. Zwift only receives rides, so Apollo's run workouts won't appear there.
+
+### File & Archive Import (no account needed)
+
+| Input | Details |
+|-------|---------|
+| `.fit` | Garmin, COROS, Suunto, Wahoo, Zwift, and more — sessions, laps, GPS, heart rate, cadence, power |
+| `.gpx` | GPS tracks, including heart rate and cadence extensions |
+| `.tcx` | Laps, GPS, heart rate, cadence, power |
+| `.gz` | Any of the above, gzipped (as found in Strava exports) |
+| `.zip` | A Garmin Connect *Export Your Data* archive or a Strava bulk export (names and sport types come from `activities.csv`); nested archives are handled |
+
+**Getting your files:**
+- **Garmin Connect** — Account Settings → Data Management → *Export Your Data* (you'll receive a ZIP by email). For a single activity: open it in Garmin Connect → ⚙ → *Export Original*.
+- **Strava** — Settings → My Account → *Download or Delete Your Account* → *Request your archive*.
+
+**Where:** the **Import files** button on the Activities page, or the *Import activity files* card in Settings → Data sources. Drop files, whole folders, or the export ZIP exactly as you downloaded it — or click *Choose files*.
+
+Files are parsed entirely on your device — nothing is uploaded anywhere. The import keeps running if you switch pages, and you can cancel at any time without losing what was already read. Re-importing is safe: duplicates are detected by start time and distance and merged with any copy already synced from intervals.icu or Strava. Imported runs are matched to your plan immediately, even offline. Apollo keeps your 5,000 most recent activities on the device (more than 13 years of daily runs) and tells you if an import goes past that.
+
+### Strava (optional)
+
+Strava API access is no longer freely available to every athlete. If your account has it, Apollo supports full OAuth2 sync on both platforms:
 
 | Platform | Method |
 |----------|--------|
@@ -1094,9 +1186,11 @@ Apollo fetches: activities, heart rate (average + max), cadence, elevation, suff
 
 **Rate limiting:** Apollo tracks Strava's rate limits via response headers and maintains a buffer below the 15-minute and daily caps. Token refresh is mutex-protected to prevent concurrent refresh races.
 
-### Garmin *(scaffolded)*
+If you connect both Strava and intervals.icu, activities are de-duplicated automatically.
 
-Client ID and Secret fields are ready in Settings. The integration infrastructure (Activity, Health, Training, and Courses API endpoints) is stubbed and designed to build on the same patterns as the Strava integration.
+### Garmin Devices
+
+Garmin's official Connect APIs are limited to approved business partners, so Apollo reaches Garmin the free way: automatically through intervals.icu (Garmin Connect → intervals.icu → Apollo, and planned workouts back to the watch), or manually by importing FIT files or your Garmin data export.
 
 ---
 
@@ -1109,14 +1203,16 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 - **100% offline-capable** — all data lives in localStorage + IndexedDB on your machine
 - **No telemetry** — Apollo collects zero analytics, usage data, or crash reports
 - **No cloud accounts** — no login, no email, no phone number
-- **Strava is opt-in** — works fully without any external service
+- **Every data connection is opt-in** — intervals.icu and Strava are optional; file import is parsed entirely on your device and works offline
+- **Health data stays local** — sleep, HRV, and resting-HR records synced from intervals.icu are stored only on your device (about the last 400 days) and are never sent anywhere else; switch the sync off any time in Settings
+- **Writes only what it owns** — sending your plan to the intervals.icu calendar creates, updates, and removes only events tagged with Apollo's own ID; your other workouts, notes, and past days are never modified
 - **Weather is opt-in** — Open-Meteo is free and requires no API key or account
 
 ### Credential Security (Desktop)
 
-- **OS-level encryption** — Strava and Garmin credentials encrypted via Electron's `safeStorage` API (DPAPI on Windows, Keychain on macOS, libsecret on Linux)
+- **OS-level encryption** — your intervals.icu API key and Strava credentials/tokens are encrypted via Electron's `safeStorage` API (DPAPI on Windows, Keychain on macOS, libsecret on Linux)
 - **Encrypted-at-rest** — credentials stored as Base64 AES blobs in a JSON file in the app's userData directory, never in localStorage or IndexedDB
-- **Key allowlisting** — IPC handlers only accept a fixed set of credential keys (`strava_tokens`, `strava_credentials`, `garmin_tokens`, `garmin_credentials`). Arbitrary key names are rejected.
+- **Key allowlisting** — IPC handlers only accept a fixed set of credential keys (`intervals_credentials`, `strava_tokens`, `strava_credentials`, and the reserved `garmin_*` keys). Arbitrary key names are rejected.
 - **Web fallback** — on the web platform (no OS keychain), tokens are stored in persistence with a warning, and client secrets are routed through the Azure Functions BFF
 
 ### Electron Hardening
@@ -1130,12 +1226,12 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 | `nodeIntegrationInWorker` | ✅ Disabled |
 | `will-navigate` guard | ✅ Only allows `localhost:5173` and `file:` origins |
 | `setWindowOpenHandler` | ✅ All new windows denied; HTTPS URLs opened in OS browser |
-| `open-external` allowlist | ✅ Only `strava.com` and `connect.garmin.com` |
+| `open-external` allowlist | ✅ HTTPS only, and only `intervals.icu`, `strava.com`, and `connect.garmin.com` |
 | DevTools | ✅ Only in development builds |
 
 ### Web Security
 
-- **Content Security Policy** — strict CSP in `staticwebapp.config.json`: `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, `connect-src` limited to Strava, Garmin, and Open-Meteo
+- **Content Security Policy** — strict CSP in `staticwebapp.config.json`: `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, `connect-src` limited to intervals.icu, Strava, Garmin, and Open-Meteo
 - **X-Frame-Options** — `DENY`
 - **X-Content-Type-Options** — `nosniff`
 - **Referrer-Policy** — `strict-origin-when-cross-origin`
@@ -1147,13 +1243,14 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 |--------|-----------|
 | XSS | React JSX auto-escaping; zero `dangerouslySetInnerHTML`; dedicated `esc()` HTML encoder for race card; Blob URL pattern for print windows |
 | Code injection | Zero `eval()`, `new Function()`, `setTimeout(string)`, or `child_process` usage |
-| SSRF | All external URLs hardcoded (`api.open-meteo.com`, `strava.com`); no user-controlled URL construction |
+| SSRF | All external URLs hardcoded (`api.open-meteo.com`, `intervals.icu`, `strava.com`); no user-controlled URL construction |
 | Prototype pollution | No `Object.assign` with unvalidated external data; no `__proto__` access |
 | OAuth CSRF | Cryptographic state parameter (32 random bytes) validated on callback; single-use |
 | Token refresh | Mutex-protected to prevent concurrent refresh races |
-| API rate limiting | Strava rate limits tracked via response headers with configurable buffer |
+| API rate limiting | Strava rate limits tracked via response headers with configurable buffer; intervals.icu requests time out after 30 s and back off on 429/5xx |
 | Backup integrity | SHA-256 checksums with read-back verification; tamper detection on restore |
-| Import safety | 10 MB file limit, 1 MB per-key limit, `apollo_*` key allowlist, credential keys excluded, safety backup before every import |
+| Backup restore | 10 MB file limit, 1 MB per-key limit, `apollo_*` key allowlist, credential keys excluded, safety backup before every import |
+| Activity file import | Parsed on-device by Apollo's own decoders (no third-party parsers); 512 MB per activity file, 1 GB per nested archive, at most 2 levels of nesting; decompression stops at each entry's declared size (zip-bomb guard) and every ZIP entry is CRC-32 verified |
 | Coordinate validation | Latitude/longitude bounds-checked before API calls |
 | ReDoS | No user-input regex patterns; all regex is simple literals |
 | Hardcoded secrets | Zero — all credentials from `process.env`, OS keychain, or user input at runtime |
@@ -1167,14 +1264,15 @@ A guide to getting the most out of Apollo across your training block.
 ### Week 1 — Getting Started
 
 1. **Launch Apollo** and complete the onboarding — choose a plan, set your start date, pick units, configure coaching
-2. **Connect Strava** in Settings
-3. **Run your first planned workout** and record it on Strava as usual
-4. **Open Apollo** — your run syncs automatically, your day is marked complete, and you receive your first coaching feedback
+2. **Connect intervals.icu** in Settings (free — link your Garmin, COROS, Suunto, Polar, Wahoo, or Zwift account to intervals.icu first), or **import your files/export** if you'd rather not use any account. Strava works too if you have API access
+3. **Send your plan to your watch** (optional) — push it to your intervals.icu calendar and today's workout appears on your device
+4. **Run your first planned workout** and record it on your watch as usual
+5. **Open Apollo** — your run syncs automatically, your day is marked complete, and you receive your first coaching feedback
 
 ### Every Run Day
 
-1. Check the **Training Calendar** for today's workout
-2. Run and record on Strava (GPS + heart rate for the richest insights)
+1. Check the **Training Calendar** for today's workout (or just start it from your watch)
+2. Run and record as usual (GPS + heart rate for the richest insights)
 3. Open Apollo — auto-sync fires on the Dashboard. You'll see your route map, coaching feedback, and (once you have repeat routes) effort recognition
 
 ### Every Week
@@ -1259,9 +1357,9 @@ Create `api/local.settings.json`:
 
 ## Deploy to Azure Static Web Apps
 
-Apollo is configured for Azure Static Web Apps with an Azure Functions API backend for Strava OAuth.
+Apollo is configured for Azure Static Web Apps with an Azure Functions API backend for Strava OAuth. The backend is only needed for the optional Strava connection — intervals.icu sync, plan push, and file import run entirely in the browser, so steps 1 and 4 can be skipped if you don't use Strava.
 
-### 1. Create a Strava App
+### 1. Create a Strava App *(optional)*
 
 1. Go to [Strava API Settings](https://www.strava.com/settings/api)
 2. Create an app
@@ -1308,24 +1406,33 @@ npm run test:watch    # watch mode
 npm run test:coverage # with coverage report
 ```
 
-**933 tests** across **38 test files**, all passing:
+**1,431 tests** across **55 test files**, all passing:
 
 | Test File | Tests | Coverage Area |
 |-----------|-------|--------------|
+| fileImportFit | 80 | FIT decoding: records, laps, sessions, developer fields, compressed timestamps |
 | edgeCaseStress | 79 | Boundary conditions, extreme inputs, stress testing across all services |
 | scientificValidation | 76 | Peer-reviewed formula validation, physiological model accuracy |
 | plans | 64 | Plan library, custom builder, recommendation engine, day assignments |
+| pmcChart | 47 | TSB zones, workout classification, daily loads, CTL/ATL/TSB, projections |
+| fileImportArchive | 44 | ZIP/ZIP64 reading, nested archives, gzip, deflate fallback |
 | effortService | 43 | Route fingerprinting, tier ranking, insight generation |
 | splitService | 43 | Split processing, consistency grading, pattern detection |
+| raceCard | 42 | Race card generation, pace bands, HTML output, preferences |
 | routeService | 41 | Polyline decoding, projection, haversine, bearing, caching |
 | unitPreferences | 41 | Unit conversion, formatting, distance/pace/elevation |
+| intervals | 40 | intervals.icu mapping, IDs, paging, athlete, routes, detail, calendar events, wellness |
+| planCalendarSync | 39 | Plan → intervals.icu workout text, idempotent push/remove, auto-update |
+| wellness | 35 | Wellness sync (sleep, HRV, resting HR), HR profile updates, recovery status, threshold pace |
+| periodization | 34 | Week analysis, phase detection, coaching tips, persistence |
+| raceStrategy | 32 | Strategy building, pacing, elevation adjustment, time-based gel timing, persistence |
+| runningEconomy | 30 | Economy index, run classification, trends, decline detection |
 | shoeTracker | 30 | Shoe CRUD, mileage tracking, rotation, retirement alerts |
-| raceStrategy | 30 | Strategy building, pacing, elevation adjustment, persistence |
-| raceCard | 29 | Race card generation, pace bands, HTML output, preferences |
 | autoSync | 28 | Activity matching, mileage tracking, pace classification |
+| fileImportBuild | 28 | Parsed file → activity mapping, IDs, splits, polylines |
+| raceChecklist | 28 | Checklist CRUD, course templates, progress tracking |
 | trainingJournal | 28 | Journal entries, mood/effort tracking, search |
 | weather | 28 | Heat adjustment, risk levels, forecast caching, coordinate validation |
-| raceChecklist | 28 | Checklist CRUD, course templates, progress tracking |
 | backupService | 27 | Create, restore, verify, import, export, health monitoring |
 | complianceAnalysis | 27 | Workout compliance, grade accuracy, feedback generation |
 | paceCalculator | 24 | VDOT pace zones, pace formatting, training paces |
@@ -1333,23 +1440,31 @@ npm run test:coverage # with coverage report
 | racePrediction | 20 | VDOT, Riegel, blending, confidence scoring |
 | postRaceAnalysis | 19 | Mile comparison, grading, insights, report management |
 | calendarExport | 18 | ICS generation, event creation, duration estimation |
+| activityHelpers | 17 | Sport classification, polyline encoding, decimation, split derivation |
 | taperOptimizer | 17 | CTL/ATL/TSB modeling, taper plan generation |
+| activityDedupe | 16 | Cross-source de-duplication, source priority, field merging, 5,000-activity store cap |
 | adaptiveTraining | 15 | Preference persistence, recommendation lifecycle |
+| fileImportXml | 15 | GPX/TCX parsing, extensions, namespaces, malformed input |
+| storage | 15 | Token/credential storage, intervals.icu credentials, keychain-failure handling, web-mode guards |
+| fileImport | 14 | End-to-end import pipeline, Strava/Garmin exports, de-duplication, progress |
 | raceDayTimeline | 14 | Race morning schedule, event timing, carb targets |
+| activitySource | 13 | intervals.icu connect flow, athlete IDs, external links, full + incremental sync |
 | aerobicDecoupling | 13 | Cardiac drift, Friel thresholds, decoupling calculation |
+| fileImportJob | 13 | App-wide import job: progress throttling, cancel, folder drops, result messages |
 | bonkRisk | 12 | 7-factor risk scoring, factor weighting |
 | courseTraining | 11 | World Major training plans, generic recommendations |
 | ghostRunner | 11 | Mile comparison, cumulative delta, trend analysis |
 | raceEquivalence | 11 | Temperature, altitude, wind, humidity normalization |
-| storage | 11 | Token management, credential security, web-mode guards |
 | hydrationCalculator | 10 | Sweat rate, sex adjustment, aid station planning |
 | whatIfSimulator | 10 | Scenario projections, VDOT calibration |
-| glycogenModel | 9 | Glycogen depletion, substrate crossover, fueling impact |
 | carbLoading | 9 | 3-day protocol, meal targets, body weight scaling |
-| fuelingCalculator | 9 | Carb rate, gel timing, caffeine dosing |
+| crossTraining | 9 | Cross-training load estimates, per-sport summaries, weekly volume |
 | fatigueResistance | 9 | FRI calculation, anomalous split filtering |
+| fuelingCalculator | 9 | Carb rate, gel timing, caffeine dosing |
+| glycogenModel | 9 | Glycogen depletion, substrate crossover, fueling impact |
 | weeklyReadiness | 9 | Letter grading, boundary values, monotonic ordering |
 | pacingDecay | 7 | Decay curves, race projection, gap analysis |
+| dailyRecap | 5 | Daily grading, coach messages from journal or watch sleep (TDZ regression) |
 
 ---
 
@@ -1361,9 +1476,9 @@ npm run test:coverage # with coverage report
 | **Desktop** | Electron 40 with secure preload IPC, safeStorage credential encryption |
 | **Charts** | Recharts 3 (analytics) + custom pure SVG (routes, splits, gauges) |
 | **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
-| **Web API** | Azure Functions (Node) for Strava OAuth token exchange |
-| **Integrations** | Strava API v3 (OAuth2, rate-limited, mutex-protected refresh), Open-Meteo (weather) |
-| **Testing** | Vitest 4 with jsdom, 933 tests across 38 files, v8 coverage |
+| **Web API** | Azure Functions (Node) for the optional Strava OAuth token exchange |
+| **Integrations** | intervals.icu REST API (free — activities, streams, wellness, sport settings, calendar events), Strava API v3 (optional — OAuth2, rate-limited, mutex-protected refresh), dependency-free FIT/GPX/TCX/ZIP parsing, Open-Meteo (weather) |
+| **Testing** | Vitest 4 with jsdom, 1,431 tests across 55 files, v8 coverage |
 | **Security** | CSP headers, navigation guards, IPC key allowlisting, SHA-256 backup verification |
 | **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
 
@@ -1375,12 +1490,12 @@ npm run test:coverage # with coverage report
 src/
 ├── pages/                  Seven app pages + auth callback + 404
 │   ├── Dashboard.tsx         Home — today's quest, stats, recaps, recommendations
-│   ├── Training.tsx          Plan tracking — calendar + checklist + auto-sync
-│   ├── Activities.tsx        Run history — list, detail, splits, effort recognition
+│   ├── Training.tsx          Plan tracking — calendar + checklist + auto-sync + send to watch
+│   ├── Activities.tsx        Activity history — runs + cross-training, sport filters, file import, splits
 │   ├── Analytics.tsx         Charts — mileage, pace, load, HR, consistency, PRs
 │   ├── Insights.tsx          Coaching — predictions, readiness, recaps, HR zones
 │   ├── RaceStrategy.tsx      Race pacing — marathon browser, strategy builder, imports
-│   ├── Settings.tsx          Config — Strava, units, coaching, auto-sync, updates, backups
+│   ├── Settings.tsx          Config — data sources (intervals.icu, files, Strava), units, coaching, auto-sync, updates, backups
 │   └── WelcomeFlow.tsx       Guided onboarding wizard (9 steps)
 │
 ├── components/
@@ -1389,7 +1504,11 @@ src/
 │   ├── SplitAnalysis.tsx     Pace charts, split tables, consistency grading
 │   ├── AdaptiveRecommendations.tsx  Coaching recommendation cards
 │   ├── TierBadge.tsx         Gold/Silver/Bronze achievement badges
-│   ├── ConnectStravaCTA.tsx  Strava connection prompt
+│   ├── ConnectDataSourceCTA.tsx  "Connect intervals.icu or import files" prompt
+│   ├── ImportActivities.tsx  Drag-and-drop FIT/GPX/TCX/ZIP import with progress
+│   ├── PlanCalendarPush.tsx  "Send your plan to your watch" (intervals.icu calendar)
+│   ├── RecoveryCard.tsx      Daily recovery check — sleep, resting HR, HRV vs your baselines
+│   ├── PlanBuilder.tsx       Custom plan builder
 │   ├── StrategyBuilder.tsx    Target time + pacing strategy → mile-by-mile plan
 │   ├── MarathonBrowser.tsx   Filterable marathon card grid with course details
 │   ├── MarathonImport.tsx    Custom marathon import form
@@ -1402,11 +1521,30 @@ src/
 │   └── worldMajors.ts        6 World Marathon Majors with full course profiles
 │
 ├── services/
-│   ├── autoSync.ts           Smart Strava-to-plan matching + feedback generation
+│   ├── activitySource.ts     Sync engine — every connected source, full/incremental sync, events
+│   ├── intervals.ts          intervals.icu API client (activities, streams, wellness, calendar events)
+│   ├── planCalendarSync.ts   Plan → intervals.icu structured workouts (push, auto-update, remove)
+│   ├── wellness.ts           Sleep/HRV/resting-HR sync, recovery snapshot, threshold-pace check
+│   ├── crossTraining.ts      Cross-training load estimates and summaries
+│   ├── activity/
+│   │   ├── types.ts            Source-neutral Activity model
+│   │   ├── sports.ts           Sport categories (run / ride / swim / strength / other)
+│   │   ├── streams.ts          Stream → route polyline + split derivation
+│   │   └── dedupe.ts           Cross-source duplicate detection and merging
+│   ├── fileImport/
+│   │   ├── index.ts            importActivityFiles() — formats, archives, batching, progress
+│   │   ├── fit.ts              Dependency-free FIT decoder
+│   │   ├── gpx.ts / tcx.ts     GPX and TCX parsers
+│   │   ├── xml.ts              Minimal XML reader (no DOMParser needed)
+│   │   ├── archive.ts          Random-access ZIP reader, Strava CSV + Garmin summary parsing
+│   │   ├── inflate.ts          DEFLATE / gzip decoder
+│   │   ├── build.ts            Parsed file → Activity (splits, laps, route, sport)
+│   │   └── types.ts            Shared parser types and errors
+│   ├── autoSync.ts           Plan matching (runs + cross-training) + feedback generation
 │   ├── routeService.ts       Polyline decoding, projection, caching
 │   ├── effortService.ts      Route fingerprinting + effort ranking + insights
 │   ├── splitService.ts       Split/lap processing + consistency analysis
-│   ├── analyticsService.ts   Stats aggregation, charts data, PRs, streaks
+│   ├── analyticsService.ts   Stats aggregation, charts data, PRs, streaks, merge-aware store
 │   ├── racePrediction.ts     VDOT + Riegel race time predictions
 │   ├── weeklyReadiness.ts    5-factor readiness scoring
 │   ├── adaptiveTraining.ts   Training pattern detection + recommendations
@@ -1444,10 +1582,10 @@ src/
 │   ├── appPreferences.ts     Auto-sync and auto-update preferences
 │   ├── coachingPreferences.ts  Scheduling and notification settings
 │   ├── unitPreferences.ts    Miles/km toggle + all conversion helpers
-│   ├── strava.ts             Strava API client (rate-limited, mutex refresh)
+│   ├── strava.ts             Strava API client (optional; rate-limited, mutex refresh)
 │   ├── stravaWeb.ts          Web-mode Strava OAuth helpers
-│   ├── garmin.ts             Garmin API scaffolding
-│   ├── storage.ts            Cross-platform token/credential management
+│   ├── garmin.ts             Garmin Connect API placeholder (needs Garmin developer approval)
+│   ├── storage.ts            Cross-platform token/credential management (OS keychain on desktop)
 │   ├── dataManager.ts        Export/import with validation
 │   ├── planProgress.ts       Plan state, completion tracking, sync metadata
 │   └── db/
@@ -1462,12 +1600,13 @@ src/
 │
 ├── types/
 │   ├── recommendations.ts
+│   ├── journal.ts            Training journal entry types
 │   ├── workout.ts            Workout target, interval block, HR zone types
 │   ├── nutrition.ts          Race conditions, athlete profile, fueling plan types
 │   ├── shoes.ts              Shoe, shoe status, usage types
 │   └── raceStrategy.ts       Marathon, strategy, pacing, elevation types
 │
-└── __tests__/                1,057 tests across 41 files
+└── __tests__/                1,431 tests across 55 files
     └── setup.ts              Test harness with in-memory persistence mock
 
 electron/                     Electron main process + secure preload

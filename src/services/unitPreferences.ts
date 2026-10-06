@@ -87,6 +87,15 @@ export function formatElevation(meters: number, unit?: DistanceUnit): string {
   return `${Math.round(meters * 3.28084)} ft`;
 }
 
+/** Speed for rides and other non-running sports. Example: 8.33 m/s → "18.6 mph" or "30.0 km/h" */
+export function formatSpeed(metersPerSecond: number | null | undefined, unit?: DistanceUnit): string {
+  if (!metersPerSecond || metersPerSecond <= 0) return '—';
+  const u = unit ?? getDistanceUnit();
+  return u === 'km'
+    ? `${(metersPerSecond * 3.6).toFixed(1)} km/h`
+    : `${((metersPerSecond * 3600) / METERS_PER_MILE).toFixed(1)} mph`;
+}
+
 export function formatDuration(sec: number): string {
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);

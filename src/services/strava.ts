@@ -2,6 +2,7 @@
 
 import { getStravaTokens, setStravaTokens, getStravaCredentials, type StravaTokens } from './storage';
 import { refreshStravaToken, isWeb } from './stravaWeb';
+import type { Activity, ActivityLap, ActivitySplit } from './activity/types';
 
 const STRAVA_API = 'https://www.strava.com/api/v3';
 
@@ -145,70 +146,17 @@ export async function fetchStrava<T>(path: string, options: RequestInit = {}): P
   return res.json();
 }
 
+/**
+ * Strava's activity JSON is the canonical shape for every source, so these are
+ * aliases of the shared model in ./activity/types (kept for existing imports).
+ */
 /** A single split (per-km or per-mile) returned by the Strava detail endpoint. */
-export interface StravaSplit {
-  distance: number;            // meters
-  elapsed_time: number;        // seconds
-  moving_time: number;         // seconds
-  average_speed: number;       // m/s
-  average_heartrate?: number;  // bpm (may be absent)
-  elevation_difference: number; // meters (+ or -)
-  split: number;               // 1-indexed split number
-  pace_zone?: number;          // Strava pace zone (0-based)
-}
+export type StravaSplit = ActivitySplit;
 
 /** A lap recorded by the device or manually created. */
-export interface StravaLap {
-  id: number;
-  name: string;
-  lap_index: number;           // 0-indexed
-  split: number;               // 1-indexed split number
-  distance: number;            // meters
-  elapsed_time: number;        // seconds
-  moving_time: number;         // seconds
-  average_speed: number;       // m/s
-  max_speed: number;           // m/s
-  average_heartrate?: number;  // bpm
-  max_heartrate?: number;      // bpm
-  average_cadence?: number;    // strides/min (multiply by 2 for steps)
-  total_elevation_gain: number; // meters
-  start_index: number;
-  end_index: number;
-  pace_zone?: number;
-}
+export type StravaLap = ActivityLap;
 
-export interface StravaActivity {
-  id: number;
-  name: string;
-  type: string;
-  sport_type: string;
-  distance: number;
-  moving_time: number;
-  elapsed_time: number;
-  start_date: string;
-  start_date_local: string;
-  average_heartrate?: number;
-  max_heartrate?: number;
-  average_speed?: number;
-  max_speed?: number;
-  total_elevation_gain?: number;
-  average_cadence?: number;
-  suffer_score?: number;
-  kudos_count: number;
-  start_latlng?: [number, number] | null;
-  end_latlng?: [number, number] | null;
-  map?: {
-    id: string;
-    summary_polyline: string | null;
-    polyline?: string | null;
-  } | null;
-  /** Per-km splits — only present on detailed fetch */
-  splits_metric?: StravaSplit[];
-  /** Per-mile splits — only present on detailed fetch */
-  splits_standard?: StravaSplit[];
-  /** Laps — only present on detailed fetch */
-  laps?: StravaLap[];
-}
+export type StravaActivity = Activity;
 
 export interface StravaAthlete {
   id: number;

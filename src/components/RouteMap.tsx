@@ -30,7 +30,7 @@ export type RouteMapSize = 'thumbnail' | 'card' | 'detail';
 export type RouteColorMode = 'apollo' | 'teal' | 'strava';
 
 export interface RouteMapProps {
-  /** The Strava activity (must include map.summary_polyline). */
+  /** The activity from any source (must include map.summary_polyline). */
   activity: {
     id: number;
     distance: number;

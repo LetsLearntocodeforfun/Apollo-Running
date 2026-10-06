@@ -13,7 +13,7 @@ import {
   deleteStrategy,
 } from '../services/raceStrategy';
 import { WORLD_MAJOR_MARATHONS } from '../data/worldMajors';
-import type { MarathonRace, RaceStrategy } from '../types/raceStrategy';
+import type { MarathonRace } from '../types/raceStrategy';
 
 type View = 'browse' | 'strategy' | 'import' | 'my-strategies';
 

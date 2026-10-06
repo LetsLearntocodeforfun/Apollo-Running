@@ -32,10 +32,11 @@ vi.mock('@/services/db/persistence', () => ({
     'strava_credentials',
     'garmin_tokens',
     'garmin_credentials',
+    'intervals_credentials',
   ]),
   isApolloKey: (key: string) =>
     key.startsWith('apollo_') ||
-    ['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials'].includes(key),
+    ['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials', 'intervals_credentials'].includes(key),
 }));
 
 // ── Mock IndexedDB (Dexie) ────────────────────────────────────────────────────

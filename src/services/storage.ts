@@ -7,9 +7,12 @@ const STRAVA_KEY = 'strava_tokens';
 const GARMIN_KEY = 'garmin_tokens';
 const STRAVA_CREDENTIALS = 'strava_credentials';
 const GARMIN_CREDENTIALS = 'garmin_credentials';
+const INTERVALS_CREDENTIALS = 'intervals_credentials';
 
 /** Keys that hold sensitive data and should use encrypted storage in Electron */
-const SENSITIVE_KEYS = new Set([STRAVA_KEY, GARMIN_KEY, STRAVA_CREDENTIALS, GARMIN_CREDENTIALS]);
+const SENSITIVE_KEYS = new Set([
+  STRAVA_KEY, GARMIN_KEY, STRAVA_CREDENTIALS, GARMIN_CREDENTIALS, INTERVALS_CREDENTIALS,
+]);
 
 export interface StravaTokens {
   access_token: string;
@@ -22,6 +25,21 @@ export interface GarminTokens {
   access_token: string;
   refresh_token: string;
   expires_at: number;
+}
+
+/**
+ * intervals.icu personal API access (free). Garmin, Zwift, Wahoo, COROS,
+ * Suunto, Polar… sync into intervals.icu, and Apollo reads from there.
+ */
+export interface IntervalsCredentials {
+  /** Personal API key from intervals.icu → Settings → Developer Settings. */
+  apiKey: string;
+  /** Athlete ID (e.g. "i12345"). "0" means "the athlete that owns the key". */
+  athleteId: string;
+  /** Display name captured when the connection was verified. */
+  athleteName?: string;
+  /** ISO timestamp of when the key was verified and saved. */
+  connectedAt?: string;
 }
 
 // ── Environment Detection ─────────────────────────────────────────────────────
@@ -99,12 +117,18 @@ export async function initSecureStorage(): Promise<void> {
   await loadSecureCredentials();
 }
 
-// Run initialization on module load in Electron (non-blocking)
-if (typeof window !== 'undefined' && window.electronAPI) {
-  initSecureStorage().catch((err) =>
-    console.warn('[Apollo] Secure storage init failed, falling back to persistence:', err),
-  );
-}
+// Run initialization on module load in Electron (non-blocking).
+/**
+ * Resolves once encrypted credentials have been loaded into the in-memory cache
+ * (immediately on web). The app waits for this before first render so that
+ * connection checks such as `getIntervalsCredentials()` are accurate at startup.
+ */
+export const secureStorageReady: Promise<void> =
+  typeof window !== 'undefined' && window.electronAPI
+    ? initSecureStorage().catch((err) =>
+        console.warn('[Apollo] Secure storage init failed, falling back to persistence:', err),
+      )
+    : Promise.resolve();
 
 // ── Synchronous Read Helpers ──────────────────────────────────────────────────
 
@@ -116,28 +140,69 @@ function getSecure(key: string): string | null {
   return persistence.getItem(key);
 }
 
-/** Write a sensitive value: secure storage (Electron) or persistence (web) */
-function setSecure(key: string, value: string): void {
+/** Why the last credential couldn't be saved to the OS keychain (desktop), or null. */
+let secureWriteError: string | null = null;
+const secureWriteListeners = new Set<(error: string | null) => void>();
+
+function setSecureWriteError(error: string | null): void {
+  if (secureWriteError === error) return;
+  secureWriteError = error;
+  for (const listener of secureWriteListeners) {
+    try { listener(error); } catch { /* listener errors must not break storage */ }
+  }
+}
+
+/**
+ * Why the most recent credential couldn't be stored in the OS keychain
+ * (desktop only), or null when the last write succeeded. The credential stays
+ * usable for the current session but won't survive a restart.
+ */
+export function getSecureStorageError(): string | null {
+  return secureWriteError;
+}
+
+/** Subscribe to keychain write failures/recoveries. Returns an unsubscribe function. */
+export function onSecureStorageError(listener: (error: string | null) => void): () => void {
+  secureWriteListeners.add(listener);
+  return () => {
+    secureWriteListeners.delete(listener);
+  };
+}
+
+/**
+ * Write a sensitive value: secure storage (Electron) or persistence (web).
+ * Resolves to whether it was persisted; never rejects.
+ */
+function setSecure(key: string, value: string): Promise<boolean> {
   if (isElectron()) {
+    // Do NOT write to persistence/localStorage for sensitive data.
+    // Cache first so the credential works immediately — and keeps working for
+    // this session even if the keychain refuses it (reported via
+    // getSecureStorageError instead of silently disconnecting).
     secureCache.set(key, value);
-    window.electronAPI!
-      .secureStorage
-      .set(key, value)
-      .then((result) => {
-        if (!result.success) {
-          secureCache.delete(key);
-          console.error(`[Apollo] Failed to securely persist ${key}: ${result.error ?? 'unknown error'}`);
-        }
-      })
-      .catch((err) => {
-        secureCache.delete(key);
-        console.error(`[Apollo] Failed to encrypt ${key}:`, err);
-      });
-    // Do NOT write to persistence/localStorage for sensitive data
-    return;
+    return Promise.resolve()
+      .then(() => window.electronAPI!.secureStorage.set(key, value))
+      .then(
+        (result) => {
+          if (result.success) {
+            setSecureWriteError(null);
+            return true;
+          }
+          const reason = result.error ?? 'unknown error';
+          console.error(`[Apollo] Failed to securely persist ${key}: ${reason}`);
+          setSecureWriteError(reason);
+          return false;
+        },
+        (err: unknown) => {
+          console.error(`[Apollo] Failed to encrypt ${key}:`, err);
+          setSecureWriteError(err instanceof Error ? err.message : String(err));
+          return false;
+        },
+      );
   }
   // Web fallback: tokens only (credentials should go through BFF)
   persistence.setItem(key, value);
+  return Promise.resolve(true);
 }
 
 /** Remove a sensitive value from all storage layers */
@@ -163,9 +228,12 @@ export function getStravaTokens(): StravaTokens | null {
   }
 }
 
-/** Persist Strava OAuth tokens after authentication or refresh. */
-export function setStravaTokens(t: StravaTokens): void {
-  setSecure(STRAVA_KEY, JSON.stringify(t));
+/**
+ * Persist Strava OAuth tokens after authentication or refresh. Resolves to
+ * whether they were persisted (false: usable this session only).
+ */
+export function setStravaTokens(t: StravaTokens): Promise<boolean> {
+  return setSecure(STRAVA_KEY, JSON.stringify(t));
 }
 
 /** Remove Strava tokens (disconnect). */
@@ -250,4 +318,38 @@ export function setGarminCredentials(clientId: string, clientSecret: string): vo
     return;
   }
   setSecure(GARMIN_CREDENTIALS, JSON.stringify({ clientId, clientSecret }));
+}
+
+/** Retrieve the stored intervals.icu API credentials, or null if not connected. */
+export function getIntervalsCredentials(): IntervalsCredentials | null {
+  try {
+    const raw = getSecure(INTERVALS_CREDENTIALS);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<IntervalsCredentials> | null;
+    if (!parsed || typeof parsed.apiKey !== 'string' || !parsed.apiKey) return null;
+    return {
+      apiKey: parsed.apiKey,
+      athleteId: typeof parsed.athleteId === 'string' && parsed.athleteId ? parsed.athleteId : '0',
+      athleteName: parsed.athleteName,
+      connectedAt: parsed.connectedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist intervals.icu credentials.
+ * Electron: encrypted at rest via safeStorage. Web: kept in this browser's app
+ * storage (the key is personal and is only ever sent to intervals.icu).
+ * Resolves to whether they were persisted (false: usable this session only —
+ * see getSecureStorageError).
+ */
+export function setIntervalsCredentials(creds: IntervalsCredentials): Promise<boolean> {
+  return setSecure(INTERVALS_CREDENTIALS, JSON.stringify(creds));
+}
+
+/** Remove intervals.icu credentials (disconnect). */
+export function clearIntervalsCredentials(): void {
+  removeSecure(INTERVALS_CREDENTIALS);
 }

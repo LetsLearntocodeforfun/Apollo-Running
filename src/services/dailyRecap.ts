@@ -11,9 +11,9 @@ import { getSavedPrediction } from './racePrediction';
 import { persistence } from './db/persistence';
 import { formatPaceFromMinPerMi, formatMiles } from './unitPreferences';
 import { getComplianceResult } from './complianceAnalysis';
-import type { ComplianceResult } from '../types/workout';
 import { isJournalEnabled, getJournalEntry } from './trainingJournal';
-import { MOOD_LABELS, ENERGY_LABELS } from '../types/journal';
+import { getSuggestedSleepHours } from './wellness';
+import { ENERGY_LABELS } from '../types/journal';
 
 const RECAP_KEY = 'apollo_daily_recaps';
 
@@ -139,27 +139,8 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
     grade = 'solid';
   }
 
-  // Coach message
-  const coachMessage = buildCoachMessage(
-    grade, plannedDay.type, plannedDay.note ?? '',
-    actualDistanceMi, plannedDistanceMi, actualPaceMinPerMi,
-    weeklyMileage, primaryZone, journalMood, journalEnergy, journalSleepHours, metPlan
-  );
-
-  // Compliance data (from auto-sync compliance analysis)
-  const compliance = getComplianceResult(weekIndex, dayIndex);
-  let complianceScore: number | undefined;
-  let complianceFeedback: string | undefined;
-  if (compliance) {
-    complianceScore = compliance.score;
-    const parts: string[] = [compliance.feedback];
-    if (compliance.coachingSuggestion) parts.push(compliance.coachingSuggestion);
-    complianceFeedback = parts.join(' ');
-  }
-
-  const prediction = getSavedPrediction();
-
-  // Journal data (opt-in — only populated if journal is enabled)
+  // Journal data (opt-in — only populated if journal is enabled).
+  // Read before building the coach message, which uses mood/energy/sleep.
   let journalMood: number | undefined;
   let journalEnergy: number | undefined;
   let journalRPE: number | undefined;
@@ -175,6 +156,30 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
       journalNotes = journalEntry.notes;
     }
   }
+
+  // Sleep for the coach message: the journal first, then what the watch
+  // recorded (intervals.icu wellness sync) — no manual logging needed.
+  const sleepHours = journalSleepHours ?? getSuggestedSleepHours(date) ?? undefined;
+
+  // Coach message
+  const coachMessage = buildCoachMessage(
+    grade, plannedDay.type, plannedDay.note ?? '',
+    actualDistanceMi, plannedDistanceMi, actualPaceMinPerMi,
+    weeklyMileage, primaryZone, journalMood, journalEnergy, sleepHours, metPlan
+  );
+
+  // Compliance data (from auto-sync compliance analysis)
+  const compliance = getComplianceResult(weekIndex, dayIndex);
+  let complianceScore: number | undefined;
+  let complianceFeedback: string | undefined;
+  if (compliance) {
+    complianceScore = compliance.score;
+    const parts: string[] = [compliance.feedback];
+    if (compliance.coachingSuggestion) parts.push(compliance.coachingSuggestion);
+    complianceFeedback = parts.join(' ');
+  }
+
+  const prediction = getSavedPrediction();
 
   const recap: DailyRecap = {
     date,
@@ -286,7 +291,7 @@ function buildCoachMessage(
     lines.push(`Week ${weeklyMileage.weekIndex + 1} progress: ${formatMiles(weeklyMileage.actualMi)}/${formatMiles(weeklyMileage.plannedMi)} (${pct}%).`);
   }
 
-  // Journal-aware coaching (only when journal data is present)
+  // Journal- and wellness-aware coaching (only when that data is present)
   if (grade !== 'rest_day' && grade !== 'missed') {
     if (energy !== undefined && energy <= 2 && metPlan) {
       lines.push(`You rated energy ${ENERGY_LABELS[energy as keyof typeof ENERGY_LABELS]?.split(' ')[0] ?? energy}/5 but still hit your targets — impressive resilience.`);

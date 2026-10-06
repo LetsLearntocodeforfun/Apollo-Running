@@ -4,6 +4,7 @@ import App from './App';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
 import { persistence } from './services/db/persistence';
+import { secureStorageReady } from './services/storage';
 import './index.css';
 
 /**
@@ -24,9 +25,12 @@ root.render(
   </React.StrictMode>
 );
 
-// Wait for IndexedDB hydration, then render the app
-persistence.ready
-  .catch(() => { /* IndexedDB failed — localStorage fallback is already loaded */ })
+// Wait for IndexedDB hydration and (desktop) the encrypted credential store,
+// so connection checks are accurate on first render, then render the app.
+Promise.all([
+  persistence.ready.catch(() => { /* IndexedDB failed — localStorage fallback is already loaded */ }),
+  secureStorageReady,
+])
   .finally(() => {
     root.render(
       <React.StrictMode>

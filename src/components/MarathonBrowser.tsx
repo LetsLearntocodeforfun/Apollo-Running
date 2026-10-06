@@ -189,7 +189,7 @@ function MarathonCard({ marathon, isSelected, onSelect }: { marathon: MarathonRa
             <button
               type="button"
               className="btn btn-primary"
-              onClick={(e) => { e.stopPropagation(); onSelect(marathon); }}
+              onClick={(e) => { e.stopPropagation(); onSelect(); }}
             >
               {isSelected ? '✓ Selected' : 'Create Race Strategy'}
             </button>
