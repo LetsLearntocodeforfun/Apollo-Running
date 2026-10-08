@@ -1,10 +1,14 @@
 /**
  * Daily Recap — generates a rich daily training summary comparing
  * actual performance vs the plan, with coaching insights.
+ *
+ * v1.0.6: reads the effective plan (overlay applied) and calendar date keys
+ * (DST-safe). `computeDailyRecap` is pure; `generateDailyRecap` computes and
+ * saves. Today's workout that isn't done yet is graded 'pending', not 'missed'.
  */
 
 import { getActivePlan, getWeekDayForDate, getSyncMeta, isDayCompleted, formatDateKey } from './planProgress';
-import { getPlanById } from '../data/plans';
+import { getEffectivePlan } from './planOverlay';
 import { getWeeklyMileageSummary, type WeeklyMileage } from './autoSync';
 import { getHRHistory, getHRZones, type ActivityHRData } from './heartRate';
 import { getSavedPrediction } from './racePrediction';
@@ -14,6 +18,7 @@ import { getComplianceResult } from './complianceAnalysis';
 import { isJournalEnabled, getJournalEntry } from './trainingJournal';
 import { getSuggestedSleepHours } from './wellness';
 import { ENERGY_LABELS } from '../types/journal';
+import { isDateKey, todayKey } from '../utils/localDate';
 
 const RECAP_KEY = 'apollo_daily_recaps';
 
@@ -43,7 +48,7 @@ export interface DailyRecap {
   weeklyMileage: WeeklyMileage | null;
   /** Coaching message */
   coachMessage: string;
-  /** Mood/grade: 'outstanding' | 'strong' | 'solid' | 'missed' | 'rest_day' */
+  /** Mood/grade: 'outstanding' | 'strong' | 'solid' | 'missed' | 'pending' | 'rest_day' */
   grade: string;
   /** Current predicted marathon time */
   predictedMarathon?: string;
@@ -83,26 +88,42 @@ export function getRecentRecaps(count: number = 7): DailyRecap[] {
     .slice(0, count);
 }
 
-/** Generate the daily recap for a specific date */
+/** Generate the daily recap for a specific date and save it (upsert by date). */
 export function generateDailyRecap(dateStr?: string): DailyRecap | null {
+  const recap = computeDailyRecap(dateStr);
+  if (!recap) return null;
+  const store = getRecapStore();
+  store[recap.date] = recap;
+  // Keep last 365 days (IndexedDB has ample capacity)
+  const keys = Object.keys(store).sort();
+  if (keys.length > 365) {
+    for (const old of keys.slice(0, keys.length - 365)) {
+      delete store[old];
+    }
+  }
+  saveRecapStore(store);
+  return recap;
+}
+
+/** Compute (without saving) the daily recap for a date (default: today). */
+export function computeDailyRecap(dateStr?: string, today: string = todayKey()): DailyRecap | null {
   const activePlan = getActivePlan();
   if (!activePlan) return null;
 
-  const plan = getPlanById(activePlan.planId);
+  const plan = getEffectivePlan();
   if (!plan) return null;
 
-  const date = dateStr ?? formatDateKey(new Date());
-  const dateObj = new Date(date + 'T00:00:00');
-  const pos = getWeekDayForDate(activePlan.startDate, plan.totalWeeks, dateObj);
+  const date = dateStr && isDateKey(dateStr) ? dateStr : dateStr ?? formatDateKey(new Date());
+  const pos = getWeekDayForDate(activePlan.startDate, plan.weeks.length, date);
   if (!pos) return null;
 
   const { weekIndex, dayIndex } = pos;
   const plannedDay = plan.weeks[weekIndex]?.days[dayIndex];
   if (!plannedDay) return null;
 
-  const syncMeta = getSyncMeta(plan.id, weekIndex, dayIndex);
-  const completed = isDayCompleted(plan.id, weekIndex, dayIndex);
-  const weeklyMileage = getWeeklyMileageSummary(plan.id, weekIndex);
+  const syncMeta = getSyncMeta(activePlan.planId, weekIndex, dayIndex);
+  const completed = isDayCompleted(activePlan.planId, weekIndex, dayIndex);
+  const weeklyMileage = getWeeklyMileageSummary(activePlan.planId, weekIndex);
 
   const plannedDistanceMi = plannedDay.distanceMi ?? 0;
   const actualDistanceMi = syncMeta?.actualDistanceMi ?? 0;
@@ -130,7 +151,8 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
   if (plannedDay.type === 'rest') {
     grade = 'rest_day';
   } else if (!completed && !syncMeta) {
-    grade = 'missed';
+    // Today's (or a future) workout isn't missed until the day is over.
+    grade = date >= today ? 'pending' : 'missed';
   } else if (exceededPlan) {
     grade = 'outstanding';
   } else if (metPlan) {
@@ -211,18 +233,6 @@ export function generateDailyRecap(dateStr?: string): DailyRecap | null {
     journalNotes,
     generatedAt: new Date().toISOString(),
   };
-
-  // Save
-  const store = getRecapStore();
-  store[date] = recap;
-  // Keep last 365 days (IndexedDB has ample capacity)
-  const keys = Object.keys(store).sort();
-  if (keys.length > 365) {
-    for (const old of keys.slice(0, keys.length - 365)) {
-      delete store[old];
-    }
-  }
-  saveRecapStore(store);
 
   return recap;
 }

@@ -1,0 +1,146 @@
+/* ============================================================
+   Apollo shared UI primitives (v1.0.6)
+   Tabs · ConfirmDialog · EmptyState · danger button
+   ============================================================ */
+
+.ui-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin-bottom: var(--space-5);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+
+.ui-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.ui-tab:hover:not(:disabled) {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.ui-tab[aria-selected='true'] {
+  background: var(--bg-active);
+  border-color: var(--border-strong);
+  color: var(--apollo-gold-light);
+}
+
+.ui-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.4em;
+  padding: 0 0.4em;
+  border-radius: var(--radius-full);
+  background: var(--apollo-gold-dim);
+  color: var(--apollo-gold-light);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+
+.ui-tabpanel:focus-visible {
+  outline: 2px solid var(--apollo-gold-light);
+  outline-offset: 4px;
+  border-radius: var(--radius-sm);
+}
+
+/* ── Dialog ─────────────────────────────────────────────── */
+.ui-dialog {
+  max-width: min(480px, calc(100vw - 2rem));
+  padding: var(--space-6);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  color: var(--text);
+  box-shadow: var(--shadow-xl);
+}
+
+.ui-dialog::backdrop {
+  background: rgba(5, 10, 18, 0.7);
+}
+
+.ui-dialog-title {
+  margin: 0 0 var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  color: var(--text);
+}
+
+.ui-dialog-body {
+  margin-bottom: var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.ui-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.ui-btn-danger {
+  background: #C0392B;
+  color: #fff;
+  border: 1px solid #E74C3C;
+}
+
+.ui-btn-danger:hover {
+  background: #A93226;
+}
+
+/* ── Empty state ────────────────────────────────────────── */
+.ui-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  color: var(--text-secondary);
+}
+
+.ui-empty-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.ui-empty-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.ui-empty-body {
+  max-width: 46ch;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+
+.ui-empty-action {
+  margin-top: var(--space-2);
+}

@@ -1,27 +1,30 @@
 {
   "name": "apollo-marathon",
-  "version": "1.0.5",
-  "description": "Apollo — all-in-one marathon training with Strava & Garmin",
+  "version": "1.0.6",
+  "description": "Apollo — free, local-first marathon training: proven plans, race-day planning and coaching insights. Your data stays on your device.",
   "author": {
     "name": "LetsLearntocodeforfun",
     "email": "apollo-running@users.noreply.github.com"
   },
   "main": "dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --config vite.config.web.ts",
+    "dev:electron": "vite --config vite.config.ts",
     "build": "npm run build:electron",
     "build:web": "vite build --config vite.config.web.ts",
-    "build:electron": "cross-env ELECTRON=true vite build",
+    "build:electron": "vite build --config vite.config.ts",
     "package": "npm run build:electron && electron-builder --publish never",
-    "preview": "vite preview",
+    "preview": "vite preview --config vite.config.web.ts",
     "preview:web": "vite preview --config vite.config.web.ts",
-    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.node.json",
+    "lint": "npm run typecheck",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder",
+    "test:tz": "cross-env TZ=America/Los_Angeles vitest run && cross-env TZ=Europe/London vitest run && cross-env TZ=Australia/Sydney vitest run",
+    "electron:dev": "npm run dev:electron",
+    "electron:build": "npm run package",
     "swa": "swa start ./dist --api-location ./api"
   },
   "dependencies": {
@@ -33,6 +36,8 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@fontsource-variable/inter": "^5.2.6",
+    "@fontsource-variable/montserrat": "^5.2.6",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^18.2.55",
@@ -43,6 +48,7 @@
     "cross-env": "^10.1.0",
     "electron": "^40.4.1",
     "electron-builder": "^26.7.0",
+    "fake-indexeddb": "^6.0.1",
     "jsdom": "^28.1.0",
     "typescript": "^5.3.3",
     "vite": "^7.3.1",
@@ -59,7 +65,9 @@
     },
     "files": [
       "dist/**/*",
-      "dist-electron/**/*"
+      "dist-electron/**/*",
+      "!dist/assets/logo-1024.png",
+      "!dist/staticwebapp.config.json"
     ],
     "icon": "public/assets/logo-1024.png",
     "win": {
@@ -71,12 +79,25 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "artifactName": "${productName}-Setup-${version}.${ext}"
     },
     "mac": {
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
       ],
       "category": "public.app-category.healthcare-fitness",
       "icon": "public/assets/logo-1024.png"

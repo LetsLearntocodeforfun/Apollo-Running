@@ -15,11 +15,10 @@ import {
   getStrategiesForMarathon,
   getAllStrategies,
   deleteStrategy,
-  enableRaceStrategy,
-  disableRaceStrategy,
-  isRaceStrategyEnabled,
   getRaceStrategyPrefs,
+  setRaceStrategyPrefs,
   formatPace,
+  saveStrategy,
 } from '@/services/raceStrategy';
 import {
   WORLD_MAJOR_MARATHONS,
@@ -145,22 +144,14 @@ describe('World Major Marathons Database', () => {
 // ── Race Strategy Preferences ─────────────────────────────────────────────────
 
 describe('Race Strategy Preferences', () => {
-  it('should default to disabled', () => {
-    expect(isRaceStrategyEnabled()).toBe(false);
+  // v1.0.6 (RS-14): there is no opt-in gate any more; old prefs stay readable.
+  it('reads defaults when nothing is stored', () => {
+    expect(getRaceStrategyPrefs()).toEqual({ enabled: false });
   });
 
-  it('should enable and disable', () => {
-    enableRaceStrategy();
-    expect(isRaceStrategyEnabled()).toBe(true);
-
-    disableRaceStrategy();
-    expect(isRaceStrategyEnabled()).toBe(false);
-  });
-
-  it('should record enabledAt timestamp', () => {
-    enableRaceStrategy();
-    const prefs = getRaceStrategyPrefs();
-    expect(prefs.enabledAt).toBeDefined();
+  it('normalises a legacy selected race id on read', () => {
+    setRaceStrategyPrefs({ enabled: true, selectedMarathonId: 'boston-marathon-2026' });
+    expect(getRaceStrategyPrefs().selectedMarathonId).toBe('boston');
   });
 });
 
@@ -172,7 +163,8 @@ describe('buildRaceStrategy', () => {
     const strategy = buildRaceStrategy('berlin-marathon-2026', targetTime, 'negative-split');
 
     expect(strategy).not.toBeNull();
-    expect(strategy!.marathonId).toBe('berlin-marathon-2026');
+    // v1.0.6 (RS-8): legacy ids resolve, strategies carry the stable id.
+    expect(strategy!.marathonId).toBe('berlin');
     expect(strategy!.targetTimeSec).toBe(targetTime);
     expect(strategy!.pacingStrategy).toBe('negative-split');
     expect(strategy!.milePaces.length).toBeGreaterThanOrEqual(26);
@@ -233,8 +225,12 @@ describe('buildRaceStrategy', () => {
   });
 
   it('should save strategies and be retrievable', () => {
-    buildRaceStrategy('tokyo-marathon-2026', 4 * 3600, 'even-split');
-    buildRaceStrategy('tokyo-marathon-2026', 3.5 * 3600, 'negative-split');
+    // v1.0.6 (RS-5): building is a pure preview; saving is explicit.
+    const a = buildRaceStrategy('tokyo-marathon-2026', 4 * 3600, 'even-split');
+    const b = buildRaceStrategy('tokyo-marathon-2026', 3.5 * 3600, 'negative-split');
+    expect(getAllStrategies().length).toBe(0);
+    saveStrategy(a!);
+    saveStrategy(b!);
 
     const strategies = getStrategiesForMarathon('tokyo-marathon-2026');
     expect(strategies.length).toBe(2);
@@ -246,6 +242,7 @@ describe('buildRaceStrategy', () => {
   it('should delete strategies', () => {
     const s = buildRaceStrategy('berlin-marathon-2026', 4 * 3600, 'even-split');
     expect(s).not.toBeNull();
+    saveStrategy(s!);
     expect(getAllStrategies().length).toBe(1);
 
     deleteStrategy(s!.id);
@@ -310,7 +307,7 @@ describe('Custom Marathon Import', () => {
       courseType: 'loop',
     });
 
-    buildRaceStrategy(marathon.id, 4 * 3600, 'even-split');
+    saveStrategy(buildRaceStrategy(marathon.id, 4 * 3600, 'even-split')!);
     expect(getStrategiesForMarathon(marathon.id).length).toBe(1);
 
     removeCustomMarathon(marathon.id);

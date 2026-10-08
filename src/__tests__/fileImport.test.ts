@@ -680,18 +680,23 @@ function syncedRun(n: number, startMs: number): Activity {
 }
 
 describe('importActivityFiles: a full activity store', () => {
-  it('keeps the most recent activities and counts the older ones that no longer fit', async () => {
+  it('keeps records and the most recent activities, and counts the older ones that no longer fit', async () => {
     // One short of the limit: a run a day from 2011 on, all newer than the files below.
     const synced = Array.from({ length: MAX_STORED_ACTIVITIES - 1 }, (_, n) => syncedRun(n, Date.UTC(2011, 0, 1, 6) + n * DAY_MS));
-    expect(storeActivities(synced)).toEqual({ added: MAX_STORED_ACTIVITIES - 1, updated: 0, dropped: 0 });
+    expect(storeActivities(synced)).toEqual({
+      added: MAX_STORED_ACTIVITIES - 1, updated: 0, dropped: 0, droppedRuns: 0, droppedOther: 0, skippedDeleted: 0,
+    });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined); // the store warns when it trims
     try {
-      // 2010 history: a FIT file with 250 runs (one full save batch), then three December runs as GPX.
+      // 2010 history: a FIT file with 250 short runs (one full save batch, no records among them),
+      // then three identical ~5 km December runs as GPX.
       const history = fakeFit(Array.from({ length: 250 }, (_, k) => fitSession('Run', Date.UTC(2010, 0, 1, 7) + k * DAY_MS, 2, 3)));
       const december = [1, 2, 3].map((day) => ({ name: `dec${day}.gpx`, data: bytes(gpx(Date.UTC(2010, 11, day, 7), 30)) }));
       const result = await importActivityFiles([{ name: 'history.fit', data: history }, ...december]);
 
-      // The first save keeps the newest of the 250 runs; the second keeps only the newest December run.
+      // The first save keeps the newest of the 250 runs. Then the oldest runs go, except records (B16):
+      // December 1 is the first ~5 km run, so it holds the 5K PR and stays; December 2 and 3 go.
+      // (Before B16 the PR holder was trimmed and only December 3 survived.)
       expect(result).toEqual({
         filesRead: 4,
         activitiesFound: 253,
@@ -703,14 +708,16 @@ describe('importActivityFiles: a full activity store', () => {
         cancelled: false,
       });
       expect(describeImportResult(result)).toBe(
-        `Added 253 activities. Apollo keeps your ${MAX_STORED_ACTIVITIES.toLocaleString()} most recent activities, `
-          + 'so 252 older ones weren\'t kept.',
+        `Added 253 activities. Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities `
+          + '(races and personal records always stay), so 252 older ones weren\'t kept.',
       );
       const stored = getStoredActivities();
       expect(stored).toHaveLength(MAX_STORED_ACTIVITIES);
-      expect(stored.filter((a) => a.source === 'file').map((a) => a.start_date)).toEqual(['2010-12-03T07:00:00Z']);
-      expect(stored[stored.length - 1].start_date).toBe('2010-12-03T07:00:00Z');
+      expect(stored.filter((a) => a.source === 'file').map((a) => a.start_date)).toEqual(['2010-12-01T07:00:00Z']);
+      expect(stored[stored.length - 1].start_date).toBe('2010-12-01T07:00:00Z');
       expect(stored[0].start_date).toBe(synced[synced.length - 1].start_date);
+      // The oldest synced run (longest and fastest run) is a record too, so it was never a candidate.
+      expect(stored.some((a) => a.start_date === synced[0].start_date)).toBe(true);
     } finally {
       warn.mockRestore();
     }

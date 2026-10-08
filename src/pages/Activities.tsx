@@ -40,6 +40,8 @@ import {
   type SplitAnalysis as SplitAnalysisType,
 } from '../services/splitService';
 import { SplitAnalysisPanel, SplitSummaryBadge } from '../components/SplitAnalysis';
+import { ActivityActions, DuplicatesBanner } from '../components/activities/ActivityManagement';
+import { getHiddenActivities } from '../services/activity/manage';
 import {
   formatDistance as fmtDist,
   formatPace as fmtPace,
@@ -58,6 +60,19 @@ const SPORT_FILTERS: { key: SportFilter; label: string; icon?: string }[] = [
   { key: 'ride', label: 'Rides', icon: getSportCategoryIcon('ride') },
   { key: 'other', label: 'Other', icon: getSportCategoryIcon('other') },
 ];
+
+/** Filter pill (sport filters and the Hidden toggle); 32 px minimum touch height. */
+function filterPillStyle(isActive: boolean): CSSProperties {
+  return {
+    display: 'inline-flex', alignItems: 'center', gap: '0.4rem', minHeight: 32,
+    padding: '0.4rem 0.85rem', borderRadius: 'var(--radius-full)',
+    border: isActive ? '1px solid var(--apollo-gold)' : '1px solid var(--border)',
+    background: isActive ? 'var(--apollo-gold-dim)' : 'var(--bg-elevated)',
+    color: isActive ? 'var(--apollo-gold)' : 'var(--text-secondary)',
+    fontSize: '0.78rem', fontFamily: 'var(--font-display)', fontWeight: 600,
+    cursor: 'pointer', transition: 'all var(--transition-fast)',
+  };
+}
 
 function sportFilterOf(a: Activity): Exclude<SportFilter, 'all'> {
   if (isRunActivity(a)) return 'run';
@@ -262,7 +277,12 @@ function EffortRecognitionPanel({ activityId }: { activityId: number }) {
 }
 
 /** Expanded detail panel: route map (any sport with GPS), sport-specific stats, split analysis for runs */
-function ActivityDetail({ activity, maxHR }: { activity: Activity; maxHR: number }) {
+function ActivityDetail({ activity, maxHR, onDone }: {
+  activity: Activity;
+  maxHR: number;
+  /** Confirmation after Hide / Unhide / Delete (the activity then leaves the current list). */
+  onDone?: (message: string) => void;
+}) {
   const isRun = isRunActivity(activity);
   const isRide = !isRun && isRideActivity(activity);
   const [detail, setDetail] = useState<Activity>(activity);
@@ -422,6 +442,12 @@ function ActivityDetail({ activity, maxHR }: { activity: Activity; maxHR: number
           </a>
         )}
       </div>
+
+      {/* Manage: hide from stats, or delete from this device (B18). The list record carries `hidden`. */}
+      <div style={{ marginTop: '0.75rem' }}>
+        <ActivityActions activity={activity} onDone={onDone} />
+      </div>
+      {/* Gear mount point (deferred to 1.0.7): a <ShoePicker activityId={a.id} /> slot goes here. */}
     </div>
   );
 }
@@ -442,6 +468,10 @@ export default function Activities() {
   const importPanelId = useId();
   const importPanelRef = useRef<HTMLDivElement>(null);
   const importButtonRef = useRef<HTMLButtonElement>(null);
+  // Hidden activities (B18): browsed through the "Hidden" filter, where they can be unhidden.
+  const [showHidden, setShowHidden] = useState(false);
+  const [hidden, setHidden] = useState<Activity[]>(() => getHiddenActivities());
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const maxHR = getHRProfile().maxHR;
 
   useEffect(() => {
@@ -481,9 +511,20 @@ export default function Activities() {
     }
     const list = queryStoredActivities({ page, per_page: PAGE_SIZE });
     setActivities(list);
+    setHidden(getHiddenActivities());
     setError(null);
     processEfforts(list);
   }), [available, page]);
+
+  /**
+   * Hide / unhide / delete / merge: the list refreshes through onActivitiesUpdated. Confirm in the header
+   * status and move focus to the heading, since the activity (and the focused button) usually leaves the list.
+   */
+  const handleManaged = (message: string): void => {
+    setExpandedId(null);
+    setImportNote(message);
+    headingRef.current?.focus({ preventScroll: true });
+  };
 
   // Surface sync progress (the first sync imports the full history and can take a while).
   useEffect(() => onSyncStatus((status) => {
@@ -530,15 +571,17 @@ export default function Activities() {
     );
   }
 
-  const counts: Record<SportFilter, number> = { all: activities.length, run: 0, ride: 0, other: 0 };
-  for (const a of activities) counts[sportFilterOf(a)] += 1;
-  const visible = sportFilter === 'all' ? activities : activities.filter((a) => sportFilterOf(a) === sportFilter);
+  // The Hidden filter lists every hidden activity (no paging); otherwise the current page of the store.
+  const base = showHidden ? hidden : activities;
+  const counts: Record<SportFilter, number> = { all: base.length, run: 0, ride: 0, other: 0 };
+  for (const a of base) counts[sportFilterOf(a)] += 1;
+  const visible = sportFilter === 'all' ? base : base.filter((a) => sportFilterOf(a) === sportFilter);
   const activeFilterLabel = SPORT_FILTERS.find((f) => f.key === sportFilter)?.label.toLowerCase() ?? 'activities';
 
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 style={{
+        <h1 ref={headingRef} tabIndex={-1} style={{
           fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)',
           fontWeight: 700, margin: 0, color: 'var(--text)',
         }}>Activities</h1>
@@ -574,8 +617,14 @@ export default function Activities() {
         </div>
       )}
 
-      {/* Sport filter */}
-      <div role="group" aria-label="Filter by sport" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+      {/* Same workout stored twice (B18): merge or keep both */}
+      <DuplicatesBanner onNotice={handleManaged} />
+
+      {/*
+        Filters. Gear mount point (deferred to 1.0.7): when Activities gets views, switch this area to
+        Tabs/TabPanel from components/ui with ?tab= in the URL and add a "Gear" tab. No placeholder until then.
+      */}
+      <div role="group" aria-label="Filter activities" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
         {SPORT_FILTERS.map((f) => {
           const isActive = sportFilter === f.key;
           return (
@@ -584,15 +633,7 @@ export default function Activities() {
               type="button"
               aria-pressed={isActive}
               onClick={() => setSportFilter(f.key)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: '0.4rem',
-                padding: '0.4rem 0.85rem', borderRadius: 'var(--radius-full)',
-                border: isActive ? '1px solid var(--apollo-gold)' : '1px solid var(--border)',
-                background: isActive ? 'var(--apollo-gold-dim)' : 'var(--bg-elevated)',
-                color: isActive ? 'var(--apollo-gold)' : 'var(--text-secondary)',
-                fontSize: '0.78rem', fontFamily: 'var(--font-display)', fontWeight: 600,
-                cursor: 'pointer', transition: 'all var(--transition-fast)',
-              }}
+              style={filterPillStyle(isActive)}
             >
               {f.icon && <span aria-hidden="true">{f.icon}</span>}
               {f.label}
@@ -600,7 +641,27 @@ export default function Activities() {
             </button>
           );
         })}
+        {(hidden.length > 0 || showHidden) && (
+          <button
+            type="button"
+            aria-pressed={showHidden}
+            onClick={() => {
+              setShowHidden((on) => !on);
+              setExpandedId(null);
+            }}
+            style={filterPillStyle(showHidden)}
+          >
+            Hidden
+            <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>{hidden.length}</span>
+          </button>
+        )}
       </div>
+      {showHidden && (
+        <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: '-0.5rem 0 1rem' }}>
+          Hidden activities stay on this device but don&apos;t count toward your stats, records, training load or plan.
+          Open one to unhide it.
+        </p>
+      )}
 
       {error && (
         <div className="card" role="alert" style={{ background: 'var(--color-error-dim)', borderColor: 'var(--color-error)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
@@ -618,7 +679,9 @@ export default function Activities() {
           {visible.length === 0 && !error && (
             <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
               <p style={{ color: 'var(--text-muted)', margin: 0 }}>
-                {activities.length === 0
+                {showHidden
+                  ? (hidden.length === 0 ? 'No hidden activities.' : `No hidden ${activeFilterLabel}.`)
+                  : activities.length === 0
                   ? (page > 1
                     ? 'No more activities.'
                     : 'No activities yet. Your first sync imports your full history — new sessions appear here automatically. Have files or a Strava/Garmin export? Use Import files above.')
@@ -709,13 +772,13 @@ export default function Activities() {
                     </div>
 
                     {/* Expanded detail panel */}
-                    {isExpanded && <ActivityDetail activity={a} maxHR={maxHR} />}
+                    {isExpanded && <ActivityDetail activity={a} maxHR={maxHR} onDone={handleManaged} />}
                   </li>
                 );
               })}
             </ul>
           </div>}
-          <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem', alignItems: 'center' }}>
+          {!showHidden && <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem', alignItems: 'center' }}>
             <button type="button" className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ fontSize: 'var(--text-sm)' }}>← Previous</button>
             <span style={{
               color: 'var(--apollo-gold)', fontFamily: 'var(--font-display)',
@@ -724,7 +787,7 @@ export default function Activities() {
               background: 'var(--apollo-gold-dim)',
             }}>Page {page}</span>
             <button type="button" className="btn btn-secondary" disabled={activities.length < PAGE_SIZE} onClick={() => setPage((p) => p + 1)} style={{ fontSize: 'var(--text-sm)' }}>Next →</button>
-          </div>
+          </div>}
         </>
       )}
     </div>

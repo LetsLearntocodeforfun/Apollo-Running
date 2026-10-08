@@ -1,13 +1,17 @@
 {
-  "name": "Apollo — Legendary Marathon Training",
+  "id": "/",
+  "name": "Apollo — Marathon Training",
   "short_name": "Apollo",
-  "description": "Legendary marathon training companion. Popular plans, Strava sync, race predictions, and coaching insights.",
+  "description": "Free, local-first marathon training: proven plans, race-day planning and coaching insights. Your data stays on your device.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0D1B2A",
-  "theme_color": "#D4A537",
+  "theme_color": "#0D1B2A",
+  "categories": ["sports", "health", "fitness"],
   "icons": [
-    { "src": "/assets/logo-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/assets/logo-512.png", "sizes": "512x512", "type": "image/png" }
+    { "src": "/assets/logo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/logo-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
   ]
 }

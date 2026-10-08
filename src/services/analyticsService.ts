@@ -5,14 +5,24 @@ import type { StravaActivity } from './strava';
 import { mergeIntoStore } from './activity/dedupe';
 import { isRunActivity } from './activity/sports';
 import { estimateActivityLoad } from './crossTraining';
+import { detectPersonalRecordsFromEfforts } from './bestEfforts';
 import {
   metersToMiles,
   calcPaceMinPerMi,
   formatPaceFromMinPerMi,
   formatMiles,
   formatElevation,
-  unitLabel,
+  formatDistanceShort,
 } from './unitPreferences';
+import {
+  addDays,
+  daysBetween,
+  eachDay,
+  isDateKey,
+  mondayOf,
+  parseDateKey,
+  todayKey,
+} from '../utils/localDate';
 
 const ANALYTICS_CACHE_KEY = 'apollo_analytics_cache';
 const ACTIVITIES_STORE_KEY = 'apollo_activities_store';
@@ -21,7 +31,10 @@ const ACTIVITIES_STORE_KEY = 'apollo_activities_store';
 
 export interface WeeklyMileagePoint {
   weekLabel: string;   // e.g. "Jan 6"
-  weekStart: string;   // YYYY-MM-DD
+  weekStart: string;   // YYYY-MM-DD (Monday)
+  /** Run distance in meters — convert with unitPreferences for display. */
+  distanceM: number;
+  /** Same distance in miles (legacy field; prefer `distanceM`). */
   miles: number;
   hours: number;
   runCount: number;
@@ -42,7 +55,8 @@ export interface TrainingLoadData {
   acute: number;      // 7-day load
   chronic: number;    // 28-day load
   ratio: number;      // acute/chronic
-  status: 'optimal' | 'caution' | 'danger' | 'detraining';
+  /** `insufficient`: fewer than MIN_CHRONIC_HISTORY_DAYS of history, so the ratio isn't meaningful yet. */
+  status: 'optimal' | 'caution' | 'danger' | 'detraining' | 'insufficient';
 }
 
 export interface PersonalRecord {
@@ -85,12 +99,15 @@ export interface SummaryStats {
   paceDelta: number | null;      // absolute min/mi change (negative = faster)
 }
 
+export type WeekCompareKind = 'distance' | 'duration' | 'count' | 'elevation';
+
 export interface WeekCompare {
   label: string;
+  kind: WeekCompareKind;
+  /** Base units: meters (distance, elevation), seconds (duration) or a count. Format with `formatWeekCompareValue`. */
   current: number;
   previous: number;
   delta: number;      // percentage
-  unit: string;
 }
 
 export interface AnalyticsSnapshot {
@@ -108,86 +125,195 @@ export interface AnalyticsSnapshot {
 /** Most activities kept on the device (IndexedDB has ample capacity). */
 export const MAX_STORED_ACTIVITIES = 5000;
 
-let storeCache: { raw: string; activities: StravaActivity[] } | null = null;
+let storeCache: { raw: string; activities: StravaActivity[]; visible: StravaActivity[] } | null = null;
+/** Bumped whenever the parsed store changes (writes, hydration, hide/delete). */
+let storeVersion = 0;
 
 /** Outcome of `storeActivities`. */
 export interface StoreActivitiesResult {
   added: number;
   updated: number;
   /**
-   * Oldest activities that no longer fit under MAX_STORED_ACTIVITIES and were
+   * Activities that no longer fit under MAX_STORED_ACTIVITIES and were
    * removed from the device by this write (possibly some of those just added).
+   * Races and PR-holding runs are never removed; other sports go first.
    */
   dropped: number;
+  /** Of `dropped`: runs. */
+  droppedRuns: number;
+  /** Of `dropped`: rides, swims, strength and other sports. */
+  droppedOther: number;
+  /** Incoming records skipped because the athlete deleted them on this device. */
+  skippedDeleted: number;
+}
+
+function setStoreCache(raw: string, activities: StravaActivity[]): void {
+  storeCache = { raw, activities, visible: activities.filter((a) => !a.hidden) };
+  storeVersion++;
+}
+
+/** Monotonic counter that changes whenever the stored activities change (memoization key). */
+export function getActivityStoreVersion(): number {
+  // Reading refreshes the cache when another code path (e.g. hydration) changed the raw value.
+  getAllStoredActivities();
+  return storeVersion;
+}
+
+/** Name/workout flags that mark a run as a race (never trimmed). */
+const RACE_NAME_RE = /\b(race|marathon|half|parkrun|5k|10k|15k|10 ?mi(le)?)\b/i;
+
+function isProtectedFromTrim(a: StravaActivity, prHolders: ReadonlySet<number>): boolean {
+  if (prHolders.has(a.id)) return true;
+  if (!isRunActivity(a)) return false;
+  const workoutType = (a as unknown as { workout_type?: number }).workout_type;
+  return workoutType === 1 || RACE_NAME_RE.test(a.name ?? '');
+}
+
+/**
+ * Pick which records to remove so `list` fits under `cap` (B16):
+ * non-run sports first (oldest first), then runs that are neither races nor
+ * PR holders (oldest first). Returns the IDs to drop.
+ */
+export function selectActivitiesToTrim(list: StravaActivity[], cap: number = MAX_STORED_ACTIVITIES): Set<number> {
+  const excess = list.length - cap;
+  const drop = new Set<number>();
+  if (excess <= 0) return drop;
+  const prHolders = new Set(detectPersonalRecords(list.filter((a) => !a.hidden)).map((r) => r.activityId));
+  const oldestFirst = [...list].sort((a, b) => a.start_date_local.localeCompare(b.start_date_local));
+  const tiers: StravaActivity[][] = [
+    oldestFirst.filter((a) => !isRunActivity(a) && !prHolders.has(a.id)),
+    oldestFirst.filter((a) => isRunActivity(a) && !isProtectedFromTrim(a, prHolders)),
+  ];
+  for (const tier of tiers) {
+    for (const a of tier) {
+      if (drop.size >= excess) return drop;
+      drop.add(a.id);
+    }
+  }
+  return drop;
 }
 
 /**
  * Store activities from any source. Records are merged by ID and the same
  * workout synced from two sources (Strava + intervals.icu) is kept once.
- * Returns how many activities were added and updated, and how many of the
- * oldest were dropped to stay within MAX_STORED_ACTIVITIES.
+ * Records the athlete deleted (tombstones) are skipped. Returns how many
+ * activities were added and updated, and how many were trimmed to stay within
+ * MAX_STORED_ACTIVITIES.
  */
 export function storeActivities(activities: StravaActivity[]): StoreActivitiesResult {
-  if (activities.length === 0) return { added: 0, updated: 0, dropped: 0 };
-  const { activities: merged, added, updated } = mergeIntoStore(getStoredActivities(), activities);
-  if (added === 0 && updated === 0) return { added, updated, dropped: 0 };
-  const trimmed = merged.slice(0, MAX_STORED_ACTIVITIES);
-  const dropped = merged.length - trimmed.length;
+  const empty: StoreActivitiesResult = { added: 0, updated: 0, dropped: 0, droppedRuns: 0, droppedOther: 0, skippedDeleted: 0 };
+  if (activities.length === 0) return empty;
+  const { activities: merged, added, updated, skippedDeleted } = mergeIntoStore(getAllStoredActivities(), activities);
+  if (added === 0 && updated === 0) return { ...empty, skippedDeleted };
+  const dropIds = selectActivitiesToTrim(merged);
+  const trimmed = dropIds.size > 0 ? merged.filter((a) => !dropIds.has(a.id)) : merged;
+  let droppedRuns = 0;
+  for (const a of merged) if (dropIds.has(a.id) && isRunActivity(a)) droppedRuns++;
+  const dropped = dropIds.size;
   if (dropped > 0) {
     console.warn(
-      `[Apollo] Activity store is full: kept the newest ${MAX_STORED_ACTIVITIES}, removed ${dropped} older ${dropped === 1 ? 'activity' : 'activities'}.`,
+      `[Apollo] Activity store is full (${MAX_STORED_ACTIVITIES}): removed ${dropped} older ${dropped === 1 ? 'activity' : 'activities'} `
+      + `(${dropped - droppedRuns} non-run, ${droppedRuns} runs). Races and PR runs were kept.`,
     );
   }
-  const raw = JSON.stringify(trimmed);
-  persistence.setItem(ACTIVITIES_STORE_KEY, raw);
-  storeCache = { raw, activities: trimmed };
-  return { added, updated, dropped };
+  writeActivityStore(trimmed);
+  return { added, updated, dropped, droppedRuns, droppedOther: dropped - droppedRuns, skippedDeleted };
 }
 
-/** Retrieve all stored activities (every sport), newest first. */
-export function getStoredActivities(): StravaActivity[] {
+/**
+ * Replace the whole store (newest first). Low-level: used by `storeActivities`
+ * and by activity management (hide / unhide / delete in activity/manage.ts).
+ */
+export function writeActivityStore(list: StravaActivity[]): void {
+  const raw = JSON.stringify(list);
+  persistence.setItem(ACTIVITIES_STORE_KEY, raw);
+  setStoreCache(raw, list);
+}
+
+/** Every stored activity, INCLUDING hidden ones, newest first (Activities › Hidden, store writes). */
+export function getAllStoredActivities(): StravaActivity[] {
   try {
     const raw = persistence.getItem(ACTIVITIES_STORE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      if (storeCache) {
+        storeCache = null;
+        storeVersion++;
+      }
+      return [];
+    }
     if (!storeCache || storeCache.raw !== raw) {
       const parsed = JSON.parse(raw);
-      storeCache = { raw, activities: Array.isArray(parsed) ? parsed : [] };
+      setStoreCache(raw, Array.isArray(parsed) ? parsed : []);
     }
     // Callers may sort/splice the array, so hand out a copy.
-    return storeCache.activities.slice();
+    return storeCache!.activities.slice();
   } catch {
     return [];
   }
 }
 
-/** Filter to running activities only */
+/**
+ * Retrieve stored activities (every sport), newest first. Records the athlete
+ * hid are omitted, so analytics, PRs, load and plan matching ignore them.
+ */
+export function getStoredActivities(): StravaActivity[] {
+  getAllStoredActivities();
+  return storeCache ? storeCache.visible.slice() : [];
+}
+
+/** Filter to running activities only (hidden records excluded). */
 function filterRuns(activities: StravaActivity[]): StravaActivity[] {
-  return activities.filter(isRunActivity);
+  return activities.filter((a) => isRunActivity(a) && !a.hidden);
 }
 
-function getWeekStart(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  const day = d.getDay();
-  const diff = day === 0 ? 6 : day - 1; // Monday start
-  d.setDate(d.getDate() - diff);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
+/** Local calendar date (YYYY-MM-DD) of an activity — `start_date_local` carries a fake "Z", never parse it as a Date. */
+function activityDateKey(a: StravaActivity): string {
+  return (a.start_date_local ?? '').slice(0, 10);
 }
 
-function weekLabel(dateStr: string): string {
-  const d = new Date(dateStr + 'T00:00:00');
-  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+function weekLabel(dateKey: string): string {
+  return parseDateKey(dateKey).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-function daysAgo(n: number): string {
-  const d = new Date();
-  d.setDate(d.getDate() - n);
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${dd}`;
+function daysAgo(n: number, today: string = todayKey()): string {
+  return addDays(today, -n);
+}
+
+/**
+ * Monday keys of the last `weeks` calendar weeks, oldest first, ending with the
+ * current week — so every bucket but the current one is a full Monday–Sunday week (B7).
+ */
+function recentWeekStarts(weeks: number, today: string = todayKey()): string[] {
+  const n = Math.max(1, Math.floor(weeks));
+  const thisMonday = mondayOf(today);
+  const starts: string[] = [];
+  for (let i = n - 1; i >= 0; i--) starts.push(addDays(thisMonday, -7 * i));
+  return starts;
+}
+
+/** Paces outside (0, 20) min/mi are GPS glitches or walks logged as runs. */
+const MAX_SANE_PACE_MIN_PER_MI = 20;
+
+function hasSanePace(a: StravaActivity): boolean {
+  const p = calcPaceMinPerMi(a.distance, a.moving_time);
+  return p > 0 && p < MAX_SANE_PACE_MIN_PER_MI;
+}
+
+/** Distance-weighted pace (Σ time / Σ distance) in min/mi; 0 when there is no distance (B5). */
+function weightedPaceMinPerMi(runs: StravaActivity[]): number {
+  let meters = 0;
+  let seconds = 0;
+  for (const a of runs) {
+    meters += a.distance || 0;
+    seconds += a.moving_time || 0;
+  }
+  return meters > 0 ? calcPaceMinPerMi(meters, seconds) : 0;
+}
+
+/** Treadmill / trainer / virtual runs: speed and HR aren't comparable with outdoor runs. */
+function isIndoorRun(a: StravaActivity): boolean {
+  const t = a as unknown as { trainer?: boolean; sport_type?: string; type?: string };
+  return t.trainer === true || t.sport_type === 'VirtualRun' || t.type === 'VirtualRun';
 }
 
 // ─── Summary Stats ───────────────────────────────────────────
@@ -243,90 +369,74 @@ export function calculateSummaryStats(
 // ─── Weekly Mileage ──────────────────────────────────────────
 
 export function calculateWeeklyMileage(activities: StravaActivity[], weeks: number = 12): WeeklyMileagePoint[] {
-  const runs = filterRuns(activities);
-  const cutoff = daysAgo(weeks * 7);
-  const filtered = runs.filter(a => a.start_date_local.slice(0, 10) >= cutoff);
+  const today = todayKey();
+  const starts = recentWeekStarts(weeks, today);
+  const first = starts[0];
+  const buckets = new Map<string, { meters: number; seconds: number; count: number }>();
+  for (const ws of starts) buckets.set(ws, { meters: 0, seconds: 0, count: 0 });
 
-  const weekMap = new Map<string, { miles: number; hours: number; count: number }>();
-
-  for (const a of filtered) {
-    const ws = getWeekStart(a.start_date_local.slice(0, 10));
-    const existing = weekMap.get(ws) || { miles: 0, hours: 0, count: 0 };
-    existing.miles += metersToMiles(a.distance);
-    existing.hours += a.moving_time / 3600;
-    existing.count += 1;
-    weekMap.set(ws, existing);
+  for (const a of filterRuns(activities)) {
+    const key = activityDateKey(a);
+    if (!isDateKey(key) || key < first || key > today) continue;
+    const bucket = buckets.get(mondayOf(key));
+    if (!bucket) continue;
+    bucket.meters += a.distance || 0;
+    bucket.seconds += a.moving_time || 0;
+    bucket.count += 1;
   }
 
-  // Fill in missing weeks
-  const result: WeeklyMileagePoint[] = [];
-  const startDate = new Date(cutoff + 'T00:00:00');
-  const now = new Date();
-
-  const current = new Date(startDate);
-  // Align to Monday
-  const day = current.getDay();
-  const diff = day === 0 ? 6 : day - 1;
-  current.setDate(current.getDate() - diff);
-
-  while (current <= now) {
-    const ws = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}-${String(current.getDate()).padStart(2, '0')}`;
-    const data = weekMap.get(ws);
-    result.push({
+  return starts.map((ws) => {
+    const b = buckets.get(ws)!;
+    return {
       weekLabel: weekLabel(ws),
       weekStart: ws,
-      miles: data ? Math.round(data.miles * 10) / 10 : 0,
-      hours: data ? Math.round(data.hours * 10) / 10 : 0,
-      runCount: data?.count ?? 0,
-    });
-    current.setDate(current.getDate() + 7);
-  }
-
-  return result;
+      distanceM: Math.round(b.meters),
+      miles: Math.round(metersToMiles(b.meters) * 10) / 10,
+      hours: Math.round((b.seconds / 3600) * 10) / 10,
+      runCount: b.count,
+    };
+  });
 }
 
 // ─── Pace Progression ────────────────────────────────────────
 
 export function calculatePaceProgression(activities: StravaActivity[], weeks: number = 12): PaceProgressionPoint[] {
-  const runs = filterRuns(activities);
-  const cutoff = daysAgo(weeks * 7);
-  const filtered = runs.filter(a => a.start_date_local.slice(0, 10) >= cutoff);
+  const today = todayKey();
+  const starts = recentWeekStarts(weeks, today);
+  const first = starts[0];
 
   const weekMap = new Map<string, StravaActivity[]>();
-  for (const a of filtered) {
-    const ws = getWeekStart(a.start_date_local.slice(0, 10));
-    const arr = weekMap.get(ws) || [];
-    arr.push(a);
-    weekMap.set(ws, arr);
+  for (const a of filterRuns(activities)) {
+    const key = activityDateKey(a);
+    if (!isDateKey(key) || key < first || key > today) continue;
+    // The outlier filter applies to every series, not just the average.
+    if (!hasSanePace(a)) continue;
+    const ws = mondayOf(key);
+    const arr = weekMap.get(ws);
+    if (arr) arr.push(a);
+    else weekMap.set(ws, [a]);
   }
 
+  const round2 = (v: number) => Math.round(v * 100) / 100;
   const result: PaceProgressionPoint[] = [];
+  for (const ws of starts) {
+    const weekRuns = weekMap.get(ws);
+    if (!weekRuns || weekRuns.length === 0) continue;
 
-  for (const [ws, weekRuns] of Array.from(weekMap.entries()).sort((a, b) => a[0].localeCompare(b[0]))) {
-    const paces = weekRuns.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).filter(p => p > 0 && p < 20);
-    if (paces.length === 0) continue;
-
-    const avgPace = paces.reduce((s, p) => s + p, 0) / paces.length;
-    const fastestPace = Math.min(...paces);
+    const avgPace = weightedPaceMinPerMi(weekRuns);
+    const fastestPace = Math.min(...weekRuns.map((a) => calcPaceMinPerMi(a.distance, a.moving_time)));
 
     // Categorize runs by distance
-    const easyRuns = weekRuns.filter(a => metersToMiles(a.distance) < 6 && metersToMiles(a.distance) >= 2);
-    const longRuns = weekRuns.filter(a => metersToMiles(a.distance) >= 10);
-
-    const easyPace = easyRuns.length > 0
-      ? easyRuns.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).reduce((s, p) => s + p, 0) / easyRuns.length
-      : null;
-    const longRunPace = longRuns.length > 0
-      ? longRuns.map(a => calcPaceMinPerMi(a.distance, a.moving_time)).reduce((s, p) => s + p, 0) / longRuns.length
-      : null;
+    const easyRuns = weekRuns.filter((a) => metersToMiles(a.distance) < 6 && metersToMiles(a.distance) >= 2);
+    const longRuns = weekRuns.filter((a) => metersToMiles(a.distance) >= 10);
 
     result.push({
       weekLabel: weekLabel(ws),
       weekStart: ws,
-      avgPace: Math.round(avgPace * 100) / 100,
-      easyPace: easyPace ? Math.round(easyPace * 100) / 100 : null,
-      longRunPace: longRunPace ? Math.round(longRunPace * 100) / 100 : null,
-      fastestPace: Math.round(fastestPace * 100) / 100,
+      avgPace: round2(avgPace),
+      easyPace: easyRuns.length > 0 ? round2(weightedPaceMinPerMi(easyRuns)) : null,
+      longRunPace: longRuns.length > 0 ? round2(weightedPaceMinPerMi(longRuns)) : null,
+      fastestPace: round2(fastestPace),
     });
   }
 
@@ -366,58 +476,52 @@ export function calculateTrainingLoad(
   options: TrainingLoadOptions = {},
 ): TrainingLoadData[] {
   const includeCross = options.includeCrossTraining ?? true;
-  const cutoff = daysAgo(days);
-  const filtered = activities
-    .filter(a => includeCross || isRunActivity(a))
-    .filter(a => a.start_date_local.slice(0, 10) >= cutoff)
-    .sort((a, b) => a.start_date_local.localeCompare(b.start_date_local));
+  const today = todayKey();
+  const cutoff = daysAgo(days, today);
+  // Pre-fill 27 days before the cutoff so the first points' 28-day chronic windows are complete (B2).
+  const windowStart = addDays(cutoff, -27);
 
-  // Build daily load map
   const dailyLoad = new Map<string, number>();
-  for (const a of filtered) {
-    const dateKey = a.start_date_local.slice(0, 10);
+  let firstKey: string | null = null;
+  for (const a of activities) {
+    if (a.hidden || !(includeCross || isRunActivity(a))) continue;
+    const key = activityDateKey(a);
+    if (!isDateKey(key) || key > today) continue;
+    if (firstKey === null || key < firstKey) firstKey = key;
+    if (key < windowStart) continue;
     const load = isRunActivity(a) ? activityLoad(a) : crossTrainingLoad(a);
-    dailyLoad.set(dateKey, (dailyLoad.get(dateKey) ?? 0) + load);
+    dailyLoad.set(key, (dailyLoad.get(key) ?? 0) + load);
   }
 
+  // Rolling 7- and 28-day sums over calendar keys (DST-safe)
+  const daysList = eachDay(windowStart, today);
+  const loads = daysList.map((d) => dailyLoad.get(d) ?? 0);
   const result: TrainingLoadData[] = [];
-  const start = new Date(cutoff + 'T00:00:00');
-  const end = new Date();
-
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-
-    // Acute: last 7 days
-    let acute = 0;
-    for (let i = 0; i < 7; i++) {
-      const dd = new Date(d);
-      dd.setDate(dd.getDate() - i);
-      const ds = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, '0')}-${String(dd.getDate()).padStart(2, '0')}`;
-      acute += dailyLoad.get(ds) ?? 0;
-    }
-
-    // Chronic: last 28 days
-    let chronic = 0;
-    for (let i = 0; i < 28; i++) {
-      const dd = new Date(d);
-      dd.setDate(dd.getDate() - i);
-      const ds = `${dd.getFullYear()}-${String(dd.getMonth() + 1).padStart(2, '0')}-${String(dd.getDate()).padStart(2, '0')}`;
-      chronic += dailyLoad.get(ds) ?? 0;
-    }
+  let acute = 0;
+  let chronic = 0;
+  for (let i = 0; i < daysList.length; i++) {
+    acute += loads[i];
+    chronic += loads[i];
+    if (i >= 7) acute -= loads[i - 7];
+    if (i >= 28) chronic -= loads[i - 28];
+    const date = daysList[i];
+    if (date < cutoff) continue;
 
     // Normalize to daily averages
     const acuteAvg = acute / 7;
     const chronicAvg = chronic / 28;
     const ratio = chronicAvg > 0 ? acuteAvg / chronicAvg : 1;
+    const historyDays = firstKey ? daysBetween(firstKey, date) + 1 : 0;
 
     let status: TrainingLoadData['status'];
-    if (ratio < 0.8) status = 'detraining';
+    if (historyDays < MIN_CHRONIC_HISTORY_DAYS) status = 'insufficient';
+    else if (ratio < 0.8) status = 'detraining';
     else if (ratio <= 1.3) status = 'optimal';
     else if (ratio <= 1.5) status = 'caution';
     else status = 'danger';
 
     result.push({
-      date: dateStr,
+      date,
       acute: Math.round(acuteAvg * 10) / 10,
       chronic: Math.round(chronicAvg * 10) / 10,
       ratio: Math.round(ratio * 100) / 100,
@@ -429,18 +533,10 @@ export function calculateTrainingLoad(
   return result.filter((_, i) => i % 7 === 0 || i === result.length - 1);
 }
 
-// ─── Personal Records ────────────────────────────────────────
+/** Days of history the 28-day chronic window needs before the acute:chronic ratio means anything. */
+export const MIN_CHRONIC_HISTORY_DAYS = 21;
 
-/** Common distance thresholds in meters */
-const PR_DISTANCES: { label: string; meters: number; tolerance: number }[] = [
-  { label: '1 Mile', meters: 1609.34, tolerance: 200 },
-  { label: '5K', meters: 5000, tolerance: 300 },
-  { label: '10K', meters: 10000, tolerance: 500 },
-  { label: '15K', meters: 15000, tolerance: 500 },
-  { label: 'Half Marathon', meters: 21097.5, tolerance: 800 },
-  { label: '20 Miles', meters: 32186.9, tolerance: 1000 },
-  { label: 'Marathon', meters: 42195, tolerance: 1500 },
-];
+// ─── Personal Records ────────────────────────────────────────
 
 export function detectPersonalRecords(activities: StravaActivity[]): PersonalRecord[] {
   const runs = filterRuns(activities)
@@ -448,21 +544,10 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
 
   const records: PersonalRecord[] = [];
 
-  // Best time at each distance
-  for (const dist of PR_DISTANCES) {
-    const matching = runs.filter(a =>
-      a.distance >= dist.meters - dist.tolerance &&
-      a.distance <= dist.meters + dist.tolerance * 2
-    );
-    if (matching.length === 0) continue;
-
-    const best = matching.reduce((prev, curr) => {
-      const prevPace = calcPaceMinPerMi(prev.distance, prev.moving_time);
-      const currPace = calcPaceMinPerMi(curr.distance, curr.moving_time);
-      return currPace < prevPace ? curr : prev;
-    });
-
-    const timeSec = best.moving_time;
+  // Best time at each distance: the fastest effort INSIDE a run (splits, interpolated), not a whole
+  // run's time bucketed to the nearest distance (B1). Treadmill / virtual runs never set records.
+  for (const pr of detectPersonalRecordsFromEfforts(runs)) {
+    const timeSec = Math.round(pr.elapsedSec);
     const h = Math.floor(timeSec / 3600);
     const m = Math.floor((timeSec % 3600) / 60);
     const s = timeSec % 60;
@@ -472,12 +557,12 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
 
     records.push({
       category: 'distance_pr',
-      label: dist.label,
+      label: pr.label,
       value: timeStr,
       numericValue: timeSec,
-      date: best.start_date_local.slice(0, 10),
-      activityId: best.id,
-      activityName: best.name,
+      date: pr.activity.start_date_local.slice(0, 10),
+      activityId: pr.activity.id,
+      activityName: pr.activity.name,
     });
   }
 
@@ -513,7 +598,7 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
   }
 
   // Fastest pace (any run > 1 mile)
-  const qualifyingRuns = runs.filter(a => a.distance >= 1600);
+  const qualifyingRuns = runs.filter(a => a.distance >= 1600 && !isIndoorRun(a));
   if (qualifyingRuns.length > 0) {
     const fastest = qualifyingRuns.reduce((prev, curr) => {
       const pp = calcPaceMinPerMi(prev.distance, prev.moving_time);
@@ -537,45 +622,41 @@ export function detectPersonalRecords(activities: StravaActivity[]): PersonalRec
 // ─── Consistency Calendar ────────────────────────────────────
 
 export function calculateConsistency(activities: StravaActivity[], days: number = 90): ConsistencyDay[] {
-  const runs = filterRuns(activities);
-  const cutoff = daysAgo(days);
+  const today = todayKey();
+  const cutoff = daysAgo(days, today);
 
   const dayMap = new Map<string, { miles: number; count: number }>();
-  for (const a of runs) {
-    const dateKey = a.start_date_local.slice(0, 10);
-    if (dateKey < cutoff) continue;
+  for (const a of filterRuns(activities)) {
+    const dateKey = activityDateKey(a);
+    if (!isDateKey(dateKey) || dateKey < cutoff || dateKey > today) continue;
     const existing = dayMap.get(dateKey) || { miles: 0, count: 0 };
     existing.miles += metersToMiles(a.distance);
     existing.count += 1;
     dayMap.set(dateKey, existing);
   }
 
-  // Fill all days
-  const result: ConsistencyDay[] = [];
-  const start = new Date(cutoff + 'T00:00:00');
-  const end = new Date();
-  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-    const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  // Fill all days (calendar keys — DST-safe)
+  return eachDay(cutoff, today).map((ds) => {
     const data = dayMap.get(ds);
-    result.push({
+    return {
       date: ds,
       miles: data ? Math.round(data.miles * 10) / 10 : 0,
       runCount: data?.count ?? 0,
-    });
-  }
-
-  return result;
+    };
+  });
 }
 
-/** Calculate longest streak and current streak */
+/**
+ * Longest and current run streaks (days) plus runs per week. `consistency`
+ * ends today: a day without a run *yet* doesn't break the current streak, so it
+ * counts back from yesterday until today's run is logged (B8).
+ */
 export function calculateStreaks(consistency: ConsistencyDay[]): { longest: number; current: number; runsPerWeek: number } {
   let longest = 0;
-  let current = 0;
   let streak = 0;
-  const totalRunDays = consistency.filter(d => d.runCount > 0).length;
-  const weeks = consistency.length / 7;
-
+  let totalRuns = 0;
   for (const day of consistency) {
+    totalRuns += day.runCount;
     if (day.runCount > 0) {
       streak++;
       if (streak > longest) longest = streak;
@@ -583,12 +664,17 @@ export function calculateStreaks(consistency: ConsistencyDay[]): { longest: numb
       streak = 0;
     }
   }
-  current = streak;
 
+  let i = consistency.length - 1;
+  if (i >= 0 && consistency[i].runCount === 0) i--; // today: rest so far
+  let current = 0;
+  for (; i >= 0 && consistency[i].runCount > 0; i--) current++;
+
+  const weeks = consistency.length / 7;
   return {
     longest,
     current,
-    runsPerWeek: weeks > 0 ? Math.round((totalRunDays / weeks) * 10) / 10 : 0,
+    runsPerWeek: weeks > 0 ? Math.round((totalRuns / weeks) * 10) / 10 : 0,
   };
 }
 
@@ -600,16 +686,18 @@ export function calculateHREfficiency(activities: StravaActivity[], days: number
 
   return runs
     .filter(a => {
-      if (a.start_date_local.slice(0, 10) < cutoff) return false;
+      if (activityDateKey(a) < cutoff) return false;
       if (!a.average_heartrate || a.average_heartrate <= 0) return false;
       if (a.distance < 1600) return false;
+      // Treadmill/virtual speed isn't comparable with outdoor pace (S6)
+      if (isIndoorRun(a) || !hasSanePace(a)) return false;
       return true;
     })
     .map(a => {
       const pace = calcPaceMinPerMi(a.distance, a.moving_time);
       const hr = a.average_heartrate!;
       return {
-        date: a.start_date_local.slice(0, 10),
+        date: activityDateKey(a),
         pace: Math.round(pace * 100) / 100,
         avgHR: Math.round(hr),
         efficiency: Math.round((pace / hr) * 10000) / 100,
@@ -621,55 +709,64 @@ export function calculateHREfficiency(activities: StravaActivity[], days: number
 
 // ─── Week-over-Week Comparison ───────────────────────────────
 
+/**
+ * This week (Monday → today) vs last week, compared on local calendar keys —
+ * `start_date_local` is wall-clock time with a fake "Z", so it is never parsed
+ * as a Date (B3). Values are base units; format with `formatWeekCompareValue`.
+ */
 export function weekOverWeek(activities: StravaActivity[]): WeekCompare[] {
-  const now = new Date();
-  const thisWeekStart = new Date(now);
-  const day = thisWeekStart.getDay();
-  const diff = day === 0 ? 6 : day - 1;
-  thisWeekStart.setDate(thisWeekStart.getDate() - diff);
-  thisWeekStart.setHours(0, 0, 0, 0);
+  const today = todayKey();
+  const thisMonday = mondayOf(today);
+  const lastMonday = addDays(thisMonday, -7);
 
-  const lastWeekStart = new Date(thisWeekStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const thisWeek: StravaActivity[] = [];
+  const lastWeek: StravaActivity[] = [];
+  for (const a of filterRuns(activities)) {
+    const key = activityDateKey(a);
+    if (!isDateKey(key)) continue;
+    if (key >= thisMonday && key <= today) thisWeek.push(a);
+    else if (key >= lastMonday && key < thisMonday) lastWeek.push(a);
+  }
 
-  const thisWeekEnd = new Date(now);
-  const lastWeekEnd = new Date(thisWeekStart);
-
-  const runs = filterRuns(activities);
-
-  const thisWeek = runs.filter(a => {
-    const d = new Date(a.start_date_local);
-    return d >= thisWeekStart && d <= thisWeekEnd;
-  });
-  const lastWeek = runs.filter(a => {
-    const d = new Date(a.start_date_local);
-    return d >= lastWeekStart && d < lastWeekEnd;
-  });
-
-  const thisMiles = thisWeek.reduce((s, a) => s + metersToMiles(a.distance), 0);
-  const lastMiles = lastWeek.reduce((s, a) => s + metersToMiles(a.distance), 0);
-
-  const thisTime = thisWeek.reduce((s, a) => s + a.moving_time, 0);
-  const lastTime = lastWeek.reduce((s, a) => s + a.moving_time, 0);
-
-  const thisElev = thisWeek.reduce((s, a) => s + (a.total_elevation_gain ?? 0), 0);
-  const lastElev = lastWeek.reduce((s, a) => s + (a.total_elevation_gain ?? 0), 0);
-
+  const sum = (list: StravaActivity[], pick: (a: StravaActivity) => number | undefined) =>
+    list.reduce((s, a) => s + (pick(a) || 0), 0);
   const pct = (curr: number, prev: number) => prev > 0 ? Math.round(((curr - prev) / prev) * 100) : 0;
 
+  const thisM = sum(thisWeek, (a) => a.distance);
+  const lastM = sum(lastWeek, (a) => a.distance);
+  const thisT = sum(thisWeek, (a) => a.moving_time);
+  const lastT = sum(lastWeek, (a) => a.moving_time);
+  const thisE = sum(thisWeek, (a) => a.total_elevation_gain);
+  const lastE = sum(lastWeek, (a) => a.total_elevation_gain);
+
   return [
-    { label: 'Distance', current: Math.round(thisMiles * 10) / 10, previous: Math.round(lastMiles * 10) / 10, delta: pct(thisMiles, lastMiles), unit: unitLabel() },
-    { label: 'Time', current: Math.round(thisTime / 60), previous: Math.round(lastTime / 60), delta: pct(thisTime, lastTime), unit: 'min' },
-    { label: 'Runs', current: thisWeek.length, previous: lastWeek.length, delta: pct(thisWeek.length, lastWeek.length), unit: '' },
-    { label: 'Elevation', current: Math.round(thisElev * 3.28084), previous: Math.round(lastElev * 3.28084), delta: pct(thisElev, lastElev), unit: 'ft' },
+    { label: 'Distance', kind: 'distance', current: thisM, previous: lastM, delta: pct(thisM, lastM) },
+    { label: 'Time', kind: 'duration', current: thisT, previous: lastT, delta: pct(thisT, lastT) },
+    { label: 'Runs', kind: 'count', current: thisWeek.length, previous: lastWeek.length, delta: pct(thisWeek.length, lastWeek.length) },
+    { label: 'Elevation', kind: 'elevation', current: thisE, previous: lastE, delta: pct(thisE, lastE) },
   ];
+}
+
+/** Display text for a week-over-week value in the athlete's units (e.g. "10.0 km", "1h 05m", "4", "120 m"). */
+export function formatWeekCompareValue(kind: WeekCompareKind, value: number): string {
+  switch (kind) {
+    case 'distance': return formatDistanceShort(value);
+    case 'duration': {
+      const totalMin = Math.round(value / 60);
+      const h = Math.floor(totalMin / 60);
+      const m = totalMin % 60;
+      return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m} min`;
+    }
+    case 'elevation': return formatElevation(value);
+    default: return String(Math.round(value));
+  }
 }
 
 // ─── Full Snapshot ───────────────────────────────────────────
 
-/** Generate and cache a complete analytics snapshot */
+/** Compute a complete analytics snapshot. Pure — nothing is written to storage. */
 export function generateAnalyticsSnapshot(activities: StravaActivity[]): AnalyticsSnapshot {
-  const snapshot: AnalyticsSnapshot = {
+  return {
     generatedAt: new Date().toISOString(),
     weeklyMileage: calculateWeeklyMileage(activities),
     paceProgression: calculatePaceProgression(activities),
@@ -678,12 +775,6 @@ export function generateAnalyticsSnapshot(activities: StravaActivity[]): Analyti
     consistency: calculateConsistency(activities),
     hrEfficiency: calculateHREfficiency(activities),
   };
-
-  try {
-    persistence.setItem(ANALYTICS_CACHE_KEY, JSON.stringify(snapshot));
-  } catch { /* storage full — non-critical */ }
-
-  return snapshot;
 }
 
 /** Load cached snapshot */

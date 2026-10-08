@@ -4,6 +4,8 @@
  * and analytics tracking.
  */
 
+import type { PlanWorkoutKind } from '../data/plans';
+
 /** Scenario categories the analysis engine can detect */
 export type RecommendationScenario =
   | 'ahead_of_schedule'
@@ -64,7 +66,7 @@ export interface AdaptiveRecommendation {
   reasoning: string;
   /** Actionable options the user can choose from (1-3) */
   options: RecommendationOption[];
-  /** Whether the user can dismiss without choosing an option */
+  /** Whether the user can dismiss without choosing an option (always true since v1.0.6) */
   dismissible: boolean;
   /** When this recommendation was generated (ISO string) */
   createdAt: string;
@@ -72,6 +74,11 @@ export interface AdaptiveRecommendation {
   expiresAt?: string;
   /** Which option the user selected, if any */
   selectedOptionKey?: string;
+  // ── v1.0.6 (optional for records written by older versions) ──
+  /** Plan instance (`${planId}@${startDate}`) the recommendation was generated for. */
+  planInstanceId?: string;
+  /** When the recommendation stopped being active (dismissed, accepted or expired), ISO string. */
+  closedAt?: string;
 }
 
 /** A modification applied to the training plan */
@@ -90,8 +97,13 @@ export interface PlanModification {
   appliedAt: string;
   /** Whether this has been undone */
   undone: boolean;
-  /** Snapshot of original plan data before modification (for undo) */
+  /** Snapshot of the plan weeks before the modification (for display; undo goes through the plan overlay) */
   originalSnapshot: WeekSnapshot[];
+  // ── v1.0.6 (V7): modifications are written through the plan overlay ──
+  /** Plan instance the modification was applied to. */
+  planInstanceId?: string;
+  /** Overlay log entry ids created when applying, oldest first (undo pops them with `undoLastChange`). */
+  overlayLogIds?: string[];
 }
 
 /** A single week-level adjustment */
@@ -146,6 +158,17 @@ export interface RecommendationAnalytics {
   timestamp: string;
 }
 
+/** VDOT-derived pace bands used by the coaching thresholds (min/mi). */
+export interface AnalysisPaceBands {
+  vdot: number;
+  /** Fast end of the Daniels easy range. */
+  easyFastMinPerMi: number;
+  /** Slow end of the Daniels easy range. */
+  easySlowMinPerMi: number;
+  marathonMinPerMi: number;
+  thresholdMinPerMi: number;
+}
+
 /** Input data structure for the analysis engine */
 export interface TrainingAnalysisInput {
   /** Plan ID */
@@ -160,13 +183,13 @@ export interface TrainingAnalysisInput {
   currentDayIndex: number;
   /** Weeks remaining until race */
   weeksRemaining: number;
-  /** Completion rate over last 2 weeks (0-1) */
+  /** Completion rate of the plan days due in the last 14 days (0-1; 1 when nothing was due) */
   recentCompletionRate: number;
-  /** Overall completion rate (0-1) */
+  /** Completion rate of the plan days due so far (0-1; 1 when nothing was due) */
   overallCompletionRate: number;
   /** Weekly mileage data: [weekIndex] → { planned, actual } */
   weeklyMileage: { weekIndex: number; plannedMi: number; actualMi: number }[];
-  /** Synced run data for pace analysis */
+  /** Synced run data for pace analysis (oldest first) */
   syncedRuns: SyncedRunData[];
   /** Race readiness score (0-100) */
   readinessScore: number;
@@ -176,6 +199,27 @@ export interface TrainingAnalysisInput {
   daysSinceLastSync: number;
   /** Whether an activity source (intervals.icu or Strava) is connected */
   dataSourceConnected: boolean;
+  // ── v1.0.6 (optional; filled by the analysis engine) ──
+  /** Local date key the analysis ran for. */
+  today?: string;
+  /** Goal race date (YYYY-MM-DD), if known. */
+  raceDate?: string | null;
+  /** Calendar days from today to race day, if known. */
+  daysToRace?: number | null;
+  /** First plan week (0-based) the athlete trains — earlier weeks were skipped when joining late. */
+  joinedWeekIndex?: number;
+  /** Non-rest plan days due (dated before today, or already done) in the last 14 days. */
+  recentScheduledDays?: number;
+  /** Non-rest plan days due since the athlete joined the plan. */
+  overallScheduledDays?: number;
+  /** Key workouts (long, tempo, speed, strength, marathon pace) dated in the last 14 days and not done. */
+  missedKeyWorkouts?: number;
+  /** Acute:chronic workload ratio of actual activity load (7-day load ÷ 28-day weekly average); null without 28 days of history. */
+  acwr?: number | null;
+  /** Consecutive calendar days with a training activity, ending today or yesterday. */
+  consecutiveActivityDays?: number;
+  /** The athlete's VDOT pace bands (null when no VDOT source exists). */
+  paces?: AnalysisPaceBands | null;
 }
 
 /** Simplified synced run data for analysis */
@@ -188,6 +232,8 @@ export interface SyncedRunData {
   plannedNote: string;
   movingTimeSec: number;
   date: string;
+  /** Canonical workout kind of the planned day (v1.0.6). */
+  plannedKind?: PlanWorkoutKind;
 }
 
 /** Result of the analysis engine */
@@ -215,15 +261,15 @@ export interface AnalysisStats {
   avgLongRunPace: number;
   /** Average pace over last 4 easy runs (min/mi) */
   avgEasyPace: number;
-  /** Mileage change % from prev week to current */
+  /** Mileage change % between the last two completed plan weeks */
   weeklyMileageChangePct: number;
-  /** Consecutive days without rest */
+  /** Consecutive days with a training activity (from activity dates) */
   consecutiveDaysWithoutRest: number;
-  /** Number of missed key workouts in last 2 weeks */
+  /** Number of missed key workouts in the last 14 days */
   missedKeyWorkoutsLast2Weeks: number;
-  /** Completion rate over last 2 weeks */
+  /** Completion rate over the last 14 days */
   last2WeeksCompletionRate: number;
-  /** Whether runner is running easy days too fast */
+  /** Whether runner is running easy days too fast (faster than the VDOT easy band) */
   easyDaysTooFast: boolean;
   /** Whether runner is running hard days too slow */
   hardDaysTooSlow: boolean;

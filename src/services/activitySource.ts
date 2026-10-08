@@ -14,8 +14,13 @@
  *
  * Sync model:
  *   - First sync per source imports the full history (year-by-year windows).
- *   - Later syncs are incremental (newest activity − 7 days overlap), so every
+ *   - Later syncs are incremental (newest activity − 30 days overlap), so every
  *     daily activity — including late uploads and edits — lands in the store.
+ *     intervals.icu activities deleted remotely inside that window are removed
+ *     (conservatively — see reconcileIntervalsDeletions).
+ *   - A source whose credentials were rejected is skipped until it is
+ *     reconnected (connectionHealth.ts), unless a sync is forced.
+ *   - One sync runs at a time; `cancelSync()` or a 5-minute watchdog stops it.
  */
 
 import {
@@ -27,9 +32,20 @@ import {
 } from './storage';
 import * as stravaApi from './strava';
 import * as intervalsApi from './intervals';
-import { getStoredActivities, storeActivities } from './analyticsService';
+import {
+  getStoredActivities,
+  getAllStoredActivities,
+  storeActivities,
+  writeActivityStore,
+  MAX_STORED_ACTIVITIES,
+  type StoreActivitiesResult,
+} from './analyticsService';
 import { persistence } from './db/persistence';
 import { isRunActivity } from './activity/sports';
+import { clearNeedsReconnect, getNeedsReconnect } from './connectionHealth';
+import { isStorageDegraded, requestPersistentStorageOnce } from './storageHealth';
+import { scheduleEffortRebuild } from './effortService';
+import { dateKeyFromLocalIso } from '../utils/localDate';
 import type { Activity, ActivitySource, AthleteProfile, LiveActivitySource } from './activity/types';
 
 export type { Activity, ActivitySource, AthleteProfile, LiveActivitySource } from './activity/types';
@@ -39,8 +55,12 @@ export { getStoredActivities } from './analyticsService';
 
 const SYNC_STATE_KEY = 'apollo_activity_sync_state';
 const DAY_MS = 24 * 60 * 60 * 1000;
-/** Re-fetch this many days before the newest known activity to catch late uploads/edits. */
-const INCREMENTAL_OVERLAP_DAYS = 7;
+/**
+ * Re-fetch this many days before the newest known activity, so late uploads
+ * (a watch synced weeks later) and edits still land in the store. Also the
+ * window in which remote deletions are reconciled.
+ */
+const INCREMENTAL_OVERLAP_DAYS = 30;
 /** Pages trigger a background refresh when the last sync is older than this. */
 const STALE_AFTER_MS = 5 * 60 * 1000;
 /** Full-history import walks back in 1-year windows up to this many years. */
@@ -51,6 +71,14 @@ const EMPTY_YEARS_BEFORE_STOP = 3;
 const ROUTE_ENRICH_PER_SYNC = 30;
 const ROUTE_ENRICH_WINDOW_DAYS = 180;
 const STRAVA_PAGE_SIZE = 200;
+/** A sync running longer than this is stopped (watchdog), so one hung request can't block syncing. */
+const MAX_SYNC_AGE_MS = 5 * 60 * 1000;
+/**
+ * Remote-deletion reconcile removes at most max(this, share × activities in
+ * the window) per sync; more looks like an incomplete reply and is skipped.
+ */
+const RECONCILE_ALWAYS_ALLOWED = 3;
+const RECONCILE_MAX_SHARE = 0.5;
 
 /** Source priority: first connected source is the "primary" one. */
 const SOURCE_ORDER: LiveActivitySource[] = ['intervals', 'strava'];
@@ -186,6 +214,10 @@ export interface SyncProgress {
 }
 
 export interface SyncSummary {
+  /**
+   * Sources this sync covered, including ones skipped because they need to be
+   * reconnected (each skipped source also has an entry in `errors`).
+   */
   sources: ActivitySource[];
   fetched: number;
   added: number;
@@ -195,6 +227,18 @@ export interface SyncSummary {
   errors: { source: ActivitySource; message: string }[];
   startedAt: string;
   finishedAt: string;
+  /** Activities removed because they were deleted on the source (sync only). */
+  removed?: number;
+  /**
+   * The device store reached MAX_STORED_ACTIVITIES during this sync, so older
+   * history was not imported (or older records were trimmed).
+   */
+  storeFull?: boolean;
+  /**
+   * The sync was stopped early by `cancelSync()` or the watchdog. Activities
+   * stored before that are kept; unfinished sources are listed in `errors`.
+   */
+  cancelled?: boolean;
 }
 
 export interface SyncStatus {
@@ -247,130 +291,361 @@ export function notifyActivitiesUpdated(summary: SyncSummary): void {
 
 // ── Sync engine ───────────────────────────────────────────────────────────────
 
-let inFlight: Promise<SyncSummary> | null = null;
-let inFlightFull = false;
-/** Sources the in-flight sync is pulling from (captured when it started). */
-let inFlightSources: LiveActivitySource[] = [];
+/** Options for {@link syncActivities}. */
+export interface SyncOptions {
+  /** Re-import the complete history (the first sync per source is always full). */
+  full?: boolean;
+  /** Only sync these sources (default: every connected source). */
+  sources?: LiveActivitySource[];
+  /**
+   * Also sync sources flagged as needing reconnect (a manual "Retry"). Without
+   * it they are skipped and reported in `summary.errors`.
+   */
+  force?: boolean;
+  onProgress?: (p: SyncProgress) => void;
+}
+
+/** `errors[].message` for sources a cancelled sync didn't finish. */
+const SYNC_CANCELLED_MESSAGE = 'Sync was cancelled.';
+/** `errors[].message` (and the source's lastError) when the watchdog stops a sync. */
+const SYNC_TIMED_OUT_MESSAGE = 'Sync took longer than 5 minutes and was stopped. It will try again later.';
+/** `errors[].message` while storage is degraded. */
+const SYNC_STORAGE_DEGRADED_MESSAGE =
+  'Sync is paused: Apollo couldn\u2019t open its saved data on this device, so new activities can\u2019t be stored safely. Restart Apollo to try again.';
+
+/** Which sources one sync covers. */
+interface SyncPlan {
+  /** Connected sources the caller asked for, in priority order. */
+  requested: LiveActivitySource[];
+  /** Of `requested`: sources to pull from. */
+  sync: LiveActivitySource[];
+  /** Of `requested`: sources skipped because their credentials were rejected. */
+  skipped: { source: LiveActivitySource; reason: string }[];
+}
+
+/** State of one sync run, shared by the run itself and its stop path (cancel / watchdog). */
+interface SyncRun {
+  summary: SyncSummary;
+  /** Sources whose outcome is already recorded in `summary`. */
+  settled: Set<ActivitySource>;
+  /** Aborted when the run is stopped; every request of the run observes it. */
+  signal: AbortSignal;
+  onProgress?: (p: SyncProgress) => void;
+  /** Source being synced and what it stored so far (counted if the run is stopped). */
+  current: { source: LiveActivitySource; result: SourceSyncResult } | null;
+  /** `finishRun` ran: listeners were notified and `running: false` was emitted. */
+  finished: boolean;
+}
+
+interface InFlightSync {
+  promise: Promise<SyncSummary>;
+  /** `Date.now()` when the sync started. */
+  startedAt: number;
+  full: boolean;
+  /** Sources the sync pulls from (captured when it started). */
+  sources: LiveActivitySource[];
+  /** Stop now: abort requests, report unfinished sources, settle `promise`. */
+  stop: (reason: string) => void;
+}
+
+let inFlight: InFlightSync | null = null;
 
 export function isSyncRunning(): boolean {
   return inFlight !== null;
 }
 
 /**
- * Pull activities from every connected source into the local store.
- * Never throws — per-source failures are reported in `summary.errors`.
+ * Pull activities from every connected source (or `opts.sources`) into the
+ * local store. Never throws — per-source failures are reported in
+ * `summary.errors`. Sources whose credentials were rejected are skipped (and
+ * reported) until they are reconnected, unless `opts.force` is set.
  *
- * @param opts.full Re-import the complete history (first sync is always full).
+ * One sync runs at a time; callers share it when it covers what they asked
+ * for. A sync running longer than 5 minutes is stopped by a watchdog, so a
+ * hung request can't block later syncs.
  */
-export function syncActivities(
-  opts: { full?: boolean; onProgress?: (p: SyncProgress) => void } = {},
-): Promise<SyncSummary> {
-  if (inFlight) {
+export function syncActivities(opts: SyncOptions = {}): Promise<SyncSummary> {
+  // Backstop for the watchdog timer, which can fire late (sleep, throttled tab).
+  if (inFlight && Date.now() - inFlight.startedAt >= MAX_SYNC_AGE_MS) inFlight.stop(SYNC_TIMED_OUT_MESSAGE);
+  const plan = planSources(opts);
+  const running = inFlight;
+  if (running) {
     // A source connected after the running sync started (e.g. Strava OAuth
     // finishing during the launch sync) isn't covered by it — queue a follow-up
     // so its first import isn't skipped. Same for a full import requested while
     // an incremental sync is running.
-    const coversSources = getConnectedSources().every((s) => inFlightSources.includes(s));
-    if (coversSources && (!opts.full || inFlightFull)) return inFlight;
-    return inFlight.then(() => syncActivities(opts));
+    const covers = plan.sync.every((s) => running.sources.includes(s));
+    if (covers && (!opts.full || running.full)) return running.promise;
+    const next = (): Promise<SyncSummary> => syncActivities(opts);
+    return running.promise.then(next, next);
   }
-  inFlightFull = !!opts.full;
-  inFlightSources = getConnectedSources();
-  inFlight = runSync(!!opts.full, opts.onProgress).finally(() => {
-    inFlight = null;
-    inFlightFull = false;
-    inFlightSources = [];
+  return startSync(opts, plan).promise;
+}
+
+/**
+ * Stop the running sync, if any. Its requests are aborted, activities stored
+ * so far stay stored, and its promise resolves with `summary.cancelled` set
+ * (unfinished sources are listed in `summary.errors`). Returns false when no
+ * sync was running.
+ */
+export function cancelSync(): boolean {
+  const running = inFlight;
+  if (!running) return false;
+  running.stop(SYNC_CANCELLED_MESSAGE);
+  return true;
+}
+
+function planSources(opts: SyncOptions): SyncPlan {
+  const requested = getConnectedSources().filter((s) => !opts.sources || opts.sources.includes(s));
+  const plan: SyncPlan = { requested, sync: [], skipped: [] };
+  for (const source of requested) {
+    const flagged = opts.force ? null : getNeedsReconnect(source);
+    if (flagged) plan.skipped.push({ source, reason: flagged.reason });
+    else plan.sync.push(source);
+  }
+  return plan;
+}
+
+function startSync(opts: SyncOptions, plan: SyncPlan): InFlightSync {
+  const controller = new AbortController();
+  const started = new Date();
+  const run: SyncRun = {
+    summary: {
+      sources: plan.requested,
+      fetched: 0,
+      added: 0,
+      updated: 0,
+      removed: 0,
+      full: false,
+      errors: [],
+      startedAt: started.toISOString(),
+      finishedAt: started.toISOString(),
+    },
+    settled: new Set(),
+    signal: controller.signal,
+    onProgress: opts.onProgress,
+    current: null,
+    finished: false,
+  };
+  let resolveStopped: (summary: SyncSummary) => void = () => undefined;
+  const stopped = new Promise<SyncSummary>((resolve) => {
+    resolveStopped = resolve;
   });
-  return inFlight;
+  const entry: InFlightSync = {
+    promise: stopped,
+    startedAt: started.getTime(),
+    full: !!opts.full,
+    sources: plan.sync,
+    stop: (reason) => {
+      if (inFlight === entry) inFlight = null;
+      if (run.finished) return;
+      controller.abort();
+      recordStop(run, plan.sync, reason);
+      resolveStopped(finishRun(run));
+    },
+  };
+  const watchdog = setTimeout(() => entry.stop(SYNC_TIMED_OUT_MESSAGE), MAX_SYNC_AGE_MS);
+  inFlight = entry;
+  // Deferred one microtask so `entry.promise` is in place before any status
+  // listener runs (a listener may call syncActivities again).
+  const work = Promise.resolve()
+    .then(() => runSync(run, !!opts.full, plan))
+    .catch((err: unknown) => {
+      // Defensive: runSync records per-source failures itself.
+      console.warn('[Apollo] Activity sync failed:', err);
+      return finishRun(run);
+    });
+  entry.promise = Promise.race([work, stopped]).finally(() => {
+    clearTimeout(watchdog);
+    if (inFlight === entry) inFlight = null;
+  });
+  return entry;
 }
 
 interface SourceSyncResult {
   fetched: number;
   added: number;
   updated: number;
+  /** Activities removed because the source deleted them (intervals.icu reconcile). */
+  removed: number;
   newestStart: string | null;
+  /** The store reached MAX_STORED_ACTIVITIES during this source's import. */
+  storeFull: boolean;
 }
 
 type ProgressReporter = (message: string, fetched: number) => void;
 
-async function runSync(full: boolean, onProgress?: (p: SyncProgress) => void): Promise<SyncSummary> {
-  const startedAt = new Date().toISOString();
-  const sources = getConnectedSources();
-  const summary: SyncSummary = {
-    sources, fetched: 0, added: 0, updated: 0, full: false, errors: [], startedAt, finishedAt: startedAt,
+function progressReporter(run: SyncRun, source: ActivitySource): ProgressReporter {
+  return (message, fetched) => {
+    if (run.signal.aborted) return;
+    const progress: SyncProgress = { source, message, fetched };
+    try { run.onProgress?.(progress); } catch { /* ignore */ }
+    emitStatus({ running: true, progress });
   };
+}
+
+function addCounts(summary: SyncSummary, r: SourceSyncResult): void {
+  summary.fetched += r.fetched;
+  summary.added += r.added;
+  summary.updated += r.updated;
+  summary.removed = (summary.removed ?? 0) + r.removed;
+  if (r.storeFull) summary.storeFull = true;
+}
+
+/** Record a stopped run: count what was already stored and report every unfinished source. */
+function recordStop(run: SyncRun, syncing: LiveActivitySource[], reason: string): void {
+  const { summary } = run;
+  summary.cancelled = true;
+  // Activities the interrupted source already stored stay stored — count them.
+  if (run.current) addCounts(summary, run.current.result);
+  run.current = null;
+  const timedOut = reason === SYNC_TIMED_OUT_MESSAGE;
+  for (const source of syncing) {
+    if (run.settled.has(source)) continue;
+    run.settled.add(source);
+    summary.errors.push({ source, message: reason });
+    // A timeout is a source problem worth showing (and backing off from); a user cancel isn't.
+    if (timedOut) saveSourceSyncState(source, { lastError: reason, lastErrorAt: new Date().toISOString() });
+  }
+}
+
+/**
+ * Finish a run exactly once (normal end, cancel or watchdog): publish the
+ * summary and start follow-up work.
+ */
+function finishRun(run: SyncRun): SyncSummary {
+  const { summary } = run;
+  if (run.finished) return summary;
+  run.finished = true;
+  summary.finishedAt = new Date().toISOString();
+  lastSummary = summary;
+  const changed = summary.added > 0 || summary.updated > 0 || (summary.removed ?? 0) > 0;
+  if (changed) {
+    for (const l of updateListeners) {
+      try { l(summary); } catch { /* ignore */ }
+    }
+  }
+  if (changed || summary.full) {
+    // Effort recognitions depend on the whole run history (debounced, fire-and-forget).
+    try { scheduleEffortRebuild(); } catch { /* non-critical */ }
+  }
+  if (summary.added > 0) {
+    // Browsers grant persistent storage more readily once the site holds real data (web only, asked once).
+    void requestPersistentStorageOnce().catch(() => false);
+  }
+  emitStatus({ running: false, summary });
+  return summary;
+}
+
+async function runSync(run: SyncRun, full: boolean, plan: SyncPlan): Promise<SyncSummary> {
+  const { summary } = run;
+  if (run.signal.aborted) return summary; // stopped before it started; stop() finished the run
   emitStatus({ running: true });
 
-  for (const source of sources) {
+  for (const { source, reason } of plan.skipped) {
+    run.settled.add(source);
+    summary.errors.push({ source, message: reason });
+  }
+
+  // Saved data failed to load (P2): a sync would merge into an empty in-memory
+  // store and could overwrite the saved history, so wait until storage recovers.
+  if (plan.sync.length > 0 && isStorageDegraded()) {
+    for (const source of plan.sync) {
+      run.settled.add(source);
+      summary.errors.push({ source, message: SYNC_STORAGE_DEGRADED_MESSAGE });
+    }
+    return finishRun(run);
+  }
+
+  for (const source of plan.sync) {
     const state = getSourceSyncState(source);
     const doFull = full || !state.lastFullSyncAt;
-    const report: ProgressReporter = (message, fetched) => {
-      const progress: SyncProgress = { source, message, fetched };
-      try { onProgress?.(progress); } catch { /* ignore */ }
-      emitStatus({ running: true, progress });
+    const result: SourceSyncResult = {
+      fetched: 0, added: 0, updated: 0, removed: 0, newestStart: null, storeFull: false,
     };
+    const report = progressReporter(run, source);
+    run.current = { source, result };
     try {
-      const r = source === 'intervals'
-        ? await syncFromIntervals(doFull, state, report)
-        : await syncFromStrava(doFull, state, report);
-      summary.fetched += r.fetched;
-      summary.added += r.added;
-      summary.updated += r.updated;
+      if (source === 'intervals') await syncFromIntervals(run, result, doFull, state, report);
+      else await syncFromStrava(run, result, doFull, state, report);
+      if (run.signal.aborted) return summary; // stop() recorded this source
+      run.current = null;
+      run.settled.add(source);
+      addCounts(summary, result);
       summary.full = summary.full || doFull;
       const now = new Date().toISOString();
       saveSourceSyncState(source, {
         lastSyncAt: now,
         lastFullSyncAt: doFull ? now : state.lastFullSyncAt,
-        newestActivityAt: maxIso(state.newestActivityAt, r.newestStart),
+        newestActivityAt: maxIso(state.newestActivityAt, result.newestStart),
         lastError: null,
         lastErrorAt: null,
-        totalFetched: state.totalFetched + r.fetched,
+        totalFetched: state.totalFetched + result.fetched,
       });
+      // The credentials work (e.g. a forced retry after re-authorizing elsewhere).
+      clearNeedsReconnect(source);
     } catch (err) {
+      if (run.signal.aborted) return summary;
+      run.current = null;
+      run.settled.add(source);
+      // Batches stored before the failure stay stored — count them.
+      addCounts(summary, result);
+      // Rejected credentials are flagged by intervals.ts / strava.ts, which know
+      // whether the stored credentials were the ones rejected.
       const message = err instanceof Error ? err.message : String(err);
       summary.errors.push({ source, message });
       saveSourceSyncState(source, { lastError: message, lastErrorAt: new Date().toISOString() });
     }
   }
 
-  if (sources.includes('intervals') && !summary.errors.some((e) => e.source === 'intervals')) {
+  if (plan.sync.includes('intervals') && !summary.errors.some((e) => e.source === 'intervals')) {
     try {
-      summary.updated += await enrichIntervalsRoutes((message, fetched) => {
-        const progress: SyncProgress = { source: 'intervals', message, fetched };
-        try { onProgress?.(progress); } catch { /* ignore */ }
-        emitStatus({ running: true, progress });
-      });
+      const patched = await enrichIntervalsRoutes(progressReporter(run, 'intervals'), run.signal);
+      if (!run.signal.aborted) summary.updated += patched;
     } catch {
       // Route maps are a nice-to-have; they'll be retried next sync.
     }
   }
 
-  summary.finishedAt = new Date().toISOString();
-  lastSummary = summary;
-  if (summary.added > 0 || summary.updated > 0) {
-    for (const l of updateListeners) {
-      try { l(summary); } catch { /* ignore */ }
-    }
-  }
-  emitStatus({ running: false, summary });
-  return summary;
+  if (run.signal.aborted) return summary;
+  return finishRun(run);
 }
 
-function ingestInto(result: SourceSyncResult, activities: Activity[]): void {
-  if (activities.length === 0) return;
+/**
+ * Store one batch and add it to the source's tally. Throws IntervalsAbortError
+ * when the run was stopped meanwhile, so nothing is written after a cancel.
+ * Returns the store result (null for an empty batch).
+ */
+function ingestInto(run: SyncRun, result: SourceSyncResult, activities: Activity[]): StoreActivitiesResult | null {
+  if (run.signal.aborted) throw new intervalsApi.IntervalsAbortError();
+  if (activities.length === 0) return null;
   const r = storeActivities(activities);
   result.fetched += activities.length;
   result.added += r.added;
   result.updated += r.updated;
+  if (r.dropped > 0) result.storeFull = true;
   for (const a of activities) result.newestStart = maxIso(result.newestStart, a.start_date);
+  return r;
+}
+
+/** The store is at its cap: importing further back in time would only trim what was just stored. */
+function isStoreAtCap(stored: StoreActivitiesResult | null): boolean {
+  return (stored?.dropped ?? 0) > 0 || getAllStoredActivities().length >= MAX_STORED_ACTIVITIES;
+}
+
+/** Where an incremental sync starts counting back from: the newest activity seen (never in the future), else now. */
+function incrementalAnchor(state: SourceSyncState): Date {
+  const newest = state.newestActivityAt ? Date.parse(state.newestActivityAt) : NaN;
+  return new Date(Number.isFinite(newest) ? Math.min(newest, Date.now()) : Date.now());
 }
 
 async function syncFromIntervals(
+  run: SyncRun,
+  result: SourceSyncResult,
   full: boolean,
   state: SourceSyncState,
   report: ProgressReporter,
-): Promise<SourceSyncResult> {
-  const result: SourceSyncResult = { fetched: 0, added: 0, updated: 0, newestStart: null };
+): Promise<void> {
   // `newest` is a local date; use tomorrow so today's activities are always included.
   const tomorrow = addDays(new Date(), 1);
 
@@ -380,62 +655,112 @@ async function syncFromIntervals(
     for (let year = 0; year < MAX_HISTORY_YEARS; year++) {
       const windowStart = addDays(windowEnd, -365);
       report(`Importing ${windowStart.getFullYear()}–${windowEnd.getFullYear()} history…`, result.fetched);
-      const batch = await intervalsApi.listIntervalsActivities({
+      const list = await intervalsApi.listIntervalsActivitiesDetailed({
         oldest: toLocalDate(windowStart),
         newest: toLocalDate(windowEnd),
+        signal: run.signal,
       });
-      ingestInto(result, batch);
-      emptyStreak = batch.length === 0 ? emptyStreak + 1 : 0;
+      const stored = ingestInto(run, result, list.activities);
+      if (isStoreAtCap(stored)) {
+        result.storeFull = true;
+        break;
+      }
+      // "Empty" means the API returned no rows at all: a year of rows Apollo
+      // can't use (e.g. Strava-origin entries) still means older history exists.
+      emptyStreak = list.rawCount === 0 ? emptyStreak + 1 : 0;
       if (emptyStreak >= EMPTY_YEARS_BEFORE_STOP) break;
       // Windows share their boundary date; duplicates are merged by ID.
       windowEnd = windowStart;
     }
-    return result;
+    return;
   }
 
-  const since = state.newestActivityAt
-    ? addDays(new Date(state.newestActivityAt), -INCREMENTAL_OVERLAP_DAYS)
-    : addDays(new Date(), -30);
+  const oldest = toLocalDate(addDays(incrementalAnchor(state), -INCREMENTAL_OVERLAP_DAYS));
+  const newest = toLocalDate(tomorrow);
   report('Checking intervals.icu for new activities…', 0);
-  const batch = await intervalsApi.listIntervalsActivities({
-    oldest: toLocalDate(since),
-    newest: toLocalDate(tomorrow),
-  });
-  ingestInto(result, batch);
-  return result;
+  const list = await intervalsApi.listIntervalsActivitiesDetailed({ oldest, newest, signal: run.signal });
+  ingestInto(run, result, list.activities);
+  result.removed += reconcileIntervalsDeletions(oldest, newest, list);
+}
+
+/**
+ * Remove activities that were deleted on intervals.icu: stored records dated
+ * strictly inside the window just listed whose IDs the list no longer
+ * contains. Conservative on purpose — an incomplete reply must never wipe
+ * history:
+ *   - needs a well-formed, non-empty list;
+ *   - leaves the window's edge days alone (date-boundary differences);
+ *   - only touches records whose identity is the intervals.icu ID, never
+ *     legacy Strava records that intervals.icu data was merged into;
+ *   - removes at most max(RECONCILE_ALWAYS_ALLOWED, RECONCILE_MAX_SHARE × the
+ *     window's records) per sync, otherwise nothing.
+ * Survivors keep their local flags. No tombstone is written, so an activity
+ * that reappears remotely is imported again. Returns how many were removed.
+ */
+function reconcileIntervalsDeletions(
+  oldest: string,
+  newest: string,
+  list: intervalsApi.IntervalsActivityList,
+): number {
+  if (!list.rawIds || list.rawCount === 0) return 0;
+  const remote = new Set(list.rawIds);
+  const all = getAllStoredActivities();
+  const gone = new Set<number>();
+  let inWindow = 0;
+  for (const a of all) {
+    if (a.source !== 'intervals' || !a.source_id || a.id !== intervalsApi.toStoreId(a.source_id)) continue;
+    const day = dateKeyFromLocalIso(a.start_date_local);
+    if (!day || day <= oldest || day >= newest) continue;
+    inWindow++;
+    if (!remote.has(a.source_id)) gone.add(a.id);
+  }
+  if (gone.size === 0) return 0;
+  const limit = Math.max(RECONCILE_ALWAYS_ALLOWED, Math.floor(inWindow * RECONCILE_MAX_SHARE));
+  if (gone.size > limit) {
+    console.warn(
+      `[Apollo] intervals.icu no longer lists ${gone.size} of ${inWindow} recent activities; `
+      + 'keeping them because the reply looks incomplete.',
+    );
+    return 0;
+  }
+  writeActivityStore(all.filter((a) => !gone.has(a.id)));
+  return gone.size;
 }
 
 async function syncFromStrava(
+  run: SyncRun,
+  result: SourceSyncResult,
   full: boolean,
   state: SourceSyncState,
   report: ProgressReporter,
-): Promise<SourceSyncResult> {
-  const result: SourceSyncResult = { fetched: 0, added: 0, updated: 0, newestStart: null };
+): Promise<void> {
   const tag = (a: Activity): Activity => ({ ...a, source: 'strava', source_id: String(a.id) });
 
   const after = full
     ? undefined
-    : Math.floor(
-        ((state.newestActivityAt ? Date.parse(state.newestActivityAt) : Date.now() - 30 * DAY_MS)
-          - INCREMENTAL_OVERLAP_DAYS * DAY_MS) / 1000,
-      );
+    : Math.floor((incrementalAnchor(state).getTime() - INCREMENTAL_OVERLAP_DAYS * DAY_MS) / 1000);
   const maxPages = full ? 50 : 5;
   for (let page = 1; page <= maxPages; page++) {
     report(full ? `Importing Strava history (page ${page})…` : 'Checking Strava for new activities…', result.fetched);
-    const batch = await stravaApi.getActivities({ page, per_page: STRAVA_PAGE_SIZE, after });
-    ingestInto(result, batch.map(tag));
+    const batch = await stravaApi.getActivities({ page, per_page: STRAVA_PAGE_SIZE, after }, { signal: run.signal });
+    const stored = ingestInto(run, result, batch.map(tag));
     if (batch.length < STRAVA_PAGE_SIZE) break;
+    // Full imports page newest → oldest, so stop once the store is full.
+    // (Incremental pages with `after` run oldest → newest and must continue.)
+    if (full && isStoreAtCap(stored)) {
+      result.storeFull = true;
+      break;
+    }
   }
-  return result;
 }
 
 /**
  * intervals.icu activity lists don't include GPS. Fetch route maps for recent
  * outdoor runs (newest first, a bounded number per sync) so route maps and
  * effort recognition work. Runs without GPS are marked with an empty polyline
- * so they aren't re-requested.
+ * so they aren't re-requested. Stops (without writing) when `signal` aborts.
  */
-async function enrichIntervalsRoutes(report: ProgressReporter): Promise<number> {
+async function enrichIntervalsRoutes(report: ProgressReporter, signal: AbortSignal): Promise<number> {
   const cutoff = Date.now() - ROUTE_ENRICH_WINDOW_DAYS * DAY_MS;
   const candidates = getStoredActivities()
     .filter((a) =>
@@ -450,9 +775,10 @@ async function enrichIntervalsRoutes(report: ProgressReporter): Promise<number> 
 
   const patched: Activity[] = [];
   for (const a of candidates) {
+    if (signal.aborted) return 0;
     report(`Fetching route maps (${patched.length + 1}/${candidates.length})…`, patched.length);
     try {
-      const route = await intervalsApi.getIntervalsRoute(a.source_id!);
+      const route = await intervalsApi.getIntervalsRoute(a.source_id!, undefined, { signal });
       patched.push({
         ...a,
         map: { id: `icu-${a.source_id}`, summary_polyline: route.summaryPolyline },
@@ -460,11 +786,13 @@ async function enrichIntervalsRoutes(report: ProgressReporter): Promise<number> 
         end_latlng: route.end ?? a.end_latlng ?? null,
       });
     } catch (err) {
+      if (signal.aborted) return 0;
       if (err instanceof intervalsApi.IntervalsAuthError) throw err;
       // Transient failure — try again next sync.
     }
   }
-  if (patched.length) storeActivities(patched);
+  if (signal.aborted || patched.length === 0) return 0;
+  storeActivities(patched);
   return patched.length;
 }
 
@@ -529,8 +857,9 @@ const DETAIL_CACHE_MAX = 50;
  * connected anymore. The returned object always keeps the store ID.
  */
 export async function getActivityDetail(activityOrId: Activity | number): Promise<Activity> {
+  // Includes hidden records, so a hidden activity can still be opened and unhidden.
   const base = typeof activityOrId === 'number'
-    ? getStoredActivities().find((a) => a.id === activityOrId)
+    ? getAllStoredActivities().find((a) => a.id === activityOrId)
     : activityOrId;
   if (!base) throw new Error('Activity not found. Try syncing again.');
 
@@ -644,6 +973,7 @@ export async function connectIntervals(apiKey: string, athleteId?: string): Prom
     connectedAt: new Date().toISOString(),
   });
   resetSourceSyncState('intervals');
+  clearNeedsReconnect('intervals');
   athleteCache = null;
   return athlete;
 }
@@ -653,6 +983,7 @@ export function disconnectSource(source: LiveActivitySource): void {
   if (source === 'intervals') clearIntervalsCredentials();
   else clearStravaTokens();
   resetSourceSyncState(source);
+  clearNeedsReconnect(source);
   athleteCache = null;
   detailCache.clear();
 }

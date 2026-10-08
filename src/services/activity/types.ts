@@ -109,6 +109,43 @@ export interface Activity {
   /** Recording device, e.g. "Garmin Forerunner 965" or "Zwift". */
   device_name?: string;
   calories?: number;
+
+  // ── Local-only (v1.0.6) ─────────────────────────────────────
+  /**
+   * Hidden by the athlete (bad GPS, duplicate…). Hidden records stay in the
+   * store, so syncs merge into them instead of re-adding them, but every
+   * analytics, PR, load and plan path ignores them (`getStoredActivities()`
+   * omits them). Unhide from Activities › Hidden.
+   */
+  hidden?: boolean;
+  /** Why the record was hidden ('duplicate' when merged into `duplicate_of`). */
+  hidden_reason?: 'user' | 'duplicate';
+  /** Store ID of the record this duplicate was merged into. */
+  duplicate_of?: number;
+  /**
+   * Fastest efforts inside this activity (from streams at import, or from
+   * splits). Optional: computed lazily for stored records (see bestEfforts.ts).
+   */
+  best_efforts?: BestEffort[];
+}
+
+/** Standard best-effort distances. */
+export type BestEffortKey = '1k' | '1mi' | '5k' | '10k' | '15k' | 'hm' | '20mi' | 'm';
+
+/** Fastest contiguous effort of a standard distance inside one activity. */
+export interface BestEffort {
+  key: BestEffortKey;
+  /** Effort distance in meters (1000, 1609.344, 5000, 10000, 15000, 21097.5, 32186.88, 42195). */
+  distanceM: number;
+  /** Elapsed seconds for exactly the effort distance (interpolated). */
+  elapsedSec: number;
+  /** Meters from the activity start where the effort begins. */
+  startM: number;
+  /**
+   * Where it was computed from: per-second samples, splits, or (no splits) the
+   * whole activity when its distance is within 2 % of the effort distance.
+   */
+  source: 'stream' | 'splits' | 'activity';
 }
 
 /** Minimal athlete profile shown in the UI. */

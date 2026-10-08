@@ -28,6 +28,8 @@ const INTERVALS_SETTINGS_URL = 'https://intervals.icu/settings';
 export interface RecoveryCardProps {
   /** Tighter layout: no list of reasons, no footer, smaller charts. */
   compact?: boolean;
+  /** Heading level of the card title (default 3); pages that place it directly under their h1 pass 2. */
+  headingLevel?: 2 | 3;
 }
 
 const STATUS_LABEL: Record<RecoveryStatus, string> = {
@@ -201,7 +203,7 @@ function readView(): View {
 }
 
 /** Card with today's recovery status from intervals.icu wellness (sleep, resting HR, HRV). */
-export default function RecoveryCard({ compact = false }: RecoveryCardProps) {
+export default function RecoveryCard({ compact = false, headingLevel = 3 }: RecoveryCardProps) {
   const [view, setView] = useState<View>(readView);
 
   // New wellness data, a changed preference, or coming back to the app (maybe on a new day).
@@ -227,9 +229,10 @@ export default function RecoveryCard({ compact = false }: RecoveryCardProps) {
   const { snapshot, sync } = view;
   const hasData = connected && enabled && snapshot.daysWithData > 0;
   const colors = STATUS_COLORS[snapshot.status];
+  const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
   const errorLine = connected && enabled && sync.lastError ? (
-    <p style={{ color: 'var(--color-error)', fontSize: '0.82rem', margin: '0.75rem 0 0', lineHeight: 1.4 }}>
+    <p style={{ color: 'var(--color-error-text, var(--color-error))', fontSize: '0.82rem', margin: '0.75rem 0 0', lineHeight: 1.4 }}>
       Last wellness sync failed{sync.lastErrorAt ? ` (${formatWhen(sync.lastErrorAt)})` : ''}: {sync.lastError}
     </p>
   ) : null;
@@ -238,7 +241,7 @@ export default function RecoveryCard({ compact = false }: RecoveryCardProps) {
   if (!connected) {
     body = (
       <p style={{ ...textStyle, margin: 0 }}>
-        <Link to="/settings" style={{ fontWeight: 600 }}>Connect intervals.icu in Settings → Data sources</Link>
+        <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>Connect intervals.icu in Settings → Connections</Link>
         {' '}to see sleep, HRV and resting HR.
       </p>
     );
@@ -246,7 +249,7 @@ export default function RecoveryCard({ compact = false }: RecoveryCardProps) {
     body = (
       <p style={{ ...textStyle, margin: 0 }}>
         Wellness sync is turned off.{' '}
-        <Link to="/settings" style={{ fontWeight: 600 }}>Turn it on in Settings → Data sources</Link>
+        <Link to="/settings?tab=sync" style={{ fontWeight: 600 }}>Turn it on in Settings → Sync</Link>
         {' '}to see sleep, HRV and resting HR here.
       </p>
     );
@@ -260,8 +263,10 @@ export default function RecoveryCard({ compact = false }: RecoveryCardProps) {
         </p>
         <p style={{ ...hintStyle, margin: 0 }}>
           To send them from your watch, open{' '}
-          <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">intervals.icu → Settings</a>
-          {' '}→ Connections and turn on wellness for your device (Garmin: tick <strong>Wellness</strong>).
+          <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
+            intervals.icu → Settings<span className="sr-only"> (opens in a new tab)</span>
+          </a>
+          {' '}→ Connections and turn on wellness for your device (Garmin: tick <strong>Download wellness data</strong>).
         </p>
         {errorLine}
       </>
@@ -379,18 +384,21 @@ export default function RecoveryCard({ compact = false }: RecoveryCardProps) {
       borderLeftColor: hasData ? colors.color : 'var(--border)',
       ...(compact ? { padding: '1rem 1.25rem' } : {}),
     }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+      <Heading style={{
+        display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap',
+        margin: '0 0 1rem', fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)', fontWeight: 600,
+      }}>
         <span style={{ color: 'var(--apollo-teal)' }}>Recovery</span>
         {hasData && (
           <span style={{
-            fontSize: '0.72rem', background: colors.background, color: colors.color,
+            fontSize: 'var(--text-xs)', background: colors.background, color: colors.color,
             padding: '0.15rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 600,
             fontFamily: 'var(--font-display)',
           }}>
             {STATUS_LABEL[snapshot.status]}
           </span>
         )}
-      </h3>
+      </Heading>
       {body}
     </div>
   );

@@ -199,10 +199,11 @@ describe('isAutoBackupDue', () => {
 // ── Health Monitoring ─────────────────────────────────────────
 
 describe('getBackupHealth', () => {
-  it('returns critical when no backups exist and auto-backup enabled', () => {
+  it('returns warning (not "At Risk") when no backups exist yet and auto-backup is enabled (U2)', () => {
     setBackupConfig({ autoBackupEnabled: true });
     const health = getBackupHealth();
-    expect(health.status).toBe('critical');
+    expect(health.status).toBe('warning');
+    expect(health.message).toMatch(/No backups yet/);
     expect(health.backupCount).toBe(0);
     expect(health.lastBackupAt).toBeNull();
   });

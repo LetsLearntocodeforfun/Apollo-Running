@@ -17,6 +17,8 @@ import {
   setPlanAutoPush,
   onPlanPushStateChange,
   hasPlanTargetPaces,
+  hashPlannedWorkout,
+  resolvePlanTrainingPaces,
   isPlanPushRunning,
   AUTO_PUSH_WEEKS,
   type BuildPlanWorkoutsOptions,
@@ -26,6 +28,7 @@ import { IntervalsAuthError, IntervalsHttpError, type IcuEventInput } from '@/se
 import { setIntervalsCredentials, clearIntervalsCredentials, type IntervalsCredentials } from '@/services/storage';
 import { setActivePlan, formatDateKey, getDateForDay } from '@/services/planProgress';
 import { calculateTrainingPaces, saveTrainingPaces, type TrainingPaces } from '@/services/paceCalculator';
+import { updateAthleteProfile } from '@/services/athleteProfile';
 import { setDistanceUnit } from '@/services/unitPreferences';
 import { setCustomPlan, CUSTOM_PLAN_ID, type PlanDay, type TrainingPlan } from '@/data/plans';
 import { persistence } from '@/services/db/persistence';
@@ -640,10 +643,13 @@ describe('syncPlanCalendarIfChanged', () => {
   it('pushes the whole plan for a new plan instance, then no-ops while nothing changed', async () => {
     const icu = enableAuto(repeatWeek(6));
 
-    expect(await syncPlanCalendarIfChanged()).toMatchObject({ upserted: 36, deleted: 0 });
-    expect(await syncPlanCalendarIfChanged()).toBeNull();
-    expect(await syncPlanCalendarIfChanged()).toBeNull();
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 36, deleted: 0 } });
+    expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'nothing-changed', result: null });
+    expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'nothing-changed', result: null });
     expect(icu.calls).toHaveLength(1);
+    const state = getPlanPushState();
+    expect(state.lastStatus).toBe('nothing-changed');
+    expect(Object.keys(state.pushedHashes).sort()).toEqual([...state.pushedIds].sort());
   });
 
   it(`re-sends the next ${AUTO_PUSH_WEEKS} weeks when they change (new paces, unit switch)`, async () => {
@@ -652,30 +658,56 @@ describe('syncPlanCalendarIfChanged', () => {
     const firstHash = getPlanPushState().lastHash;
 
     saveTrainingPaces(PACES); // Apollo learned the athlete's VDOT → pace targets appear
+    // Only workouts whose content changed are re-sent: the cross-training day has no pace targets.
     expect(await syncPlanCalendarIfChanged()).toMatchObject({
-      upserted: 6 * AUTO_PUSH_WEEKS,
-      deleted: 0,
-      to: addDays(today(), AUTO_PUSH_WEEKS * 7 - 1),
+      status: 'pushed',
+      result: { upserted: 5 * AUTO_PUSH_WEEKS, deleted: 0, to: addDays(today(), AUTO_PUSH_WEEKS * 7 - 1) },
     });
     expect((icu.upserts()[1].body as IcuEventInput[])[0].description).toContain('- 5mi 9:19-8:57/mi Pace');
     expect(getPlanPushState().lastHash).not.toBe(firstHash);
 
     setDistanceUnit('km');
-    expect(await syncPlanCalendarIfChanged()).not.toBeNull();
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed' });
     expect((icu.upserts()[2].body as IcuEventInput[])[0].name).toBe('Easy Run · 8 km');
 
-    expect(await syncPlanCalendarIfChanged()).toBeNull();
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'nothing-changed' });
     expect(icu.upserts()).toHaveLength(3);
   });
 
-  it('refreshes once a day even when nothing changed', async () => {
+  // v1.0.6: the daily blanket refresh is gone — it overwrote edits the athlete made in intervals.icu.
+  it('leaves unchanged workouts alone, even a day later, so edits made in intervals.icu survive', async () => {
     const icu = enableAuto();
     await syncPlanCalendarIfChanged();
     const dayAgo = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
     persistence.setItem(STATE_KEY, JSON.stringify({ ...getPlanPushState(), lastPushAt: dayAgo }));
+    const edited = planExternalId(CUSTOM_PLAN_ID, today(), 0, 2);
+    const original = icu.calendar.get(edited);
+    expect(original?.name).toBe('Tempo · 7 mi');
+    icu.calendar.set(edited, { ...(original as IcuEventInput), name: 'My own tempo' });
 
-    expect(await syncPlanCalendarIfChanged()).toMatchObject({ upserted: 12, deleted: 0 });
-    expect(icu.upserts()).toHaveLength(2);
+    expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'nothing-changed', result: null });
+    expect(icu.upserts()).toHaveLength(1);
+    expect(icu.calendar.get(edited)?.name).toBe('My own tempo');
+
+    // The explicit "Send" (re-push all) still overwrites.
+    await pushPlanToIntervals();
+    expect(icu.calendar.get(edited)?.name).toBe('Tempo · 7 mi');
+  });
+
+  it('re-sends only the workouts that changed and removes days that became rest', async () => {
+    const icu = enableAuto();
+    await syncPlanCalendarIfChanged();
+    const start = today();
+    const LONGER: PlanDay = { ...LONG, label: '20 mi', distanceMi: 20 };
+    activate([WEEK, [REST, REST, TEMPO, CROSS, SPEED, PFITZ_MP, LONGER]], start);
+
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 1, deleted: 1 } });
+    expect(idsIn(icu.upserts()[1])).toEqual([planExternalId(CUSTOM_PLAN_ID, start, 1, 6)]);
+    expect(idsIn(icu.deletes()[0])).toEqual([planExternalId(CUSTOM_PLAN_ID, start, 1, 1)]);
+    const state = getPlanPushState();
+    expect(state.pushedIds).toHaveLength(11);
+    expect(Object.keys(state.pushedHashes)).toHaveLength(11);
+    expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'nothing-changed', result: null });
   });
 
   it('pushes the full plan and cleans up when the plan instance changes', async () => {
@@ -685,24 +717,45 @@ describe('syncPlanCalendarIfChanged', () => {
     const moved = addDays(today(), 7);
     activate([WEEK, WEEK], moved);
 
-    expect(await syncPlanCalendarIfChanged()).toMatchObject({ upserted: 12, deleted: 12 });
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 12, deleted: 12 } });
     expect(idsIn(icu.deletes()[0])).toEqual(oldIds);
     expect(getPlanPushState().planKey).toBe(`${CUSTOM_PLAN_ID}:${moved}`);
   });
 
-  it('sends the window after a partial manual push', async () => {
+  it('sends the rest of the window after a partial manual push', async () => {
     const icu = enableAuto();
     await pushPlanToIntervals({ weeks: 1 });
-    expect(await syncPlanCalendarIfChanged()).toMatchObject({ upserted: 12 });
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 6 } });
+    expect(idsIn(icu.upserts()[1])).toEqual([1, 2, 3, 4, 5, 6].map((d) => planExternalId(CUSTOM_PLAN_ID, today(), 1, d)));
     expect(icu.upserts()).toHaveLength(2);
+  });
+
+  it('adopts a push made before v1.0.6 (no per-workout hashes) instead of re-sending it', async () => {
+    const icu = enableAuto();
+    await pushPlanToIntervals();
+    const s = getPlanPushState();
+    persistence.setItem(STATE_KEY, JSON.stringify({
+      enabled: s.enabled, lastPushAt: s.lastPushAt, lastHash: s.lastHash, planKey: s.planKey,
+      pushedIds: s.pushedIds, lastError: null, lastErrorAt: null, lastResult: s.lastResult,
+    }));
+    expect(getPlanPushState()).toMatchObject({ pushedHashes: {}, lastStatus: null });
+
+    expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'nothing-changed', result: null });
+    expect(icu.upserts()).toHaveLength(1);
+    expect(Object.keys(getPlanPushState().pushedHashes)).toHaveLength(12);
+
+    saveTrainingPaces(PACES); // a real change is still sent (cross-training days carry no paces)
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 10 } });
   });
 
   it('never throws: records lastError and backs off after a failure', async () => {
     const icu = enableAuto();
     icu.fail = () => 401;
 
-    await expect(syncPlanCalendarIfChanged()).resolves.toBeNull();
-    expect(getPlanPushState().lastError).toBe(new IntervalsAuthError().message);
+    await expect(syncPlanCalendarIfChanged()).resolves.toMatchObject({
+      status: 'error', result: null, error: new IntervalsAuthError().message,
+    });
+    expect(getPlanPushState()).toMatchObject({ lastError: new IntervalsAuthError().message, lastStatus: 'error' });
 
     icu.fail = undefined;
     expect(await syncPlanCalendarIfChanged()).toBeNull(); // backing off
@@ -713,10 +766,11 @@ describe('syncPlanCalendarIfChanged', () => {
     const icu = enableAuto();
     const manual = pushPlanToIntervals();
     expect(isPlanPushRunning()).toBe(true);
-    expect(await syncPlanCalendarIfChanged()).toBeNull();
+    expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'skipped-in-progress', result: null });
     await manual;
     expect(isPlanPushRunning()).toBe(false);
     expect(icu.upserts()).toHaveLength(1);
+    expect(getPlanPushState().lastStatus).toBe('pushed');
   });
 });
 
@@ -739,11 +793,34 @@ describe('push state', () => {
     expect(getPlanPushState()).toMatchObject({ enabled: false, pushedIds: [], lastError: null });
     persistence.setItem(STATE_KEY, JSON.stringify({ enabled: 'yes', pushedIds: ['a', 3], lastResult: { upserted: 'x' } }));
     expect(getPlanPushState()).toMatchObject({ enabled: false, pushedIds: ['a'], lastResult: null });
+    persistence.setItem(STATE_KEY, JSON.stringify({ pushedHashes: { a: 'h1', b: 7, c: '' }, lastStatus: 'bogus' }));
+    expect(getPlanPushState()).toMatchObject({ pushedHashes: { a: 'h1' }, lastStatus: null });
+    persistence.setItem(STATE_KEY, JSON.stringify({ pushedHashes: ['x'], lastStatus: 'nothing-changed' }));
+    expect(getPlanPushState()).toMatchObject({ pushedHashes: {}, lastStatus: 'nothing-changed' });
   });
 
   it('knows whether pushed workouts will carry pace targets', () => {
     expect(hasPlanTargetPaces()).toBe(false);
+    expect(resolvePlanTrainingPaces()).toBeNull();
     saveTrainingPaces(PACES);
     expect(hasPlanTargetPaces()).toBe(true);
+    expect(resolvePlanTrainingPaces()).toMatchObject({ vdot: 45, marathon: 496 });
+  });
+
+  it('prefers the current VDOT paces over saved ones', () => {
+    saveTrainingPaces(PACES);
+    updateAthleteProfile({ goalMarathonSec: 3 * 3600 });
+    const paces = resolvePlanTrainingPaces();
+    expect(paces?.source).toBe('goal');
+    expect(paces?.vdot).toBeGreaterThan(50);
+  });
+
+  it('gives each workout a content hash that changes only with what is sent', () => {
+    const [a] = buildPlanWorkouts(makePlan([[EASY]]), START, MI);
+    const [b] = buildPlanWorkouts(makePlan([[EASY]]), START, MI);
+    const [c] = buildPlanWorkouts(makePlan([[{ ...EASY, distanceMi: 6 }]]), START, MI);
+    expect(hashPlannedWorkout(a)).toMatch(/^[0-9a-f]{8}$/);
+    expect(hashPlannedWorkout(a)).toBe(hashPlannedWorkout(b));
+    expect(hashPlannedWorkout(a)).not.toBe(hashPlannedWorkout(c));
   });
 });

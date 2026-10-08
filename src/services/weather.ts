@@ -8,6 +8,7 @@
 
 import { persistence } from './db/persistence';
 import { formatTimeSec } from './racePrediction';
+import { normalizeMarathonId } from '../data/worldMajors';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -332,21 +333,22 @@ export function assessRaceWeather(
 
 // ── Location lookups for World Majors ─────────────────────────────────────────
 
-/** Known coords for World Major Marathons. */
+/** Known coords for World Major Marathons, keyed by stable race id. */
 const MARATHON_COORDS: Record<string, LocationCoords> = {
-  'tokyo-marathon-2026':   { latitude: 35.6895, longitude: 139.6917 },
-  'boston-marathon-2026':   { latitude: 42.3601, longitude: -71.0589 },
-  'london-marathon-2026':  { latitude: 51.5074, longitude: -0.1278 },
-  'berlin-marathon-2026':  { latitude: 52.5200, longitude: 13.4050 },
-  'chicago-marathon-2026': { latitude: 41.8781, longitude: -87.6298 },
-  'nyc-marathon-2026':     { latitude: 40.7128, longitude: -74.0060 },
+  tokyo:   { latitude: 35.6895, longitude: 139.6917 },
+  boston:  { latitude: 42.3601, longitude: -71.0589 },
+  london:  { latitude: 51.5074, longitude: -0.1278 },
+  berlin:  { latitude: 52.5200, longitude: 13.4050 },
+  chicago: { latitude: 41.8781, longitude: -87.6298 },
+  nyc:     { latitude: 40.7128, longitude: -74.0060 },
 };
 
 /**
- * Get coordinates for a known marathon ID.
+ * Get coordinates for a known marathon ID (stable id, or a legacy
+ * '*-marathon-2026' id, which is normalised first).
  */
 export function getMarathonCoords(marathonId: string): LocationCoords | null {
-  return MARATHON_COORDS[marathonId] ?? null;
+  return MARATHON_COORDS[normalizeMarathonId(marathonId)] ?? null;
 }
 
 /**

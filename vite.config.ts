@@ -1,89 +1,79 @@
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import path from 'path';
 
-// Helper to determine if we're building for Electron
-const isElectron = process.env.ELECTRON === 'true';
+/**
+ * Desktop (Electron) build — the single source of truth for `npm run build:electron`
+ * and `npm run dev:electron`. The browser build lives in vite.config.web.ts.
+ *
+ * Output layout (must match package.json "main" and electron/main.ts):
+ *   dist/index.html, dist/assets/*      ← renderer (base './' for file://)
+ *   dist-electron/main.js               ← main process
+ *   dist-electron/preload.js            ← preload (loaded via path.join(__dirname, 'preload.js'))
+ */
 
-// Base configuration
-const config = {
-  // Always use relative paths for assets in Electron
-  base: isElectron ? '' : '/',
-  // Use custom HTML template for Electron builds
-  root: isElectron ? process.cwd() : undefined,
+/**
+ * Content-Security-Policy for the packaged desktop renderer (production only;
+ * Vite's dev server needs inline scripts for HMR). The renderer only ever talks
+ * to intervals.icu and Strava — token exchange and update checks run in the
+ * main process and are not affected.
+ */
+const ELECTRON_CSP = [
+  "default-src 'self'",
+  "script-src 'self'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "connect-src 'self' https://intervals.icu https://www.strava.com",
+  "frame-src 'self' blob: data:",
+  "worker-src 'self' blob:",
+  "object-src 'none'",
+  "base-uri 'none'",
+  "form-action 'none'",
+].join('; ');
+
+function electronCsp(): Plugin {
+  return {
+    name: 'apollo-electron-csp',
+    apply: 'build',
+    transformIndexHtml(html) {
+      return html.replace(
+        '<head>',
+        `<head>\n    <meta http-equiv="Content-Security-Policy" content="${ELECTRON_CSP}" />`,
+      );
+    },
+  };
+}
+
+export default defineConfig({
   plugins: [
     react(),
-    isElectron && electron([
-      { 
-        entry: 'electron/main.ts',
-        vite: {
-          build: {
-            outDir: 'dist-electron/main',
-            rollupOptions: {
-              external: ['electron'],
-            },
-          },
-        },
-      },
-      { 
+    electron([
+      { entry: 'electron/main.ts' },
+      {
         entry: 'electron/preload.ts',
-        onstart(options) { 
-          options.reload(); 
-        },
-        vite: {
-          build: {
-            outDir: 'dist-electron/preload',
-          },
+        onstart(options) {
+          // Reload the renderer instead of restarting Electron when preload changes.
+          options.reload();
         },
       },
     ]),
-    isElectron && renderer(),
-  ].filter(Boolean),
+    renderer(),
+    electronCsp(),
+  ],
   resolve: {
-    alias: { 
-      '@': path.resolve(__dirname, 'src'),
-    },
+    alias: { '@': path.resolve(__dirname, 'src') },
   },
   build: {
-    outDir: isElectron ? 'dist' : 'dist-web',
+    outDir: 'dist',
     emptyOutDir: true,
-    assetsDir: 'assets',
-    // Use custom HTML template for Electron builds
-    rollupOptions: isElectron ? {
-      input: {
-        main: path.resolve(__dirname, 'public/electron-index.html'),
-      },
+    rollupOptions: {
       output: {
-        manualChunks: undefined, // Disable code splitting for Electron
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]',
-      },
-    } : {
-      output: {
-        manualChunks: undefined,
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash][extname]',
+        // Charts are only needed by a few lazily-loaded screens.
+        manualChunks: { 'vendor-charts': ['recharts'] },
       },
     },
   },
-  define: {
-    'process.env.ELECTRON': JSON.stringify(isElectron ? 'true' : 'false'),
-  },
-  // Ensure Vite doesn't try to handle file URLs
-  server: {
-    fs: {
-      strict: false,
-    },
-  },
-};
-
-// Add base URL handling for production builds
-if (!isElectron) {
-  config.base = '/';
-}
-
-export default defineConfig(config);
+});

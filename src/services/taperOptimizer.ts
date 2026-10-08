@@ -12,6 +12,7 @@
  */
 
 import { persistence } from './db/persistence';
+import { eachDay, isDateKey } from '../utils/localDate';
 
 const TAPER_KEY = 'apollo_taper_model';
 
@@ -255,10 +256,9 @@ function projectRaceDayTSB(current: FitnessFatigueSnapshot, taperDays: number): 
 
 function fillMissingDays(sorted: DailyTrainingLoad[]): DailyTrainingLoad[] {
   if (sorted.length <= 1) return sorted;
-
-  const filled: DailyTrainingLoad[] = [];
-  const start = new Date(sorted[0].date);
-  const end = new Date(sorted[sorted.length - 1].date);
+  // Date keys only: mixing UTC parsing with local setDate repeated a day and
+  // dropped the last one after a spring-forward DST change (V14).
+  if (!isDateKey(sorted[0].date) || !isDateKey(sorted[sorted.length - 1].date)) return sorted;
 
   // Build a map for O(1) lookup
   const dayMap = new Map<string, DailyTrainingLoad>();
@@ -266,14 +266,9 @@ function fillMissingDays(sorted: DailyTrainingLoad[]): DailyTrainingLoad[] {
     dayMap.set(d.date, d);
   }
 
-  const current = new Date(start);
-  while (current <= end) {
-    const dateStr = current.toISOString().slice(0, 10);
-    filled.push(dayMap.get(dateStr) || { date: dateStr, tss: 0, distanceMi: 0, type: 'rest' });
-    current.setDate(current.getDate() + 1);
-  }
-
-  return filled;
+  return eachDay(sorted[0].date, sorted[sorted.length - 1].date).map(
+    (dateStr) => dayMap.get(dateStr) || { date: dateStr, tss: 0, distanceMi: 0, type: 'rest' },
+  );
 }
 
 function buildTaperSummary(

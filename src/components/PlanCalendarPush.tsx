@@ -3,9 +3,10 @@
  *
  * Writes the active training plan to the athlete's intervals.icu calendar as
  * structured workouts with target paces (services/planCalendarSync).
- * intervals.icu uploads planned workouts to Garmin, COROS, Suunto and Wahoo
- * watches once "Upload planned workouts" is ticked on the device's box in
- * intervals.icu → Settings → Connections.
+ * intervals.icu forwards planned workouts to Garmin (the next 7 days, once
+ * "Upload planned workouts" is ticked on the Garmin box in intervals.icu →
+ * Settings → Connections), COROS, Suunto and Wahoo — and, since December
+ * 2025, run workouts to Zwift.
  *
  * Self-contained — it reads the connection, plan and push state itself — so
  * it can sit on the Training page or in Settings. It also warns when the
@@ -22,6 +23,7 @@ import {
   AUTO_PUSH_WEEKS,
   getPlanPushState,
   hasPlanTargetPaces,
+  isPlanPushRunning,
   onPlanPushStateChange,
   pushPlanToIntervals,
   removePlanFromIntervals,
@@ -31,16 +33,14 @@ import {
   type PushResult,
 } from '../services/planCalendarSync';
 import { checkRunThresholdPace, getRunThresholdPaceStatus, onWellnessUpdated } from '../services/wellness';
+import { ConfirmDialog } from './ui';
 
 const INTERVALS_SETTINGS_URL = 'https://intervals.icu/settings';
-
-const REMOVE_CONFIRM = 'Remove the workouts Apollo added to your intervals.icu calendar from today on?\n\n'
-  + 'Past workouts and anything you created yourself stay. Automatic updates will be turned off.';
 
 type Action = 'push' | 'auto' | 'remove';
 
 const badgeStyle = {
-  fontSize: '0.72rem', background: 'var(--apollo-teal-dim)',
+  fontSize: '0.75rem', background: 'var(--apollo-teal-dim)',
   color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
   borderRadius: 'var(--radius-full)', fontWeight: 600,
   fontFamily: 'var(--font-display)',
@@ -75,6 +75,29 @@ function describePush(result: PushResult): string {
   return `${parts.join(' · ')}.`;
 }
 
+/**
+ * User-facing text for a push status reported by the plan engine
+ * (`status` on the auto-sync outcome or on the stored push state).
+ */
+export function describePushStatus(status: unknown): string | null {
+  if (status === 'skipped-in-progress') return 'A push is already running.';
+  if (status === 'nothing-changed') return 'Already up to date.';
+  return null;
+}
+
+/** Status field of an auto-sync outcome, whatever its exact shape (PushResult, status object or null). */
+function statusOf(outcome: unknown): unknown {
+  return outcome && typeof outcome === 'object' ? (outcome as { status?: unknown }).status : undefined;
+}
+
+/** PushResult inside an auto-sync outcome (the outcome itself, or its `result`). */
+function pushResultOf(outcome: unknown): PushResult | null {
+  if (!outcome || typeof outcome !== 'object') return null;
+  const o = outcome as Partial<PushResult> & { result?: unknown };
+  if (typeof o.upserted === 'number' && typeof o.from === 'string' && typeof o.to === 'string') return o as PushResult;
+  return o.result ? pushResultOf(o.result) : null;
+}
+
 function errorText(err: unknown): string {
   return err instanceof Error && err.message ? err.message : 'Something went wrong while talking to intervals.icu.';
 }
@@ -86,6 +109,7 @@ export default function PlanCalendarPush() {
   const [progress, setProgress] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
 
   // Manual and automatic pushes (e.g. after an activity sync) both update the card.
   useEffect(() => {
@@ -106,6 +130,7 @@ export default function PlanCalendarPush() {
   const busy = action !== null;
   const sentCurrentPlan = !!pushState.lastPushAt && pushState.planKey === planKey;
   const thresholdPaceMissing = connected && getRunThresholdPaceStatus().missing;
+  const storedStatus = describePushStatus((pushState as PlanPushState & { lastStatus?: unknown }).lastStatus);
 
   // Without a Run threshold pace Garmin shows "No Target": check it (when due) even if wellness sync is off.
   useEffect(() => {
@@ -128,8 +153,15 @@ export default function PlanCalendarPush() {
     }
   }
 
-  const handleSend = () => run('push', 'Preparing your workouts…', async () =>
-    describePush(await pushPlanToIntervals({ onProgress: setProgress })));
+  const handleSend = () => {
+    if (isPlanPushRunning()) {
+      setError(null);
+      setNotice(describePushStatus('skipped-in-progress'));
+      return;
+    }
+    void run('push', 'Preparing your workouts…', async () =>
+      describePush(await pushPlanToIntervals({ onProgress: setProgress })));
+  };
 
   const handleAutoChange = (enabled: boolean) => {
     setPlanAutoPush(enabled);
@@ -139,15 +171,18 @@ export default function PlanCalendarPush() {
       return;
     }
     void run('auto', 'Checking your intervals.icu calendar…', async () => {
-      const result = await syncPlanCalendarIfChanged();
+      const outcome: unknown = await syncPlanCalendarIfChanged();
+      const statusText = describePushStatus(statusOf(outcome));
+      if (statusText) return `Automatic updates are on. ${statusText}`;
+      const result = pushResultOf(outcome);
       if (result) return describePush(result);
       // Failures are recorded in the push state and shown below.
       return getPlanPushState().lastError ? null : 'Automatic updates are on. Your calendar is up to date.';
     });
   };
 
-  const handleRemove = () => {
-    if (!window.confirm(REMOVE_CONFIRM)) return;
+  const handleRemoveConfirmed = () => {
+    setConfirmRemove(false);
     void run('remove', 'Removing Apollo workouts…', async () => {
       const removed = await removePlanFromIntervals();
       return removed > 0
@@ -162,7 +197,7 @@ export default function PlanCalendarPush() {
   const shownError = error ?? lastFailure;
 
   const removeButton = (
-    <button type="button" className="btn btn-secondary" disabled={busy} onClick={handleRemove}>
+    <button type="button" className="btn btn-secondary" disabled={busy} onClick={() => setConfirmRemove(true)}>
       {action === 'remove' ? 'Removing…' : 'Remove Apollo workouts'}
     </button>
   );
@@ -178,24 +213,26 @@ export default function PlanCalendarPush() {
       </h3>
       <p style={{ ...textStyle, margin: '0 0 0.5rem' }}>
         Apollo writes your upcoming workouts, with target paces, to your intervals.icu calendar. intervals.icu can
-        forward them to Garmin, COROS, Suunto and Wahoo watches.
+        forward them to Garmin, COROS, Suunto, Wahoo and Zwift.
       </p>
       <p style={{ ...textStyle, margin: '0 0 1rem' }}>
-        To get them on your watch, open{' '}
+        To get them on a Garmin watch, open{' '}
         <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">intervals.icu → Settings</a>
-        {' '}→ Connections and tick <strong>Upload planned workouts</strong> on your device&apos;s box.
+        {' '}→ Connections and tick <strong>Upload planned workouts</strong> on the Garmin box. That is a separate
+        permission from downloading your activities. intervals.icu then sends the <strong>next 7 days</strong> of
+        planned workouts to Garmin, so later weeks appear on the watch as they come into range.
       </p>
 
       {!connected ? (
         <p style={{ ...textStyle, margin: 0 }}>
           intervals.icu isn&apos;t connected yet.{' '}
-          <Link to="/settings" style={{ fontWeight: 600 }}>Connect it in Settings → Data sources</Link>
+          <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>Connect it in Settings › Connections</Link>
           {' '}(it&apos;s free), then come back here to send your plan.
         </p>
       ) : !plan ? (
         <>
           <p style={{ ...textStyle, margin: '0 0 0.75rem' }}>
-            No active training plan. <Link to="/training" style={{ fontWeight: 600 }}>Choose a plan</Link> and Apollo
+            No active training plan. <Link to="/plan" style={{ fontWeight: 600 }}>Choose a plan</Link> and Apollo
             can send its workouts to your calendar.
           </p>
           {pushState.pushedIds.length > 0 && removeButton}
@@ -209,10 +246,16 @@ export default function PlanCalendarPush() {
                   ? ` · ${plural(pushState.lastResult.upserted, 'workout')} through ${formatDay(pushState.lastResult.to)}.`
                   : '.')
               : `${plan.name} hasn't been sent to intervals.icu yet.`}
-            {!hasPaces && ' Workouts go out as plain distances until Apollo knows your training paces (they come from your race prediction on Insights).'}
+            {storedStatus && ` ${storedStatus}`}
+            {!hasPaces && (
+              <>
+                {' '}Workouts go out as plain distances until Apollo knows your training paces.{' '}
+                <Link to="/settings?tab=profile">Add a recent race in Settings › Athlete Profile</Link>.
+              </>
+            )}
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <button type="button" className="btn btn-primary" disabled={busy} onClick={() => { void handleSend(); }}>
+            <button type="button" className="btn btn-primary" disabled={busy} onClick={handleSend}>
               {action === 'push' ? 'Sending…' : 'Send plan to intervals.icu'}
             </button>
             {removeButton}
@@ -236,11 +279,14 @@ export default function PlanCalendarPush() {
         </>
       )}
 
-      {(progress || notice || shownError) && (
-        <div style={{ marginTop: '0.75rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-          {progress && <div role="status" style={{ color: 'var(--text-muted)' }}>{progress}</div>}
-          {!progress && notice && <div role="status" style={{ color: 'var(--color-success)', fontWeight: 600 }}>{notice}</div>}
-          {!progress && shownError && <div role="alert" style={{ color: 'var(--color-error)' }}>⚠ {shownError}</div>}
+      {/* Always mounted so screen readers announce new messages. */}
+      <div role="status" aria-live="polite" style={{ marginTop: progress || notice ? '0.75rem' : 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+        {progress && <div style={{ color: 'var(--text-muted)' }}>{progress}</div>}
+        {!progress && notice && <div style={{ color: 'var(--color-success)', fontWeight: 600 }}>{notice}</div>}
+      </div>
+      {!progress && shownError && (
+        <div role="alert" style={{ marginTop: '0.5rem', fontSize: 'var(--text-sm)', lineHeight: 1.5, color: 'var(--color-error-text, var(--color-error))' }}>
+          <span aria-hidden="true">⚠ </span>{shownError}
         </div>
       )}
 
@@ -263,9 +309,29 @@ export default function PlanCalendarPush() {
         send your plan again so Garmin gets fresh copies.
       </p>
       <p style={{ ...hintStyle, margin: '0.5rem 0 0' }}>
-        Zwift only receives rides, so your runs won&apos;t appear there. Apollo only changes workouts it created,
-        never your own events or past days.
+        Zwift tip: intervals.icu sends run workouts to Zwift too (since December 2025). Zwift sets run targets from
+        the 5K time in your Zwift profile, so set it to about your intervals.icu Run threshold pace × 5 km.
+        Apollo only changes workouts it created, never your own events or past days.
       </p>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        title="Remove Apollo workouts?"
+        message={(
+          <>
+            <p style={{ margin: '0 0 0.5rem' }}>
+              This removes the workouts Apollo added to your intervals.icu calendar from today on.
+            </p>
+            <p style={{ margin: 0 }}>
+              Past workouts and anything you created yourself stay. Automatic updates will be turned off.
+            </p>
+          </>
+        )}
+        confirmLabel="Remove workouts"
+        tone="danger"
+        onConfirm={handleRemoveConfirmed}
+        onCancel={() => setConfirmRemove(false)}
+      />
     </div>
   );
 }

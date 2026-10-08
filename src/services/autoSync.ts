@@ -6,6 +6,13 @@
  *
  * Run days are matched by runs; cross-training days prefer rides, swims and
  * other cross-training (Zwift included), falling back to a run.
+ *
+ * v1.0.6 — flexible matching (Top-10 #8): each run fills the best unfilled
+ * planned run within ±2 days in the same plan week (date proximity, distance
+ * similarity, long ↔ longest), so a long run done a day late still counts and a
+ * run on a rest day can make up a nearby missed workout. An activity fills at
+ * most one plan day; extra runs still count toward weekly mileage. Matching
+ * reads the *effective* plan (overlay applied) and uses DST-safe date keys.
  */
 
 import type { Activity } from './activity/types';
@@ -14,21 +21,28 @@ import {
   isActivitySourceConnected,
   syncActivities,
   getStoredActivities,
+  type LiveActivitySource,
   type SyncProgress,
   type SyncSummary,
 } from './activitySource';
-import { getPlanById, type TrainingPlan, type PlanDay } from '../data/plans';
+import { getPlanById, getWorkoutKind, type TrainingPlan, type PlanDay } from '../data/plans';
 import {
   getActivePlan,
+  getDateKeyForDay,
   getWeekDayForDate,
   isDayCompleted,
+  makePlanInstanceId,
   setDayCompleted,
   getSyncMeta,
   setSyncMeta,
+  removeSyncMeta,
   setLastSyncTime,
   getAllSyncMeta,
   type SyncMeta,
 } from './planProgress';
+import { getEffectivePlan } from './planOverlay';
+import { persistence } from './db/persistence';
+import { addDays, dateKeyFromLocalIso, daysBetween, todayKey } from '../utils/localDate';
 import { buildHRDataFromActivity, getHRProfile, upsertActivityHR } from './heartRate';
 import { calculateRacePrediction, calculateTrainingAdherence } from './racePrediction';
 import { generateCurrentWeekReadiness } from './weeklyReadiness';
@@ -74,6 +88,10 @@ export interface WeeklyMileage {
 const MIN_CROSS_TRAINING_SEC = 10 * 60;
 /** Effort recognition only re-processes recent runs (older ones were handled before). */
 const EFFORT_WINDOW_DAYS = 14;
+/** A run may fill a planned workout up to this many days away (same plan week). */
+export const MATCH_WINDOW_DAYS = 2;
+/** Per-instance weekly run totals from ALL runs (matched or extra). */
+const WEEK_ACTUALS_KEY = 'apollo_plan_week_actuals';
 
 export function isRunActivity(activity: Activity): boolean {
   return isRunActivityShared(activity);
@@ -88,14 +106,28 @@ export function formatPaceMinPerMi(paceMinPerMi: number): string {
   return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
-/** Get the local date string (YYYY-MM-DD) of an activity */
+/** Get the local date string (YYYY-MM-DD) of an activity (never via `new Date()`: the field has a fake Z). */
 function getActivityDateKey(activity: Activity): string {
-  return activity.start_date_local.slice(0, 10);
+  return dateKeyFromLocalIso(activity.start_date_local) ?? String(activity.start_date_local ?? '').slice(0, 10);
 }
 
-/** Local calendar date as YYYY-MM-DD. */
-function toLocalDate(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+// ── Weekly mileage ──────────────────────────────────────────────────────────
+
+interface WeekActualsStore {
+  instanceId: string;
+  /** weekIndex → run miles from every run in that plan week. */
+  weeks: Record<string, number>;
+  updatedAt: string;
+}
+
+function readWeekActuals(): WeekActualsStore | null {
+  try {
+    const raw = persistence.getItem(WEEK_ACTUALS_KEY);
+    const parsed = raw ? (JSON.parse(raw) as WeekActualsStore) : null;
+    return parsed && typeof parsed.instanceId === 'string' && parsed.weeks && typeof parsed.weeks === 'object' ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Calculate planned weekly mileage for a given week */
@@ -105,8 +137,19 @@ function getPlannedWeeklyMileage(plan: TrainingPlan, weekIndex: number): number 
   return week.days.reduce((sum, day) => sum + (day.distanceMi ?? 0), 0);
 }
 
-/** Calculate actual weekly mileage from sync metadata */
+/**
+ * Actual weekly run mileage: every run in the plan week (including runs that
+ * didn't fill a plan day) when the last sync recorded totals for this plan
+ * instance; otherwise the sum of matched days.
+ */
 function getActualWeeklyMileage(planId: string, weekIndex: number): number {
+  const active = getActivePlan();
+  if (active && active.planId === planId) {
+    const store = readWeekActuals();
+    if (store && store.instanceId === makePlanInstanceId(active.planId, active.startDate)) {
+      return store.weeks[String(weekIndex)] ?? 0;
+    }
+  }
   const allMeta = getAllSyncMeta(planId);
   return allMeta
     .filter((m) => m.weekIndex === weekIndex)
@@ -115,8 +158,8 @@ function getActualWeeklyMileage(planId: string, weekIndex: number): number {
 
 /** Build weekly mileage analysis */
 function buildWeeklyMileage(plan: TrainingPlan, planId: string, weekIndex: number): WeeklyMileage {
-  const plannedMi = getPlannedWeeklyMileage(plan, weekIndex);
-  const actualMi = getActualWeeklyMileage(planId, weekIndex);
+  const plannedMi = Math.round(getPlannedWeeklyMileage(plan, weekIndex) * 10) / 10;
+  const actualMi = Math.round(getActualWeeklyMileage(planId, weekIndex) * 100) / 100;
   const ratio = plannedMi > 0 ? actualMi / plannedMi : 1;
 
   let status: WeeklyMileage['status'];
@@ -171,14 +214,14 @@ function generateFeedback(
 
   // Pace analysis based on workout type
   if (plannedDay.note && paceMinPerMi > 0) {
-    const noteLC = plannedDay.note.toLowerCase();
-    if (noteLC === 'easy' && paceMinPerMi < 8.5) {
+    const kind = getWorkoutKind(plannedDay);
+    if (kind === 'easy' && paceMinPerMi < 8.5) {
       lines.push('Your easy pace looks quick — remember, easy days should feel comfortable.');
-    } else if (noteLC === 'tempo' && paceMinPerMi > 0) {
+    } else if (kind === 'tempo') {
       lines.push(`Tempo pace: ${paceStr}. Keep tempo runs at a comfortably hard effort.`);
-    } else if (noteLC === 'speed' && paceMinPerMi > 0) {
+    } else if (kind === 'speed') {
       lines.push(`Speed session at ${paceStr} avg. Strong interval work!`);
-    } else if (noteLC === 'long') {
+    } else if (kind === 'long') {
       lines.push(`Long run pace: ${paceStr}. Long runs build your endurance foundation.`);
     }
   }
@@ -201,70 +244,217 @@ function generateCrossTrainingFeedback(activity: Activity, load: number): string
   return lines.join(' ');
 }
 
+// ── Flexible matching (pure) ────────────────────────────────────────────────
+
+/** One plan day filled by one activity. */
+export interface PlanSlotMatch {
+  weekIndex: number;
+  dayIndex: number;
+  activity: Activity;
+  /** Local date of the activity (may differ from the plan day by up to ±2 days). */
+  activityDate: string;
+}
+
+export interface PlanMatchResult {
+  matches: PlanSlotMatch[];
+  /** Runs that didn't fill a plan day (still counted in weekly mileage). */
+  extras: Activity[];
+  /** weekIndex → miles from every run in that plan week. */
+  weekRunMiles: Record<number, number>;
+}
+
+interface Candidate {
+  activity: Activity;
+  date: string;
+  weekIndex: number;
+  isRun: boolean;
+  mi: number;
+  longestOfWeek: boolean;
+}
+
+interface Slot {
+  weekIndex: number;
+  dayIndex: number;
+  date: string;
+  day: PlanDay;
+  kind: 'run' | 'cross';
+  plannedMi: number;
+  isLong: boolean;
+  isRace: boolean;
+}
+
+const DATE_SCORE = [1, 0.6, 0.3];
+
+function pairScore(c: Candidate, s: Slot): number | null {
+  const diff = Math.abs(daysBetween(c.date, s.date));
+  if (diff > MATCH_WINDOW_DAYS) return null;
+  const dateScore = DATE_SCORE[diff] ?? 0;
+  if (s.kind === 'cross') {
+    // Cross days: cross-training first; a run on the day itself still counts.
+    if (c.isRun) return diff === 0 ? 1 : null;
+    return 3 * dateScore + 1;
+  }
+  if (!c.isRun) return null; // rides never fill run days
+  if (s.isRace && diff > 0) return null; // races happen on race day
+  const sim = s.plannedMi > 0 ? Math.max(0, 1 - Math.abs(c.mi - s.plannedMi) / s.plannedMi) : 0.5;
+  if (diff > 0 && s.plannedMi > 0 && sim < 0.3) return null; // too different to stand in for another day
+  let score = 3 * dateScore + 2 * sim;
+  if (s.isLong && c.longestOfWeek) score += 1.5;
+  else if (s.isLong && diff > 0) score -= 0.5;
+  if (s.isRace) score += 1;
+  return score;
+}
+
 /**
- * Match every day of the active plan (plan start → today) to the athlete's
- * activities. Run days take the longest run of the day. Cross-training days
- * take a run if there was one (so weekly mileage stays accurate), otherwise
- * the longest cross-training session (ride, Zwift, swim, strength…).
+ * Pure flexible matcher. Considers activities from the plan start through
+ * `today` (and the plan's last day) and every run/race/cross day of `plan`.
+ * Each run fills the best unfilled planned run within ±{@link MATCH_WINDOW_DAYS}
+ * days in the same plan week; each activity fills at most one day and each day
+ * takes at most one activity (greedy by score: date proximity, distance
+ * similarity, long run ↔ longest run of the week).
  */
-function matchPlanToActivities(activities: Activity[]): SyncResult[] {
+export function matchActivitiesToPlan(
+  plan: TrainingPlan,
+  startDate: string,
+  activities: Activity[],
+  today: string = todayKey(),
+): PlanMatchResult {
+  const totalWeeks = plan.weeks.length;
+  const planEnd = getDateKeyForDay(startDate, totalWeeks - 1, 6);
+  const lastDay = today < planEnd ? today : planEnd;
+  const planStart = getDateKeyForDay(startDate, 0, 0);
+
+  const candidates: Candidate[] = [];
+  const weekRunMiles: Record<number, number> = {};
+  for (const activity of activities) {
+    const date = getActivityDateKey(activity);
+    if (!date || date < planStart || date > lastDay) continue;
+    const pos = getWeekDayForDate(startDate, totalWeeks, date);
+    if (!pos) continue;
+    const isRun = isRunActivityShared(activity);
+    if (!isRun && (activity.moving_time || activity.elapsed_time || 0) < MIN_CROSS_TRAINING_SEC) continue;
+    const mi = isRun ? metersToMiles(activity.distance || 0) : 0;
+    if (isRun) weekRunMiles[pos.weekIndex] = (weekRunMiles[pos.weekIndex] ?? 0) + mi;
+    candidates.push({ activity, date, weekIndex: pos.weekIndex, isRun, mi, longestOfWeek: false });
+  }
+  // Longest run of each plan week.
+  const longest = new Map<number, Candidate>();
+  for (const c of candidates) {
+    if (!c.isRun) continue;
+    const best = longest.get(c.weekIndex);
+    if (!best || c.mi > best.mi) longest.set(c.weekIndex, c);
+  }
+  for (const c of longest.values()) c.longestOfWeek = true;
+
+  const slots: Slot[] = [];
+  plan.weeks.forEach((week, weekIndex) => {
+    let longestPlanned = 0;
+    for (const d of week.days) if (d && (d.type === 'run') && (d.distanceMi ?? 0) > longestPlanned) longestPlanned = d.distanceMi ?? 0;
+    week.days.slice(0, 7).forEach((day, dayIndex) => {
+      if (!day || day.type === 'rest') return;
+      const kind = day.type === 'cross' ? 'cross' : 'run';
+      const plannedMi = day.distanceMi ?? 0;
+      slots.push({
+        weekIndex,
+        dayIndex,
+        date: getDateKeyForDay(startDate, weekIndex, dayIndex),
+        day,
+        kind,
+        plannedMi,
+        isLong: kind === 'run' && day.type === 'run' && (getWorkoutKind(day) === 'long' || (plannedMi > 0 && plannedMi === longestPlanned && plannedMi >= 10)),
+        isRace: day.type === 'race' || day.type === 'marathon',
+      });
+    });
+  });
+
+  const pairs: { c: Candidate; s: Slot; score: number; diff: number }[] = [];
+  for (const c of candidates) {
+    for (const s of slots) {
+      if (s.weekIndex !== c.weekIndex) continue;
+      const score = pairScore(c, s);
+      if (score !== null) pairs.push({ c, s, score, diff: Math.abs(daysBetween(c.date, s.date)) });
+    }
+  }
+  pairs.sort((a, b) => b.score - a.score || a.diff - b.diff || a.s.date.localeCompare(b.s.date) || b.c.mi - a.c.mi);
+
+  const usedActivities = new Set<Candidate>();
+  const filled = new Set<Slot>();
+  const matches: PlanSlotMatch[] = [];
+  for (const p of pairs) {
+    if (usedActivities.has(p.c) || filled.has(p.s)) continue;
+    usedActivities.add(p.c);
+    filled.add(p.s);
+    matches.push({ weekIndex: p.s.weekIndex, dayIndex: p.s.dayIndex, activity: p.c.activity, activityDate: p.c.date });
+  }
+  matches.sort((a, b) => a.weekIndex - b.weekIndex || a.dayIndex - b.dayIndex);
+  const extras = candidates.filter((c) => c.isRun && !usedActivities.has(c)).map((c) => c.activity);
+  return { matches, extras, weekRunMiles };
+}
+
+/**
+ * Match the active plan (effective plan: overlay applied) to the athlete's
+ * activities and save the outcome: completions, sync meta, compliance and
+ * per-week run totals. Days whose auto-matched activity went away (deleted,
+ * hidden or now filling a better-fitting day) lose their sync meta and, when
+ * auto-sync had completed them, their completion.
+ */
+export function syncPlanWithActivities(activities: Activity[], today: string = todayKey()): SyncResult[] {
   const activePlan = getActivePlan();
   if (!activePlan) return [];
-  const plan = getPlanById(activePlan.planId);
+  const plan = getEffectivePlan();
   if (!plan) return [];
+  const planId = activePlan.planId;
+  const { matches, weekRunMiles } = matchActivitiesToPlan(plan, activePlan.startDate, activities, today);
 
-  const today = toLocalDate(new Date());
-  const runsByDate = new Map<string, Activity>();
-  const crossByDate = new Map<string, Activity>();
-  for (const act of activities) {
-    const dateKey = getActivityDateKey(act);
-    if (dateKey < activePlan.startDate || dateKey > today) continue;
-    if (isRunActivityShared(act)) {
-      const existing = runsByDate.get(dateKey);
-      if (!existing || act.distance > existing.distance) runsByDate.set(dateKey, act);
-    } else if ((act.moving_time || act.elapsed_time || 0) >= MIN_CROSS_TRAINING_SEC) {
-      const existing = crossByDate.get(dateKey);
-      if (!existing || (act.moving_time || 0) > (existing.moving_time || 0)) crossByDate.set(dateKey, act);
-    }
+  // Weekly totals first so feedback reflects every run of the week.
+  const weeks: Record<string, number> = {};
+  for (const [w, mi] of Object.entries(weekRunMiles)) weeks[w] = Math.round(mi * 100) / 100;
+  persistence.setItem(WEEK_ACTUALS_KEY, JSON.stringify({
+    instanceId: makePlanInstanceId(activePlan.planId, activePlan.startDate),
+    weeks,
+    updatedAt: new Date().toISOString(),
+  } satisfies WeekActualsStore));
+
+  // Drop stale auto-matches.
+  const matchedKey = new Set(matches.map((m) => `${m.weekIndex}:${m.dayIndex}:${m.activity.id}`));
+  for (const { weekIndex, dayIndex, meta } of getAllSyncMeta(planId)) {
+    if (matchedKey.has(`${weekIndex}:${dayIndex}:${meta.activityId}`)) continue;
+    const date = getDateKeyForDay(activePlan.startDate, weekIndex, dayIndex);
+    if (date > addDays(today, MATCH_WINDOW_DAYS)) continue;
+    const refilled = matches.some((m) => m.weekIndex === weekIndex && m.dayIndex === dayIndex);
+    if (refilled) continue; // overwritten below
+    removeSyncMeta(planId, weekIndex, dayIndex);
+    if (meta.autoCompleted) setDayCompleted(planId, weekIndex, dayIndex, false);
   }
 
   const results: SyncResult[] = [];
-  const dateKeys = Array.from(new Set([...runsByDate.keys(), ...crossByDate.keys()])).sort();
   const maxHR = getHRProfile().maxHR;
 
-  for (const dateKey of dateKeys) {
-    const pos = getWeekDayForDate(activePlan.startDate, plan.totalWeeks, new Date(dateKey + 'T00:00:00'));
-    if (!pos) continue;
-
-    const { weekIndex, dayIndex } = pos;
+  for (const match of matches) {
+    const { weekIndex, dayIndex, activity, activityDate } = match;
     const plannedDay = plan.weeks[weekIndex]?.days[dayIndex];
     if (!plannedDay) continue;
-
-    // Only match to run/cross/race/marathon days (not rest)
-    if (plannedDay.type === 'rest') continue;
-
-    const run = runsByDate.get(dateKey);
-    const activity = run ?? (plannedDay.type === 'cross' ? crossByDate.get(dateKey) : undefined);
-    if (!activity) continue;
     const isCross = !isRunActivityShared(activity);
 
     // Skip if already synced with this exact activity
-    const existingMeta = getSyncMeta(plan.id, weekIndex, dayIndex);
+    const existingMeta = getSyncMeta(planId, weekIndex, dayIndex);
     if (existingMeta?.activityId === activity.id) continue;
 
     // Auto-complete the day
-    const wasAlreadyCompleted = isDayCompleted(plan.id, weekIndex, dayIndex);
+    const wasAlreadyCompleted = isDayCompleted(planId, weekIndex, dayIndex);
     if (!wasAlreadyCompleted) {
-      setDayCompleted(plan.id, weekIndex, dayIndex, true);
+      setDayCompleted(planId, weekIndex, dayIndex, true);
     }
+    const autoCompleted = existingMeta ? !!existingMeta.autoCompleted || !wasAlreadyCompleted : !wasAlreadyCompleted;
 
     const baseMeta = {
       activityId: activity.id,
       activitySource: activity.source ?? 'strava',
       activityType: activity.sport_type || activity.type,
-      activityDate: dateKey,
+      activityDate,
       movingTimeSec: activity.moving_time,
       syncedAt: new Date().toISOString(),
+      autoCompleted,
     };
 
     if (isCross) {
@@ -283,7 +473,7 @@ function matchPlanToActivities(activities: Activity[]): SyncResult[] {
         },
         feedback: generateCrossTrainingFeedback(activity, load),
       };
-      setSyncMeta(plan.id, weekIndex, dayIndex, meta);
+      setSyncMeta(planId, weekIndex, dayIndex, meta);
       results.push({
         weekIndex,
         dayIndex,
@@ -292,7 +482,7 @@ function matchPlanToActivities(activities: Activity[]): SyncResult[] {
         actualDistanceMi: 0,
         actualPaceMinPerMi: 0,
         feedback: meta.feedback,
-        weeklyMileage: buildWeeklyMileage(plan, plan.id, weekIndex),
+        weeklyMileage: buildWeeklyMileage(plan, planId, weekIndex),
         isNew: !wasAlreadyCompleted,
         isCrossTraining: true,
       });
@@ -309,10 +499,10 @@ function matchPlanToActivities(activities: Activity[]): SyncResult[] {
       actualPaceMinPerMi: paceMinPerMi,
       feedback: '', // will update below
     };
-    setSyncMeta(plan.id, weekIndex, dayIndex, meta);
+    setSyncMeta(planId, weekIndex, dayIndex, meta);
 
     // Build weekly mileage after saving meta
-    const weeklyMileage = buildWeeklyMileage(plan, plan.id, weekIndex);
+    const weeklyMileage = buildWeeklyMileage(plan, planId, weekIndex);
     const feedback = generateFeedback(plannedDay, activity, actualMi, paceMinPerMi, weeklyMileage);
 
     // Run compliance analysis against VDOT-derived targets
@@ -339,7 +529,7 @@ function matchPlanToActivities(activities: Activity[]): SyncResult[] {
     meta.feedback = complianceFeedback
       ? feedback + ' ' + complianceFeedback
       : feedback;
-    setSyncMeta(plan.id, weekIndex, dayIndex, meta);
+    setSyncMeta(planId, weekIndex, dayIndex, meta);
 
     results.push({
       weekIndex,
@@ -360,7 +550,7 @@ function matchPlanToActivities(activities: Activity[]): SyncResult[] {
 
 /** HR capture, effort recognition and plan-level analysis after new data arrives. */
 function runPostSyncAnalysis(activities: Activity[], hasPlan: boolean): void {
-  const cutoff = toLocalDate(new Date(Date.now() - EFFORT_WINDOW_DAYS * 24 * 60 * 60 * 1000));
+  const cutoff = addDays(todayKey(), -EFFORT_WINDOW_DAYS);
   const recentRuns = activities.filter((a) => isRunActivityShared(a) && getActivityDateKey(a) >= cutoff);
 
   for (const activity of recentRuns) {
@@ -416,7 +606,7 @@ export function refreshPlanFromStoredActivities(): SyncResult[] {
   const activities = getStoredActivities();
   let results: SyncResult[] = [];
   try {
-    results = matchPlanToActivities(activities);
+    results = syncPlanWithActivities(activities);
   } catch (err) {
     console.warn('[Apollo] Plan matching failed:', err);
   }
@@ -432,19 +622,35 @@ export function refreshPlanFromStoredActivities(): SyncResult[] {
   return results;
 }
 
+/** Options for {@link runSync}. */
+export interface RunSyncOptions {
+  /** Re-import the complete history. */
+  full?: boolean;
+  /** Only sync these sources (source-scoped re-import). */
+  sources?: LiveActivitySource[];
+  /** Manual retry that includes sources flagged as needing reconnect. */
+  force?: boolean;
+  onProgress?: (p: SyncProgress) => void;
+}
+
 /**
  * Full sync pass: pull new activities from every connected source into the
  * local store (full history on first run), then match the active training plan.
  * Never throws for network problems — inspect `report.summary.errors`.
  */
-export async function runSync(
-  opts: { full?: boolean; onProgress?: (p: SyncProgress) => void } = {},
-): Promise<AutoSyncReport> {
+export async function runSync(opts: RunSyncOptions = {}): Promise<AutoSyncReport> {
   if (!isActivitySourceConnected()) return { summary: null, results: [] };
 
   let summary: SyncSummary | null = null;
   try {
-    summary = await syncActivities({ full: opts.full, onProgress: opts.onProgress });
+    // Built as a variable so options newer than this activitySource version pass through untouched.
+    const syncOpts = {
+      full: opts.full,
+      onProgress: opts.onProgress,
+      ...(opts.sources ? { sources: opts.sources } : {}),
+      ...(opts.force ? { force: true } : {}),
+    };
+    summary = await syncActivities(syncOpts);
   } catch (err) {
     console.warn('[Apollo] Activity sync failed:', err);
   }
@@ -466,16 +672,23 @@ export async function runAutoSync(opts: { full?: boolean } = {}): Promise<SyncRe
   return (await runSync(opts)).results;
 }
 
+/** The plan to summarise: the effective plan for the active plan id, else the base plan. */
+function planFor(planId: string): TrainingPlan | null {
+  const active = getActivePlan();
+  if (active && active.planId === planId) return getEffectivePlan();
+  return getPlanById(planId) ?? null;
+}
+
 /** Get current weekly mileage summary for a given week */
 export function getWeeklyMileageSummary(planId: string, weekIndex: number): WeeklyMileage | null {
-  const plan = getPlanById(planId);
+  const plan = planFor(planId);
   if (!plan) return null;
   return buildWeeklyMileage(plan, planId, weekIndex);
 }
 
 /** Get all weekly mileage summaries for the entire plan */
 export function getAllWeeklyMileage(planId: string): WeeklyMileage[] {
-  const plan = getPlanById(planId);
+  const plan = planFor(planId);
   if (!plan) return [];
   return plan.weeks.map((_, i) => buildWeeklyMileage(plan, planId, i));
 }

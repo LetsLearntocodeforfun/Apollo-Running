@@ -1,0 +1,450 @@
+/*
+ * Settings (v1.0.6) — styles for the tab shell and every tab in
+ * src/pages/settings/. Uses design-system tokens only.
+ */
+
+.settings-page {
+  max-width: 960px;
+}
+
+.settings-tabs {
+  margin-bottom: var(--space-4);
+}
+
+.settings-panel:focus-visible {
+  outline-offset: 4px;
+}
+
+/* ── Cards ─────────────────────────────────────────────────────────────── */
+
+.settings-card {
+  border-left: 3px solid var(--border);
+}
+.settings-card--teal { border-left-color: var(--apollo-teal); }
+.settings-card--gold { border-left-color: var(--apollo-gold); }
+.settings-card--strava { border-left-color: var(--strava); }
+.settings-card--success { border-left-color: var(--color-success); }
+.settings-card--warning { border-left-color: var(--color-warning); }
+.settings-card--error { border-left-color: var(--color-error); }
+.settings-card--neutral { border-left-color: var(--border-input); }
+
+.settings-card-title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.settings-subheading {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.settings-brand-intervals { color: var(--apollo-teal); }
+.settings-brand-strava { color: var(--strava); }
+
+.settings-badge {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  padding: 0.1rem 0.6rem;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+.settings-badge--gold { background: var(--apollo-gold-dim); color: var(--apollo-gold); }
+.settings-badge--teal { background: var(--apollo-teal-dim); color: var(--apollo-teal); }
+.settings-badge--strava { background: var(--color-error-dim); color: var(--strava); }
+.settings-badge--success { background: var(--color-success-dim); color: var(--color-success); }
+.settings-badge--warning { background: var(--color-warning-dim); color: var(--color-warning); }
+.settings-badge--error { background: var(--color-error-dim); color: var(--color-error-text); }
+.settings-badge--neutral { background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border-input); }
+
+/* ── Text ──────────────────────────────────────────────────────────────── */
+
+.settings-lead {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+  margin: 0 0 var(--space-3);
+}
+
+.settings-hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin: var(--space-1) 0 var(--space-2);
+}
+.settings-hint--block {
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.settings-note {
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  margin: var(--space-2) 0 var(--space-4);
+}
+
+.settings-callout {
+  background: var(--apollo-gold-dim);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-sm);
+  margin: 0 0 var(--space-3);
+}
+
+.settings-strong { font-weight: 600; color: var(--text); }
+.settings-muted { color: var(--text-muted); font-size: 0.8rem; }
+.settings-ok { color: var(--color-success); font-size: 0.8rem; }
+.settings-error-text { color: var(--color-error-text); font-size: var(--text-sm); }
+
+.settings-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  background: var(--bg-surface);
+  padding: 0.05rem 0.35rem;
+  border-radius: var(--radius-sm);
+}
+
+.settings-indent { margin-left: 1.75rem; }
+
+/* ── Inline status (always-mounted polite live regions) ────────────────── */
+
+.settings-status {
+  min-height: 1.25rem;
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+.settings-status:empty { min-height: 0; margin: 0; }
+.settings-status--success { color: var(--color-success); }
+.settings-status--info { color: var(--text-secondary); }
+.settings-status--error { color: var(--color-error-text); }
+
+.settings-inline-button { margin-left: var(--space-2); }
+
+/* ── Layout ────────────────────────────────────────────────────────────── */
+
+.settings-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0 0;
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+  margin: var(--space-2) 0;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: var(--space-3) 0;
+}
+
+.settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: 520px;
+}
+
+.settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.settings-inline-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.settings-fieldset {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0;
+  min-width: 0;
+}
+.settings-fieldset > legend { padding: 0 var(--space-1); }
+
+.settings-save-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-6);
+}
+.settings-save-bar .settings-status { margin: 0; }
+
+/* ── Controls ──────────────────────────────────────────────────────────── */
+
+.settings-label {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.settings-input,
+.settings-select {
+  min-height: 36px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  width: 100%;
+  max-width: 360px;
+  box-sizing: border-box;
+}
+.settings-select { width: auto; }
+.settings-input--short { max-width: 160px; }
+.settings-input[aria-invalid='true'],
+.settings-select[aria-invalid='true'] {
+  border-color: var(--color-error-text);
+}
+
+.settings-field-error {
+  color: var(--color-error-text);
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.settings-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 32px;
+  padding: var(--space-1) 0;
+  cursor: pointer;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+}
+.settings-check input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  margin: 1px 0 0;
+  flex-shrink: 0;
+  accent-color: var(--apollo-teal);
+}
+
+.settings-file-label {
+  position: relative;
+  cursor: pointer;
+}
+.settings-file-label.is-disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Unit toggles (aria-pressed segmented buttons) */
+.settings-unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-4);
+}
+.settings-unit-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.settings-segmented {
+  display: flex;
+  gap: var(--space-2);
+}
+.settings-segment {
+  flex: 1;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-input);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-family: var(--font-display);
+}
+.settings-segment[aria-pressed='true'] {
+  border: 2px solid var(--apollo-gold);
+  background: var(--apollo-gold-dim);
+  color: var(--apollo-gold);
+}
+.settings-segment-main { font-weight: 700; font-size: 0.95rem; }
+.settings-segment-detail { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Lists, tables, details ────────────────────────────────────────────── */
+
+.settings-dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--space-1) var(--space-4);
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+}
+.settings-dl dt { color: var(--text-muted); }
+.settings-dl dd { margin: 0; }
+
+.settings-steps {
+  margin: 0 0 var(--space-3);
+  padding-left: 1.25rem;
+  font-size: var(--text-sm);
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+.settings-steps li + li { margin-top: var(--space-1); }
+
+.settings-details { margin: var(--space-2) 0; font-size: var(--text-sm); }
+.settings-details > summary { cursor: pointer; min-height: 32px; display: list-item; padding: var(--space-1) 0; }
+
+.settings-key-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.settings-key-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.settings-table-wrap { overflow-x: auto; }
+.settings-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.settings-table th,
+.settings-table td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--border);
+}
+.settings-table thead th {
+  font-family: var(--font-display);
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.settings-table tbody th { font-weight: 600; color: var(--text); }
+
+.settings-backup-list {
+  list-style: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.settings-backup-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border-radius: var(--radius-sm);
+}
+.settings-backup-row .settings-actions { margin: 0; }
+.settings-backup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-3);
+  font-size: var(--text-sm);
+}
+
+/* ── Strava secret, reconnect banner, keychain alert, danger zone ──────── */
+
+.settings-secret-saved {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.settings-reconnect {
+  border: 1px solid var(--color-warning);
+  background: var(--color-warning-dim);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  margin: 0 0 var(--space-3);
+}
+.settings-reconnect-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--color-warning);
+}
+.settings-reconnect-reason {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+}
+
+.settings-keychain-text { margin: 0; font-size: var(--text-sm); line-height: 1.5; }
+.settings-keychain-title { color: var(--apollo-gold); }
+
+.settings-danger .settings-lead { color: var(--text-secondary); }
+.settings-dialog-field { margin: var(--space-3) 0; }
+
+/* ── Update progress ───────────────────────────────────────────────────── */
+
+.settings-progress {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.settings-progress progress {
+  flex: 1;
+  height: 6px;
+  appearance: none;
+  border: none;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+.settings-progress progress::-webkit-progress-bar {
+  background: var(--bg-surface);
+  border-radius: var(--radius-full);
+}
+.settings-progress progress::-webkit-progress-value {
+  background: var(--apollo-teal);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+.settings-progress progress::-moz-progress-bar {
+  background: var(--apollo-teal);
+  border-radius: var(--radius-full);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .settings-progress progress::-webkit-progress-value { transition: none; }
+}
+
+@media (max-width: 600px) {
+  .settings-indent { margin-left: 0; }
+  .settings-input,
+  .settings-select { max-width: none; }
+  .settings-dl { grid-template-columns: 1fr; }
+  .settings-dl dd { margin-bottom: var(--space-2); }
+}

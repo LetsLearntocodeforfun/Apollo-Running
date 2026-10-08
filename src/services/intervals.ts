@@ -16,6 +16,7 @@
  */
 
 import { getIntervalsCredentials, type IntervalsCredentials } from './storage';
+import { setNeedsReconnect } from './connectionHealth';
 import type { Activity, ActivityLap, AthleteProfile } from './activity/types';
 import { isRunActivity, formatSportType } from './activity/sports';
 import {
@@ -60,10 +61,75 @@ export class IntervalsHttpError extends Error {
   }
 }
 
+/** The caller cancelled the request (e.g. `cancelSync()` or the sync watchdog). */
+export class IntervalsAbortError extends Error {
+  constructor(message: string = 'Sync was cancelled.') {
+    super(message);
+    this.name = 'AbortError';
+  }
+}
+
 // ── HTTP ──────────────────────────────────────────────────────────────────────
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+/** Wait `ms`; rejects early with IntervalsAbortError when `signal` aborts. */
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new IntervalsAbortError());
+      return;
+    }
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new IntervalsAbortError());
+    };
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort);
+      resolve();
+    }, ms);
+    signal?.addEventListener('abort', onAbort, { once: true });
+  });
+}
+
+/**
+ * Settle with `promise`, or reject with an AbortError as soon as `signal`
+ * aborts — even if the underlying promise never settles (a stalled response
+ * body, or a fetch implementation that ignores its signal).
+ */
+function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): Promise<T> {
+  if (!signal) return promise;
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => {
+      const err = new Error('The request was aborted.');
+      err.name = 'AbortError';
+      reject(err);
+    };
+    if (signal.aborted) {
+      onAbort();
+      return;
+    }
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (err: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
+    );
+  });
+}
+
+/**
+ * A 401/403 made with the credentials saved in Settings means the athlete has
+ * to reconnect: flag it so syncs stop retrying and the UI shows a banner.
+ * Probes with a key that isn't saved yet (the connect dialog) don't flag.
+ */
+function flagRejectedStoredKey(used: IntervalsCredentials, message: string): void {
+  try {
+    if (getIntervalsCredentials()?.apiKey === used.apiKey) setNeedsReconnect('intervals', message);
+  } catch { /* flagging is best-effort */ }
 }
 
 function requireCredentials(creds?: IntervalsCredentials | null): IntervalsCredentials {
@@ -89,6 +155,87 @@ interface RequestSpec {
    * HTTP 429 is always retried: the server rejected the request unprocessed.
    */
   retry: boolean;
+  /** Cancels the request and any pending retry (throws IntervalsAbortError). */
+  signal?: AbortSignal;
+}
+
+/** Outcome of one HTTP attempt: a parsed body, or "retry after waiting". */
+type AttemptOutcome<T> = { kind: 'done'; value: T } | { kind: 'retry'; waitMs: number };
+
+/**
+ * One HTTP attempt. The timeout stays armed until the response body has been
+ * read (V8): a server that sends headers and then stalls must not hang sync.
+ */
+async function attemptRequest<T>(
+  url: string,
+  init: RequestInit,
+  c: IntervalsCredentials,
+  spec: RequestSpec,
+  attempt: number,
+): Promise<AttemptOutcome<T>> {
+  const external = spec.signal;
+  const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
+  const onExternalAbort = () => controller?.abort();
+  external?.addEventListener('abort', onExternalAbort, { once: true });
+  const signal = controller?.signal;
+
+  /** Network failure, timeout or stalled body: retry when allowed, else a friendly error. */
+  const transportFailure = (err: unknown): AttemptOutcome<T> => {
+    if (external?.aborted) throw new IntervalsAbortError();
+    if (spec.retry && attempt < MAX_RETRIES) return { kind: 'retry', waitMs: 1000 * (attempt + 1) };
+    const aborted = err instanceof Error && err.name === 'AbortError';
+    throw new Error(aborted
+      ? 'intervals.icu did not respond in time. Check your connection and try again.'
+      : 'Could not reach intervals.icu. Check your internet connection.');
+  };
+
+  try {
+    let res: Response;
+    try {
+      res = await untilAborted(fetch(url, { ...init, signal }), signal);
+    } catch (err) {
+      return transportFailure(err);
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      const authError = new IntervalsAuthError();
+      flagRejectedStoredKey(c, authError.message);
+      throw authError;
+    }
+    const retryable = res.status === 429 || (spec.retry && res.status >= 500);
+    if (retryable && attempt < MAX_RETRIES) {
+      const retryAfter = Number(res.headers.get('Retry-After'));
+      const waitSec = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 30) : 2 * (attempt + 1);
+      return { kind: 'retry', waitMs: waitSec * 1000 };
+    }
+    if (res.status === 429) {
+      throw new IntervalsHttpError(429, 'intervals.icu rate limit reached. Please try again in a few minutes.');
+    }
+    if (res.status === 404) {
+      throw new IntervalsHttpError(404, 'intervals.icu could not find that athlete or activity. Check the athlete ID in Settings.');
+    }
+    if (!res.ok) {
+      const text = await untilAborted(res.text(), signal).catch(() => '');
+      throw new IntervalsHttpError(res.status, `intervals.icu error ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`);
+    }
+    // Some endpoints (e.g. the map of an indoor activity) answer 200 with an empty body.
+    let body: string;
+    try {
+      body = await untilAborted(res.text(), signal);
+    } catch (err) {
+      return transportFailure(err);
+    }
+    if (!body) return { kind: 'done', value: null as T };
+    try {
+      return { kind: 'done', value: JSON.parse(body) as T };
+    } catch {
+      throw new IntervalsHttpError(res.status, 'intervals.icu returned an unexpected response.');
+    }
+  } finally {
+    if (timer) clearTimeout(timer);
+    external?.removeEventListener('abort', onExternalAbort);
+  }
 }
 
 /**
@@ -109,56 +256,23 @@ async function requestIntervals<T>(path: string, creds: IntervalsCredentials | n
   }
 
   for (let attempt = 0; ; attempt++) {
-    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-    const timer = controller ? setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS) : null;
-    let res: Response;
-    try {
-      res = await fetch(`${INTERVALS_API}${path}`, { ...init, signal: controller?.signal });
-    } catch (err) {
-      if (spec.retry && attempt < MAX_RETRIES) {
-        await sleep(1000 * (attempt + 1));
-        continue;
-      }
-      const aborted = err instanceof Error && err.name === 'AbortError';
-      throw new Error(aborted
-        ? 'intervals.icu did not respond in time. Check your connection and try again.'
-        : 'Could not reach intervals.icu. Check your internet connection.');
-    } finally {
-      if (timer) clearTimeout(timer);
-    }
-
-    if (res.status === 401 || res.status === 403) throw new IntervalsAuthError();
-    const retryable = res.status === 429 || (spec.retry && res.status >= 500);
-    if (retryable && attempt < MAX_RETRIES) {
-      const retryAfter = Number(res.headers.get('Retry-After'));
-      const waitSec = Number.isFinite(retryAfter) && retryAfter > 0 ? Math.min(retryAfter, 30) : 2 * (attempt + 1);
-      await sleep(waitSec * 1000);
-      continue;
-    }
-    if (res.status === 429) {
-      throw new IntervalsHttpError(429, 'intervals.icu rate limit reached. Please try again in a few minutes.');
-    }
-    if (res.status === 404) {
-      throw new IntervalsHttpError(404, 'intervals.icu could not find that athlete or activity. Check the athlete ID in Settings.');
-    }
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new IntervalsHttpError(res.status, `intervals.icu error ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`);
-    }
-    // Some endpoints (e.g. the map of an indoor activity) answer 200 with an empty body.
-    const body = await res.text();
-    if (!body) return null as T;
-    try {
-      return JSON.parse(body) as T;
-    } catch {
-      throw new IntervalsHttpError(res.status, 'intervals.icu returned an unexpected response.');
-    }
+    if (spec.signal?.aborted) throw new IntervalsAbortError();
+    const outcome = await attemptRequest<T>(`${INTERVALS_API}${path}`, init, c, spec, attempt);
+    if (outcome.kind === 'done') return outcome.value;
+    await sleep(outcome.waitMs, spec.signal);
   }
 }
 
-/** Authenticated GET with timeout, retry on network errors / 5xx, and 429 back-off. */
-export async function fetchIntervals<T>(path: string, creds?: IntervalsCredentials | null): Promise<T> {
-  return requestIntervals<T>(path, creds, { method: 'GET', retry: true });
+/**
+ * Authenticated GET with timeout, retry on network errors / 5xx, and 429 back-off.
+ * `opts.signal` cancels the request (IntervalsAbortError).
+ */
+export async function fetchIntervals<T>(
+  path: string,
+  creds?: IntervalsCredentials | null,
+  opts: { signal?: AbortSignal } = {},
+): Promise<T> {
+  return requestIntervals<T>(path, creds, { method: 'GET', retry: true, signal: opts.signal });
 }
 
 /**
@@ -332,6 +446,48 @@ export interface ListIntervalsParams {
   /** Local date (YYYY-MM-DD), inclusive. The server defaults to today. */
   newest?: string;
   limit?: number;
+  /** Cancels the request (IntervalsAbortError). */
+  signal?: AbortSignal;
+}
+
+/** Result of {@link listIntervalsActivitiesDetailed}. */
+export interface IntervalsActivityList {
+  /** Activities Apollo can use, mapped to its model. */
+  activities: Activity[];
+  /** Rows the API returned, including ones Apollo skips (e.g. Strava-origin). */
+  rawCount: number;
+  /**
+   * IDs of every row the API returned (as `source_id` strings), or null when
+   * the response wasn't a list — then nothing can be concluded about deletions.
+   */
+  rawIds: string[] | null;
+}
+
+/**
+ * Every activity (all sports) in a local-date window, plus what the API
+ * actually returned: the raw row count (an "empty year" means 0 rows, not 0
+ * usable rows) and every row ID (remote-deletion reconcile).
+ */
+export async function listIntervalsActivitiesDetailed(
+  params: ListIntervalsParams,
+  creds?: IntervalsCredentials | null,
+): Promise<IntervalsActivityList> {
+  const c = requireCredentials(creds);
+  const qs = new URLSearchParams({ oldest: params.oldest, fields: LIST_FIELDS });
+  if (params.newest) qs.set('newest', params.newest);
+  if (params.limit) qs.set('limit', String(params.limit));
+  const raw = await fetchIntervals<IcuActivity[] | null>(`/athlete/${athletePath(c)}/activities?${qs}`, c, {
+    signal: params.signal,
+  });
+  if (!Array.isArray(raw)) return { activities: [], rawCount: 0, rawIds: null };
+  const activities: Activity[] = [];
+  const rawIds: string[] = [];
+  for (const r of raw) {
+    if (r && r.id != null) rawIds.push(String(r.id));
+    const a = mapIntervalsActivity(r);
+    if (a) activities.push(a);
+  }
+  return { activities, rawCount: raw.length, rawIds };
 }
 
 /** Every activity (all sports) in a local-date window, mapped to Apollo's model. */
@@ -339,18 +495,7 @@ export async function listIntervalsActivities(
   params: ListIntervalsParams,
   creds?: IntervalsCredentials | null,
 ): Promise<Activity[]> {
-  const c = requireCredentials(creds);
-  const qs = new URLSearchParams({ oldest: params.oldest, fields: LIST_FIELDS });
-  if (params.newest) qs.set('newest', params.newest);
-  if (params.limit) qs.set('limit', String(params.limit));
-  const raw = await fetchIntervals<IcuActivity[] | null>(`/athlete/${athletePath(c)}/activities?${qs}`, c);
-  if (!Array.isArray(raw)) return [];
-  const out: Activity[] = [];
-  for (const r of raw) {
-    const a = mapIntervalsActivity(r);
-    if (a) out.push(a);
-  }
-  return out;
+  return (await listIntervalsActivitiesDetailed(params, creds)).activities;
 }
 
 interface IcuAthlete {
@@ -390,11 +535,22 @@ export interface IntervalsRoute {
   end: LatLngPair | null;
 }
 
-/** GPS route of an activity. Indoor / GPS-less activities return empty polylines. */
-export async function getIntervalsRoute(sourceId: string, creds?: IntervalsCredentials | null): Promise<IntervalsRoute> {
+/**
+ * GPS route of an activity. Indoor / GPS-less activities return empty polylines.
+ * `opts.signal` cancels the request (IntervalsAbortError).
+ */
+export async function getIntervalsRoute(
+  sourceId: string,
+  creds?: IntervalsCredentials | null,
+  opts: { signal?: AbortSignal } = {},
+): Promise<IntervalsRoute> {
   let latlngs: LatLngPair[] = [];
   try {
-    const raw = await fetchIntervals<{ latlngs?: unknown } | null>(`/activity/${encodeURIComponent(sourceId)}/map`, creds);
+    const raw = await fetchIntervals<{ latlngs?: unknown } | null>(
+      `/activity/${encodeURIComponent(sourceId)}/map`,
+      creds,
+      { signal: opts.signal },
+    );
     latlngs = cleanLatLngs(raw?.latlngs);
   } catch (err) {
     // No map for this activity is "no GPS", not a failure.

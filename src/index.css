@@ -36,6 +36,42 @@ input, select, textarea {
   font: inherit;
 }
 
+/* Visible form-control boundaries (WCAG 1.4.11). !important so it also wins over
+   the many inline `border: 1px solid var(--border)` styles in older pages;
+   :where() keeps specificity at zero so :focus / [aria-invalid] still override it. */
+:where(input:not([type='checkbox'], [type='radio'], [type='range'], [type='file'], [type='color'])),
+:where(select, textarea) {
+  border-color: var(--border-input) !important;
+}
+
+input[type='checkbox'],
+input[type='radio'] {
+  accent-color: var(--apollo-gold);
+}
+
+input[aria-invalid='true'],
+select[aria-invalid='true'],
+textarea[aria-invalid='true'] {
+  border-color: var(--color-error) !important;
+}
+
+/* ── Keyboard focus ring (one rule for every focusable element) ── */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 1px;
+}
+
+/* Programmatic focus targets (page headings focused on navigation, main) */
+[tabindex='-1']:focus:not(:focus-visible) {
+  outline: none;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-display);
   letter-spacing: -0.01em;
@@ -303,9 +339,7 @@ h1, h2, h3, h4, h5, h6 {
   transition: border-color var(--transition-fast);
 }
 .start-date-input:focus {
-  outline: none;
   border-color: var(--apollo-gold);
-  box-shadow: 0 0 0 3px var(--apollo-gold-dim);
 }
 
 .custom-builder-grid {
@@ -314,11 +348,9 @@ h1, h2, h3, h4, h5, h6 {
   gap: 0.85rem;
 }
 
-/* ── Global input focus styles ── */
+/* ── Global input focus styles ── (the visible ring comes from :focus-visible above) */
 input:focus, select:focus, textarea:focus {
-  outline: none;
   border-color: var(--apollo-gold) !important;
-  box-shadow: 0 0 0 3px var(--apollo-gold-dim);
 }
 
 select {
@@ -326,13 +358,13 @@ select {
   cursor: pointer;
 }
 
-/* Smooth card entrance animation */
+/* Card entrance animation — opt-in with .card--animate (one .card definition lives in App.css) */
 @keyframes cardFadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
-.card {
+.card--animate {
   animation: cardFadeIn 0.3s ease;
 }
 
@@ -731,31 +763,112 @@ select {
     height: 80px;
   }
 }
-@media (max-width: 768px) {
-  .app {
-    flex-direction: column;
+/* Navigation responsive rules (icon rail, bottom tab bar) live in App.css. */
+
+/* ── Reduced motion: honour the OS setting everywhere ──
+   !important also overrides inline `animation:` styles (e.g. spinners). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
-  .nav {
-    width: 100%;
-    flex-direction: row;
-    flex-wrap: wrap;
-    padding: 0.75rem 1rem;
-    gap: 0.25rem;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-  .nav-brand {
-    padding: 0;
-    border-bottom: none;
-    margin-bottom: 0;
-    margin-right: auto;
-  }
-  .nav a {
-    padding: 0.4rem 0.75rem;
-    margin: 0;
-    font-size: 0.82rem;
-  }
-  .main {
-    padding: 1.25rem;
-  }
+}
+
+/* ── Boot loading screen (rendered by main.tsx before the app) ── */
+.loading-screen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  background: var(--bg);
+  color: var(--text-secondary);
+  text-align: center;
+  /* A fast boot (< 150 ms) never shows it. */
+  opacity: 0;
+  animation: fadeIn 0.3s ease 0.15s forwards;
+}
+
+.loading-screen-mark {
+  position: relative;
+  width: 144px;
+  height: 144px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loading-screen-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--apollo-gold);
+  animation: spin 1.2s linear infinite;
+}
+
+.loading-screen-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.loading-screen-name {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: var(--weight-extrabold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--apollo-gold);
+}
+
+.loading-screen-message {
+  margin: 0;
+  font-size: var(--text-sm);
+}
+
+/* ── Inline error card (ErrorBoundary variant="inline") ── */
+.error-inline {
+  border-color: var(--color-error);
+  border-left-width: 4px;
+}
+
+.error-inline-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  color: var(--color-error-text);
+}
+
+.error-inline-text {
+  margin: 0 0 1rem;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+/* ── Not found ── */
+.not-found {
+  max-width: 36rem;
+}
+
+.not-found .btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  text-decoration: none;
+}
+
+/* Links styled as buttons keep the button look (no underline). */
+a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
 }

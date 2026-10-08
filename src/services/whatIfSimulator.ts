@@ -54,7 +54,10 @@ export interface WhatIfResult {
 
 // ── Scenario Builders ─────────────────────────────────────────────────────────
 
-/** Build common what-if scenarios for the UI */
+/**
+ * Build common what-if scenarios for the UI. Weight-change scenarios are not
+ * offered by default (A-05); `simulateWhatIf` still accepts 'weight_change'.
+ */
 export function getAvailableScenarios(): WhatIfScenario[] {
   return [
     { type: 'increase_mileage', label: 'Increase weekly mileage by 10%', description: 'Add 10% to current weekly volume', value: 10 },
@@ -64,8 +67,6 @@ export function getAvailableScenarios(): WhatIfScenario[] {
     { type: 'skip_days', label: 'Skip the next 14 days', description: 'Miss two full weeks of training', value: 14 },
     { type: 'add_long_run', label: 'Add 1 extra long run per month', description: 'One additional 20+ mile run monthly', value: 1 },
     { type: 'marathon_pace_long_runs', label: 'Run long runs at marathon pace', description: 'Convert easy long runs to MP long runs', value: 1 },
-    { type: 'weight_change', label: 'Lose 5 pounds', description: 'Reduce body weight by 5 lbs', value: -5 },
-    { type: 'weight_change', label: 'Gain 5 pounds', description: 'Increase body weight by 5 lbs', value: 5 },
     { type: 'add_tempo_runs', label: 'Add 1 extra tempo run per week', description: 'One additional threshold session weekly', value: 1 },
   ];
 }

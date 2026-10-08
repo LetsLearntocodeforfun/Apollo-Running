@@ -12,6 +12,18 @@
  *   - Forward projection based on planned training
  *   - Zone classification and readiness scoring
  *
+ * v1.0.6:
+ *   - Day iteration uses local date keys (DST-safe, V14) and the series is
+ *     padded with rest days up to today (V16).
+ *   - Load precedence: source `training_load` → HR-based (hrTSS) → heuristic (S6).
+ *   - Word-boundary workout classification ("trace" is not a race, "15k" is not a 5K).
+ *   - Peak week is a rolling 7-calendar-day window (V20).
+ *   - The projection can follow planned daily load (plan → race day).
+ *
+ * Zone wording vs intervals.icu: Apollo calls TSB < −20 "overreaching" and
+ * +15…+25 the race window; intervals.icu calls −10…−30 "optimal" and < −30
+ * "high risk". Same numbers, different emphasis (see TSB_ZONE_NOTE).
+ *
  * References:
  * - Banister, E.W. (1991) "Modeling Elite Athletic Performance"
  * - Coggan, A. "Training Peaks TSS Model"
@@ -28,6 +40,8 @@ import {
   type FitnessFatigueSnapshot,
 } from './taperOptimizer';
 import { persistence } from './db/persistence';
+import { addDays, daysBetween, todayKey, dateKeyFromLocalIso, isDateKey } from '../utils/localDate';
+import { formatMiles } from './unitPreferences';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -55,6 +69,8 @@ export interface PMCProjection {
   atl: number;
   tsb: number;
   zone: TSBZone;
+  /** Daily TSS assumed for this projected day. */
+  dailyTSS?: number;
 }
 
 export interface PMCResult {
@@ -75,6 +91,28 @@ export interface PMCResult {
   } | null;
   /** Summary insights */
   insights: string[];
+  /** Calendar days of history behind the current values (0 when empty). */
+  historyDays?: number;
+  /** What drove the projection: the plan, the recent average, or nothing. */
+  projectionSource?: 'plan' | 'recent-average' | 'none';
+}
+
+/** Planned (or assumed) training stress for one future day. */
+export interface PlannedDailyLoad {
+  date: string;
+  tss: number;
+}
+
+/** Options for {@link buildPMC}. All optional. */
+export interface PMCOptions {
+  /** Local date key treated as today (default: the real today). History is padded with rest days up to it. */
+  today?: string;
+  /** Count rides, swims, strength etc. using their source-reported or estimated load (default false). */
+  includeCrossTraining?: boolean;
+  /** Max HR for the HR-based load fallback. Omit or null to skip HR-based load. */
+  maxHR?: number | null;
+  /** Planned TSS per future day. When given, the projection follows it instead of the recent average. */
+  plannedLoads?: PlannedDailyLoad[];
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -87,6 +125,13 @@ const TSB_PRODUCTIVE_MAX = 0;
 const TSB_FRESH_MAX = 15;
 const TSB_PEAK_MAX = 25;
 const TSB_DETRAINED = 30;
+
+/** Race-day TSB window (+15…+25). */
+export const RACE_WINDOW_TSB: readonly [number, number] = [TSB_FRESH_MAX, TSB_PEAK_MAX];
+
+/** One-line note shown next to the chart legend. */
+export const TSB_ZONE_NOTE =
+  'Zones differ from intervals.icu: Apollo flags overreaching below −20 (intervals.icu: high risk below −30, optimal −10 to −30) and treats +15 to +25 as the race window.';
 
 // ── Zone Classification ──────────────────────────────────────────────────────
 
@@ -134,54 +179,119 @@ export function getZoneLabel(zone: TSBZone): string {
 
 // ── Activity to TSS Conversion ───────────────────────────────────────────────
 
+const RACE_RE = /\b(race|parkrun|half[- ]?marathon|marathon(?!\s*pace)|(5|10)\s?k)\b/i;
+const NOT_A_RACE_RE = /\b(easy|recovery|shake ?out|warm ?up|cool ?down|training|workout|pace run)\b/i;
+const TEMPO_RE = /\b(tempo|threshold|lt|cruise)\b/i;
+const INTERVAL_RE = /\b(intervals?|speed|repeats?|reps?|fartlek|track|vo2(max)?)\b|\b\d+\s?x\s?\d+/i;
+const LONG_RE = /\blong( run)?\b/i;
+const EASY_RE = /\b(recovery|shake ?out|easy|jog)\b/i;
+
+/** Optional athlete context for pace-based classification. */
+export interface WorkoutClassifyContext {
+  /** The athlete's typical (median) run pace in min/mi. Enables a relative tempo rule. */
+  typicalPaceMinPerMi?: number;
+}
+
 /**
- * Classify workout type from a Strava activity.
+ * Classify workout type from an activity name, distance and pace.
+ * Name keywords use word boundaries ("trace" is not a race, "15k" is not a 5K).
+ * With `ctx.typicalPaceMinPerMi` the pace rule is relative to the athlete
+ * (≥ 10 % faster than typical = tempo) instead of the absolute sub-7:00/mi rule.
  */
-export function classifyWorkoutType(activity: StravaActivity): DailyTrainingLoad['type'] {
-  const name = (activity.name ?? '').toLowerCase();
+export function classifyWorkoutType(
+  activity: StravaActivity,
+  ctx: WorkoutClassifyContext = {},
+): DailyTrainingLoad['type'] {
+  const name = activity.name ?? '';
   const distance = activity.distance / 1609.34; // meters to miles
 
   // Check name for clues
-  if (name.includes('race') || name.includes('marathon') || name.includes('5k') || name.includes('10k')) {
+  const workoutType = (activity as unknown as { workout_type?: number }).workout_type;
+  if (workoutType === 1 || (RACE_RE.test(name) && !NOT_A_RACE_RE.test(name))) {
     return 'race';
   }
-  if (name.includes('tempo') || name.includes('threshold')) return 'tempo';
-  if (name.includes('interval') || name.includes('speed') || name.includes('repeat') || name.includes('fartlek')) {
-    return 'interval';
-  }
-  if (name.includes('long run') || distance >= 13) return 'long_run';
-  if (name.includes('recovery') || name.includes('shake') || distance < 3) return 'easy';
+  if (TEMPO_RE.test(name)) return 'tempo';
+  if (INTERVAL_RE.test(name)) return 'interval';
+  if (LONG_RE.test(name) || distance >= 13) return 'long_run';
+  if (EASY_RE.test(name) || distance < 3) return 'easy';
 
   // Classify by pace if HR not available
   if (activity.average_speed && activity.average_speed > 0) {
     const paceMinPerMi = 26.8224 / activity.average_speed; // m/s to min/mi
-    if (paceMinPerMi < 7) return 'tempo';  // sub-7 pace suggests quality
+    const typical = ctx.typicalPaceMinPerMi;
+    if (typical && typical > 0) {
+      if (paceMinPerMi < typical * 0.9) return 'tempo';
+    } else if (paceMinPerMi < 7) {
+      return 'tempo';  // sub-7 pace suggests quality (no athlete context)
+    }
     if (distance >= 10) return 'long_run';
   }
 
   return 'easy';
 }
 
+/** hrTSS ≈ hours × IF² × 100, with threshold HR ≈ 89 % of max HR (IF capped at 1.15). */
+function hrTSS(movingTimeSec: number, avgHR: number, maxHR: number): number {
+  const hours = movingTimeSec / 3600;
+  const intensity = Math.min(1.15, avgHR / (maxHR * 0.89));
+  return Math.round(hours * intensity * intensity * 100);
+}
+
+/**
+ * Training stress for one activity. Precedence (S6):
+ *  1. `training_load` reported by the source (intervals.icu, FIT files)
+ *  2. HR-based load (needs average HR and a known max HR)
+ *  3. Heuristic from distance, duration and workout type (runs) or the
+ *     sport's per-hour estimate (cross-training)
+ */
+export function activityTSS(
+  a: StravaActivity,
+  maxHR?: number | null,
+  ctx: WorkoutClassifyContext = {},
+): number {
+  if (typeof a.training_load === 'number' && a.training_load > 0) return a.training_load;
+  if (!isRunActivity(a)) return estimateActivityLoad(a, maxHR ?? undefined);
+  const moving = a.moving_time || a.elapsed_time || 0;
+  if (maxHR && maxHR > 0 && a.average_heartrate && a.average_heartrate > 0 && moving > 0) {
+    return hrTSS(moving, a.average_heartrate, maxHR);
+  }
+  return estimateTSS(a.distance / 1609.34, moving / 60, classifyWorkoutType(a, ctx));
+}
+
+/** Median pace (min/mi) of runs of at least 2 miles, or undefined. */
+function typicalRunPace(runs: StravaActivity[]): number | undefined {
+  const paces = runs
+    .filter((a) => a.distance >= 3218 && a.moving_time > 0)
+    .map((a) => (a.moving_time / 60) / (a.distance / 1609.34))
+    .filter((p) => p > 3 && p < 20)
+    .sort((x, y) => x - y);
+  if (paces.length < 5) return undefined;
+  return paces[Math.floor(paces.length / 2)];
+}
+
 /**
  * Convert activities to daily training loads for CTL/ATL/TSB calculation.
  * Runs only by default; pass `includeCrossTraining` to add rides, swims,
  * strength etc. using their source-reported (or estimated) training load.
+ * Hidden activities are ignored.
  */
 export function activitiesToDailyLoads(
   activities: StravaActivity[],
-  options: { includeCrossTraining?: boolean } = {},
+  options: { includeCrossTraining?: boolean; maxHR?: number | null } = {},
 ): DailyTrainingLoad[] {
-  const runs = activities.filter(isRunActivity);
+  const visible = activities.filter((a) => !a.hidden);
+  const runs = visible.filter(isRunActivity);
+  const ctx: WorkoutClassifyContext = { typicalPaceMinPerMi: typicalRunPace(runs) };
 
   // Group by date (sum TSS for multi-run days)
   const dayMap = new Map<string, DailyTrainingLoad>();
 
   for (const a of runs) {
-    const date = a.start_date_local.slice(0, 10);
+    const date = dateKeyFromLocalIso(a.start_date_local);
+    if (!date) continue;
     const distanceMi = a.distance / 1609.34;
-    const durationMin = a.moving_time / 60;
-    const type = classifyWorkoutType(a);
-    const tss = estimateTSS(distanceMi, durationMin, type);
+    const type = classifyWorkoutType(a, ctx);
+    const tss = activityTSS(a, options.maxHR, ctx);
 
     const existing = dayMap.get(date);
     if (existing) {
@@ -198,11 +308,12 @@ export function activitiesToDailyLoads(
   }
 
   if (options.includeCrossTraining) {
-    for (const a of activities) {
+    for (const a of visible) {
       if (isRunActivity(a)) continue;
-      const tss = estimateActivityLoad(a);
+      const tss = activityTSS(a, options.maxHR);
       if (tss <= 0) continue;
-      const date = a.start_date_local.slice(0, 10);
+      const date = dateKeyFromLocalIso(a.start_date_local);
+      if (!date) continue;
       const existing = dayMap.get(date);
       if (existing) existing.tss += tss;
       else dayMap.set(date, { date, tss, distanceMi: 0, type: 'easy' });
@@ -225,34 +336,41 @@ export function generateAnnotations(loads: DailyTrainingLoad[]): PMCAnnotation[]
     if (load.distanceMi >= 16) {
       annotations.push({
         date: load.date,
-        label: `${Math.round(load.distanceMi)} mi long run`,
+        label: `${formatMiles(load.distanceMi, 0)} long run`,
         type: 'long_run',
       });
     }
     if (load.type === 'race') {
       annotations.push({
         date: load.date,
-        label: `Race: ${Math.round(load.distanceMi)} mi`,
+        label: `Race: ${formatMiles(load.distanceMi, 1)}`,
         type: 'race',
       });
     }
   }
 
-  // Find peak mileage week
-  if (loads.length >= 7) {
+  // Find the peak week: the most distance in any rolling 7-calendar-day window (V20).
+  const sorted = loads.filter((l) => isDateKey(l.date)).sort((a, b) => a.date.localeCompare(b.date));
+  if (sorted.length > 0) {
     let maxWeekMiles = 0;
     let peakDate = '';
-    for (let i = 6; i < loads.length; i++) {
-      const weekMiles = loads.slice(i - 6, i + 1).reduce((s, l) => s + l.distanceMi, 0);
-      if (weekMiles > maxWeekMiles) {
-        maxWeekMiles = weekMiles;
-        peakDate = loads[i].date;
+    let windowMiles = 0;
+    let lo = 0;
+    for (let hi = 0; hi < sorted.length; hi++) {
+      windowMiles += sorted[hi].distanceMi;
+      while (daysBetween(sorted[lo].date, sorted[hi].date) > 6) {
+        windowMiles -= sorted[lo].distanceMi;
+        lo++;
+      }
+      if (windowMiles > maxWeekMiles + 1e-9) {
+        maxWeekMiles = windowMiles;
+        peakDate = sorted[hi].date;
       }
     }
-    if (peakDate) {
+    if (peakDate && maxWeekMiles > 0 && daysBetween(sorted[0].date, sorted[sorted.length - 1].date) >= 6) {
       annotations.push({
         date: peakDate,
-        label: `Peak week: ${Math.round(maxWeekMiles)} mi`,
+        label: `Peak week: ${formatMiles(maxWeekMiles, 0)}`,
         type: 'peak_mileage',
       });
     }
@@ -274,25 +392,25 @@ const ATL_DECAY = 1 - Math.exp(-1 / ATL_DAYS);
  * @param current - Latest fitness/fatigue snapshot
  * @param avgDailyTSS - Expected average daily TSS going forward
  * @param days - Number of days to project
+ * @param planned - Optional planned TSS per date; days not listed use `avgDailyTSS`
  */
 export function projectForward(
   current: FitnessFatigueSnapshot,
   avgDailyTSS: number,
   days: number,
+  planned?: ReadonlyMap<string, number>,
 ): PMCProjection[] {
   const projections: PMCProjection[] = [];
   let ctl = current.ctl;
   let atl = current.atl;
-
-  const startDate = new Date(current.date);
+  if (!isDateKey(current.date)) return projections;
 
   for (let d = 1; d <= days; d++) {
-    const date = new Date(startDate);
-    date.setDate(date.getDate() + d);
-    const dateStr = date.toISOString().slice(0, 10);
+    const dateStr = addDays(current.date, d);
+    const tssToday = planned?.get(dateStr) ?? avgDailyTSS;
 
-    ctl = ctl + CTL_DECAY * (avgDailyTSS - ctl);
-    atl = atl + ATL_DECAY * (avgDailyTSS - atl);
+    ctl = ctl + CTL_DECAY * (tssToday - ctl);
+    atl = atl + ATL_DECAY * (tssToday - atl);
     const tsb = ctl - atl;
 
     projections.push({
@@ -301,6 +419,7 @@ export function projectForward(
       atl: Math.round(atl * 10) / 10,
       tsb: Math.round(tsb * 10) / 10,
       zone: classifyTSBZone(tsb),
+      dailyTSS: Math.round(tssToday),
     });
   }
 
@@ -341,12 +460,74 @@ export function tsbToReadinessScore(tsb: number, ctl: number): number {
   return Math.round(Math.max(0, Math.min(100, score)));
 }
 
-function readinessLabel(score: number): string {
+/** Text label for a readiness score. */
+export function readinessLabel(score: number): string {
   if (score >= 85) return 'Peak Race Readiness';
   if (score >= 70) return 'Fresh & Ready';
   if (score >= 50) return 'Productively Fatigued';
   if (score >= 30) return 'Accumulating Fatigue';
   return 'Overreached — Prioritize Recovery';
+}
+
+// ── Planned load ─────────────────────────────────────────────────────────────
+
+/** Minimal plan shape needed for a projection (matches data/plans TrainingPlan). */
+export interface PlanLike {
+  weeks: { days: { type: string; distanceMi?: number; note?: string; label?: string }[] }[];
+}
+
+/** Relative TSS per planned mile by workout kind (easy = 1). */
+function plannedKindFactor(day: { type: string; note?: string; label?: string }): number {
+  const text = `${day.note ?? ''} ${day.label ?? ''}`;
+  if (day.type === 'marathon' || day.type === 'race') return 1.5;
+  if (/\b(speed|interval|vo2|repeats?|track)\b|\d+\s?x\s?\d+/i.test(text)) return 1.35;
+  if (/\b(tempo|threshold|lt)\b/i.test(text)) return 1.25;
+  if (/\b(mp|marathon pace|pace)\b/i.test(text)) return 1.15;
+  if (/\blong\b/i.test(text)) return 1.05;
+  return 1;
+}
+
+/**
+ * Planned TSS per future day: planned miles × the athlete's TSS per mile
+ * (from the last 42 days of history) × a workout-kind factor. Cross days get
+ * a flat 30 TSS; rest days 0. Only dates in (`fromKey`, `toKey`] are returned.
+ */
+export function plannedDailyLoadsFromPlan(
+  plan: PlanLike,
+  startDate: string,
+  fromKey: string,
+  toKey: string,
+  tssPerMile: number,
+): PlannedDailyLoad[] {
+  if (!isDateKey(startDate) || !isDateKey(fromKey) || !isDateKey(toKey)) return [];
+  const out: PlannedDailyLoad[] = [];
+  plan.weeks.forEach((week, w) => {
+    week.days.forEach((day, d) => {
+      const date = addDays(startDate, w * 7 + d);
+      if (date <= fromKey || date > toKey) return;
+      let tss = 0;
+      if (day.type === 'cross') tss = 30;
+      else if (day.type !== 'rest') tss = (day.distanceMi ?? 0) * tssPerMile * plannedKindFactor(day);
+      out.push({ date, tss: Math.round(tss) });
+    });
+  });
+  return out.sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * The athlete's TSS per run mile over the 42 days before `today`
+ * (falls back to 6, a typical easy-run value).
+ */
+export function recentTssPerMile(loads: DailyTrainingLoad[], today: string = todayKey()): number {
+  const from = addDays(today, -42);
+  let tss = 0;
+  let miles = 0;
+  for (const l of loads) {
+    if (l.date <= from || l.date > today || l.distanceMi <= 0) continue;
+    tss += l.tss;
+    miles += l.distanceMi;
+  }
+  return miles >= 10 ? tss / miles : 6;
 }
 
 // ── Insights Generator ───────────────────────────────────────────────────────
@@ -403,17 +584,28 @@ function generateInsights(
 // ── Main PMC Builder ─────────────────────────────────────────────────────────
 
 /**
- * Build a complete PMC result from Strava activities.
+ * Build a complete PMC result from activities.
  *
- * @param activities - Strava activities (will be filtered to runs only)
- * @param projectionDays - Days to project forward (e.g., until race day)
+ * @param activities - Activities (runs only unless `options.includeCrossTraining`)
+ * @param projectionDays - Days to project forward from today (e.g., until race day)
+ * @param options - Today, cross-training, max HR and planned load (see {@link PMCOptions})
  */
 export function buildPMC(
   activities: StravaActivity[],
   projectionDays: number = 0,
+  options: PMCOptions = {},
 ): PMCResult {
-  const dailyLoads = activitiesToDailyLoads(activities);
-  const snapshots = calculateFitnessFatigue(dailyLoads);
+  const today = options.today && isDateKey(options.today) ? options.today : todayKey();
+  const dailyLoads = activitiesToDailyLoads(activities, {
+    includeCrossTraining: options.includeCrossTraining,
+    maxHR: options.maxHR,
+  }).filter((l) => l.date <= today);
+
+  // Pad with a zero-load day for today so "current" never goes stale (V16).
+  const padded = dailyLoads.length > 0 && dailyLoads[dailyLoads.length - 1].date < today
+    ? [...dailyLoads, { date: today, tss: 0, distanceMi: 0, type: 'rest' as const }]
+    : dailyLoads;
+  const snapshots = calculateFitnessFatigue(padded);
 
   // Build daily TSS lookup for data points
   const tssMap = new Map<string, number>();
@@ -453,19 +645,24 @@ export function buildPMC(
 
   // Forward projection
   let projection: PMCProjection[] = [];
+  let projectionSource: PMCResult['projectionSource'] = 'none';
   if (projectionDays > 0 && lastSnapshot) {
-    // Use recent average daily TSS (last 14 days) for projection
-    const recentLoads = dailyLoads.slice(-14);
-    const avgDailyTSS = recentLoads.length > 0
-      ? recentLoads.reduce((s, l) => s + l.tss, 0) / 14
-      : 0;
-    projection = projectForward(lastSnapshot, avgDailyTSS, projectionDays);
+    // Recent average daily TSS (last 14 calendar days) for days without a plan entry (S7 fallback).
+    const from = addDays(today, -14);
+    const recentTotal = dailyLoads.filter((l) => l.date > from).reduce((s, l) => s + l.tss, 0);
+    const avgDailyTSS = recentTotal / 14;
+    const planned = options.plannedLoads && options.plannedLoads.length > 0
+      ? new Map(options.plannedLoads.map((p) => [p.date, p.tss] as const))
+      : undefined;
+    projection = projectForward(lastSnapshot, avgDailyTSS, projectionDays, planned);
+    projectionSource = planned ? 'plan' : 'recent-average';
   }
 
   // Insights
   const insights = generateInsights(dataPoints, current);
+  const historyDays = dailyLoads.length > 0 ? daysBetween(dailyLoads[0].date, today) + 1 : 0;
 
-  return { dataPoints, annotations, projection, current, insights };
+  return { dataPoints, annotations, projection, current, insights, historyDays, projectionSource };
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────

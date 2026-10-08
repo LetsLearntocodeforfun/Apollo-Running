@@ -1,0 +1,288 @@
+/* ── Plan Builder (v1.0.6) ──────────────────────────────────────────────────────
+   Base layout classes (.plan-builder-*) live in index.css. This file adds the new pieces
+   (validation messages, long-run radio group, phase-coloured chart + legend) and:
+   - uses design-system tokens only (B7: no --success/--warning/--error, no off-palette hex);
+   - lifts small text to ≥ 0.75rem and touch targets to ≥ 32px.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Text ≥ 0.75rem (index.css uses 0.6–0.72rem for these) */
+.plan-builder .plan-builder-label,
+.plan-builder .plan-builder-day-select,
+.plan-builder .plan-builder-pace-title,
+.plan-builder .plan-builder-week-badge,
+.plan-builder .plan-builder-week-chevron {
+  font-size: var(--text-xs);
+}
+
+/* Touch targets ≥ 32px */
+.plan-builder .plan-builder-input,
+.plan-builder .plan-builder-slider,
+.plan-builder .plan-builder-day-select {
+  min-height: 32px;
+}
+
+.plan-builder .plan-builder-week-header {
+  min-height: 44px;
+}
+
+.plan-builder .plan-builder-input {
+  border-color: var(--border-input);
+}
+
+/* Hints and status text */
+.pb-hint {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.pb-hint--status:empty {
+  margin: 0;
+}
+
+.pb-status-ok {
+  color: var(--color-success);
+  font-weight: var(--weight-medium);
+}
+
+.pb-status-error {
+  color: var(--color-error-text);
+  font-weight: var(--weight-medium);
+}
+
+.pb-summary-sep {
+  color: var(--text-muted);
+}
+
+/* Inline validation (role="alert"); stays in the DOM while empty so new reasons are announced */
+.pb-issues:not(:empty) {
+  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-error-dim);
+  color: var(--text);
+  font-size: var(--text-sm);
+}
+
+.pb-issues ul {
+  margin: 0;
+  padding-left: var(--space-4);
+}
+
+/* Workout-type colours (design tokens; tempo matches CalendarView) */
+.pb-type-rest { --pb-type-color: var(--text-muted); }
+.pb-type-easy { --pb-type-color: var(--color-success); }
+.pb-type-long { --pb-type-color: var(--apollo-gold); }
+.pb-type-tempo { --pb-type-color: var(--apollo-orange); }
+.pb-type-speed { --pb-type-color: var(--color-error); }
+.pb-type-marathon_pace { --pb-type-color: var(--apollo-teal); }
+.pb-type-medium_long { --pb-type-color: var(--apollo-gold-light); }
+.pb-type-cross { --pb-type-color: var(--text-secondary); }
+
+.plan-builder-day-card .plan-builder-day-select {
+  border-color: var(--pb-type-color, var(--border-input));
+}
+
+.plan-builder-day-card .plan-builder-day-indicator {
+  background: var(--pb-type-color, var(--text-muted));
+}
+
+.pb-day-long {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 32px;
+  border: 2px solid var(--pb-type-color, var(--apollo-gold));
+  border-radius: var(--radius-sm);
+  color: var(--apollo-gold);
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+}
+
+/* Long-run radio group */
+.pb-longrun {
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.pb-longrun legend {
+  padding: 0 var(--space-1);
+}
+
+.pb-longrun-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.pb-longrun-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  min-width: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-full);
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.pb-longrun-option:has(input:checked) {
+  border-color: var(--apollo-gold);
+  background: var(--apollo-gold-dim);
+}
+
+.pb-longrun-option:focus-within {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.pb-longrun-option input {
+  margin: 0;
+  accent-color: var(--apollo-gold);
+}
+
+/* Phase colours (design tokens), shared by chart bars, legend swatches and week badges */
+.pb-phase--base { --pb-phase-color: var(--apollo-teal); }
+.pb-phase--build { --pb-phase-color: var(--color-success); }
+.pb-phase--peak { --pb-phase-color: var(--apollo-orange); }
+.pb-phase--taper { --pb-phase-color: var(--apollo-cream); }
+.pb-phase--race { --pb-phase-color: var(--apollo-gold); }
+
+/* Weekly distance chart: each week is a real button (≥ 32px wide, full column height) */
+.pb-chart {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: 140px;
+  margin-bottom: var(--space-2);
+  padding: var(--space-3);
+  overflow-x: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.pb-chart-bar-btn {
+  flex: 1 0 32px;
+  min-width: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 0 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.pb-chart-bar-btn:hover .pb-chart-bar {
+  opacity: 0.8;
+}
+
+.pb-chart-bar-btn:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.pb-chart-bar-btn[aria-expanded='true'] {
+  background: var(--bg-active);
+  color: var(--text);
+}
+
+.pb-chart-bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.pb-chart-bar {
+  display: block;
+  width: 100%;
+  max-width: 28px;
+  border-radius: 2px 2px 0 0;
+  background: var(--pb-phase-color, var(--accent));
+  transition: height var(--transition-base);
+}
+
+.pb-chart-bar-btn--cutback .pb-chart-bar {
+  opacity: 0.55;
+}
+
+.pb-chart-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xs);
+  line-height: 1;
+}
+
+/* Legend */
+.pb-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin: 0 0 var(--space-6);
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.pb-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.pb-legend-swatch {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: var(--pb-phase-color, var(--accent));
+}
+
+.pb-legend-swatch--cutback {
+  background: var(--text-secondary);
+  opacity: 0.55;
+}
+
+.pb-legend-name {
+  color: var(--text);
+}
+
+.pb-legend-weeks {
+  color: var(--text-muted);
+}
+
+/* Week badge coloured by phase (text always present) */
+.plan-builder .pb-phase-badge {
+  background: color-mix(in srgb, var(--pb-phase-color) 18%, transparent);
+  color: var(--pb-phase-color);
+}
+
+@media (max-width: 640px) {
+  .pb-chart {
+    height: 110px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pb-chart-bar {
+    transition: none;
+  }
+}

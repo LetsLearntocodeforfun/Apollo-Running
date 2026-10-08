@@ -8,7 +8,7 @@
 
 import type { ComplianceResult, WorkoutTarget } from '../types/workout';
 import { getWorkoutTarget } from './workoutTargets';
-import { getOrComputeTrainingPaces } from './paceCalculator';
+import { getCurrentTrainingPaces, getSavedTrainingPaces } from './paceCalculator';
 import { formatPaceFromMinPerMi } from './unitPreferences';
 import { persistence } from './db/persistence';
 
@@ -31,7 +31,8 @@ export function analyzeCompliance(
 ): ComplianceResult | null {
   if (!note || actualPaceMinPerMi <= 0) return null;
 
-  const paces = getOrComputeTrainingPaces();
+  // Read-only: current paces (deriveVdot), else the last saved ones.
+  const paces = getCurrentTrainingPaces() ?? getSavedTrainingPaces();
   if (!paces) return null;
 
   const target = getWorkoutTarget(note, paces.vdot, plannedDistanceMi);

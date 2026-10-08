@@ -4,12 +4,19 @@
  */
 
 import { persistence, isApolloKey, CREDENTIAL_KEYS } from './db/persistence';
+import { clearAllCredentials } from './storage';
+import { APP_VERSION } from '../version';
+
+/** Why data is being exported (recorded in the metadata; the content is the same). */
+export type ExportPurpose = 'backup' | 'export';
 
 export interface BackupMetadata {
   exportDate: string;
   appName: string;
   version: string;
   keyCount: number;
+  /** v1.0.6+: 'backup' (in-app backup) or 'export' (downloaded file). */
+  purpose?: ExportPurpose;
 }
 
 export interface BackupData {
@@ -17,20 +24,66 @@ export interface BackupData {
   data: Record<string, string>;
 }
 
+/** Prefix of the in-app backup keys (registry, config and payloads). */
+export const BACKUP_KEY_PREFIX = 'apollo_backup_';
+
 /**
- * Export all Apollo-related data from the persistence layer.
- * Includes all keys starting with 'apollo_' plus credential keys.
- *
- * @returns An object containing metadata and all exported data
+ * Device/session state that is neither exported nor removed by a restore:
+ * it describes this device (or this session), not the athlete's data.
  */
-export function exportAllData(): BackupData {
-  const data = persistence.toRecord();
+const DEVICE_STATE_KEYS = new Set([
+  'apollo_last_integrity_check',
+  'apollo_needs_reconnect',
+  'apollo_storage_persist_requested',
+]);
+
+/**
+ * True for keys never written to an export or backup (V1, V4):
+ * - credentials (API keys, OAuth tokens, client secrets),
+ * - in-app backups themselves (`apollo_backup_*`), which made every backup
+ *   embed all earlier ones,
+ * - derived caches (`*_cache`, rebuilt on demand),
+ * - device state (integrity-check time, needs-reconnect, persist request).
+ */
+export function isExcludedFromExport(key: string): boolean {
+  return CREDENTIAL_KEYS.has(key)
+    || key.startsWith(BACKUP_KEY_PREFIX)
+    || key.endsWith('_cache')
+    || DEVICE_STATE_KEYS.has(key);
+}
+
+/**
+ * True for keys a restore must keep even when the snapshot doesn't have them:
+ * the backups themselves, device state and credentials. Every other Apollo
+ * key missing from the snapshot is deleted so the restored state is exact.
+ */
+export function isPreservedOnRestore(key: string): boolean {
+  return CREDENTIAL_KEYS.has(key)
+    || key.startsWith(BACKUP_KEY_PREFIX)
+    || DEVICE_STATE_KEYS.has(key)
+    || !isApolloKey(key);
+}
+
+/**
+ * Export the athlete's Apollo data from the persistence layer: every
+ * `apollo_` key except those excluded by `isExcludedFromExport` (no
+ * credentials, no nested backups, no caches).
+ *
+ * @returns An object containing metadata and the exported data
+ */
+export function exportAllData(opts: { purpose?: ExportPurpose } = {}): BackupData {
+  const all = persistence.toRecord();
+  const data: Record<string, string> = {};
+  for (const key of Object.keys(all).sort()) {
+    if (isApolloKey(key) && !isExcludedFromExport(key)) data[key] = all[key];
+  }
 
   const metadata: BackupMetadata = {
     exportDate: new Date().toISOString(),
     appName: 'Apollo Running',
-    version: '1.0.2',
+    version: APP_VERSION,
     keyCount: Object.keys(data).length,
+    purpose: opts.purpose ?? 'export',
   };
 
   return { metadata, data };
@@ -99,6 +152,33 @@ export function importAllData(backup: unknown): boolean {
  */
 export function clearAllData(): void {
   persistence.clear();
+}
+
+/**
+ * "Delete all my data" (U6): remove every Apollo key and credential from this
+ * device — the in-memory cache, IndexedDB (including keys that never loaded),
+ * localStorage, and on desktop the encrypted credential store. Backups stored
+ * in the app are deleted too. Downloaded export files are not touched.
+ *
+ * Callers should confirm first (ConfirmDialog) and reload the app afterwards
+ * (`window.location.reload()`) so no module keeps stale in-memory state.
+ * Rejects if IndexedDB or the desktop credential store could not be cleared.
+ */
+export async function deleteAllLocalData(): Promise<void> {
+  const failedCredentials = await clearAllCredentials();
+  await persistence.clearAll();
+  // Sweep anything written to localStorage outside the persistence layer.
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (isApolloKey(key) || key.startsWith('__apollo_'))) doomed.push(key);
+    }
+    for (const key of doomed) localStorage.removeItem(key);
+  } catch { /* localStorage unavailable */ }
+  if (failedCredentials.length > 0) {
+    throw new Error(`Some saved credentials could not be removed from the desktop keychain store (${failedCredentials.join(', ')}). Try again, or disconnect the services in Settings.`);
+  }
 }
 
 /**

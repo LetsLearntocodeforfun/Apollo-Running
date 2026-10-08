@@ -8,6 +8,7 @@ import {
   getAvailableScenarios,
   simulateAllScenarios,
 } from '@/services/whatIfSimulator';
+import { vdotToMarathonSec } from '@/services/racePrediction';
 
 describe('simulateWhatIf', () => {
   it('should project time change for increasing mileage', () => {
@@ -83,6 +84,18 @@ describe('getAvailableScenarios', () => {
       expect(s.label).toBeTruthy();
       expect(typeof s.value).toBe('number');
     }
+  });
+
+  it('does not offer weight-change presets by default (A-05)', () => {
+    expect(getAvailableScenarios().some((s) => s.type === 'weight_change')).toBe(false);
+  });
+});
+
+describe('baseline (A-03)', () => {
+  it('uses the corrected Daniels–Gilbert marathon time (VDOT 50 → ~3:10:49, not ~7 h)', () => {
+    const result = simulateWhatIf({ type: 'increase_mileage', label: '', description: '', value: 10 }, 50, 40);
+    expect(result.baselineTimeSec).toBe(vdotToMarathonSec(50));
+    expect(Math.abs(result.baselineTimeSec - (3 * 3600 + 10 * 60 + 49))).toBeLessThanOrEqual(60);
   });
 });
 

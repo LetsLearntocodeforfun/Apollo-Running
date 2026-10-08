@@ -11,8 +11,47 @@ permissions:
   contents: write
 
 jobs:
+  # ─── Step 0: Refuse to release anything that doesn't type-check and pass tests ───
+  verify:
+    name: Verify (version, types, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Electron itself isn't launched here; electron-builder downloads its own copy later.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # The tag must match package.json, otherwise latest*.yml (auto-update)
+      # would advertise a different version than the tag/release.
+      - name: Check tag matches package.json version
+        run: |
+          PKG_VERSION="v$(node -p "require('./package.json').version")"
+          if [ "${GITHUB_REF_NAME}" != "${PKG_VERSION}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${PKG_VERSION}"
+            exit 1
+          fi
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Unit & component tests
+        run: npx vitest run
+
   # ─── Step 1: Build installers on each platform in parallel ───
   build:
+    needs: verify
     strategy:
       fail-fast: false
       matrix:

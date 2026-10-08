@@ -26,6 +26,12 @@ vi.mock('@/services/db/persistence', () => ({
     toRecord: () => Object.fromEntries(memoryStore),
     ready: Promise.resolve(),
     initialized: true,
+    // v1.0.6 additions (agent S): coalesced writes are synchronous in the mock.
+    flush: () => Promise.resolve(),
+    clearAll: () => { memoryStore.clear(); return Promise.resolve(); },
+    failedWrites: new Set<string>(),
+    blockedWrites: new Set<string>(),
+    retryFailedWrites: () => Promise.resolve(0),
   },
   CREDENTIAL_KEYS: new Set([
     'strava_tokens',
@@ -37,6 +43,8 @@ vi.mock('@/services/db/persistence', () => ({
   isApolloKey: (key: string) =>
     key.startsWith('apollo_') ||
     ['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials', 'intervals_credentials'].includes(key),
+  LOCAL_MIRROR_MAX_CHARS: 4_000_000,
+  DEGRADED_MAX_WRITE_CHARS: 256 * 1024,
 }));
 
 // ── Mock IndexedDB (Dexie) ────────────────────────────────────────────────────
@@ -49,6 +57,9 @@ vi.mock('@/services/db/apolloDB', () => ({
       put: () => Promise.resolve(),
       delete: () => Promise.resolve(),
       bulkDelete: () => Promise.resolve(),
+      // v1.0.6 additions (agent S)
+      get: () => Promise.resolve(undefined),
+      clear: () => Promise.resolve(),
     },
   },
 }));

@@ -1,0 +1,92 @@
+/* PlanCalendarExport — "Add your plan to your calendar" card (.ics download). */
+
+.plan-ics-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0 0 var(--space-2);
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--text);
+}
+
+.plan-ics-text {
+  margin: 0 0 var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.plan-ics-meta {
+  margin: 0 0 var(--space-3);
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.plan-ics-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: 0 0 var(--space-4);
+  padding: 0;
+  border: 0;
+}
+
+.plan-ics-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 32px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+}
+
+.plan-ics-option input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+}
+
+.plan-ics-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.plan-ics-actions .btn {
+  min-height: 36px;
+}
+
+.plan-ics-status {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  line-height: 1.5;
+}
+
+.plan-ics-status--success {
+  color: var(--color-success);
+  font-weight: var(--weight-semibold);
+}
+
+.plan-ics-status--error {
+  color: var(--color-error);
+}
+
+.plan-ics-hint {
+  margin: var(--space-3) 0 0;
+  color: var(--text-muted);
+  font-size: var(--text-xs);
+  line-height: 1.45;
+}
+
+.plan-ics-hint--push {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--apollo-teal);
+  border-radius: var(--radius-sm);
+  background: var(--apollo-teal-dim);
+  color: var(--text-secondary);
+}

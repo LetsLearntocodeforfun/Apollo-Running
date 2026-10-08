@@ -206,12 +206,13 @@ describe('syncActivities (intervals.icu)', () => {
     expect(state.newestActivityAt).toBe(icu(1, 1).start_date);
     expect(state.totalFetched).toBe(5);
 
-    // Second sync: one request covering newest activity − 7 days → tomorrow.
+    // Second sync: one request covering newest activity − 30 days → tomorrow
+    // (v1.0.6: was 7 days, which missed activities uploaded more than a week late).
     calls.length = 0;
     const second = await syncActivities();
     expect(second.full).toBe(false);
     expect(calls).toHaveLength(1);
-    expect(calls[0].searchParams.get('oldest')).toBe(localDate(daysAgo(8)));
+    expect(calls[0].searchParams.get('oldest')).toBe(localDate(daysAgo(31)));
     expect(calls[0].searchParams.get('newest')).toBe(localDate(daysAgo(-1)));
     expect(second.added).toBe(0);
     expect(second.updated).toBe(0);

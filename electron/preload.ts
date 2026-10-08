@@ -47,6 +47,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /** Send auto-update preferences to main process */
     configure: (prefs: { autoCheck: boolean; autoDownload: boolean }): Promise<UpdateState> =>
       ipcRenderer.invoke('updater:configure', prefs),
+    /** Open the GitHub releases page in the browser (manual updates on macOS). */
+    openDownloadPage: (): Promise<boolean> =>
+      ipcRenderer.invoke('updater:open-download-page'),
     /** Listen for update state changes from the main process */
     onStateChanged: (callback: (state: UpdateState) => void): (() => void) => {
       const handler = (_event: unknown, state: UpdateState) => callback(state);
@@ -63,4 +66,8 @@ interface UpdateState {
   releaseNotes: string | null;
   downloadProgress: number | null;
   error: string | null;
+  /** False on macOS (unsigned build): updates are manual downloads. */
+  canAutoInstall: boolean;
+  /** Releases page for manual updates (macOS), else null. */
+  manualDownloadUrl: string | null;
 }

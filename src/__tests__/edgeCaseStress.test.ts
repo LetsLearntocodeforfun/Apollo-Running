@@ -216,11 +216,11 @@ describe('Hydration Calculator — Edge Cases', () => {
 describe('Carb Loading — Edge Cases', () => {
   it('handles very light runner (40kg)', () => {
     expect(getDailyCarbTarget(40, 3)).toBe(320);  // 8 × 40
-    expect(getDailyCarbTarget(40, 1)).toBe(480);  // 12 × 40
+    expect(getDailyCarbTarget(40, 1)).toBe(400);  // 10 × 40 (v1.0.6 default, N-14)
   });
 
   it('handles very heavy runner (130kg)', () => {
-    expect(getDailyCarbTarget(130, 1)).toBe(1560); // 12 × 130
+    expect(getDailyCarbTarget(130, 1)).toBe(900); // 10 × 90 (v1.0.6: capped at 90 kg, N-14)
   });
 
   it('handles day 0 (race day) gracefully', () => {

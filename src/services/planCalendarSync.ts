@@ -31,15 +31,22 @@
  * athlete or another app created — and never touches past events.
  *
  * Auto mode (syncPlanCalendarIfChanged) keeps the next AUTO_PUSH_WEEKS weeks
- * current: they are re-sent when they change (plan edits, new VDOT paces,
- * unit switch) and at least once a day. A new plan instance (plan switched or
- * start date changed) triggers a full push of the remaining plan.
+ * current. A workout is re-sent only when its content changed since Apollo
+ * last sent it (plan edits, moves/skips, new VDOT paces, unit switch). The
+ * comparison uses a hash stored per external_id, so workouts the athlete edited
+ * or deleted in intervals.icu are left alone. The explicit "Send" (a full push)
+ * still overwrites everything. A new plan instance (plan switched or start date
+ * changed) triggers a full push of the remaining plan.
+ *
+ * v1.0.6: the source is the effective plan (`getEffectivePlan()`: the athlete's
+ * moves and skips plus adaptive changes, placed on the race date), and paces come
+ * from `resolvePlanTrainingPaces()`.
  */
 
-import { getPlanById, type PlanDay, type TrainingPlan } from '../data/plans';
+import { getWorkoutKind, type PlanDay, type PlanWorkoutKind, type TrainingPlan } from '../data/plans';
 import { getActivePlan, getDateForDay, formatDateKey } from './planProgress';
-import { calculateTrainingPaces, getSavedTrainingPaces, type TrainingPaces } from './paceCalculator';
-import { getSavedPrediction } from './racePrediction';
+import { getEffectivePlan } from './planOverlay';
+import { calculateTrainingPaces, getCurrentTrainingPaces, getSavedTrainingPaces, type TrainingPaces } from './paceCalculator';
 import { getWorkoutTarget } from './workoutTargets';
 import { getDistanceUnit, type DistanceUnit } from './unitPreferences';
 import { getIntervalsCredentials, type IntervalsCredentials } from './storage';
@@ -62,8 +69,6 @@ const METERS_PER_MILE = 1609.344;
 
 /** Auto mode keeps this many weeks ahead current on the intervals.icu calendar. */
 export const AUTO_PUSH_WEEKS = 4;
-/** Auto mode re-sends unchanged workouts after this long (repairs edits/deletions made in intervals.icu). */
-const AUTO_REFRESH_MS = 24 * 60 * 60 * 1000;
 /** Auto mode waits this long after a failed push before trying again. */
 const AUTO_ERROR_BACKOFF_MS = 30 * 60 * 1000;
 /** "Remove Apollo workouts" looks this far ahead for Apollo events on the calendar. */
@@ -79,7 +84,7 @@ const DEFAULT_JOG_SEC_PER_MI = 660;
 /** Tag on every Apollo event so athletes can filter them in intervals.icu. */
 const EVENT_TAGS = ['apollo'];
 
-const NOT_CONNECTED_MESSAGE = 'intervals.icu is not connected. Connect it in Settings → Data sources to send your plan.';
+const NOT_CONNECTED_MESSAGE = 'intervals.icu is not connected. Connect it in Settings → Connections to send your plan.';
 const NO_PLAN_MESSAGE = 'No active training plan. Choose a plan on the Training page first.';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -127,6 +132,18 @@ export interface PushResult {
   to: string;
 }
 
+/** What a push or auto check did, for the UI. */
+export type PlanPushStatus = 'pushed' | 'skipped-in-progress' | 'nothing-changed' | 'error';
+
+/** Outcome of `syncPlanCalendarIfChanged` when auto mode is active. */
+export interface PlanSyncOutcome {
+  status: PlanPushStatus;
+  /** The push result when `status` is 'pushed'; null otherwise. */
+  result: PushResult | null;
+  /** Failure message when `status` is 'error'. */
+  error?: string;
+}
+
 /** Persisted push state (persistence key `apollo_icu_plan_push`). */
 export interface PlanPushState {
   /** Keep the intervals.icu calendar updated automatically. */
@@ -139,6 +156,13 @@ export interface PlanPushState {
   planKey: string | null;
   /** external_ids Apollo wrote that are dated today or later (candidates for clean-up). */
   pushedIds: string[];
+  /**
+   * Content hash (`hashPlannedWorkout`) of each workout in `pushedIds` as Apollo
+   * last sent it. Auto mode re-sends a workout only when its hash changes.
+   */
+  pushedHashes: Record<string, string>;
+  /** Status of the last push or auto check ('skipped-in-progress' is never stored); null before the first. */
+  lastStatus: PlanPushStatus | null;
   /** Message of the last failed push/removal; cleared by the next success. */
   lastError: string | null;
   /** When the last failure happened (ISO). */
@@ -154,9 +178,8 @@ export interface PushOptions {
   onProgress?: (message: string) => void;
 }
 
-type WorkoutKind =
-  | 'easy' | 'recovery' | 'long' | 'medium_long' | 'tempo' | 'marathon_pace'
-  | 'strength' | 'speed' | 'race' | 'marathon' | 'cross';
+/** Workout kinds Apollo sends (rest days are never sent). */
+type WorkoutKind = Exclude<PlanWorkoutKind, 'rest'>;
 
 /** Absolute pace target in sec/mi (`fast` = lower bound, `slow` = upper bound). */
 interface PaceTarget {
@@ -326,23 +349,14 @@ function estimateSeconds(sections: Section[]): number {
 
 // ── Workout builder ───────────────────────────────────────────────────────────
 
-/** Canonical workout kind of a plan day (labels refine the coarse `note`). */
+/**
+ * Canonical workout kind of a plan day — the shared `getWorkoutKind` (labels
+ * refine the coarse `note`, e.g. Pfitzinger's "8 mi marathon pace" with note
+ * "Tempo"). Rest days are never sent; they map to 'easy' defensively.
+ */
 function classifyDay(day: PlanDay): WorkoutKind {
-  if (day.type === 'cross') return 'cross';
-  if (day.type === 'marathon') return 'marathon';
-  if (day.type === 'race') return 'race';
-  const note = (day.note ?? '').trim().toLowerCase();
-  const label = String(day.label || '').toLowerCase();
-  // e.g. Pfitzinger's "8 mi marathon pace" (note "Tempo") or the builder's "6 mi MP".
-  if (note === 'marathon pace' || /\bmarathon pace\b|\bmp\b/.test(label)) return 'marathon_pace';
-  if (note === 'race' || note === 'race day') return 'race';
-  if (note === 'tempo' || note === 'threshold') return 'tempo';
-  if (note === 'speed' || note === 'intervals') return 'speed';
-  if (note === 'strength') return 'strength';
-  if (note === 'medium long') return 'medium_long';
-  if (note === 'long') return 'long';
-  if (note === 'recovery' || /\brecovery\b/.test(label)) return 'recovery';
-  return 'easy';
+  const kind = getWorkoutKind(day);
+  return kind === 'rest' ? 'easy' : kind;
 }
 
 function around(secPerMi: number, tolerance: number): PaceTarget {
@@ -549,15 +563,24 @@ export function toIcuEvent(workout: PlannedWorkout): IcuEventInput {
   return event;
 }
 
-/** Stable fingerprint of exactly what would be sent (FNV-1a over the event JSON). */
-function hashWorkouts(workouts: PlannedWorkout[]): string {
-  const json = JSON.stringify(workouts.map(toIcuEvent));
+/** FNV-1a (32-bit) of a string, as 8 hex digits. */
+function fnv1a(text: string): string {
   let h = 0x811c9dc5;
-  for (let i = 0; i < json.length; i++) {
-    h ^= json.charCodeAt(i);
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
     h = Math.imul(h, 0x01000193);
   }
-  return `${workouts.length}-${(h >>> 0).toString(16).padStart(8, '0')}`;
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+/** Stable fingerprint of exactly what would be sent (FNV-1a over the event JSON). */
+function hashWorkouts(workouts: PlannedWorkout[]): string {
+  return `${workouts.length}-${fnv1a(JSON.stringify(workouts.map(toIcuEvent)))}`;
+}
+
+/** Content hash of one planned workout: FNV-1a over exactly the event Apollo sends for it. */
+export function hashPlannedWorkout(workout: PlannedWorkout): string {
+  return fnv1a(JSON.stringify(toIcuEvent(workout)));
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
@@ -567,7 +590,7 @@ const stateListeners = new Set<(state: PlanPushState) => void>();
 function emptyState(): PlanPushState {
   return {
     enabled: false, lastPushAt: null, lastHash: null, planKey: null,
-    pushedIds: [], lastError: null, lastErrorAt: null, lastResult: null,
+    pushedIds: [], pushedHashes: {}, lastStatus: null, lastError: null, lastErrorAt: null, lastResult: null,
   };
 }
 
@@ -583,6 +606,21 @@ function toPushResult(v: unknown): PushResult | null {
   return { upserted: r.upserted, deleted: r.deleted, from: r.from, to: r.to };
 }
 
+const PUSH_STATUSES: readonly PlanPushStatus[] = ['pushed', 'skipped-in-progress', 'nothing-changed', 'error'];
+
+function isPushStatus(v: unknown): v is PlanPushStatus {
+  return typeof v === 'string' && (PUSH_STATUSES as readonly string[]).includes(v);
+}
+
+function toHashMap(v: unknown): Record<string, string> {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return {};
+  const out: Record<string, string> = {};
+  for (const [id, hash] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof hash === 'string' && hash) out[id] = hash;
+  }
+  return out;
+}
+
 function readState(): PlanPushState {
   try {
     const raw = persistence.getItem(STATE_KEY);
@@ -594,6 +632,8 @@ function readState(): PlanPushState {
       lastHash: optString(p.lastHash),
       planKey: optString(p.planKey),
       pushedIds: Array.isArray(p.pushedIds) ? p.pushedIds.filter((id): id is string => typeof id === 'string') : [],
+      pushedHashes: toHashMap(p.pushedHashes),
+      lastStatus: isPushStatus(p.lastStatus) ? p.lastStatus : null,
       lastError: optString(p.lastError),
       lastErrorAt: optString(p.lastErrorAt),
       lastResult: toPushResult(p.lastResult),
@@ -632,42 +672,34 @@ export function onPlanPushStateChange(listener: (state: PlanPushState) => void):
 
 // ── Inputs ────────────────────────────────────────────────────────────────────
 
-function isTrainingPaces(p: TrainingPaces | null | undefined): p is TrainingPaces {
-  return !!p && typeof p.vdot === 'number' && !!p.easy
-    && typeof p.easy.min === 'number' && typeof p.easy.max === 'number'
-    && [p.marathon, p.threshold, p.interval].every((v) => typeof v === 'number' && v > 0);
-}
-
 /**
- * The athlete's VDOT paces: race-prediction VDOT first, then saved paces —
- * the same order as getOrComputeTrainingPaces, without its cache write
- * (auto mode checks often).
+ * The athlete's training paces for planned workouts: the current VDOT paces
+ * (`getCurrentTrainingPaces`: recent race → detected race → best effort →
+ * heart-rate estimate → goal time), else the validated saved paces. Pure — no
+ * cache write, since auto mode checks often. Null when Apollo doesn't know the
+ * athlete's paces. Saved race-prediction VDOTs are not used: before v1.0.6
+ * they could come from training runs.
  */
-function resolveTrainingPaces(): TrainingPaces | null {
-  const vdot = getSavedPrediction()?.vdot;
-  if (typeof vdot === 'number' && vdot > 0) {
-    const paces = calculateTrainingPaces(vdot);
-    if (paces) return paces;
-  }
-  const saved = getSavedTrainingPaces();
-  return isTrainingPaces(saved) ? saved : null;
+export function resolvePlanTrainingPaces(): TrainingPaces | null {
+  return getCurrentTrainingPaces() ?? getSavedTrainingPaces();
 }
 
 /** True when pushed workouts will carry pace targets (Apollo knows the athlete's VDOT). */
 export function hasPlanTargetPaces(): boolean {
-  return resolveTrainingPaces() !== null;
+  return resolvePlanTrainingPaces() !== null;
 }
 
+/** The active plan instance as the athlete will run it: the effective plan (overlay applied, placed on the race date). */
 function resolveActivePlan(): PlanContext | null {
   const active = getActivePlan();
   if (!active?.planId || !active.startDate) return null;
-  const plan = getPlanById(active.planId);
+  const plan = getEffectivePlan();
   if (!plan || !Array.isArray(plan.weeks)) return null;
   return { plan, startDate: active.startDate, planKey: `${plan.id}:${active.startDate}` };
 }
 
 function currentBuildOptions(from: string): BuildPlanWorkoutsOptions {
-  const paces = resolveTrainingPaces();
+  const paces = resolvePlanTrainingPaces();
   return { from, unit: getDistanceUnit(), paces, vdot: paces?.vdot ?? null };
 }
 
@@ -699,7 +731,7 @@ function coveredRange(ctx: PlanContext, today: string, windowEnd: string | null)
   return { from, to };
 }
 
-async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: PushOptions): Promise<PushResult> {
+async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: PushOptions, onlyChanged = false): Promise<PushResult> {
   const report = (message: string) => {
     try { opts.onProgress?.(message); } catch { /* UI errors must not break the push */ }
   };
@@ -707,13 +739,19 @@ async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: Push
   const all = buildPlanWorkouts(ctx.plan, ctx.startDate, currentBuildOptions(today));
   const weeks = normalizeWeeks(opts.weeks);
   const windowEnd = weeks !== null ? addDaysKey(today, weeks * 7 - 1) : null;
-  const toSend = windowEnd !== null ? all.filter((w) => w.date <= windowEnd) : all;
+  const inWindow = windowEnd !== null ? all.filter((w) => w.date <= windowEnd) : all;
+  const state = readState();
+  const hashes = new Map(inWindow.map((w) => [w.external_id, hashPlannedWorkout(w)]));
+  // Auto mode sends only what changed since Apollo last sent it, so workouts the
+  // athlete edited or deleted in intervals.icu stay as they are.
+  const toSend = onlyChanged ? inWindow.filter((w) => state.pushedHashes[w.external_id] !== hashes.get(w.external_id)) : inWindow;
   // Stale = Apollo workouts from today on that the remaining plan no longer has
   // (plan switched, start date moved, day became rest). Past events stay.
   const wanted = new Set(all.map((w) => w.external_id));
-  const known = readState().pushedIds.filter((id) => isUpcoming(id, today));
+  const known = state.pushedIds.filter((id) => isUpcoming(id, today));
   const stale = known.filter((id) => !wanted.has(id));
   const sentIds = toSend.map((w) => w.external_id);
+  const sent = new Set(sentIds);
 
   try {
     if (toSend.length > 0) {
@@ -727,21 +765,34 @@ async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: Push
     }
     const result: PushResult = { upserted: toSend.length, deleted, ...coveredRange(ctx, today, windowEnd) };
     const autoEnd = addDaysKey(today, AUTO_PUSH_WEEKS * 7 - 1);
+    const pushedIds = unique([...known.filter((id) => wanted.has(id)), ...sentIds]);
+    const pushedHashes: Record<string, string> = {};
+    for (const id of pushedIds) {
+      const hash = sent.has(id) ? hashes.get(id) : state.pushedHashes[id];
+      if (hash) pushedHashes[id] = hash;
+    }
     updateState({
       lastPushAt: new Date().toISOString(),
       // Only a push that covered the whole auto window may vouch for it.
       lastHash: weeks === null || weeks >= AUTO_PUSH_WEEKS ? hashWorkouts(all.filter((w) => w.date <= autoEnd)) : null,
       planKey: ctx.planKey,
-      pushedIds: unique([...known.filter((id) => wanted.has(id)), ...sentIds]),
+      pushedIds,
+      pushedHashes,
+      lastStatus: 'pushed',
       lastError: null,
       lastErrorAt: null,
       lastResult: result,
     });
     return result;
   } catch (err) {
+    // What reached the calendar is unknown: forget those hashes so the next auto run re-sends them.
+    const pushedHashes = { ...state.pushedHashes };
+    for (const id of sentIds) delete pushedHashes[id];
     updateState({
       // Remember every ID that may now exist on the calendar so a later push can clean up.
       pushedIds: unique([...known, ...sentIds]),
+      pushedHashes,
+      lastStatus: 'error',
       lastError: errorMessage(err),
       lastErrorAt: new Date().toISOString(),
     });
@@ -749,22 +800,29 @@ async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: Push
   }
 }
 
-/**
- * Send the active plan to the athlete's intervals.icu calendar: upserts every
- * workout from today to the end of the plan (or `opts.weeks` weeks) and
- * deletes Apollo workouts dated today or later that the plan no longer has.
- * Throws when intervals.icu isn't connected, no plan is active, or the API
- * fails (IntervalsAuthError for a rejected key); failures are also stored in
- * `lastError`.
- */
-export async function pushPlanToIntervals(opts: PushOptions = {}): Promise<PushResult> {
+/** Push the active plan (one write at a time); `onlyChanged` is auto mode's changed-only push. */
+function pushActivePlan(opts: PushOptions, onlyChanged: boolean): Promise<PushResult> {
   return exclusive(async () => {
     const creds = getIntervalsCredentials();
     if (!creds) throw new Error(NOT_CONNECTED_MESSAGE);
     const ctx = resolveActivePlan();
     if (!ctx) throw new Error(NO_PLAN_MESSAGE);
-    return runPush(ctx, creds, opts);
+    return runPush(ctx, creds, opts, onlyChanged);
   });
+}
+
+/**
+ * Send the active plan to the athlete's intervals.icu calendar: upserts every
+ * workout from today to the end of the plan (or `opts.weeks` weeks) and
+ * deletes Apollo workouts dated today or later that the plan no longer has.
+ * This is the explicit "Send" / re-push all: it overwrites Apollo workouts the
+ * athlete changed in intervals.icu.
+ * Throws when intervals.icu isn't connected, no plan is active, or the API
+ * fails (IntervalsAuthError for a rejected key); failures are also stored in
+ * `lastError`.
+ */
+export async function pushPlanToIntervals(opts: PushOptions = {}): Promise<PushResult> {
+  return pushActivePlan(opts, false);
 }
 
 /**
@@ -796,12 +854,12 @@ export async function removePlanFromIntervals(): Promise<number> {
       }
       const deleted = await deleteIntervalsEventsByExternalId([...ids], creds);
       updateState({
-        pushedIds: [], planKey: null, lastHash: null, lastPushAt: null,
-        lastResult: null, lastError: null, lastErrorAt: null,
+        pushedIds: [], pushedHashes: {}, planKey: null, lastHash: null, lastPushAt: null,
+        lastResult: null, lastStatus: null, lastError: null, lastErrorAt: null,
       });
       return deleted;
     } catch (err) {
-      updateState({ lastError: errorMessage(err), lastErrorAt: new Date().toISOString() });
+      updateState({ lastError: errorMessage(err), lastErrorAt: new Date().toISOString(), lastStatus: 'error' });
       throw err;
     }
   });
@@ -809,31 +867,58 @@ export async function removePlanFromIntervals(): Promise<number> {
 
 /**
  * Auto mode, safe to call often (after every activity sync, on launch, after
- * plan changes). No-op unless auto-update is on, intervals.icu is connected
- * and a plan is active. Pushes the next AUTO_PUSH_WEEKS weeks when they
- * differ from the last push or the last push is older than a day; a new plan
- * instance gets a full push. Backs off for 30 minutes after a failure. Never
- * throws — failures are stored in `lastError`. Returns the push result, or
- * null when nothing was sent.
+ * plan changes). No-op (null) unless auto-update is on, intervals.icu is
+ * connected and a plan is active, and while backing off for 30 minutes after a
+ * failure.
+ *
+ * Same plan instance: re-sends only the workouts in the next AUTO_PUSH_WEEKS
+ * weeks whose content changed since Apollo last sent them (hash per
+ * external_id), and deletes Apollo workouts the plan no longer has. Workouts
+ * the athlete edited or deleted in intervals.icu are left alone; the explicit
+ * "Send" (pushPlanToIntervals) still overwrites everything. A new plan
+ * instance gets a full push.
+ *
+ * Never throws — failures are stored in `lastError` and reported as
+ * `{ status: 'error' }`. Returns 'skipped-in-progress' while another push or
+ * removal runs, 'nothing-changed' when the calendar is current, and 'pushed'
+ * with the push result otherwise.
  */
-export async function syncPlanCalendarIfChanged(): Promise<PushResult | null> {
+export async function syncPlanCalendarIfChanged(): Promise<PlanSyncOutcome | null> {
   try {
     const state = readState();
-    if (!state.enabled || running > 0 || !getIntervalsCredentials()) return null;
+    if (!state.enabled || !getIntervalsCredentials()) return null;
     const ctx = resolveActivePlan();
     if (!ctx) return null;
-    const now = Date.now();
-    if (state.lastErrorAt && now - Date.parse(state.lastErrorAt) < AUTO_ERROR_BACKOFF_MS) return null;
-    const samePlan = state.planKey === ctx.planKey;
-    if (samePlan && state.lastHash && state.lastPushAt && now - Date.parse(state.lastPushAt) < AUTO_REFRESH_MS) {
-      const upcoming = buildPlanWorkouts(ctx.plan, ctx.startDate, { ...currentBuildOptions(todayKey()), weeks: AUTO_PUSH_WEEKS });
-      if (hashWorkouts(upcoming) === state.lastHash) return null;
+    if (state.lastErrorAt && Date.now() - Date.parse(state.lastErrorAt) < AUTO_ERROR_BACKOFF_MS) return null;
+    if (running > 0) return { status: 'skipped-in-progress', result: null };
+
+    if (state.planKey === ctx.planKey) {
+      const today = todayKey();
+      const all = buildPlanWorkouts(ctx.plan, ctx.startDate, currentBuildOptions(today));
+      const autoEnd = addDaysKey(today, AUTO_PUSH_WEEKS * 7 - 1);
+      const upcoming = all.filter((w) => w.date <= autoEnd);
+      let hashes = state.pushedHashes;
+      if (Object.keys(hashes).length === 0 && state.pushedIds.length > 0 && state.lastHash === hashWorkouts(upcoming)) {
+        // Pushed before v1.0.6 (no per-workout hashes) and unchanged since: adopt
+        // the window as sent rather than re-sending it over the athlete's edits.
+        hashes = Object.fromEntries(upcoming.map((w) => [w.external_id, hashPlannedWorkout(w)]));
+        updateState({ pushedHashes: hashes });
+      }
+      const wanted = new Set(all.map((w) => w.external_id));
+      const changed = upcoming.some((w) => hashes[w.external_id] !== hashPlannedWorkout(w));
+      const stale = state.pushedIds.some((id) => isUpcoming(id, today) && !wanted.has(id));
+      if (!changed && !stale) {
+        if (state.lastStatus !== 'nothing-changed') updateState({ lastStatus: 'nothing-changed' });
+        return { status: 'nothing-changed', result: null };
+      }
+      return { status: 'pushed', result: await pushActivePlan({ weeks: AUTO_PUSH_WEEKS }, true) };
     }
-    return await pushPlanToIntervals(samePlan ? { weeks: AUTO_PUSH_WEEKS } : {});
+    return { status: 'pushed', result: await pushActivePlan({}, false) };
   } catch (err) {
+    const message = errorMessage(err);
     try {
-      updateState({ lastError: errorMessage(err), lastErrorAt: new Date().toISOString() });
+      updateState({ lastError: message, lastErrorAt: new Date().toISOString(), lastStatus: 'error' });
     } catch { /* storage unavailable — nothing more to record */ }
-    return null;
+    return { status: 'error', result: null, error: message };
   }
 }

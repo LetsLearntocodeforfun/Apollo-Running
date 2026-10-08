@@ -1,19 +1,22 @@
-import { useState, useEffect, useCallback, useRef, memo } from 'react';
-import { Link } from 'react-router-dom';
-import { BUILT_IN_PLANS, CUSTOM_PLAN_ID, getPlanById, setCustomPlan, type PlanDay, type TrainingPlan } from '../data/plans';
+import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { CUSTOM_PLAN_ID, setCustomPlan, type PlanDay, type TrainingPlan } from '../data/plans';
 import PlanBuilder from '../components/PlanBuilder';
 import {
   getActivePlan,
   setActivePlan,
   isDayCompleted,
   toggleDayCompleted,
-  getDateForDay,
-  getCompletedCount,
-  formatDateKey,
+  getDateKeyForDay,
+  getWeekDayForDate,
   getSyncMeta,
+  canToggleDayCompletion,
   type ActivePlan,
   type SyncMeta,
 } from '../services/planProgress';
+import { getEffectivePlan, onPlanOverlayChanged } from '../services/planOverlay';
+import { onPlanEvent, PLAN_PROGRESS_CHANGED_EVENT } from '../services/planEvents';
+import { getRaceDate } from '../services/journey';
 import {
   isActivitySourceConnected,
   hasActivityData,
@@ -34,13 +37,25 @@ import { RouteMapThumbnail } from '../components/RouteMap';
 import { getEffortRecognition } from '../services/effortService';
 import { TIER_CONFIG } from '../components/TierBadge';
 import { formatMiles, formatPaceFromMinPerMi, formatDistanceShort } from '../services/unitPreferences';
-import CalendarView from '../components/CalendarView';
+import CalendarView, { type CalendarDayRef } from '../components/CalendarView';
 import PlanCalendarPush from '../components/PlanCalendarPush';
-import { isRaceStrategyEnabled, enableRaceStrategy } from '../services/raceStrategy';
+import PlanCalendarExport from '../components/PlanCalendarExport';
+import { ConfirmDialog } from '../components/ui';
+import { DayActionsMenu, DayBadgeChip, getDayBadges, type DayBadge } from '../components/plan/DayActionsMenu';
+import PhaseRibbon from '../components/plan/PhaseRibbon';
+import PlanChooser from '../components/plan/PlanChooser';
+import {
+  computeWeekProgress,
+  formatDayLabel,
+  formatMediumDate,
+  isWorkoutDay,
+  workoutTitle,
+  type ProgressStats,
+} from '../components/plan/planDisplay';
+import { todayKey as getTodayKey, weekdayShort } from '../utils/localDate';
+import '../components/plan/plan.css';
 
 type TrainingViewMode = 'calendar' | 'checklist';
-
-const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 /** When this page last started a network sync — module-level so it outlives the page; spaces out retries after failures. */
 let lastTrainingSyncAt = 0;
@@ -93,55 +108,101 @@ function findSyncedActivity(meta: SyncMeta) {
   return matches.find((a) => (a.source ?? 'strava') === meta.activitySource) ?? matches[0];
 }
 
-/** Single day row in the training plan checklist. Memoized to avoid re-renders on sibling changes. */
+/** Display title for a plan day: unit-free for runs (km users never see "mi"), the plan's own label for cross-training. */
+function dayTitle(day: PlanDay): string {
+  return day.type === 'cross' ? day.label : workoutTitle(day);
+}
+
+/**
+ * Workout-day progress from the week the athlete joined at (B6): rest days can't be
+ * ticked off, and weeks skipped by a late start aren't owed, so finishing reaches 100 %.
+ */
+function planProgress(plan: TrainingPlan, planId: string, fromWeek: number): ProgressStats {
+  let completed = 0;
+  let total = 0;
+  plan.weeks.forEach((week, wi) => {
+    if (wi < fromWeek) return;
+    const w = computeWeekProgress(week, wi, (w2, d2) => isDayCompleted(planId, w2, d2));
+    completed += w.completed;
+    total += w.total;
+  });
+  return { completed, total, pct: total > 0 ? Math.round((completed / total) * 100) : 0 };
+}
+
+/** Single day row in the training plan checklist. */
 const DayRow = memo(function DayRow({
+  plan,
+  startDate,
+  weekIndex,
   dayIndex,
   day,
-  date,
+  dateKey,
   isToday,
   completed,
   syncMeta,
+  badge,
   onToggle,
+  onChanged,
 }: {
+  plan: TrainingPlan;
+  /** Plan start date — ticking a future day is blocked (T2a's canToggleDayCompletion). */
+  startDate: string;
+  weekIndex: number;
   dayIndex: number;
   day: PlanDay;
-  date: Date;
+  dateKey: string;
   isToday: boolean;
   completed: boolean;
   syncMeta: SyncMeta | null;
-  onToggle: () => void;
+  badge: DayBadge | null;
+  onToggle: (weekIndex: number, dayIndex: number) => void;
+  onChanged: (message: string) => void;
 }) {
-  const dateStr = formatDateKey(date);
   const isSynced = !!syncMeta;
+  const title = dayTitle(day);
+  const dayLabel = formatDayLabel(dateKey);
+  const toggleCheck = canToggleDayCompletion(startDate, weekIndex, dayIndex, { completed, dayType: day.type });
+  const whyId = `plan-day-why-${weekIndex}-${dayIndex}`;
   return (
     <>
       <tr style={{ background: isToday ? 'rgba(212,165,55,0.08)' : isSynced ? 'rgba(212,165,55,0.03)' : undefined, transition: 'background 0.2s' }}>
         <td style={{ padding: '0.5rem', width: 36 }}>
-          {(day.type === 'run' || day.type === 'cross' || day.type === 'race' || day.type === 'marathon') ? (
-            <input
-              type="checkbox"
-              checked={completed}
-              onChange={() => onToggle()}
-              aria-label={`Mark ${day.label} complete`}
-              style={{ accentColor: 'var(--apollo-gold)', width: 16, height: 16 }}
-            />
+          {isWorkoutDay(day) ? (
+            <>
+              <input
+                type="checkbox"
+                checked={completed}
+                disabled={!toggleCheck.allowed}
+                title={toggleCheck.message}
+                aria-describedby={toggleCheck.message ? whyId : undefined}
+                onChange={() => { if (toggleCheck.allowed) onToggle(weekIndex, dayIndex); }}
+                aria-label={`Mark ${title} on ${dayLabel} complete`}
+                style={{ accentColor: 'var(--apollo-gold)', width: 18, height: 18 }}
+              />
+              {toggleCheck.message && <span id={whyId} className="sr-only">{toggleCheck.message}</span>}
+            </>
           ) : (
-            <span style={{ color: 'var(--text-muted)' }}>—</span>
+            <span style={{ color: 'var(--text-muted)' }} aria-hidden="true">—</span>
           )}
         </td>
-        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>{DAY_NAMES[dayIndex]}</td>
-        <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)' }}>{dateStr}</td>
+        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>{weekdayShort(dateKey)}</td>
+        <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatMediumDate(dateKey)}</td>
         <td style={{ padding: '0.5rem' }}>
-          <span className={`day-type-${day.type}`} style={{ fontFamily: 'var(--font-display)', fontWeight: completed ? 600 : 400 }}>{day.label}</span>
-          {day.distanceMi != null && (
+          <span className={`day-type-${day.type}`} style={{ fontFamily: 'var(--font-display)', fontWeight: completed ? 600 : 400 }}>{title}</span>
+          {day.distanceMi != null && day.distanceMi > 0 && (
             <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: 'var(--text-sm)' }}>
               {formatMiles(day.distanceMi)}
+            </span>
+          )}
+          {badge && (
+            <span style={{ marginLeft: '0.5rem' }}>
+              <DayBadgeChip badge={badge} />
             </span>
           )}
           {isSynced && (
             <span style={{
               marginLeft: '0.5rem',
-              fontSize: '0.72rem',
+              fontSize: '0.75rem',
               background: syncMeta?.crossTraining ? 'var(--apollo-teal-dim)' : 'var(--apollo-gold-dim)',
               color: syncMeta?.crossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)',
               padding: '0.12rem 0.5rem',
@@ -149,7 +210,12 @@ const DayRow = memo(function DayRow({
               fontWeight: 600,
               fontFamily: 'var(--font-display)',
             }}>
-              {syncMeta?.crossTraining ? `${categoryIcon(syncMeta.crossTraining.category)} ${syncMeta.crossTraining.label}` : 'Synced'}
+              {syncMeta?.crossTraining ? (
+                <>
+                  <span aria-hidden="true">{categoryIcon(syncMeta.crossTraining.category)} </span>
+                  {syncMeta.crossTraining.label}
+                </>
+              ) : 'Synced'}
             </span>
           )}
           {syncMeta && !syncMeta.crossTraining && (() => {
@@ -158,7 +224,7 @@ const DayRow = memo(function DayRow({
             const tc = TIER_CONFIG[rec.paceTier];
             return (
               <span style={{
-                marginLeft: '0.35rem', fontSize: '0.68rem',
+                marginLeft: '0.35rem', fontSize: '0.75rem',
                 background: tc.bg, color: tc.color,
                 padding: '0.1rem 0.45rem', borderRadius: 'var(--radius-full)',
                 fontWeight: 600, fontFamily: 'var(--font-display)',
@@ -169,10 +235,13 @@ const DayRow = memo(function DayRow({
         <td style={{ padding: '0.5rem' }}>
           {isToday ? <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)' }}>Today</span> : null}
         </td>
+        <td style={{ padding: '0.25rem 0.5rem', textAlign: 'right' }}>
+          <DayActionsMenu plan={plan} weekIndex={weekIndex} dayIndex={dayIndex} dayLabel={dayLabel} onChanged={onChanged} />
+        </td>
       </tr>
       {isSynced && syncMeta && (
         <tr style={{ background: isToday ? 'rgba(212,165,55,0.05)' : 'rgba(212,165,55,0.02)' }}>
-          <td colSpan={5} style={{ padding: '0.25rem 0.5rem 0.5rem 2.75rem' }}>
+          <td colSpan={6} style={{ padding: '0.25rem 0.5rem 0.5rem 2.75rem' }}>
             <div style={{
               fontSize: '0.82rem',
               color: 'var(--text-secondary)',
@@ -220,29 +289,63 @@ const DayRow = memo(function DayRow({
 });
 
 export default function Training() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewMode: TrainingViewMode = searchParams.get('view') === 'checklist' ? 'checklist' : 'calendar';
   const [active, setActiveState] = useState<ActivePlan | null>(() => getActivePlan());
-  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(active?.planId ?? null);
-  const [startDate, setStartDate] = useState(active?.startDate ?? formatDateKey(new Date()));
-  const [expandedWeek, setExpandedWeek] = useState<number | null>(() => (getActivePlan() ? 0 : null));
-  const [showPicker, setShowPicker] = useState(!active);
+  /** Bumped whenever completions, the overlay or sync matches change, so derived views re-read them. */
+  const [version, setVersion] = useState(0);
+  const [chooserOpen, setChooserOpen] = useState(false);
+  const [chooserPlanId, setChooserPlanId] = useState<string | null>(null);
   const [showBuilder, setShowBuilder] = useState(false);
-  const [viewMode, setViewMode] = useState<TrainingViewMode>('calendar');
+  const [confirmStop, setConfirmStop] = useState(false);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
+  const [expandedWeek, setExpandedWeek] = useState<number | null>(() => {
+    const a = getActivePlan();
+    const p = a ? getEffectivePlan() : null;
+    if (!a || !p) return null;
+    return getWeekDayForDate(a.startDate, p.weeks.length, getTodayKey())?.weekIndex ?? a.joinedWeekIndex ?? 0;
+  });
   const [syncing, setSyncing] = useState(false);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
   const [syncSummary, setSyncSummary] = useState<SyncSummary | null>(null);
   const [syncWasManual, setSyncWasManual] = useState(false);
   const [syncProgress, setSyncProgress] = useState<string | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(() => getLastActivitySyncTime());
-  const [, forceUpdate] = useState(0);
   const isMountedRef = useRef(true);
   const autoSyncedPlanRef = useRef<string | null>(null);
 
-  const plan = selectedPlanId ? getPlanById(selectedPlanId) : null;
+  // The effective plan: placed on the race date, with the athlete's moves/skips applied (cached, read-only).
+  const plan = active ? getEffectivePlan() : null;
   const activePlanKey = active ? `${active.planId}:${active.startDate}` : null;
-  const today = new Date();
-  const todayKey = formatDateKey(today);
+  const todayKey = getTodayKey();
   const connected = isActivitySourceConnected();
   const sourceName = getActiveSourceName();
+  const raceDate = active ? getRaceDate() : null;
+  const todayPos = active && plan ? getWeekDayForDate(active.startDate, plan.weeks.length, todayKey) : null;
+
+  const refresh = useCallback(() => {
+    setActiveState(getActivePlan());
+    setVersion((v) => v + 1);
+  }, []);
+
+  const announce = useCallback((message: string) => {
+    setAnnouncement(message);
+  }, []);
+
+  useEffect(() => {
+    if (!announcement) return;
+    const t = setTimeout(() => setAnnouncement(null), 6000);
+    return () => clearTimeout(t);
+  }, [announcement]);
+
+  const setViewMode = useCallback((mode: TrainingViewMode) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (mode === 'calendar') next.delete('view');
+      else next.set('view', mode);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   const handleSync = useCallback(async (manual: boolean) => {
     lastTrainingSyncAt = Date.now();
@@ -258,8 +361,7 @@ export default function Training() {
       setSyncSummary(report.summary);
       setSyncWasManual(manual);
       setLastSync(getLastActivitySyncTime());
-      setActiveState(getActivePlan());
-      forceUpdate((n) => n + 1);
+      refresh();
     } catch {
       // unexpected failure — user can retry
     } finally {
@@ -268,7 +370,7 @@ export default function Training() {
         setSyncProgress(null);
       }
     }
-  }, []);
+  }, [refresh]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -290,7 +392,7 @@ export default function Training() {
         // Synced recently, or a sync is running (its matches arrive via onPlanRefreshed):
         // re-match the stored activities offline instead of hitting the network on every visit.
         refreshPlanFromStoredActivities();
-        forceUpdate((n) => n + 1);
+        setVersion((v) => v + 1);
       } else {
         handleSync(false);
       }
@@ -300,410 +402,354 @@ export default function Training() {
   // Plan days were re-matched (a sync anywhere, a file import or an offline re-match): re-read completed days,
   // sync feedback, weekly mileage and the last-synced time. Results of a sync started here are left as they are.
   useEffect(() => onPlanRefreshed(() => {
-    setActiveState(getActivePlan());
     setLastSync(getLastActivitySyncTime());
-    forceUpdate((n) => n + 1);
-  }), []);
+    refresh();
+  }), [refresh]);
 
-  const handleStartPlan = () => {
-    if (!selectedPlanId || !plan) return;
-    setActivePlan({ planId: selectedPlanId, startDate });
+  // Overlay edits (move/skip/convert/undo, also from Today or the adaptive engine), plan start/stop and completion toggles.
+  useEffect(() => onPlanOverlayChanged(refresh), [refresh]);
+  useEffect(() => onPlanEvent(PLAN_PROGRESS_CHANGED_EVENT, refresh), [refresh]);
+
+  const handleStarted = useCallback((next: ActivePlan) => {
     // A connected source matches via the effect above (syncing first unless it synced recently); otherwise match activities already on this device.
-    if (!connected && hasActivityData()) refreshPlanFromStoredActivities();
-    // New plan or start date: refresh the intervals.icu calendar (no-op unless auto-update is on; never throws).
+    if (!isActivitySourceConnected() && hasActivityData()) refreshPlanFromStoredActivities();
+    // New plan, race date or start date: refresh the intervals.icu calendar (no-op unless auto-update is on; never throws).
     void syncPlanCalendarIfChanged();
-    setActiveState(getActivePlan());
-    setShowPicker(false);
-    setExpandedWeek(0);
-  };
+    setChooserOpen(false);
+    setChooserPlanId(null);
+    setShowBuilder(false);
+    refresh();
+    const p = getEffectivePlan();
+    setExpandedWeek(p ? getWeekDayForDate(next.startDate, p.weeks.length, getTodayKey())?.weekIndex ?? next.joinedWeekIndex ?? 0 : 0);
+    if (p) announce(`${p.name} is your active plan.`);
+  }, [refresh, announce]);
 
-  const handleClearPlan = () => {
+  const handleStopPlan = () => {
+    setConfirmStop(false);
     setActivePlan(null);
-    setActiveState(null);
-    setSelectedPlanId(null);
-    setShowPicker(true);
+    setChooserOpen(false);
+    setChooserPlanId(null);
+    refresh();
+    announce('You stopped following the plan. Your completed days are kept.');
   };
 
   const handleCustomPlanSaved = (custom: TrainingPlan) => {
     setCustomPlan(custom);
-    setSelectedPlanId(CUSTOM_PLAN_ID);
     setShowBuilder(false);
-    if (active) {
-      // Built from "Switch Plan": reopen the picker so "Switch & Start" is one click away.
-      setStartDate(formatDateKey(new Date()));
-      setShowPicker(true);
+    if (active?.planId === CUSTOM_PLAN_ID) {
+      // Saved over the active custom plan: its workouts changed in place.
+      refresh();
+      announce('Your custom plan was updated.');
+    } else {
+      // Preselect it in the chooser so starting it is one click away.
+      setChooserPlanId(CUSTOM_PLAN_ID);
+      setChooserOpen(true);
     }
     // Saving over the active custom plan changes its workouts — keep the intervals.icu calendar current.
     void syncPlanCalendarIfChanged();
   };
 
-  // Rendered in both branches — "+ Custom Plan" in the Switch Plan picker opens it while a plan is active.
+  const handleToggleDay = useCallback((weekIndex: number, dayIndex: number) => {
+    const a = getActivePlan();
+    if (!a) return;
+    toggleDayCompleted(a.planId, weekIndex, dayIndex);
+    refresh();
+  }, [refresh]);
+
+  const badges = useMemo(
+    () => getDayBadges(plan),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [plan, version],
+  );
+  const getBadge = useCallback((w: number, d: number) => badges.get(`${w}:${d}`) ?? null, [badges]);
+  const renderDayActions = useCallback(
+    (ref: CalendarDayRef) =>
+      plan ? (
+        <DayActionsMenu plan={plan} weekIndex={ref.weekIndex} dayIndex={ref.dayIndex} dayLabel={formatDayLabel(ref.dateKey)} onChanged={announce} />
+      ) : null,
+    [plan, announce],
+  );
+
+  // Rendered in both branches — "+ Build a custom plan" in the chooser opens it.
   const builderCard = showBuilder && (
     <div className="card">
       <PlanBuilder onComplete={handleCustomPlanSaved} onCancel={() => setShowBuilder(false)} />
     </div>
   );
 
+  const progress = active && plan ? planProgress(plan, active.planId, active.joinedWeekIndex ?? 0) : null;
+
   return (
     <div>
       <h1 className="page-title">Training Plan</h1>
 
-      {!active ? (
+      <div role="status" aria-live="polite" className={announcement ? 'plan-toast' : 'plan-live'}>
+        {announcement}
+      </div>
+
+      {!active || !plan ? (
         <>
-          <div className="card" style={{
-            textAlign: 'center', padding: '2rem',
-            background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
-          }}>
-            <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.1em', color: 'var(--apollo-gold)', marginBottom: '0.75rem' }}>
-              Choose Your Path
+          {active && !plan && (
+            <div className="card" role="alert">
+              <p style={{ margin: 0 }}>Your active plan could not be found. Choose a plan below to continue.</p>
             </div>
-            <h3 style={{ fontSize: 'var(--text-lg)', margin: '0 0 0.5rem' }}>Select a Training Plan</h3>
-            <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem', fontSize: 'var(--text-sm)' }}>
-              Pick a proven marathon plan, set your start date, and let the journey begin.
-            </p>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', textAlign: 'left' }}>
-              {BUILT_IN_PLANS.map((p) => (
-                <button
-                  key={p.id}
-                  type="button"
-                  className="plan-card"
-                  onClick={() => setSelectedPlanId(p.id)}
-                  style={{
-                    border: selectedPlanId === p.id ? '2px solid var(--apollo-gold)' : '1px solid var(--border)',
-                    textAlign: 'left',
-                    padding: '1.25rem',
-                    borderRadius: 'var(--radius-lg)',
-                    background: selectedPlanId === p.id ? 'var(--apollo-gold-dim)' : 'var(--bg)',
-                    color: 'var(--text)',
-                    cursor: 'pointer',
-                    transition: 'all var(--transition-base)',
-                  }}
-                >
-                  <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: '0.25rem' }}>{p.name}</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>{p.author}</div>
-                  <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>{p.description}</div>
-                </button>
-              ))}
+          )}
+          <PlanChooser
+            key={chooserPlanId ?? 'none'}
+            mode="start"
+            activePlanId={null}
+            initialPlanId={chooserPlanId}
+            onStarted={handleStarted}
+            onBuildCustom={() => setShowBuilder(true)}
+          />
+          {builderCard}
+          <p className="plan-setup-muted">
+            Racing soon? The <Link to="/race">Race Day hub</Link> has pacing plans plus race-week and race-morning checklists.
+          </p>
+        </>
+      ) : (
+        <>
+          {/* Plan header card */}
+          <section className="card" aria-labelledby="plan-header-title" style={{
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem',
+            background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent)' }} />
+            <div style={{ flex: '1 1 16rem' }}>
+              <h2 id="plan-header-title" style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>{plan.name}</h2>
+              <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
+                by {plan.author} · Week 1 began {formatMediumDate(active.startDate)}
+                {raceDate ? ` · Race day ${formatMediumDate(raceDate)}` : ''}
+                {todayPos ? ` · Week ${todayPos.weekIndex + 1} of ${plan.weeks.length}` : ''}
+              </p>
+              {progress && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <div
+                    className="plan-progress"
+                    role="progressbar"
+                    aria-label="Workouts completed"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={progress.pct}
+                    aria-valuetext={`${progress.completed} of ${progress.total} workouts done (${progress.pct}%)`}
+                  >
+                    <span className="plan-progress-fill" style={{ width: `${progress.pct}%` }} />
+                  </div>
+                  <p style={{ margin: '0.25rem 0 0', fontSize: 'var(--text-sm)', color: 'var(--apollo-gold)', fontWeight: 600 }}>
+                    {progress.completed} / {progress.total} workouts · {progress.pct}%
+                  </p>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
               <button
                 type="button"
-                className="plan-card"
-                onClick={() => setShowBuilder(true)}
-                style={{
-                  border: '2px dashed var(--apollo-gold)',
-                  textAlign: 'left',
-                  padding: '1.25rem',
-                  borderRadius: 'var(--radius-lg)',
-                  background: 'var(--bg)',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                  transition: 'all var(--transition-base)',
-                }}
+                className="btn btn-secondary"
+                aria-expanded={chooserOpen}
+                onClick={() => { setChooserPlanId(null); setChooserOpen((o) => !o); }}
               >
-                <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, marginBottom: '0.25rem', color: 'var(--apollo-gold)' }}>+ Build Custom Plan</div>
-                <div style={{ fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', lineHeight: 1.5 }}>Design your own marathon plan from scratch with custom mileage, workout assignments, and VDOT-based pacing.</div>
+                Change plan or race date
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={() => setConfirmStop(true)}>Stop plan</button>
+              <Link to="/race" className="btn btn-ghost">Race Day hub</Link>
+            </div>
+          </section>
+
+          {chooserOpen && (
+            <PlanChooser
+              key={chooserPlanId ?? 'none'}
+              mode="switch"
+              activePlanId={active.planId}
+              initialPlanId={chooserPlanId}
+              onStarted={handleStarted}
+              onCancel={() => { setChooserOpen(false); setChooserPlanId(null); }}
+              onBuildCustom={() => { setChooserOpen(false); setShowBuilder(true); }}
+            />
+          )}
+
+          {builderCard}
+
+          <PhaseRibbon plan={plan} currentWeekIndex={todayPos?.weekIndex ?? null} />
+
+          {/* View toggle (kept in the URL: ?view=checklist) */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+            <div className="cal-view-toggle" role="group" aria-label="Plan view">
+              <button
+                type="button"
+                className={`cal-view-toggle-btn ${viewMode === 'calendar' ? 'cal-view-toggle-btn--active' : ''}`}
+                aria-pressed={viewMode === 'calendar'}
+                onClick={() => setViewMode('calendar')}
+              >
+                <span aria-hidden="true">📅 </span>Calendar
+              </button>
+              <button
+                type="button"
+                className={`cal-view-toggle-btn ${viewMode === 'checklist' ? 'cal-view-toggle-btn--active' : ''}`}
+                aria-pressed={viewMode === 'checklist'}
+                onClick={() => setViewMode('checklist')}
+              >
+                <span aria-hidden="true">☰ </span>Checklist
               </button>
             </div>
           </div>
 
-          {builderCard}
-
-          {plan && (
-            <div className="card" style={{ borderColor: 'var(--apollo-gold)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
-              <h3 style={{ color: 'var(--apollo-gold)' }}>Start Your Plan</h3>
-              <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>
-                <strong>{plan.name}</strong> — {plan.totalWeeks} weeks. Set the date of Week 1, Monday.
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Start date</span>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
-                  />
-                </label>
-                <button type="button" className="btn btn-primary" onClick={handleStartPlan}>
-                  Begin Training
-                </button>
-              </div>
+          {/* Calendar view */}
+          {viewMode === 'calendar' && (
+            <div className="card">
+              <CalendarView
+                plan={plan}
+                active={active}
+                version={version}
+                onToggleDay={handleToggleDay}
+                renderDayActions={renderDayActions}
+                getDayBadge={getBadge}
+              />
             </div>
           )}
 
-          {/* Race Strategy suggestion — shown when picking a plan if feature not yet enabled */}
-          {plan && !isRaceStrategyEnabled() && (
-            <div className="card" style={{
-              background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
-              borderLeft: '3px solid var(--apollo-teal)',
-              display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap',
-            }}>
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--apollo-teal)', marginBottom: '0.25rem' }}>
-                  Planning a specific race?
-                </div>
-                <p style={{ color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', margin: 0, lineHeight: 1.5 }}>
-                  Enable <strong>Race Strategy</strong> to build mile-by-mile pacing plans for World Major
-                  Marathons or any race. Course profiles, elevation analysis, and nutrition planning included.
-                </p>
+          {/* Week-by-week checklist */}
+          {viewMode === 'checklist' && (
+            <section className="card" aria-labelledby="plan-checklist-title">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <h2 id="plan-checklist-title" style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Week-by-week checklist</h2>
+                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+                  {plan.weeks.length} weeks
+                </span>
               </div>
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={() => { enableRaceStrategy(); forceUpdate((n) => n + 1); }}
-                style={{ fontSize: 'var(--text-sm)', whiteSpace: 'nowrap' }}
-              >
-                Enable Race Strategy
-              </button>
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          {plan && (
-            <>
-              {/* Plan header card */}
-              <div className="card" style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem',
-                background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
-                position: 'relative', overflow: 'hidden',
-              }}>
-                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent)' }} />
-                <div>
-                  <h3 style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>{plan.name}</h3>
-                  <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
-                    by {plan.author} · Started {active.startDate} · <span style={{ color: 'var(--apollo-gold)', fontWeight: 600 }}>{getCompletedCount(plan.id)} / {plan.totalWeeks * 7} days</span>
-                  </p>
-                </div>
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setShowPicker(true)} style={{ fontSize: 'var(--text-sm)' }}>Change</button>
-                  <button type="button" className="btn btn-ghost" onClick={handleClearPlan} style={{ fontSize: 'var(--text-sm)', color: 'var(--text-muted)' }}>Clear</button>
-                </div>
-              </div>
-
-              {/* View toggle */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <div className="cal-view-toggle">
-                  <button
-                    type="button"
-                    className={`cal-view-toggle-btn ${viewMode === 'calendar' ? 'cal-view-toggle-btn--active' : ''}`}
-                    onClick={() => setViewMode('calendar')}
-                  >
-                    📅 Calendar
-                  </button>
-                  <button
-                    type="button"
-                    className={`cal-view-toggle-btn ${viewMode === 'checklist' ? 'cal-view-toggle-btn--active' : ''}`}
-                    onClick={() => setViewMode('checklist')}
-                  >
-                    ☰ Checklist
-                  </button>
-                </div>
-              </div>
-
-              {showPicker && (
-                <div className="card">
-                  <h3>Switch Plan</h3>
-                  <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)' }}>Starting a new plan keeps your completed days for the previous plan.</p>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {BUILT_IN_PLANS.map((p) => (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className="btn btn-secondary"
-                        onClick={() => { setSelectedPlanId(p.id); setStartDate(formatDateKey(new Date())); }}
-                        style={{ fontSize: 'var(--text-sm)' }}
-                      >
-                        {p.name}
-                      </button>
-                    ))}
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      onClick={() => { setShowPicker(false); setShowBuilder(true); }}
-                      style={{ fontSize: 'var(--text-sm)', borderStyle: 'dashed', color: 'var(--apollo-gold)' }}
-                    >
-                      + Custom Plan
-                    </button>
-                  </div>
-                  <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                    {plan && (
-                      <>
-                        <input
-                          type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          style={{ padding: '0.5rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }}
-                        />
-                        <button type="button" className="btn btn-primary" onClick={handleStartPlan} style={{ fontSize: 'var(--text-sm)' }}>Switch & Start</button>
-                      </>
-                    )}
-                    <button type="button" className="btn btn-ghost" onClick={() => setShowPicker(false)} style={{ fontSize: 'var(--text-sm)' }}>Cancel</button>
-                  </div>
-                </div>
-              )}
-
-              {builderCard}
-
-              {/* Calendar view */}
-              {viewMode === 'calendar' && (
-                <div className="card">
-                  <CalendarView
-                    plan={plan}
-                    active={active}
-                    onToggleDay={(weekIndex, dayIndex) => {
-                      toggleDayCompleted(plan.id, weekIndex, dayIndex);
-                      setActiveState(getActivePlan());
-                      forceUpdate((n) => n + 1);
-                    }}
-                  />
-                </div>
-              )}
-
-              {/* Week-by-week checklist */}
-              {viewMode === 'checklist' && <div className="card">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                  <h3 style={{ margin: 0 }}>Week-by-Week Checklist</h3>
-                  <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
-                    {plan.totalWeeks} Weeks
-                  </span>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {plan.weeks.map((week) => {
-                    const isExpanded = expandedWeek === week.weekNumber - 1;
-                    const completedInWeek = week.days.filter((_, di) => isDayCompleted(plan.id, week.weekNumber - 1, di)).length;
-                    return (
-                      <div key={week.weekNumber} style={{
-                        border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'hidden',
-                        transition: 'border-color var(--transition-base)',
-                        ...(isExpanded ? { borderColor: 'var(--border-strong)' } : {}),
-                      }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {plan.weeks.map((week, wi) => {
+                  const isExpanded = expandedWeek === wi;
+                  const wp = computeWeekProgress(week, wi, (w, d) => isDayCompleted(active.planId, w, d));
+                  const weekDone = wp.total > 0 && wp.completed === wp.total;
+                  const panelId = `plan-week-panel-${wi}`;
+                  const wm = getWeeklyMileageSummary(active.planId, wi);
+                  return (
+                    <div key={wi} style={{
+                      border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'visible',
+                      ...(isExpanded ? { borderColor: 'var(--border-strong)' } : {}),
+                    }}>
+                      <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
                         <button
                           type="button"
-                          onClick={() => setExpandedWeek(expandedWeek === week.weekNumber - 1 ? null : week.weekNumber - 1)}
-                          style={{
-                            width: '100%',
-                            padding: '0.85rem 1rem',
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            background: isExpanded ? 'var(--bg-hover)' : 'var(--bg)',
-                            border: 'none',
-                            color: 'var(--text)',
-                            cursor: 'pointer',
-                            fontSize: 'var(--text-base)',
-                            fontFamily: 'var(--font-display)',
-                            fontWeight: 500,
-                            gap: '0.5rem',
-                            transition: 'background var(--transition-fast)',
-                          }}
+                          className="plan-week-toggle"
+                          aria-expanded={isExpanded}
+                          aria-controls={isExpanded ? panelId : undefined}
+                          onClick={() => setExpandedWeek(isExpanded ? null : wi)}
+                          style={{ background: isExpanded ? 'var(--bg-hover)' : 'var(--bg)', fontFamily: 'var(--font-display)' }}
                         >
-                          <span style={{ minWidth: '5rem', fontWeight: 600 }}>Week {week.weekNumber}</span>
-                          {(() => {
-                            const wm = getWeeklyMileageSummary(plan.id, week.weekNumber - 1);
-                            if (!wm || wm.actualMi === 0) return null;
-                            const pct = wm.plannedMi > 0 ? Math.min((wm.actualMi / wm.plannedMi) * 100, 100) : 0;
-                            const barColor = wm.status === 'on_track' || wm.status === 'ahead'
-                              ? 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold))'
-                              : wm.status === 'behind' ? 'var(--color-warning)' : 'var(--color-error)';
-                            return (
-                              <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                                <span style={{
-                                  flex: 1, height: 6, borderRadius: 3,
-                                  background: 'rgba(255,255,255,0.06)', overflow: 'hidden',
-                                }}>
-                                  <span style={{
-                                    display: 'block', height: '100%', width: `${pct}%`,
-                                    borderRadius: 3, background: barColor,
-                                    transition: 'width 0.4s ease',
-                                  }} />
-                                </span>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                                  {formatMiles(wm.actualMi)}/{formatMiles(wm.plannedMi)}
-                                </span>
-                              </span>
-                            );
-                          })()}
-                          <span style={{
-                            fontSize: '0.78rem', color: completedInWeek === 7 ? 'var(--color-success)' : 'var(--text-muted)',
-                            whiteSpace: 'nowrap', fontWeight: completedInWeek === 7 ? 600 : 400,
-                          }}>
-                            {completedInWeek === 7 ? '✓ Complete' : `${completedInWeek}/7`}
+                          <span style={{ minWidth: '5rem', fontWeight: 600 }}>
+                            Week {wi + 1}
+                            {todayPos?.weekIndex === wi ? <span style={{ color: 'var(--apollo-gold)' }}> · this week</span> : null}
                           </span>
-                          <span style={{ color: 'var(--apollo-gold)', fontSize: '0.8rem', transition: 'transform var(--transition-fast)', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
+                          {wm && wm.actualMi > 0 ? (
+                            <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <span aria-hidden="true" style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+                                <span style={{
+                                  display: 'block', height: '100%',
+                                  width: `${wm.plannedMi > 0 ? Math.min((wm.actualMi / wm.plannedMi) * 100, 100) : 0}%`,
+                                  borderRadius: 3,
+                                  background: wm.status === 'on_track' || wm.status === 'ahead'
+                                    ? 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold))'
+                                    : wm.status === 'behind' ? 'var(--color-warning)' : 'var(--color-error)',
+                                }} />
+                              </span>
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                                {formatMiles(wm.actualMi)} of {formatMiles(wm.plannedMi)}
+                              </span>
+                            </span>
+                          ) : (
+                            <span style={{ flex: 1 }} />
+                          )}
+                          <span style={{
+                            fontSize: '0.78rem', color: weekDone ? 'var(--color-success)' : 'var(--text-muted)',
+                            whiteSpace: 'nowrap', fontWeight: weekDone ? 600 : 400,
+                          }}>
+                            {weekDone ? '✓ Complete' : `${wp.completed}/${wp.total} workouts`}
+                          </span>
+                          <span aria-hidden="true" style={{ color: 'var(--apollo-gold)', fontSize: '0.8rem', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
                         </button>
-                        {isExpanded && (
-                          <div style={{ padding: '0 1rem 1rem', animation: 'slideUp 0.2s ease' }}>
+                      </h3>
+                      {isExpanded && (
+                        <div id={panelId} style={{ padding: '0 1rem 1rem' }}>
+                          <div className="plan-table-wrap">
                             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
+                              <caption className="plan-live">Week {wi + 1} workouts</caption>
                               <thead>
                                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem', width: 36 }}></th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Day</th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Date</th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Workout</th>
-                                  <th style={{ textAlign: 'left', padding: '0.5rem', width: 80 }}></th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', width: 36 }}><span className="plan-live">Done</span></th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Day</th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Date</th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Workout</th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', width: 64 }}><span className="plan-live">Status</span></th>
+                                  <th scope="col" style={{ textAlign: 'right', padding: '0.5rem', width: 48 }}><span className="plan-live">Actions</span></th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {week.days.map((day, dayIndex) => {
-                                  const date = getDateForDay(active.startDate, week.weekNumber - 1, dayIndex);
-                                  const isToday = formatDateKey(date) === todayKey;
-                                  const completed = isDayCompleted(plan.id, week.weekNumber - 1, dayIndex);
-                                  const meta = getSyncMeta(plan.id, week.weekNumber - 1, dayIndex);
+                                  const dateKey = getDateKeyForDay(active.startDate, wi, dayIndex);
                                   return (
                                     <DayRow
                                       key={dayIndex}
+                                      plan={plan}
+                                      startDate={active.startDate}
+                                      weekIndex={wi}
                                       dayIndex={dayIndex}
                                       day={day}
-                                      date={date}
-                                      isToday={isToday}
-                                      completed={completed}
-                                      syncMeta={meta}
-                                      onToggle={() => {
-                                        toggleDayCompleted(plan.id, week.weekNumber - 1, dayIndex);
-                                        setActiveState(getActivePlan());
-                                        forceUpdate((n) => n + 1);
-                                      }}
+                                      dateKey={dateKey}
+                                      isToday={dateKey === todayKey}
+                                      completed={isDayCompleted(active.planId, wi, dayIndex)}
+                                      syncMeta={getSyncMeta(active.planId, wi, dayIndex)}
+                                      badge={badges.get(`${wi}:${dayIndex}`) ?? null}
+                                      onToggle={handleToggleDay}
+                                      onChanged={announce}
                                     />
                                   );
                                 })}
                               </tbody>
                             </table>
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>}
-
-              {/* Send the plan to the watch via intervals.icu */}
-              <PlanCalendarPush />
-            </>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
           )}
+
+          {/* Export: send the plan to the watch via intervals.icu, or download an .ics calendar */}
+          <section aria-labelledby="plan-export-title">
+            <h2 id="plan-export-title" className="plan-section-title">Export</h2>
+            <div className="plan-export">
+              <PlanCalendarPush />
+              <PlanCalendarExport headingLevel={3} />
+            </div>
+          </section>
         </>
       )}
 
       {/* Smart Auto-Sync Card */}
-      <div className="card" style={{
+      <section className="card" aria-labelledby="plan-sync-title" style={{
         background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
         borderColor: connected ? 'var(--apollo-teal-dark)' : 'var(--border)',
         borderLeftWidth: 3, borderLeftStyle: 'solid',
         borderLeftColor: connected ? 'var(--apollo-teal)' : 'var(--border)',
       }}>
-        <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+        <h2 id="plan-sync-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: 'var(--text-lg)' }}>
           <span style={{ color: 'var(--apollo-teal)' }}>Smart Auto-Sync</span>
           {connected && (
             <span style={{
-              fontSize: '0.72rem', background: 'var(--apollo-teal-dim)',
+              fontSize: '0.75rem', background: 'var(--apollo-teal-dim)',
               color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
               borderRadius: 'var(--radius-full)', fontWeight: 600,
               fontFamily: 'var(--font-display)',
             }}>Active · {sourceName}</span>
           )}
-        </h3>
+        </h2>
         {!connected ? (
           <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-            <Link to="/settings" style={{ fontWeight: 600 }}>Connect a data source</Link> (intervals.icu or Strava) to automatically
+            <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>Connect a data source</Link> (intervals.icu or Strava) to automatically
             match your runs and cross-training to the training plan.
           </p>
         ) : (
@@ -741,8 +787,8 @@ export default function Training() {
                   ].filter(Boolean).join(' · ')}
                 </div>
                 {syncSummary.errors.map((e, i) => (
-                  <div key={i} style={{ color: 'var(--color-error)', marginTop: '0.2rem' }}>
-                    ⚠ {getSourceDisplayName(e.source)}: {e.message}
+                  <div key={i} role="alert" style={{ color: 'var(--color-error)', marginTop: '0.2rem' }}>
+                    <span aria-hidden="true">⚠ </span>{getSourceDisplayName(e.source)}: {e.message}
                   </div>
                 ))}
               </div>
@@ -761,8 +807,15 @@ export default function Training() {
                     }}
                   >
                     <div style={{ fontWeight: 600, color: r.isCrossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)', marginBottom: '0.15rem', fontFamily: 'var(--font-display)' }}>
-                      {r.isNew ? 'Auto-completed' : 'Updated'}: Week {r.weekIndex + 1}, {DAY_NAMES[r.dayIndex]} — {r.plannedDay.label}
-                      {r.isCrossTraining && ` · ${getSportIcon(r.activity)} ${getSportLabel(r.activity)}`}
+                      {r.isNew ? 'Auto-completed' : 'Updated'}: Week {r.weekIndex + 1},{' '}
+                      {active ? formatDayLabel(getDateKeyForDay(active.startDate, r.weekIndex, r.dayIndex)) : `day ${r.dayIndex + 1}`} — {dayTitle(r.plannedDay)}
+                      {r.isCrossTraining && (
+                        <>
+                          {' · '}
+                          <span aria-hidden="true">{getSportIcon(r.activity)} </span>
+                          {getSportLabel(r.activity)}
+                        </>
+                      )}
                     </div>
                     <div style={{ color: 'var(--text-secondary)' }}>{r.feedback}</div>
                   </div>
@@ -771,7 +824,17 @@ export default function Training() {
             )}
           </div>
         )}
-      </div>
+      </section>
+
+      <ConfirmDialog
+        open={confirmStop}
+        title="Stop following this plan?"
+        message="Your completed days are kept, and you can start a plan again at any time."
+        confirmLabel="Stop plan"
+        cancelLabel="Keep plan"
+        onConfirm={handleStopPlan}
+        onCancel={() => setConfirmStop(false)}
+      />
     </div>
   );
 }

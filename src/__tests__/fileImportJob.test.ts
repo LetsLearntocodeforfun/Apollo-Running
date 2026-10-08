@@ -271,7 +271,8 @@ describe('describeImportResult', () => {
   });
 
   it('adds how many older activities the store had no room for', () => {
-    const kept = `Apollo keeps your ${MAX_STORED_ACTIVITIES.toLocaleString()} most recent activities`;
+    // B16: races and PR holders are never trimmed, so the copy no longer says "most recent".
+    const kept = `Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities (races and personal records always stay)`;
     expect(describeImportResult(result({ activitiesFound: 3, added: 3, dropped: 1 })))
       .toBe(`Added 3 activities. ${kept}, so 1 older one wasn't kept.`);
     expect(describeImportResult(result({ filesRead: 1300, activitiesFound: 1300, added: 1300, dropped: 1204 })))

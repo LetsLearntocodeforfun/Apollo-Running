@@ -1,0 +1,107 @@
+name: CI
+
+# Type-checks, tests and builds every push to main and every pull request.
+# Release installers are built separately by release-electron.yml (on tags),
+# which repeats the same type-check + test gate before packaging.
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Electron binary is not needed to type-check, test or bundle.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  verify:
+    name: Type-check, test & build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check (app + Electron main/preload)
+        run: npm run typecheck
+
+      - name: Unit & component tests
+        run: npx vitest run
+
+      - name: Build web bundle
+        run: npm run build:web
+
+      # Local-first promise: the app must not pull fonts (or anything else)
+      # from Google at runtime. Fonts are self-hosted via @fontsource.
+      - name: Check web bundle has no third-party font hosts
+        run: |
+          if grep -rIlE "fonts\.(googleapis|gstatic)\.com" dist; then
+            echo "::error::Third-party font host found in the web bundle"
+            exit 1
+          fi
+
+      - name: Build desktop bundles (renderer + Electron main/preload)
+        run: npm run build:electron
+
+      - name: Check desktop bundle
+        run: |
+          test -f dist-electron/main.js || { echo "::error::dist-electron/main.js missing"; exit 1; }
+          test -f dist-electron/preload.js || { echo "::error::dist-electron/preload.js missing"; exit 1; }
+          grep -q 'http-equiv="Content-Security-Policy"' dist/index.html \
+            || { echo "::error::Desktop index.html is missing its Content-Security-Policy"; exit 1; }
+          if grep -rIlE "fonts\.(googleapis|gstatic)\.com" dist dist-electron; then
+            echo "::error::Third-party font host found in the desktop bundle"
+            exit 1
+          fi
+
+  # Date maths (plan grid, streaks, load charts) must not depend on the
+  # machine's time zone or daylight-saving transitions.
+  timezones:
+    name: Tests (TZ=${{ matrix.tz }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        tz:
+          - America/Los_Angeles
+          - Europe/London
+          - Australia/Sydney
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit & component tests
+        run: npx vitest run
+        env:
+          TZ: ${{ matrix.tz }}

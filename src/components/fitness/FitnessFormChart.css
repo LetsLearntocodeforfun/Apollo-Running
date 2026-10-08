@@ -1,0 +1,165 @@
+/* Fitness & Form chart (Progress › Fitness & Trends). */
+.ff-figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3, 0.75rem);
+}
+
+.ff-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2, 0.5rem) var(--space-4, 1rem);
+}
+
+.ff-ranges {
+  display: inline-flex;
+  gap: var(--space-1, 0.25rem);
+}
+
+.ff-range-btn,
+.ff-table-btn {
+  min-height: 32px;
+  padding: 0 var(--space-3, 0.75rem);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-secondary, #b8b3aa);
+  font: inherit;
+  font-size: var(--text-sm, 0.85rem);
+  cursor: pointer;
+}
+
+.ff-range-btn.is-active,
+.ff-range-btn[aria-pressed='true'] {
+  border-color: var(--apollo-gold, #e8c05a);
+  color: var(--text, #ece8e1);
+  background: var(--apollo-gold-dim, rgba(232, 192, 90, 0.12));
+}
+
+.ff-table-btn {
+  margin-left: auto;
+}
+
+.ff-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2, 0.5rem);
+  min-height: 32px;
+  color: var(--text-secondary, #b8b3aa);
+  font-size: var(--text-sm, 0.85rem);
+  cursor: pointer;
+}
+
+.ff-chart {
+  width: 100%;
+  min-height: 300px;
+}
+
+.ff-empty {
+  color: var(--text-muted, #9a9a9a);
+  margin: var(--space-4, 1rem) 0;
+}
+
+.ff-legend,
+.ff-zones {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem) var(--space-4, 1rem);
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--text-secondary, #b8b3aa);
+}
+
+.ff-legend li,
+.ff-zones li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+}
+
+.ff-zone-range {
+  color: var(--text-muted, #9a9a9a);
+}
+
+.ff-swatch {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  border-radius: 3px;
+  flex: none;
+}
+
+.ff-swatch--ctl { background: #2ec4b6; }
+.ff-swatch--atl { background: #e8c05a; height: 0.25em; }
+.ff-swatch--proj {
+  background: repeating-linear-gradient(90deg, #2ec4b6 0 5px, transparent 5px 8px);
+  height: 0.25em;
+}
+
+.ff-note {
+  margin: 0;
+  font-size: var(--text-xs, 0.75rem);
+  color: var(--text-muted, #9a9a9a);
+}
+
+.ff-caption {
+  font-size: var(--text-sm, 0.85rem);
+  color: var(--text, #ece8e1);
+}
+
+.ff-tooltip {
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 8px);
+  background: var(--bg-elevated, #1b2333);
+  color: var(--text, #ece8e1);
+  font-size: var(--text-xs, 0.75rem);
+  line-height: 1.5;
+}
+
+.ff-tooltip-date {
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.ff-table-wrap {
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-md, 8px);
+}
+
+.ff-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm, 0.85rem);
+}
+
+.ff-table th,
+.ff-table td {
+  padding: var(--space-1, 0.25rem) var(--space-3, 0.75rem);
+  text-align: right;
+  border-bottom: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.06));
+  white-space: nowrap;
+}
+
+.ff-table th[scope='row'],
+.ff-table thead th:first-child {
+  text-align: left;
+}
+
+.ff-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg-card, #151c2a);
+  color: var(--text-secondary, #b8b3aa);
+}
+
+.ff-table tr.is-projected {
+  color: var(--text-muted, #9a9a9a);
+  font-style: italic;
+}

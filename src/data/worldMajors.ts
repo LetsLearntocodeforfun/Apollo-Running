@@ -1,13 +1,14 @@
 // World Marathon Majors + popular marathon course database.
 
-import type { MarathonRace, CourseSplit, AidStation } from '../types/raceStrategy';
+import type { MarathonRace, CourseSplit, AidStation, RaceEdition } from '../types/raceStrategy';
+import { todayKey, isDateKey } from '../utils/localDate';
 
 // ═══════════════════════════════════════════════════════════════
-//  TOKYO MARATHON — March 1, 2026
+//  TOKYO MARATHON
 // ═══════════════════════════════════════════════════════════════
 
 const TOKYO: MarathonRace = {
-  id: 'tokyo-marathon-2026',
+  id: 'tokyo',
   name: 'Tokyo Marathon',
   city: 'Tokyo',
   country: 'Japan',
@@ -19,7 +20,10 @@ const TOKYO: MarathonRace = {
   typicalTempF: { low: 38, high: 52 },
   typicalHumidity: 55,
   website: 'https://www.marathon.tokyo',
-  startTime: '9:10 AM JST',
+  startTime: '09:10',
+  timeZone: 'Asia/Tokyo',
+  lat: 35.6895,
+  lon: 139.6917,
   timeLimitHours: 7,
   fieldSize: 38000,
   isWorldMajor: true,
@@ -78,11 +82,11 @@ const TOKYO: MarathonRace = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  BOSTON MARATHON — April 20, 2026
+//  BOSTON MARATHON
 // ═══════════════════════════════════════════════════════════════
 
 const BOSTON: MarathonRace = {
-  id: 'boston-marathon-2026',
+  id: 'boston',
   name: 'Boston Marathon',
   city: 'Boston',
   country: 'United States',
@@ -94,7 +98,10 @@ const BOSTON: MarathonRace = {
   typicalTempF: { low: 42, high: 62 },
   typicalHumidity: 55,
   website: 'https://www.baa.org',
-  startTime: '10:00 AM ET (Wave 1)',
+  startTime: '10:00',
+  timeZone: 'America/New_York',
+  lat: 42.3601,
+  lon: -71.0589,
   timeLimitHours: 6,
   fieldSize: 30000,
   isWorldMajor: true,
@@ -191,11 +198,11 @@ const BOSTON: MarathonRace = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  LONDON MARATHON — April 26, 2026
+//  LONDON MARATHON
 // ═══════════════════════════════════════════════════════════════
 
 const LONDON: MarathonRace = {
-  id: 'london-marathon-2026',
+  id: 'london',
   name: 'TCS London Marathon',
   city: 'London',
   country: 'United Kingdom',
@@ -203,11 +210,14 @@ const LONDON: MarathonRace = {
   date: '2026-04-26',
   typicalMonth: 4,
   distanceMi: 26.2,
-  courseType: 'loop',
+  courseType: 'point-to-point',
   typicalTempF: { low: 45, high: 58 },
   typicalHumidity: 65,
   website: 'https://www.tcslondonmarathon.com',
-  startTime: '10:00 AM BST',
+  startTime: '10:00',
+  timeZone: 'Europe/London',
+  lat: 51.5074,
+  lon: -0.1278,
   timeLimitHours: 8,
   fieldSize: 50000,
   isWorldMajor: true,
@@ -266,11 +276,11 @@ const LONDON: MarathonRace = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  BERLIN MARATHON — September 27, 2026
+//  BERLIN MARATHON
 // ═══════════════════════════════════════════════════════════════
 
 const BERLIN: MarathonRace = {
-  id: 'berlin-marathon-2026',
+  id: 'berlin',
   name: 'BMW Berlin Marathon',
   city: 'Berlin',
   country: 'Germany',
@@ -282,7 +292,10 @@ const BERLIN: MarathonRace = {
   typicalTempF: { low: 48, high: 64 },
   typicalHumidity: 60,
   website: 'https://www.bmw-berlin-marathon.com',
-  startTime: '9:15 AM CEST',
+  startTime: '09:15',
+  timeZone: 'Europe/Berlin',
+  lat: 52.52,
+  lon: 13.405,
   timeLimitHours: 6.25,
   fieldSize: 45000,
   isWorldMajor: true,
@@ -344,11 +357,11 @@ const BERLIN: MarathonRace = {
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  CHICAGO MARATHON — October 11, 2026
+//  CHICAGO MARATHON
 // ═══════════════════════════════════════════════════════════════
 
 const CHICAGO: MarathonRace = {
-  id: 'chicago-marathon-2026',
+  id: 'chicago',
   name: 'Bank of America Chicago Marathon',
   city: 'Chicago',
   country: 'United States',
@@ -360,7 +373,10 @@ const CHICAGO: MarathonRace = {
   typicalTempF: { low: 42, high: 60 },
   typicalHumidity: 55,
   website: 'https://www.chicagomarathon.com',
-  startTime: '7:30 AM CT',
+  startTime: '07:30',
+  timeZone: 'America/Chicago',
+  lat: 41.8781,
+  lon: -87.6298,
   timeLimitHours: 6.5,
   fieldSize: 47000,
   isWorldMajor: true,
@@ -375,7 +391,8 @@ const CHICAGO: MarathonRace = {
     '2007 saw 88°F temps and a race cancellation — heat is the wildcard.',
     'The course tours 29 neighborhoods — each with its own energy and culture.',
     'Wind off Lake Michigan can affect the exposed sections.',
-    'Miles 18-22 through Chinatown and Pilsen have thinner crowds — stay strong.',
+    'Pilsen (around mile 19) and Chinatown (around mile 21) bring big, loud crowds — enjoy the lift but don\'t surge.',
+    'The only real hill is Roosevelt Road ("Mount Roosevelt") just before the finish — save a little for it.',
     'The finish in Grant Park with the Chicago skyline is spectacular.',
     'Fueling stations are every 2 miles — well-stocked.',
   ],
@@ -414,18 +431,18 @@ const CHICAGO: MarathonRace = {
     { mile: 13, landmarks: ['Near West Side'], terrain: 'Flat — halfway point' },
     { mile: 15, landmarks: ['Little Italy', 'University Village'], terrain: 'Flat — embrace the neighborhoods' },
     { mile: 19, landmarks: ['Pilsen'], terrain: 'Flat — crowd support builds' },
-    { mile: 21, landmarks: ['Chinatown'], terrain: 'Flat — stay mentally strong' },
+    { mile: 21, landmarks: ['Chinatown'], terrain: 'Flat — big crowds through Chinatown' },
     { mile: 25, landmarks: ['Michigan Avenue'], terrain: 'Flat — final push to Grant Park' },
   ]),
   aidStations: buildAidStations([1.6, 3.7, 5.7, 7.7, 9.7, 11.7, 13.7, 15.7, 17.7, 19.7, 21.5, 23.5, 25], ['water', 'Gatorade Endurance', 'gel']),
 };
 
 // ═══════════════════════════════════════════════════════════════
-//  NEW YORK CITY MARATHON — November 1, 2026
+//  NEW YORK CITY MARATHON
 // ═══════════════════════════════════════════════════════════════
 
 const NYC: MarathonRace = {
-  id: 'nyc-marathon-2026',
+  id: 'nyc',
   name: 'TCS New York City Marathon',
   city: 'New York City',
   country: 'United States',
@@ -437,7 +454,10 @@ const NYC: MarathonRace = {
   typicalTempF: { low: 40, high: 55 },
   typicalHumidity: 55,
   website: 'https://www.nyrr.org/tcsnycmarathon',
-  startTime: '9:10 AM ET (Wave 1)',
+  startTime: '09:10',
+  timeZone: 'America/New_York',
+  lat: 40.7128,
+  lon: -74.006,
   timeLimitHours: 8,
   fieldSize: 53000,
   isWorldMajor: true,
@@ -561,35 +581,172 @@ function buildAidStations(positions: number[], offerings: string[]): AidStation[
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  EDITIONS (v1.0.6)
+// ═══════════════════════════════════════════════════════════════
+
+/** Stable ids of the World Marathon Majors in the built-in database. */
+export type WorldMajorId = 'tokyo' | 'boston' | 'london' | 'berlin' | 'chicago' | 'nyc';
+
+export const WORLD_MAJOR_IDS: readonly WorldMajorId[] = ['tokyo', 'boston', 'london', 'berlin', 'chicago', 'nyc'];
+
+/**
+ * Known editions. 2026 dates are announced. For 2027, Boston follows
+ * Patriots' Day (3rd Monday of April); the others are derived from each
+ * race's usual rule and flagged `estimated` ("date to be confirmed").
+ */
+const EDITIONS: Record<WorldMajorId, RaceEdition[]> = {
+  tokyo: [
+    { year: 2026, date: '2026-03-01', startTime: '09:10', timeZone: 'Asia/Tokyo' },
+    { year: 2027, date: '2027-03-07', startTime: '09:10', timeZone: 'Asia/Tokyo', estimated: true },
+  ],
+  boston: [
+    { year: 2026, date: '2026-04-20', startTime: '10:00', timeZone: 'America/New_York' },
+    { year: 2027, date: '2027-04-19', startTime: '10:00', timeZone: 'America/New_York' },
+  ],
+  london: [
+    { year: 2026, date: '2026-04-26', startTime: '10:00', timeZone: 'Europe/London' },
+    { year: 2027, date: '2027-04-25', startTime: '10:00', timeZone: 'Europe/London', estimated: true },
+  ],
+  berlin: [
+    { year: 2026, date: '2026-09-27', startTime: '09:15', timeZone: 'Europe/Berlin' },
+    { year: 2027, date: '2027-09-26', startTime: '09:15', timeZone: 'Europe/Berlin', estimated: true },
+  ],
+  chicago: [
+    { year: 2026, date: '2026-10-11', startTime: '07:30', timeZone: 'America/Chicago' },
+    { year: 2027, date: '2027-10-10', startTime: '07:30', timeZone: 'America/Chicago', estimated: true },
+  ],
+  nyc: [
+    { year: 2026, date: '2026-11-01', startTime: '09:10', timeZone: 'America/New_York' },
+    { year: 2027, date: '2027-11-07', startTime: '09:10', timeZone: 'America/New_York', estimated: true },
+  ],
+};
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0');
+}
+
+/** Date key of the `n`-th `weekday` (0 = Sunday) of `month` (1-12). */
+function nthWeekdayOfMonth(year: number, month: number, weekday: number, n: number): string {
+  const firstDow = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
+  const day = 1 + ((weekday - firstDow + 7) % 7) + (n - 1) * 7;
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+/** Date key of the last `weekday` (0 = Sunday) of `month` (1-12). */
+function lastWeekdayOfMonth(year: number, month: number, weekday: number): string {
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const lastDow = new Date(Date.UTC(year, month - 1, lastDay)).getUTCDay();
+  const day = lastDay - ((lastDow - weekday + 7) % 7);
+  return `${year}-${pad2(month)}-${pad2(day)}`;
+}
+
+/** Each race's usual scheduling rule, used for years without a known edition. */
+const DATE_RULES: Record<WorldMajorId, (year: number) => string> = {
+  tokyo: (y) => nthWeekdayOfMonth(y, 3, 0, 1), // early-March Sunday
+  boston: (y) => nthWeekdayOfMonth(y, 4, 1, 3), // Patriots' Day
+  london: (y) => lastWeekdayOfMonth(y, 4, 0), // late-April Sunday
+  berlin: (y) => lastWeekdayOfMonth(y, 9, 0), // late-September Sunday
+  chicago: (y) => nthWeekdayOfMonth(y, 10, 0, 2),
+  nyc: (y) => nthWeekdayOfMonth(y, 11, 0, 1),
+};
+
+/** Estimated date from a race's usual rule (exported for tests). */
+export function estimateMajorDate(id: WorldMajorId, year: number): string {
+  return DATE_RULES[id](year);
+}
+
+/** True for a stable World Major id. */
+export function isWorldMajorId(id: string): id is WorldMajorId {
+  return (WORLD_MAJOR_IDS as readonly string[]).includes(id);
+}
+
+/**
+ * Map legacy year-pinned ids ('boston-marathon-2026') to stable ids
+ * ('boston'). Any other id is returned unchanged. Pure and idempotent.
+ */
+export function normalizeMarathonId(id: string): string {
+  if (typeof id !== 'string') return id;
+  const m = /^(tokyo|boston|london|berlin|chicago|nyc)-marathon-\d{4}$/.exec(id);
+  return m ? m[1] : id;
+}
+
+/**
+ * The race's next edition on or after `today` (a race on `today` counts as
+ * next). World Majors fall back to their usual rule (estimated) after the
+ * last known edition. Custom races use their own date. Null when the race
+ * has no upcoming date.
+ */
+export function nextEdition(race: MarathonRace, today: string = todayKey()): RaceEdition | null {
+  const id = normalizeMarathonId(race.id);
+  const editions = race.editions ?? (isWorldMajorId(id) ? EDITIONS[id] : []);
+  const upcoming = editions.find((e) => e.date >= today);
+  if (upcoming) return upcoming;
+  if (isWorldMajorId(id) && editions.length > 0) {
+    const last = editions[editions.length - 1];
+    for (let year = last.year + 1; year <= last.year + 50; year++) {
+      const date = DATE_RULES[id](year);
+      if (date >= today) return { year, date, startTime: last.startTime, timeZone: last.timeZone, estimated: true };
+    }
+    return null;
+  }
+  if (isDateKey(race.date) && race.date >= today) {
+    return {
+      year: Number(race.date.slice(0, 4)),
+      date: race.date,
+      startTime: race.startTime && /^\d{2}:\d{2}$/.test(race.startTime) ? race.startTime : '',
+      timeZone: race.timeZone ?? '',
+    };
+  }
+  return null;
+}
+
+/** Copy of `race` whose date/year/startTime mirror its next edition. */
+export function withNextEdition(race: MarathonRace, today: string = todayKey()): MarathonRace {
+  const id = normalizeMarathonId(race.id);
+  const editions = race.editions ?? (isWorldMajorId(id) ? EDITIONS[id] : undefined);
+  const base: MarathonRace = editions ? { ...race, editions } : { ...race };
+  const ed = nextEdition(base, today);
+  if (!ed || !editions) return base;
+  return {
+    ...base,
+    date: ed.date,
+    year: ed.year,
+    startTime: ed.startTime || base.startTime,
+    timeZone: ed.timeZone || base.timeZone,
+    dateEstimated: ed.estimated === true,
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  EXPORTS
 // ═══════════════════════════════════════════════════════════════
 
-export const WORLD_MAJOR_MARATHONS: MarathonRace[] = [
-  TOKYO,
-  BOSTON,
-  LONDON,
-  BERLIN,
-  CHICAGO,
-  NYC,
-];
+const BASE_MAJORS: MarathonRace[] = [TOKYO, BOSTON, LONDON, BERLIN, CHICAGO, NYC];
 
-/** Get a marathon by ID from the built-in database */
-export function getMarathonById(id: string): MarathonRace | undefined {
-  return WORLD_MAJOR_MARATHONS.find((m) => m.id === id);
+/** World Marathon Majors in the database, dated to their next edition as of `today`. */
+export function getWorldMajors(today: string = todayKey()): MarathonRace[] {
+  return BASE_MAJORS.map((r) => withNextEdition(r, today));
 }
 
-/** Get all World Major Marathons sorted by date */
-export function getWorldMajorsByDate(): MarathonRace[] {
-  return [...WORLD_MAJOR_MARATHONS].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
+/**
+ * World Marathon Majors dated to their next edition when this module loaded.
+ * Prefer {@link getWorldMajors} in long-lived views.
+ */
+export const WORLD_MAJOR_MARATHONS: MarathonRace[] = getWorldMajors();
+
+/** Get a marathon by ID (stable or legacy '*-marathon-2026') from the built-in database */
+export function getMarathonById(id: string, today: string = todayKey()): MarathonRace | undefined {
+  const stable = normalizeMarathonId(id);
+  const base = BASE_MAJORS.find((m) => m.id === stable);
+  return base ? withNextEdition(base, today) : undefined;
+}
+
+/** Get all World Major Marathons sorted by (next edition) date */
+export function getWorldMajorsByDate(today: string = todayKey()): MarathonRace[] {
+  return getWorldMajors(today).sort((a, b) => a.date.localeCompare(b.date));
 }
 
 /** Get the next upcoming World Major from today */
-export function getNextWorldMajor(): MarathonRace | null {
-  const now = Date.now();
-  const upcoming = WORLD_MAJOR_MARATHONS
-    .filter((m) => new Date(m.date).getTime() > now)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  return upcoming[0] ?? null;
+export function getNextWorldMajor(today: string = todayKey()): MarathonRace | null {
+  return getWorldMajorsByDate(today)[0] ?? null;
 }

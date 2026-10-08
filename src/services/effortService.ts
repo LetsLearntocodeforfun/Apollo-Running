@@ -558,3 +558,79 @@ export function processAllStoredActivities(activities: StravaActivity[]): void {
     processActivityEffort(activity);
   }
 }
+
+// ─── Rebuild job ─────────────────────────────────────────────────────────────
+
+/** Bump when recognition logic changes, so stored recognitions are rebuilt once (see needsEffortRebuild). */
+export const EFFORT_ALGO_VERSION = 2;
+/** `{ algoVersion, rebuiltAt, processed }` of the last full rebuild. */
+export const EFFORT_META_KEY = 'apollo_effort_meta';
+
+let rebuildRunning: Promise<{ processed: number }> | null = null;
+let rebuildAgain = false;
+
+/**
+ * Recompute effort recognitions from scratch over every visible (non-hidden)
+ * activity in chronological order. Route bundles and recognitions are cleared
+ * first, so hidden, deleted and merged runs stop counting and new history
+ * slots in at the right place. Single-flight: a call while a rebuild runs
+ * queues one more pass after it. Never throws.
+ *
+ * Note: the pass itself is synchronous (processAllStoredActivities); it is
+ * not chunked yet.
+ */
+export async function rebuildEffortRecognitions(
+  opts?: { force?: boolean },
+): Promise<{ processed: number }> {
+  void opts;
+  if (rebuildRunning) {
+    rebuildAgain = true;
+    return rebuildRunning;
+  }
+  rebuildRunning = (async () => {
+    let processed = 0;
+    do {
+      rebuildAgain = false;
+      try {
+        const { getStoredActivities } = await import('./analyticsService');
+        const runs = getStoredActivities() as unknown as StravaActivity[];
+        persistence.removeItem(ROUTE_BUNDLES_KEY);
+        persistence.removeItem(EFFORT_RECOGNITIONS_KEY);
+        processAllStoredActivities(runs);
+        processed = runs.length;
+        persistence.setItem(EFFORT_META_KEY, JSON.stringify({
+          algoVersion: EFFORT_ALGO_VERSION, rebuiltAt: new Date().toISOString(), processed,
+        }));
+      } catch {
+        processed = 0;
+      }
+    } while (rebuildAgain);
+    return { processed };
+  })();
+  try {
+    return await rebuildRunning;
+  } finally {
+    rebuildRunning = null;
+  }
+}
+
+/** True when recognitions were never rebuilt with the current algorithm (call once at startup). */
+export function needsEffortRebuild(): boolean {
+  try {
+    const meta = JSON.parse(persistence.getItem(EFFORT_META_KEY) ?? 'null') as { algoVersion?: number } | null;
+    return !meta || meta.algoVersion !== EFFORT_ALGO_VERSION;
+  } catch {
+    return true;
+  }
+}
+
+let rebuildTimer: ReturnType<typeof setTimeout> | null = null;
+
+/** Debounced (500 ms), fire-and-forget rebuild after syncs, imports, hide / delete / merge. Never throws. */
+export function scheduleEffortRebuild(): void {
+  if (rebuildTimer) clearTimeout(rebuildTimer);
+  rebuildTimer = setTimeout(() => {
+    rebuildTimer = null;
+    rebuildEffortRecognitions().catch(() => undefined);
+  }, 500);
+}

@@ -1,8 +1,10 @@
 /**
- * App Preferences — user settings for automatic activity sync and auto-updates.
- * Both features are opt-in (disabled by default); connecting intervals.icu turns
- * automatic sync on. Wellness sync (sleep, HRV and resting HR from intervals.icu)
- * is on by default. Persisted via the persistence service.
+ * App Preferences — user settings for automatic activity sync, wellness sync
+ * and auto-updates. Automatic sync and update checks are opt-in (off by
+ * default). Connecting intervals.icu never turns anything on silently: the
+ * connect form in Settings › Connections asks whether to sync automatically
+ * and whether to sync wellness, and applies exactly those choices after a
+ * successful connect. Persisted via the persistence service.
  */
 
 import { persistence } from './db/persistence';
@@ -20,7 +22,8 @@ export interface AppPreferences {
   autoDownloadUpdates: boolean;
   /**
    * Read sleep, HRV, resting HR and readiness from intervals.icu (wellness) on every
-   * sync. Only runs while intervals.icu is connected. On by default.
+   * sync. Only runs while intervals.icu is connected. The connect form sets it
+   * explicitly; the default (on) keeps installs that predate that choice unchanged.
    */
   syncWellness: boolean;
   /** Timestamp of last auto-sync to implement cooldown */

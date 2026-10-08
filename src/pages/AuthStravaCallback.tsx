@@ -51,7 +51,7 @@ export default function AuthStravaCallback() {
     let cancelled = false;
     connectWithCode(code)
       .then(() => {
-        if (!cancelled) navigate('/settings', { replace: true });
+        if (!cancelled) navigate('/settings?tab=connections', { replace: true });
       })
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Connection failed.');
@@ -69,7 +69,7 @@ export default function AuthStravaCallback() {
             Strava API access may require a paid plan. You can connect <strong>intervals.icu</strong> in Settings instead —
             it&apos;s free and syncs from Garmin, Zwift, Wahoo, COROS and more.
           </p>
-          <button type="button" className="btn btn-primary" onClick={() => navigate('/settings', { replace: true })}>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/settings?tab=connections', { replace: true })}>
             Back to Settings
           </button>
         </div>

@@ -14,6 +14,10 @@ declare global {
     releaseNotes: string | null;
     downloadProgress: number | null;
     error: string | null;
+    /** False where the app can't update itself (macOS without code signing): open the download page instead. */
+    canAutoInstall?: boolean;
+    /** Release page to open when canAutoInstall is false. */
+    manualDownloadUrl?: string | null;
   }
 
   interface ElectronAPI {
@@ -40,6 +44,8 @@ declare global {
       download: () => Promise<UpdateState>;
       install: () => Promise<UpdateState>;
       configure: (prefs: { autoCheck: boolean; autoDownload: boolean }) => Promise<UpdateState>;
+      /** Opens this repository's latest release page in the system browser (macOS manual update). */
+      openDownloadPage: () => Promise<boolean>;
       onStateChanged: (callback: (state: UpdateState) => void) => () => void;
     };
   }

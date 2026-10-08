@@ -1,7 +1,11 @@
 // Credential & token storage.
-// Electron: encrypted via OS keychain (safeStorage). Web: short-lived tokens only (BFF pattern).
+// Electron: encrypted via OS keychain (safeStorage). Web: kept in this browser's
+// app storage (Strava client secrets stay on the server — BFF pattern — but the
+// OAuth tokens and the intervals.icu API key are stored locally). Credentials
+// are never included in exports or backups (dataManager.isExcludedFromExport).
 
 import { persistence } from './db/persistence';
+import { clearNeedsReconnect } from './connectionHealth';
 
 const STRAVA_KEY = 'strava_tokens';
 const GARMIN_KEY = 'garmin_tokens';
@@ -113,6 +117,10 @@ async function loadSecureCredentials(): Promise<void> {
 /** Initialize secure storage: migrate legacy data, then load into cache */
 export async function initSecureStorage(): Promise<void> {
   if (!isElectron()) return;
+  // Wait for IndexedDB hydration first (S5): otherwise hydrate could restore a
+  // plaintext copy the migration just deleted, and a legacy key stored only in
+  // IndexedDB would be missed.
+  await persistence.ready.catch(() => { /* localStorage-only fallback */ });
   await migrateToSecureStorage();
   await loadSecureCredentials();
 }
@@ -233,6 +241,8 @@ export function getStravaTokens(): StravaTokens | null {
  * whether they were persisted (false: usable this session only).
  */
 export function setStravaTokens(t: StravaTokens): Promise<boolean> {
+  // Fresh tokens (connect or refresh) mean the connection works again.
+  clearNeedsReconnect('strava');
   return setSecure(STRAVA_KEY, JSON.stringify(t));
 }
 
@@ -352,4 +362,28 @@ export function setIntervalsCredentials(creds: IntervalsCredentials): Promise<bo
 /** Remove intervals.icu credentials (disconnect). */
 export function clearIntervalsCredentials(): void {
   removeSecure(INTERVALS_CREDENTIALS);
+}
+
+/**
+ * Remove every stored credential (tokens, API keys, client secrets) from all
+ * layers: the in-memory cache, the desktop encrypted store (awaited) and any
+ * plaintext copies in persistence/localStorage. Used by "Delete all data".
+ * Resolves to the keys the desktop store failed to remove (empty on success).
+ */
+export async function clearAllCredentials(): Promise<string[]> {
+  const failed: string[] = [];
+  for (const key of SENSITIVE_KEYS) {
+    secureCache.delete(key);
+    if (isElectron()) {
+      try {
+        const result = await window.electronAPI!.secureStorage.remove(key);
+        if (!result?.success) failed.push(key);
+      } catch {
+        failed.push(key);
+      }
+    }
+    persistence.removeItem(key);
+    try { localStorage.removeItem(key); } catch { /* ignore */ }
+  }
+  return failed;
 }

@@ -42,6 +42,19 @@ export interface CourseProfile {
 
 export type MarathonCategory = 'world-major' | 'major' | 'regional' | 'local' | 'custom';
 
+/** One dated running of a race (v1.0.6). */
+export interface RaceEdition {
+  year: number;
+  /** Race-local calendar date, YYYY-MM-DD. */
+  date: string;
+  /** Race-local start time (first wave / mass start), 24 h 'HH:mm'. */
+  startTime: string;
+  /** IANA time zone of the start, e.g. 'America/Chicago'. */
+  timeZone: string;
+  /** True when the date is derived from the race's usual rule, not announced. */
+  estimated?: boolean;
+}
+
 export interface MarathonRace {
   id: string;
   name: string;
@@ -66,10 +79,20 @@ export interface MarathonRace {
   qualifyingInfo?: string;
   isWorldMajor: boolean;
   year: number;
+  /** Start time. World Majors: 24 h 'HH:mm' (race-local); custom races may hold free text. */
   startTime?: string;
   timeLimitHours?: number;
   fieldSize?: number;
   courseDescription: string;
+  /** Known editions, oldest first (World Majors). `date`/`year`/`startTime` mirror the next one. */
+  editions?: RaceEdition[];
+  /** IANA time zone of the race. */
+  timeZone?: string;
+  /** True when `date` comes from an estimated edition ("date to be confirmed"). */
+  dateEstimated?: boolean;
+  /** Start-area coordinates (rounded). */
+  lat?: number;
+  lon?: number;
 }
 
 /** ── Race Strategy ── */
@@ -77,7 +100,9 @@ export interface MarathonRace {
 export type PacingStrategy = 'negative-split' | 'even-split' | 'positive-split' | 'effort-based';
 
 export interface MilePacePlan {
+  /** Distance at the END of this segment, in miles (1, 2, … 26, 26.2). */
   mile: number;
+  /** Pace for this segment in sec/mi (the final segment may be shorter than 1 mi). */
   targetPaceSec: number;
   /** e.g. "8:30" */
   targetPaceFormatted: string;
@@ -91,6 +116,10 @@ export interface NutritionPlan {
   mile: number;
   item: string;
   notes: string;
+  /** Seconds after the gun (negative = before the start). v1.0.6+ plans only. */
+  timeSec?: number;
+  /** Carbohydrate in this item (g). v1.0.6+ plans only. */
+  carbsG?: number;
 }
 
 export interface RaceStrategy {
@@ -105,6 +134,10 @@ export interface RaceStrategy {
   nutritionPlan: NutritionPlan[];
   firstHalfSec: number;
   secondHalfSec: number;
+  /** Planned second-half vs first-half difference in % (−1.5 = a 1.5 % negative split). v1.0.6+. */
+  splitPct?: number;
+  /** Race distance in miles. v1.0.6+; for older strategies use the last `milePaces` entry. */
+  distanceMi?: number;
   avgPaceSec: number;
   createdAt: string;
   updatedAt: string;

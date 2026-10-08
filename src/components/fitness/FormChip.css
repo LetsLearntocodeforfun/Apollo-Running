@@ -1,0 +1,65 @@
+/* Form chip (Today screen). Colour is always paired with the zone text. */
+.form-chip {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2, 0.5rem);
+  min-height: 32px;
+  padding: var(--space-2, 0.5rem) var(--space-3, 0.75rem);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  border-radius: var(--radius-full, 999px);
+  background: var(--bg-card, rgba(255, 255, 255, 0.04));
+  color: var(--text, #ece8e1);
+  font-size: var(--text-sm, 0.85rem);
+  line-height: 1.2;
+  --form-zone-color: var(--text-muted, #9a9a9a);
+}
+
+.form-chip--compact {
+  flex-wrap: nowrap;
+  gap: var(--space-1, 0.25rem) var(--space-2, 0.5rem);
+}
+
+.form-chip-label {
+  color: var(--text-secondary, #b8b3aa);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: var(--text-xs, 0.75rem);
+}
+
+.form-chip-value {
+  font-family: var(--font-mono, ui-monospace, monospace);
+  font-weight: 700;
+  font-size: var(--text-base, 1rem);
+}
+
+.form-chip-zone {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 600;
+}
+
+.form-chip-dot {
+  width: 0.6em;
+  height: 0.6em;
+  border-radius: 50%;
+  background: var(--form-zone-color);
+  flex: none;
+}
+
+.form-chip-readiness strong {
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+
+.form-chip-note {
+  color: var(--text-muted, #9a9a9a);
+  font-size: var(--text-xs, 0.75rem);
+}
+
+.form-chip--overreaching { --form-zone-color: #ef5350; }
+.form-chip--productive { --form-zone-color: #66bb6a; }
+.form-chip--fresh { --form-zone-color: #4fc3f7; }
+.form-chip--peak { --form-zone-color: #ffd700; }
+.form-chip--transition { --form-zone-color: #ffa726; }
+.form-chip--detrained { --form-zone-color: #78909c; }

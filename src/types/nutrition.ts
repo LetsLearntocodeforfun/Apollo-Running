@@ -65,6 +65,12 @@ export interface CarbLoadingDay {
   meals: MealSuggestion[];
   /** Fiber guidance */
   fiberGuidance: string;
+  /** True for the optional D-3 lead-in day (v1.0.6). */
+  optional?: boolean;
+  /** Carbs the suggested meals fall short of the target by (g), when > 0 (v1.0.6). */
+  shortfallG?: number;
+  /** Warning to show with this day, e.g. a race-morning shortfall (v1.0.6). */
+  warning?: string;
 }
 
 /** A single meal suggestion */
@@ -89,6 +95,14 @@ export interface CarbLoadingProtocol {
   totalCarbTargetG: number;
   /** Summary message */
   summary: string;
+  /** Loading-day target used (g/kg/day) (v1.0.6). */
+  carbsPerKg?: number;
+  /** Body mass the g/kg targets were computed from, after the heavy-runner cap (kg) (v1.0.6). */
+  effectiveMassKg?: number;
+  /** True when the heavy-runner cap reduced the targets (v1.0.6). */
+  massCapped?: boolean;
+  /** Extra guidance (citation, validation messages) (v1.0.6). */
+  notes?: string[];
 }
 
 /** Sweat rate estimation result */
@@ -157,6 +171,10 @@ export interface FuelingItem {
   caffeineMg?: number;
   /** Notes/instructions */
   notes: string;
+  /** Precise distance at this item, in miles (v1.0.6; `mile` is rounded). */
+  distanceMi?: number;
+  /** Fluid volume of a drink item (mL) (v1.0.6). */
+  fluidMl?: number;
 }
 
 /** Complete in-race fueling plan */
@@ -173,12 +191,18 @@ export interface FuelingPlan {
   coveragePct: number;
   /** Fueling items by mile */
   items: FuelingItem[];
-  /** Caffeine strategy */
-  caffeine: CaffeineStrategy;
+  /** Caffeine strategy — present only when the athlete opted in (v1.0.6). */
+  caffeine?: CaffeineStrategy;
   /** GI risk level */
   giRisk: 'low' | 'moderate' | 'high';
   /** Summary message */
   summary: string;
+  /** Minutes between gels on the shared cadence (0 when there are none) (v1.0.6). */
+  gelIntervalMin?: number;
+  /** Planned sports-drink volume in 'drink' mode (mL/h, always ≤ the safe ceiling) (v1.0.6). */
+  fluidMlPerHour?: number;
+  /** True above ~60 g/h: needs glucose + fructose products (v1.0.6). */
+  needsMultipleTransportable?: boolean;
 }
 
 /** Caffeine timing strategy */

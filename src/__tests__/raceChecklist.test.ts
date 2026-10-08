@@ -2,7 +2,7 @@
  * Tests for Pre-Race Checklist Service
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   createChecklist,
   getAllChecklists,
@@ -15,6 +15,11 @@ import {
   resetChecklist,
   getItemsByCategory,
   CATEGORY_LABELS,
+  CHECKLIST_CATEGORIES,
+  computeChecklistProgress,
+  getOrCreateChecklistForRace,
+  hideChecklistItem,
+  unhideChecklistItem,
 } from '@/services/raceChecklist';
 import { persistence } from '@/services/db/persistence';
 
@@ -258,5 +263,220 @@ describe('CATEGORY_LABELS', () => {
     expect(Object.keys(CATEGORY_LABELS).length).toBe(6);
     expect(CATEGORY_LABELS.gear).toBeTruthy();
     expect(CATEGORY_LABELS.nutrition).toBeTruthy();
+  });
+
+  it('CHECKLIST_CATEGORIES lists every labelled category once', () => {
+    expect([...CHECKLIST_CATEGORIES].sort()).toEqual(Object.keys(CATEGORY_LABELS).sort());
+  });
+});
+
+// ── v1.0.6 regressions ────────────────────────────────────────────────────────
+
+describe('L-10: every list gets fresh items', () => {
+  it('a second list for the same race starts unchecked', () => {
+    const first = createChecklist('Boston A', 'boston');
+    const courseItem = first.items.find((i) => i.isCourse)!;
+    expect(courseItem).toBeDefined();
+    toggleChecklistItem(first.id, courseItem.id);
+    toggleChecklistItem(first.id, first.items[0].id);
+
+    const second = createChecklist('Boston B', 'boston');
+    expect(second.items.every((i) => !i.checked)).toBe(true);
+    expect(getChecklistById(first.id)!.items.find((i) => i.id === courseItem.id)!.checked).toBe(true);
+  });
+
+  it('mutating a returned list never leaks into a new list', () => {
+    const first = createChecklist('Tokyo A', 'tokyo');
+    first.items.forEach((i) => { i.checked = true; i.text = 'mutated'; });
+    const second = createChecklist('Tokyo B', 'tokyo');
+    expect(second.items.some((i) => i.checked || i.text === 'mutated')).toBe(false);
+    expect(second.items.every((i, idx) => i !== first.items[idx])).toBe(true);
+  });
+});
+
+describe('L-11: collision-free ids', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('gives rapid custom adds unique ids', () => {
+    const list = createChecklist('Test');
+    const ids = Array.from({ length: 50 }, (_, n) => addCustomItem(list.id, `Item ${n}`, 'gear')!.id);
+    expect(new Set(ids).size).toBe(50);
+    expect(getChecklistById(list.id)!.items.filter((i) => i.isCustom)).toHaveLength(50);
+  });
+
+  it('gives lists created in the same millisecond unique ids', () => {
+    const ids = Array.from({ length: 20 }, () => createChecklist('Same ms').id);
+    expect(new Set(ids).size).toBe(20);
+  });
+
+  it('falls back safely when crypto.randomUUID is unavailable', () => {
+    vi.stubGlobal('crypto', undefined);
+    const list = createChecklist('No crypto');
+    const ids = Array.from({ length: 30 }, (_, n) => addCustomItem(list.id, `Item ${n}`, 'gear')!.id);
+    expect(new Set(ids).size).toBe(30);
+    expect(list.id).toMatch(/^checklist_/);
+  });
+
+  it('rejects empty custom items', () => {
+    const list = createChecklist('Test');
+    expect(addCustomItem(list.id, '   ', 'gear')).toBeNull();
+    expect(addCustomItem(list.id, '  Gels  ', 'nutrition')!.text).toBe('Gels');
+  });
+
+  it('gives duplicate legacy item ids a unique suffix on load', () => {
+    persistence.setItem('apollo_race_checklists', JSON.stringify([{
+      id: 'legacy', name: 'Legacy', createdAt: '2025-01-01T00:00:00.000Z', updatedAt: '2025-01-01T00:00:00.000Z',
+      items: [
+        { id: 'custom_1', text: 'A', checked: false, category: 'gear', isCustom: true },
+        { id: 'custom_1', text: 'B', checked: false, category: 'gear', isCustom: true },
+        { id: 'x', text: 'C', checked: false, category: 'not-a-category', isCustom: true },
+        null,
+      ],
+    }]));
+    const list = getChecklistById('legacy')!;
+    expect(list.items.map((i) => i.id)).toEqual(['custom_1', 'custom_1~2', 'x']);
+    expect(list.items[2].category).toBe('logistics');
+    toggleChecklistItem('legacy', 'custom_1');
+    const after = getChecklistById('legacy')!;
+    expect(after.items[0].checked).toBe(true);
+    expect(after.items[1].checked).toBe(false);
+  });
+});
+
+describe('L-12: course items by stable id, race-week only', () => {
+  const allText = (marathonId?: string) =>
+    createChecklist('Race', marathonId).items.map((i) => i.text).join('\n');
+
+  it('matches legacy and stable ids to the same course items', () => {
+    const legacy = createChecklist('Boston', 'boston-marathon-2026').items.filter((i) => i.isCourse);
+    const stable = createChecklist('Boston', 'boston').items.filter((i) => i.isCourse);
+    expect(legacy.length).toBeGreaterThan(0);
+    expect(legacy.map((i) => i.text)).toEqual(stable.map((i) => i.text));
+  });
+
+  it('gives a custom race that only mentions a major no course items', () => {
+    const half = createChecklist('Boston Run Half', 'custom-boston-run-half');
+    expect(half.items.some((i) => i.isCourse)).toBe(false);
+    expect(half.items.some((i) => i.text.includes('Hopkinton'))).toBe(false);
+    expect(createChecklist('NYC 10K', 'nyc-10k-2026').items.some((i) => i.isCourse)).toBe(false);
+  });
+
+  it('contains no training tasks', () => {
+    for (const id of ['tokyo', 'boston', 'london', 'berlin', 'chicago', 'nyc']) {
+      const text = allText(id);
+      expect(text).not.toMatch(/practice downhill|practice on cobblestones/i);
+    }
+  });
+
+  it('fixes the doubtful course facts', () => {
+    expect(allText('tokyo')).not.toMatch(/humid/i);
+    expect(allText('tokyo')).toMatch(/throwaway layer/i);
+    expect(allText('london')).not.toMatch(/lucozade/i);
+    expect(allText('london')).toMatch(/official race guide/i);
+    const nycQueensboro = createChecklist('NYC', 'nyc').items.filter((i) => /queensboro/i.test(i.text));
+    expect(nycQueensboro.length).toBeGreaterThan(0);
+    expect(nycQueensboro.every((i) => !/wind/i.test(i.text))).toBe(true);
+    expect(allText('nyc')).toMatch(/verrazzano/i);
+  });
+
+  it('adds the new race-week defaults', () => {
+    const text = allText();
+    expect(text).toMatch(/porta-potty/i);
+    expect(text).toMatch(/caffeine.*practised/i);
+    expect(text).toMatch(/time zones/i);
+    expect(text).toMatch(/wave\/corral start time/i);
+  });
+
+  it('keeps default text unit-neutral', () => {
+    expect(allText('chicago')).not.toMatch(/\bmiles?\b|\bmi\b|°F|\bft\b/);
+  });
+});
+
+describe('L-13: hide/unhide and get-or-create', () => {
+  it('excludes hidden items from progress and category lists', () => {
+    const list = createChecklist('Test');
+    const target = list.items[0];
+    toggleChecklistItem(list.id, target.id);
+    const before = getChecklistProgress(list.id);
+    expect(before.checked).toBe(1);
+
+    expect(hideChecklistItem(list.id, target.id)).toBe(true);
+    const hidden = getChecklistProgress(list.id);
+    expect(hidden.total).toBe(before.total - 1);
+    expect(hidden.checked).toBe(0);
+    expect(getItemsByCategory(list.id)[target.category].some((i) => i.id === target.id)).toBe(false);
+    expect(getItemsByCategory(list.id, { includeHidden: true })[target.category]
+      .some((i) => i.id === target.id)).toBe(true);
+
+    expect(unhideChecklistItem(list.id, target.id)).toBe(true);
+    expect(getChecklistProgress(list.id)).toEqual(before);
+  });
+
+  it('does not hide custom items or unknown ids', () => {
+    const list = createChecklist('Test');
+    const custom = addCustomItem(list.id, 'Mine', 'gear')!;
+    expect(hideChecklistItem(list.id, custom.id)).toBe(false);
+    expect(hideChecklistItem(list.id, 'nope')).toBe(false);
+    expect(hideChecklistItem('bad', list.items[0].id)).toBe(false);
+  });
+
+  it('only removes custom items', () => {
+    const list = createChecklist('Test');
+    expect(removeChecklistItem(list.id, list.items[0].id)).toBe(false);
+    expect(getChecklistById(list.id)!.items).toHaveLength(list.items.length);
+  });
+
+  it('reset keeps hidden flags and custom items', () => {
+    const list = createChecklist('Test');
+    const custom = addCustomItem(list.id, 'Mine', 'gear')!;
+    toggleChecklistItem(list.id, custom.id);
+    hideChecklistItem(list.id, list.items[1].id);
+    resetChecklist(list.id);
+    const after = getChecklistById(list.id)!;
+    expect(after.items.find((i) => i.id === custom.id)!.checked).toBe(false);
+    expect(after.items.find((i) => i.id === list.items[1].id)!.hidden).toBe(true);
+  });
+
+  it('computeChecklistProgress is pure and handles empty lists', () => {
+    expect(computeChecklistProgress({ items: [] })).toEqual({ checked: 0, total: 0, pct: 0 });
+    expect(computeChecklistProgress({
+      items: [
+        { id: 'a', text: 'a', checked: true, category: 'gear', isCustom: false },
+        { id: 'b', text: 'b', checked: false, category: 'gear', isCustom: false },
+        { id: 'c', text: 'c', checked: true, category: 'gear', isCustom: false, hidden: true },
+      ],
+    })).toEqual({ checked: 1, total: 2, pct: 50 });
+  });
+
+  it('getOrCreateChecklistForRace is idempotent', () => {
+    const a = getOrCreateChecklistForRace('boston', 'Boston 2027');
+    const b = getOrCreateChecklistForRace('boston', 'Boston again');
+    expect(b.id).toBe(a.id);
+    expect(getAllChecklists()).toHaveLength(1);
+    expect(a.marathonId).toBe('boston');
+    expect(a.items.some((i) => i.isCourse)).toBe(true);
+  });
+
+  it('getOrCreateChecklistForRace finds a list saved under a legacy id', () => {
+    const legacy = createChecklist('Boston 2026', 'boston-marathon-2026');
+    toggleChecklistItem(legacy.id, legacy.items[0].id);
+    const found = getOrCreateChecklistForRace('boston', 'Boston');
+    expect(found.id).toBe(legacy.id);
+    expect(found.items[0].checked).toBe(true);
+    expect(getOrCreateChecklistForRace('boston-marathon-2026', 'Boston').id).toBe(legacy.id);
+    expect(getAllChecklists()).toHaveLength(1);
+  });
+
+  it('keeps the generic list separate from race lists', () => {
+    const race = getOrCreateChecklistForRace('nyc', 'NYC');
+    const generic = getOrCreateChecklistForRace(null, 'Race week');
+    expect(generic.id).not.toBe(race.id);
+    expect(generic.marathonId).toBeUndefined();
+    expect(generic.items.some((i) => i.isCourse)).toBe(false);
+    expect(getOrCreateChecklistForRace(null, 'Race week').id).toBe(generic.id);
+    expect(getOrCreateChecklistForRace('', 'Race week').id).toBe(generic.id);
+    expect(getAllChecklists()).toHaveLength(2);
   });
 });

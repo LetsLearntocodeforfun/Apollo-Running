@@ -149,12 +149,14 @@ function headline(r: ImportResult): string {
 /**
  * Outcome of an import in a sentence, e.g. "Added 1,204 activities and
  * updated 3 you already had." When the store's limit pushed out older
- * activities, a second sentence says how many.
+ * activities, a second sentence says how many. The store trims other sports
+ * first and never trims races or personal records (B16), so the copy doesn't
+ * promise "the most recent" activities.
  */
 export function describeImportResult(r: ImportResult): string {
   const text = headline(r);
   if (!(r.dropped > 0)) return text;
   const older = r.dropped === 1 ? 'older one wasn\'t' : 'older ones weren\'t';
-  return `${text} Apollo keeps your ${MAX_STORED_ACTIVITIES.toLocaleString()} most recent activities, `
-    + `so ${r.dropped.toLocaleString()} ${older} kept.`;
+  return `${text} Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities `
+    + `(races and personal records always stay), so ${r.dropped.toLocaleString()} ${older} kept.`;
 }

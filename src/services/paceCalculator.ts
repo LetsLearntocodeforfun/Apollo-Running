@@ -4,14 +4,37 @@
  * Given a VDOT score (from race prediction), computes the five canonical
  * Daniels training paces: Easy, Marathon, Threshold, Interval, Repetition.
  *
- * Pace coefficients are power-law regressions fitted to Daniels' published tables.
- * Validated against VDOT 30–85 range with <1% error.
+ * v1.0.6 (V1, V13, A-01): paces come straight from the Daniels–Gilbert oxygen
+ * cost equation VO2 = −4.60 + 0.182258·v + 0.000104·v² (v in m/min) — the same
+ * engine as racePrediction, so paces and predictions always agree:
+ *   - Easy:       59–74 % of VO2max (a range)
+ *   - Marathon:   marathon race pace at this VDOT (`raceTimeFromVdot`)
+ *   - Threshold:  88 % of VO2max
+ *   - Interval:   97.5 % of VO2max
+ *   - Repetition: mile race pace at this VDOT (faster than I)
+ * (The old power-law fit gave a marathon time ~2× too slow — V1.)
+ *
+ * The VDOT itself comes from `deriveVdot()` (races, best efforts, heart rate,
+ * goal) — never from easy training pace.
  */
 
-import { estimateVDOT, formatTimeSec } from './racePrediction';
+import {
+  deriveVdot,
+  estimateVDOT,
+  formatTimeSec,
+  MARATHON_M,
+  raceTimeFromVdot,
+  vdotToMarathonSec,
+  velocityAtVo2,
+  type DeriveVdotOptions,
+  type DerivedVdot,
+  type VdotConfidence,
+  type VdotSource,
+} from './racePrediction';
 import { persistence } from './db/persistence';
 
 const PACE_CACHE_KEY = 'apollo_training_paces';
+const METERS_PER_MILE = 1609.344;
 
 /** All five Daniels training pace types */
 export type DanielsPaceType = 'easy' | 'marathon' | 'threshold' | 'interval' | 'repetition';
@@ -20,7 +43,7 @@ export type DanielsPaceType = 'easy' | 'marathon' | 'threshold' | 'interval' | '
 export interface TrainingPaces {
   /** VDOT score these paces are derived from */
   vdot: number;
-  /** Easy pace range (sec/mi) — the bread & butter of training */
+  /** Easy pace range (sec/mi) — the bread & butter of training. `min` = faster end (74 % VO2max), `max` = slower end (59 %). */
   easy: { min: number; max: number };
   /** Marathon pace (sec/mi) */
   marathon: number;
@@ -32,51 +55,69 @@ export interface TrainingPaces {
   repetition: number;
   /** When these paces were computed */
   updatedAt: string;
+  // ── v1.0.6 (optional; set when the VDOT came from deriveVdot) ──
+  /** Where the VDOT came from. */
+  source?: VdotSource;
+  /** Confidence of that source. */
+  confidence?: VdotConfidence;
+  /** Human-readable description of the source, e.g. "Half marathon in 1:35:00 on 2026-09-12". */
+  sourceDetail?: string;
+  /** YYYY-MM-DD of the performance behind the VDOT (null for heart-rate estimates and goals). */
+  asOf?: string | null;
 }
 
-/**
- * Power-law coefficients: pace(sec/mi) = A * vdot^B
- *
- * Fitted against Daniels' published tables for VDOT 30-85:
- *   Easy:       13359 * vdot^-0.839
- *   Marathon:   12288 * vdot^-0.843
- *   Threshold:  11337 * vdot^-0.839
- *   Interval:    9555 * vdot^-0.816
- *   Repetition:  8208 * vdot^-0.794
- */
-const PACE_COEFFICIENTS: Record<DanielsPaceType, { a: number; b: number }> = {
-  easy:       { a: 13359, b: -0.839 },
-  marathon:   { a: 12288, b: -0.843 },
-  threshold:  { a: 11337, b: -0.839 },
-  interval:   { a:  9555, b: -0.816 },
-  repetition: { a:  8208, b: -0.794 },
-};
+/** Fractions of VO2max used for the Daniels intensities (Daniels' Running Formula). */
+export const DANIELS_INTENSITY = {
+  /** Fast end of the easy range. */
+  easyFast: 0.74,
+  /** Slow end of the easy range. */
+  easySlow: 0.59,
+  threshold: 0.88,
+  interval: 0.975,
+} as const;
 
-/** Calculate a single Daniels pace in sec/mi from VDOT */
+/** Pace (sec/mi, unrounded) of running at `fraction` of VO2max for a VDOT. */
+function paceAtFraction(vdot: number, fraction: number): number {
+  const v = velocityAtVo2(vdot * fraction);
+  return v > 0 ? (METERS_PER_MILE / v) * 60 : 0;
+}
+
+/** All-out race pace (sec/mi, unrounded) over `meters` for a VDOT. */
+function racePace(vdot: number, meters: number): number {
+  const t = raceTimeFromVdot(vdot, meters);
+  return t > 0 ? t / (meters / METERS_PER_MILE) : 0;
+}
+
+/** Calculate a single Daniels pace in sec/mi from VDOT (easy = middle of the E range). */
 function danielsPace(vdot: number, type: DanielsPaceType): number {
-  if (vdot <= 0) return 0;
-  const { a, b } = PACE_COEFFICIENTS[type];
-  return Math.round(a * Math.pow(vdot, b));
+  if (!(vdot > 0) || !Number.isFinite(vdot)) return 0;
+  switch (type) {
+    case 'easy':
+      return Math.round((paceAtFraction(vdot, DANIELS_INTENSITY.easyFast) + paceAtFraction(vdot, DANIELS_INTENSITY.easySlow)) / 2);
+    case 'marathon':
+      return Math.round(racePace(vdot, MARATHON_M));
+    case 'threshold':
+      return Math.round(paceAtFraction(vdot, DANIELS_INTENSITY.threshold));
+    case 'interval':
+      return Math.round(paceAtFraction(vdot, DANIELS_INTENSITY.interval));
+    case 'repetition':
+      return Math.round(racePace(vdot, METERS_PER_MILE));
+  }
 }
 
 /**
- * Calculate all training paces from a VDOT score.
- *
- * Easy pace gets a range: approximately ±2% from the midpoint,
- * narrowing at higher VDOT (faster runners have tighter ranges).
+ * Calculate all training paces from a VDOT score (Daniels–Gilbert, see the
+ * module comment). Anchors at VDOT 50: E ≈ 7:52–9:26/mi, M ≈ 7:17/mi,
+ * T ≈ 6:51/mi, I ≈ 6:18/mi, R ≈ 5:50/mi.
  */
 export function calculateTrainingPaces(vdot: number): TrainingPaces | null {
   if (vdot <= 0 || !isFinite(vdot)) return null;
 
-  const easyMid = danielsPace(vdot, 'easy');
-  // Easy range: ±2% of midpoint, minimum 10s range
-  const rangeHalf = Math.max(Math.round(easyMid * 0.02), 5);
-
   const paces: TrainingPaces = {
     vdot: Math.round(vdot * 10) / 10,
     easy: {
-      min: easyMid - rangeHalf, // faster end
-      max: easyMid + rangeHalf, // slower end
+      min: Math.round(paceAtFraction(vdot, DANIELS_INTENSITY.easyFast)), // faster end
+      max: Math.round(paceAtFraction(vdot, DANIELS_INTENSITY.easySlow)), // slower end
     },
     marathon:   danielsPace(vdot, 'marathon'),
     threshold:  danielsPace(vdot, 'threshold'),
@@ -102,18 +143,21 @@ export function calculatePacesFromRace(distanceMeters: number, timeSec: number):
 /** Format a pace in sec/mi to "M:SS/mi" string */
 export function formatPaceSec(secPerMi: number): string {
   if (secPerMi <= 0) return '—';
-  const min = Math.floor(secPerMi / 60);
-  const sec = Math.round(secPerMi % 60);
+  const rounded = Math.round(secPerMi);
+  const min = Math.floor(rounded / 60);
+  const sec = rounded % 60;
   return `${min}:${sec.toString().padStart(2, '0')}/mi`;
 }
 
 /** Format a pace range as "M:SS–M:SS/mi" */
 export function formatPaceRange(min: number, max: number): string {
   if (min <= 0 || max <= 0) return '—';
-  const minMin = Math.floor(min / 60);
-  const minSec = Math.round(min % 60);
-  const maxMin = Math.floor(max / 60);
-  const maxSec = Math.round(max % 60);
+  const lo = Math.round(min);
+  const hi = Math.round(max);
+  const minMin = Math.floor(lo / 60);
+  const minSec = lo % 60;
+  const maxMin = Math.floor(hi / 60);
+  const maxSec = hi % 60;
   return `${minMin}:${minSec.toString().padStart(2, '0')}–${maxMin}:${maxSec.toString().padStart(2, '0')}/mi`;
 }
 
@@ -137,47 +181,78 @@ export function saveTrainingPaces(paces: TrainingPaces): void {
   } catch { /* non-critical */ }
 }
 
-/** Get cached training paces */
+function isPositive(n: unknown): n is number {
+  return typeof n === 'number' && Number.isFinite(n) && n > 0;
+}
+
+/** True when `p` has the TrainingPaces shape with positive, finite paces. */
+export function isValidTrainingPaces(p: unknown): p is TrainingPaces {
+  if (!p || typeof p !== 'object') return false;
+  const x = p as Partial<TrainingPaces>;
+  return isPositive(x.vdot) && !!x.easy && isPositive(x.easy.min) && isPositive(x.easy.max) &&
+    isPositive(x.marathon) && isPositive(x.threshold) && isPositive(x.interval) && isPositive(x.repetition);
+}
+
+/** Get cached training paces (validated; null when missing or malformed). */
 export function getSavedTrainingPaces(): TrainingPaces | null {
   try {
     const raw = persistence.getItem(PACE_CACHE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    return isValidTrainingPaces(parsed) ? parsed : null;
   } catch {
     return null;
   }
 }
 
 /**
- * Get or compute training paces from the current VDOT.
- * If a saved prediction exists, uses its VDOT; otherwise returns null.
+ * The athlete's current training paces — pure (no storage writes). The VDOT
+ * comes from {@link deriveVdot} (recent race → detected race → best effort →
+ * heart-rate estimate → goal time) and its source is attached. Null when no
+ * source exists.
  */
-export function getOrComputeTrainingPaces(): TrainingPaces | null {
-  // Try to use saved race prediction VDOT
+export function getCurrentTrainingPaces(opts: DeriveVdotOptions = {}): TrainingPaces | null {
+  let derived: DerivedVdot;
   try {
-    const predRaw = persistence.getItem('apollo_race_prediction');
-    if (predRaw) {
-      const pred = JSON.parse(predRaw);
-      if (pred.vdot && pred.vdot > 0) {
-        const paces = calculateTrainingPaces(pred.vdot);
-        if (paces) {
-          saveTrainingPaces(paces);
-          return paces;
-        }
-      }
-    }
-  } catch { /* fall through */ }
-
-  return getSavedTrainingPaces();
+    derived = deriveVdot(opts);
+  } catch {
+    return null;
+  }
+  if (derived.vdot == null || derived.source === 'none') return null;
+  const paces = calculateTrainingPaces(derived.vdot);
+  if (!paces) return null;
+  return {
+    ...paces,
+    source: derived.source,
+    confidence: derived.confidence,
+    sourceDetail: derived.detail,
+    asOf: derived.asOf,
+  };
 }
 
 /**
- * Marathon time estimate from a VDOT (for display).
- * Returns formatted string like "3:45:22".
+ * Compute the current training paces ({@link getCurrentTrainingPaces}) and
+ * save them, source included (explicit, idempotent upsert). When there is no
+ * VDOT source the cache is cleared — older caches came from training-run
+ * VDOTs (V2) — and null is returned.
+ */
+export function getOrComputeTrainingPaces(): TrainingPaces | null {
+  const paces = getCurrentTrainingPaces();
+  if (paces) {
+    saveTrainingPaces(paces);
+    return paces;
+  }
+  try {
+    persistence.removeItem(PACE_CACHE_KEY);
+  } catch { /* non-critical */ }
+  return null;
+}
+
+/**
+ * Marathon time estimate from a VDOT (for display), e.g. "3:10:49" for VDOT 50.
+ * Same engine as the race prediction (`vdotToMarathonSec`).
  */
 export function vdotToMarathonTime(vdot: number): string {
-  if (vdot <= 0) return '—';
-  // Marathon pace * 26.2 miles
-  const marathonPace = danielsPace(vdot, 'marathon');
-  const totalSec = Math.round(marathonPace * 26.2);
-  return formatTimeSec(totalSec);
+  if (!(vdot > 0)) return '—';
+  return formatTimeSec(vdotToMarathonSec(vdot));
 }

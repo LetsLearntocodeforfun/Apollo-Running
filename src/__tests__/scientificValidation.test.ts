@@ -240,10 +240,10 @@ describe('Hydration Calculator — Scientific Validation', () => {
 
 describe('Carb Loading Protocol — Scientific Validation', () => {
   it('daily carb targets follow Burke et al. 2011 (8-12 g/kg/day)', () => {
-    // D-3: 8 g/kg, D-2: 10 g/kg, D-1: 12 g/kg
+    // D-3: 8 g/kg (optional lead-in), D-2/D-1: 10 g/kg default (v1.0.6, N-14; 12 is selectable)
     expect(getDailyCarbTarget(70, 3)).toBe(8 * 70); // 560g
     expect(getDailyCarbTarget(70, 2)).toBe(10 * 70); // 700g
-    expect(getDailyCarbTarget(70, 1)).toBe(12 * 70); // 840g
+    expect(getDailyCarbTarget(70, 1)).toBe(10 * 70); // 700g
   });
 
   it('race morning carb target aligns with ACSM (1-4 g/kg)', () => {
@@ -392,17 +392,18 @@ describe('What-If Simulator — Scientific Validation', () => {
     expect(result.deltaSec).toBeGreaterThanOrEqual(120); // at least 2 min
   });
 
-  it('all 7 scenario types are available', () => {
+  it('offers the default scenario types; weight change is not suggested (A-05)', () => {
     const scenarios = getAvailableScenarios();
-    expect(scenarios.length).toBeGreaterThanOrEqual(7);
+    expect(scenarios.length).toBeGreaterThanOrEqual(6);
     const types = new Set(scenarios.map((s) => s.type));
-    expect(types.has('weight_change')).toBe(true);
     expect(types.has('increase_mileage')).toBe(true);
     expect(types.has('skip_days')).toBe(true);
     expect(types.has('add_long_run')).toBe(true);
     expect(types.has('marathon_pace_long_runs')).toBe(true);
     expect(types.has('decrease_mileage')).toBe(true);
     expect(types.has('add_tempo_runs')).toBe(true);
+    // simulateWhatIf still accepts 'weight_change'; it just isn't offered by default.
+    expect(types.has('weight_change')).toBe(false);
   });
 });
 
@@ -734,7 +735,11 @@ describe('Race Day Timeline — Practical Validation', () => {
 // ── Course Training Validation ────────────────────────────────────────────────
 
 describe('Course Training — World Major Specificity', () => {
+  // v1.0.6 (L-36): majors are matched by id + World Major flag, not by name.
   const bostonRace = {
+    id: 'boston',
+    isWorldMajor: true,
+    category: 'world-major' as const,
     name: 'Boston Marathon',
     city: 'Boston',
     courseType: 'point-to-point' as const,
@@ -743,6 +748,9 @@ describe('Course Training — World Major Specificity', () => {
   };
 
   const berlinRace = {
+    id: 'berlin',
+    isWorldMajor: true,
+    category: 'world-major' as const,
     name: 'Berlin Marathon',
     city: 'Berlin',
     courseType: 'loop' as const,
@@ -765,16 +773,18 @@ describe('Course Training — World Major Specificity', () => {
 
   it('all 6 World Majors produce specific plans', () => {
     const majors = [
-      { name: 'Boston Marathon', city: 'Boston' },
-      { name: 'NYC Marathon', city: 'New York' },
-      { name: 'Berlin Marathon', city: 'Berlin' },
-      { name: 'Chicago Marathon', city: 'Chicago' },
-      { name: 'Tokyo Marathon', city: 'Tokyo' },
-      { name: 'London Marathon', city: 'London' },
+      { id: 'boston', name: 'Boston Marathon', city: 'Boston' },
+      { id: 'nyc', name: 'NYC Marathon', city: 'New York' },
+      { id: 'berlin', name: 'Berlin Marathon', city: 'Berlin' },
+      { id: 'chicago', name: 'Chicago Marathon', city: 'Chicago' },
+      { id: 'tokyo', name: 'Tokyo Marathon', city: 'Tokyo' },
+      { id: 'london', name: 'London Marathon', city: 'London' },
     ];
     for (const race of majors) {
       const plan = generateCourseTraining({
         ...race,
+        isWorldMajor: true,
+        category: 'world-major',
         courseType: 'loop',
         course: { totalGainFt: 300, difficulty: 3 },
         averageConditions: { tempF: 55, humidityPct: 50 },

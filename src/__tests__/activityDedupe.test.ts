@@ -164,10 +164,13 @@ describe('mergeIntoStore', () => {
 });
 
 describe('storeActivities', () => {
+  const counts = (added: number, updated: number, dropped = 0, droppedRuns = dropped) =>
+    ({ added, updated, dropped, droppedRuns, droppedOther: dropped - droppedRuns, skippedDeleted: 0 });
+
   it('stores each workout once across sources and returns counts', () => {
-    expect(storeActivities([stravaRun])).toEqual({ added: 1, updated: 0, dropped: 0 });
-    expect(storeActivities([icuRun])).toEqual({ added: 0, updated: 1, dropped: 0 });
-    expect(storeActivities([icuRun])).toEqual({ added: 0, updated: 0, dropped: 0 });
+    expect(storeActivities([stravaRun])).toEqual(counts(1, 0));
+    expect(storeActivities([icuRun])).toEqual(counts(0, 1));
+    expect(storeActivities([icuRun])).toEqual(counts(0, 0));
 
     const stored = getStoredActivities();
     expect(stored).toHaveLength(1);
@@ -182,7 +185,7 @@ describe('storeActivities', () => {
     expect(getStoredActivities()).toHaveLength(1);
   });
 
-  it(`keeps the newest ${MAX_STORED_ACTIVITIES} activities and reports how many older ones it dropped`, () => {
+  it(`keeps ${MAX_STORED_ACTIVITIES} activities, trimming the oldest runs that hold no record`, () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const day = 86400 * 1000;
     const base = Date.UTC(2015, 0, 1, 12);
@@ -191,17 +194,19 @@ describe('storeActivities', () => {
       return act({ id: 1000 + i, source: 'intervals', source_id: `i${i}`, start_date: iso, start_date_local: iso });
     };
     const first = Array.from({ length: MAX_STORED_ACTIVITIES - 1 }, (_, i) => run(i + 2));
-    expect(storeActivities(first)).toEqual({ added: MAX_STORED_ACTIVITIES - 1, updated: 0, dropped: 0 });
+    expect(storeActivities(first)).toEqual(counts(MAX_STORED_ACTIVITIES - 1, 0));
     expect(warn).not.toHaveBeenCalled();
 
-    // One newer and two older than everything stored: the two oldest go.
+    // One newer and two older than everything stored. All runs are identical,
+    // so the earliest (run 0) holds every record and is never trimmed (B16):
+    // the next two oldest go instead.
     const r = storeActivities([run(MAX_STORED_ACTIVITIES + 5), run(0), run(1)]);
-    expect(r).toEqual({ added: 3, updated: 0, dropped: 2 });
+    expect(r).toEqual(counts(3, 0, 2));
     const stored = getStoredActivities();
     expect(stored).toHaveLength(MAX_STORED_ACTIVITIES);
     expect(stored[0].id).toBe(1000 + MAX_STORED_ACTIVITIES + 5);
-    expect(stored[stored.length - 1].id).toBe(1002);
-    expect(stored.some((a) => a.id === 1000 || a.id === 1001)).toBe(false);
+    expect(stored[stored.length - 1].id).toBe(1000);
+    expect(stored.some((a) => a.id === 1001 || a.id === 1002)).toBe(false);
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0][0])).toContain('removed 2 older activities');
     warn.mockRestore();

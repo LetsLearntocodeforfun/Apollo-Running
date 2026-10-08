@@ -9,11 +9,14 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
   margin-bottom: 1rem;
   padding: 0.25rem 0;
 }
 
 .cal-nav-title {
+  margin: 0;
   font-family: var(--font-display);
   font-size: var(--text-lg);
   font-weight: var(--weight-bold);
@@ -54,6 +57,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
+  min-height: 34px;
   padding: 0.35rem 0.75rem;
   font-family: var(--font-display);
   font-size: 0.78rem;
@@ -69,11 +73,24 @@
   border-color: var(--apollo-gold-dark);
 }
 
+/* Visually hidden, still read by screen readers. */
+.cal-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ── Weekday Headers ──────────────────────────────────────── */
 
 .cal-header {
   display: grid;
-  grid-template-columns: repeat(7, 1fr) auto;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) auto;
   gap: 2px;
   margin-bottom: 2px;
 }
@@ -81,7 +98,7 @@
 .cal-header-day {
   text-align: center;
   font-family: var(--font-display);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -92,7 +109,7 @@
 .cal-header-summary {
   text-align: center;
   font-family: var(--font-display);
-  font-size: 0.65rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
@@ -105,14 +122,16 @@
 
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr) auto;
+  grid-template-columns: repeat(7, minmax(0, 1fr)) auto;
   gap: 2px;
 }
 
-/* ── Day Cell ─────────────────────────────────────────────── */
+/* ── Day Cell (a <button>) ────────────────────────────────── */
 
 .cal-day {
   position: relative;
+  width: 100%;
+  margin: 0;
   background: var(--bg-card);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -122,7 +141,11 @@
   transition: all var(--transition-fast);
   display: flex;
   flex-direction: column;
+  align-items: stretch;
   overflow: hidden;
+  font: inherit;
+  color: inherit;
+  text-align: left;
 }
 
 .cal-day:hover {
@@ -130,6 +153,12 @@
   background: var(--bg-elevated);
   z-index: 2;
   box-shadow: var(--shadow-sm);
+}
+
+.cal-day:focus-visible {
+  outline: 2px solid var(--apollo-gold-light);
+  outline-offset: 1px;
+  z-index: 4;
 }
 
 .cal-day.cal-day--selected {
@@ -152,6 +181,11 @@
 
 .cal-day.cal-day--outside-plan {
   opacity: 0.4;
+}
+
+.cal-day.cal-day--modified {
+  border-style: dashed;
+  border-color: var(--border-strong);
 }
 
 /* Intensity top bar */
@@ -197,6 +231,15 @@
   color: var(--apollo-navy) !important;
 }
 
+/* Workout-type dot: only shown in the compact (≤640 px) layout */
+.cal-day-dot {
+  display: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 /* ── Workout content ──────────────────────────────────────── */
 
 .cal-day-content {
@@ -208,7 +251,8 @@
 }
 
 .cal-day-workout {
-  font-size: 0.7rem;
+  display: block;
+  font-size: 0.75rem;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -219,7 +263,7 @@
 
 .cal-day-distance {
   font-family: var(--font-display);
-  font-size: 0.72rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--text-muted);
   display: flex;
@@ -231,6 +275,25 @@
   font-size: 0.9rem;
   line-height: 1;
   flex-shrink: 0;
+}
+
+.cal-day-badge,
+.cal-detail-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 0.05rem 0.4rem;
+  border: 1px dashed var(--apollo-gold-dark);
+  border-radius: var(--radius-full);
+  color: var(--apollo-gold-light);
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.cal-detail-badge {
+  margin-left: 0.5rem;
+  vertical-align: middle;
 }
 
 /* ── Completion & sync indicators ─────────────────────────── */
@@ -266,7 +329,7 @@
 }
 
 .cal-day-sync-label {
-  font-size: 0.6rem;
+  font-size: 0.75rem;
   font-family: var(--font-display);
   font-weight: 600;
   color: var(--apollo-gold);
@@ -276,6 +339,7 @@
 /* ── Actual vs planned mini bar ───────────────────────────── */
 
 .cal-day-progress {
+  display: block;
   height: 3px;
   border-radius: 2px;
   background: rgba(255, 255, 255, 0.06);
@@ -284,6 +348,7 @@
 }
 
 .cal-day-progress-fill {
+  display: block;
   height: 100%;
   border-radius: 2px;
   transition: width 0.3s ease;
@@ -305,6 +370,10 @@
   min-height: 90px;
 }
 
+.cal-week-summary--empty {
+  opacity: 0.3;
+}
+
 .cal-week-miles {
   font-family: var(--font-display);
   font-size: 0.82rem;
@@ -314,13 +383,11 @@
 }
 
 .cal-week-label {
-  font-size: 0.58rem;
+  font-size: 0.75rem;
   font-family: var(--font-display);
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
   color: var(--text-muted);
-  line-height: 1;
+  line-height: 1.1;
 }
 
 .cal-week-bar {
@@ -349,7 +416,6 @@
   padding: 1.25rem;
   animation: calDetailSlide 0.25s ease-out;
   position: relative;
-  overflow: hidden;
 }
 
 .cal-detail::before {
@@ -359,6 +425,7 @@
   left: 0;
   right: 0;
   height: 2px;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   background: linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent);
 }
 
@@ -366,12 +433,10 @@
   from {
     opacity: 0;
     transform: translateY(-8px);
-    max-height: 0;
   }
   to {
     opacity: 1;
     transform: translateY(0);
-    max-height: 500px;
   }
 }
 
@@ -401,13 +466,13 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   color: var(--text-muted);
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.9rem;
+  font-size: 1rem;
   transition: all var(--transition-fast);
   flex-shrink: 0;
 }
@@ -436,7 +501,7 @@
 
 .cal-detail-col-label {
   font-family: var(--font-display);
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -448,6 +513,7 @@
   display: flex;
   justify-content: space-between;
   align-items: baseline;
+  gap: 0.5rem;
   padding: 0.25rem 0;
 }
 
@@ -461,6 +527,7 @@
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--text);
+  text-align: right;
 }
 
 .cal-detail-stat-value--gold {
@@ -473,6 +540,26 @@
 
 .cal-detail-stat-value--warning {
   color: var(--color-warning);
+}
+
+.cal-detail-empty {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  padding: 0.5rem 0;
+  font-style: italic;
+}
+
+.cal-detail-actions {
+  margin-top: 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cal-detail-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 /* ── Feedback section ─────────────────────────────────────── */
@@ -500,6 +587,7 @@
 
 .cal-detail-route-map {
   flex-shrink: 0;
+  max-width: 100%;
 }
 
 .cal-detail-tags {
@@ -510,7 +598,7 @@
 }
 
 .cal-detail-tag {
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   font-family: var(--font-display);
   font-weight: 600;
   padding: 0.12rem 0.5rem;
@@ -584,7 +672,7 @@
   display: flex;
   align-items: center;
   gap: 0.3rem;
-  font-size: 0.68rem;
+  font-size: 0.75rem;
   color: var(--text-muted);
   font-family: var(--font-display);
   font-weight: 500;
@@ -595,4 +683,69 @@
   height: 10px;
   border-radius: 2px;
   flex-shrink: 0;
+}
+
+.cal-legend-check {
+  width: 12px;
+  height: 12px;
+  font-size: 0.5rem;
+}
+
+/* ── Compact layout (phones, narrow windows) ─────────────── */
+
+@media (max-width: 640px) {
+  .cal-header,
+  .cal-grid {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .cal-header-summary,
+  .cal-week-summary {
+    display: none;
+  }
+
+  .cal-day {
+    min-height: 48px;
+    padding: 0.3rem 0.2rem;
+    align-items: center;
+  }
+
+  .cal-day-num {
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .cal-day-dot {
+    display: block;
+  }
+
+  .cal-day-content,
+  .cal-day-sync-label {
+    display: none;
+  }
+
+  .cal-day-status {
+    padding-top: 0;
+  }
+
+  .cal-detail {
+    padding: 1rem;
+  }
+
+  .cal-detail-compare {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cal-month-enter,
+  .cal-detail {
+    animation: none;
+  }
+
+  .cal-day,
+  .cal-day-progress-fill,
+  .cal-week-bar-fill {
+    transition: none;
+  }
 }

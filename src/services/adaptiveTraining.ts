@@ -4,18 +4,20 @@
 import {
   getActivePlan,
   getAllSyncMeta,
-  getCompletedCount,
+  getDateKeyForDay,
   isDayCompleted,
   getWeekDayForDate,
   getLastSyncTime,
 } from './planProgress';
 import { getPlanById } from '../data/plans';
+import { getEffectivePlan } from './planOverlay';
 import { getAllWeeklyMileage } from './autoSync';
-import { getLatestReadinessScore } from './weeklyReadiness';
+import { computeCurrentReadiness } from './weeklyReadiness';
 import { getSavedAdherence } from './racePrediction';
 import { isActivitySourceConnected } from './activitySource';
 import { persistence } from './db/persistence';
 import { formatPaceFromMinPerMi } from './unitPreferences';
+import { daysBetween, todayKey } from '../utils/localDate';
 import type {
   AdaptiveRecommendation,
   AdaptivePreferences,
@@ -332,16 +334,19 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   const activePlan = getActivePlan();
   if (!activePlan) return null;
 
-  const plan = getPlanById(activePlan.planId);
+  // v1.0.6: the effective plan (athlete + adaptive overlay applied, read-only).
+  const plan = getEffectivePlan();
   if (!plan) return null;
 
-  const today = new Date();
+  const today = todayKey();
   const pos = getWeekDayForDate(activePlan.startDate, plan.totalWeeks, today);
   if (!pos) return null;
 
-  const allMeta = getAllSyncMeta(plan.id);
-  const allMileage = getAllWeeklyMileage(plan.id);
-  const readiness = getLatestReadinessScore();
+  const planId = activePlan.planId;
+  const allMeta = getAllSyncMeta(planId);
+  const allMileage = getAllWeeklyMileage(planId);
+  // V5: readiness of the days due so far (the previous week until 3 workouts of this one are due).
+  const readiness = computeCurrentReadiness({ today, minDueDays: 3 });
   const adherence = getSavedAdherence();
   const lastSync = getLastSyncTime();
   const dataSourceConnected = isActivitySourceConnected();
@@ -358,9 +363,9 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
       plannedNote: day?.note ?? '',
       movingTimeSec: m.meta.movingTimeSec,
       // Syncs backfill the whole plan, so prefer the activity's own date.
-      date: m.meta.activityDate ?? m.meta.syncedAt.slice(0, 10),
+      date: m.meta.activityDate ?? getDateKeyForDay(activePlan.startDate, m.weekIndex, m.dayIndex),
     };
-  });
+  }).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   // Weekly mileage
   const weeklyMileage = allMileage.map((wm) => ({
@@ -369,27 +374,31 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
     actualMi: wm.actualMi,
   }));
 
-  // Recent 2-week completion rate
-  const recentWeekStart = Math.max(0, pos.weekIndex - 1);
+  // V5: only days that are due count — dated before today, or already done.
+  // Weeks skipped when joining the plan late don't count either.
+  const joined = activePlan.joinedWeekIndex;
+  const firstWeek = typeof joined === 'number' && Number.isInteger(joined) && joined > 0 ? Math.min(joined, pos.weekIndex) : 0;
+  const recentWeekStart = Math.max(firstWeek, pos.weekIndex - 1);
   let recentScheduled = 0;
   let recentCompleted = 0;
-  for (let w = recentWeekStart; w <= pos.weekIndex; w++) {
+  let totalScheduled = 0;
+  let totalCompleted = 0;
+  for (let w = firstWeek; w <= pos.weekIndex; w++) {
     const week = plan.weeks[w];
     if (!week) continue;
     for (let d = 0; d < week.days.length; d++) {
-      if (week.days[d].type !== 'rest') {
+      if (week.days[d].type === 'rest') continue;
+      const done = isDayCompleted(planId, w, d);
+      const past = daysBetween(getDateKeyForDay(activePlan.startDate, w, d), today) > 0;
+      if (!past && !done) continue; // not due yet
+      totalScheduled++;
+      if (done) totalCompleted++;
+      if (w >= recentWeekStart) {
         recentScheduled++;
-        if (isDayCompleted(plan.id, w, d)) recentCompleted++;
+        if (done) recentCompleted++;
       }
     }
   }
-
-  // Overall completion
-  const totalScheduled = plan.weeks.reduce(
-    (sum, week) => sum + week.days.filter((d) => d.type !== 'rest').length,
-    0,
-  );
-  const totalCompleted = getCompletedCount(plan.id);
 
   // Days since last sync
   let daysSinceLastSync = 999;
@@ -400,20 +409,25 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   }
 
   return {
-    planId: plan.id,
+    planId,
     startDate: activePlan.startDate,
     totalWeeks: plan.totalWeeks,
     currentWeekIndex: pos.weekIndex,
     currentDayIndex: pos.dayIndex,
     weeksRemaining: plan.totalWeeks - pos.weekIndex - 1,
-    recentCompletionRate: recentScheduled > 0 ? recentCompleted / recentScheduled : 0,
-    overallCompletionRate: totalScheduled > 0 ? totalCompleted / totalScheduled : 0,
+    // Nothing due yet → nothing missed.
+    recentCompletionRate: recentScheduled > 0 ? recentCompleted / recentScheduled : 1,
+    overallCompletionRate: totalScheduled > 0 ? totalCompleted / totalScheduled : 1,
     weeklyMileage,
     syncedRuns,
     readinessScore: readiness?.score ?? 0,
     adherenceScore: adherence?.score ?? 0,
     daysSinceLastSync,
     dataSourceConnected,
+    today,
+    joinedWeekIndex: firstWeek,
+    recentScheduledDays: recentScheduled,
+    overallScheduledDays: totalScheduled,
   };
 }
 
@@ -447,24 +461,21 @@ function computeStats(input: TrainingAnalysisInput): AnalysisStats {
       ? ((currWeek?.actualMi ?? 0) - prevWeek.actualMi) / prevWeek.actualMi
       : 0;
 
-  // Consecutive days without rest
+  // Consecutive days without rest — completed days only (V6: planned runs that
+  // haven't happened yet are not training).
   let consecutiveDaysWithoutRest = 0;
   const activePlan = getActivePlan();
-  const plan = activePlan ? getPlanById(activePlan.planId) : null;
+  const plan = activePlan ? getEffectivePlan() : null;
   if (plan && activePlan) {
     for (let d = input.currentWeekIndex * 7 + input.currentDayIndex; d >= 0; d--) {
       const wi = Math.floor(d / 7);
       const di = d % 7;
       const day = plan.weeks[wi]?.days[di];
       if (!day) break;
-      if (isDayCompleted(plan.id, wi, di) || (day.type === 'run' && d <= input.currentWeekIndex * 7 + input.currentDayIndex)) {
-        if (day.type !== 'rest') {
-          consecutiveDaysWithoutRest++;
-        } else {
-          break;
-        }
-      } else {
-        break;
+      if (day.type !== 'rest' && isDayCompleted(activePlan.planId, wi, di)) {
+        consecutiveDaysWithoutRest++;
+      } else if (d < input.currentWeekIndex * 7 + input.currentDayIndex) {
+        break; // today may still be ahead; any earlier gap ends the streak
       }
     }
   }
@@ -472,7 +483,8 @@ function computeStats(input: TrainingAnalysisInput): AnalysisStats {
   // Missed key workouts in last 2 weeks
   let missedKeyWorkoutsLast2Weeks = 0;
   if (plan && activePlan) {
-    const startW = Math.max(0, input.currentWeekIndex - 1);
+    const today = input.today ?? todayKey();
+    const startW = Math.max(input.joinedWeekIndex ?? 0, input.currentWeekIndex - 1);
     for (let w = startW; w <= input.currentWeekIndex; w++) {
       const week = plan.weeks[w];
       if (!week) continue;
@@ -480,11 +492,9 @@ function computeStats(input: TrainingAnalysisInput): AnalysisStats {
         const day = week.days[d];
         const note = (day.note ?? '').toLowerCase();
         const isKey = note === 'long' || note === 'tempo' || note === 'speed';
-        if (isKey && !isDayCompleted(plan.id, w, d)) {
-          // Only count if the day is in the past
-          const dayDate = new Date(activePlan.startDate + 'T00:00:00');
-          dayDate.setDate(dayDate.getDate() + w * 7 + d);
-          if (dayDate < new Date()) {
+        if (isKey && !isDayCompleted(activePlan.planId, w, d)) {
+          // V5: only count it once its date has passed (today's workout isn't missed)
+          if (daysBetween(getDateKeyForDay(activePlan.startDate, w, d), today) > 0) {
             missedKeyWorkoutsLast2Weeks++;
           }
         }
@@ -779,7 +789,7 @@ function buildBehindRecommendation(
       key: 'add_recovery',
       label: 'Add a recovery week',
       description: 'Insert an easy recovery week with reduced volume before resuming your plan.',
-      impact: 'This week becomes a recovery week (50% mileage)',
+      impact: 'Next week becomes a recovery week (50% mileage)',
       actionType: 'apply_modification',
       actionPayload: buildMileageModification(input, 0.50, 1, 'Recovery week added — rest and recharge.'),
     },
@@ -846,7 +856,7 @@ function buildOvertrainingRecommendation(
       : `You've been running ${stats.consecutiveDaysWithoutRest}+ days straight without rest and your pace is slowing. These are classic signs of accumulated fatigue. A recovery week now will make you stronger for race day.`,
     reasoning: scenario.triggers.join('. ') + '.',
     options,
-    dismissible: false,
+    dismissible: true,
     createdAt: new Date().toISOString(),
     expiresAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
   };

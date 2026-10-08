@@ -1,57 +1,135 @@
-import { useState, useEffect } from 'react';
+/**
+ * Progress page panels (v1.0.6), formerly the Insights page.
+ *
+ * `src/pages/Progress.tsx` renders these panels as tabs:
+ * - {@link OverviewPanel}: race prediction, countdown, adherence, readiness, recovery
+ * - {@link HeartRatePanel}: read-only HR profile, zones, 30-day distribution, trend
+ * - {@link RecapsPanel}: today's recap and recent recaps
+ *
+ * Editing the HR profile and the coaching (recap / readiness) preferences
+ * moved to Settings. The old "Coaching Settings" tab was removed (B2): it was
+ * a duplicate of Settings and its controls snapped back.
+ * Every panel re-reads its data when the store changes (B12: refresh after a
+ * sync, a plan edit or a completed day) via `useStoreVersion()`.
+ *
+ * The default export redirects old `/insights` links to the Progress page.
+ */
+import { useEffect, useMemo, useState } from 'react';
+import { Link, Navigate } from 'react-router-dom';
+import { EmptyState } from '../components/ui';
+import ErrorBoundary from '../components/ErrorBoundary';
+import RecoveryCard from '../components/RecoveryCard';
+import { useStoreVersion } from '../hooks/useStoreVersion';
 import { getActivePlan } from '../services/planProgress';
-import { getPlanById } from '../data/plans';
-import { isActivitySourceConnected, hasActivityData } from '../services/activitySource';
+import { getEffectivePlan } from '../services/planOverlay';
+import { getJourneyState, type JourneyState } from '../services/journey';
+import { isActivitySourceConnected } from '../services/activitySource';
+import { getAthleteProfile } from '../services/athleteProfile';
 import {
   calculateRacePrediction,
   calculateTrainingAdherence,
-  getSavedPrediction,
+  formatTimeSec,
   getSavedAdherence,
+  getSavedPrediction,
+  getVdotSourceLabel,
   type RacePrediction,
   type TrainingAdherence,
 } from '../services/racePrediction';
 import {
   generateCurrentWeekReadiness,
   getAllReadinessScores,
+  getLatestReadinessScore,
   type ReadinessScore,
 } from '../services/weeklyReadiness';
 import {
   generateTodayRecap,
+  getDailyRecap,
   getRecentRecaps,
   type DailyRecap,
 } from '../services/dailyRecap';
 import {
-  getHRZones,
-  getHRProfile,
-  setHRProfile,
   getAggregateZoneDistribution,
+  getHRProfile,
   getHRTrend,
-  type HRZone,
+  getHRZones,
   type HRProfile,
+  type HRZone,
 } from '../services/heartRate';
-import {
-  getCoachingPreferences,
-  setCoachingPreferences,
-  WEEKDAY_NAMES,
-} from '../services/coachingPreferences';
-import { formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
-import ErrorBoundary from '../components/ErrorBoundary';
-import RecoveryCard from '../components/RecoveryCard';
+import { formatDuration, formatMiles, formatPaceFromMinPerMi } from '../services/unitPreferences';
+import { isDateKey, parseDateKey, todayKey } from '../utils/localDate';
+
+// ── Shared helpers ────────────────────────────────────────────────────────────
+
+/**
+ * State that is computed after mount and again whenever the store version
+ * changes (B12). `initial` must be a cheap, side-effect-free read for the
+ * first paint; `compute` may save (e.g. `calculateRacePrediction`). Pass
+ * module-level functions so their identity is stable.
+ */
+function useRefreshingState<T>(initial: () => T, compute: () => T): T {
+  const version = useStoreVersion();
+  const [value, setValue] = useState<T>(initial);
+  useEffect(() => {
+    setValue(compute());
+  }, [compute, version]);
+  return value;
+}
+
+/** A pure read that is redone whenever the store version changes (B12). */
+function useStoreSnapshot<T>(read: () => T): T {
+  const version = useStoreVersion();
+  return useMemo(() => {
+    void version; // the dependency that triggers the re-read
+    return read();
+  }, [read, version]);
+}
+
+/** Localised label for a YYYY-MM-DD key, e.g. "Mon, Oct 5" (local calendar date). */
+function formatDayLabel(key: string, withYear = false): string {
+  if (!isDateKey(key)) return key;
+  return parseDateKey(key).toLocaleDateString(undefined, withYear
+    ? { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
+    : { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+type ScoreBand = 'good' | 'ok' | 'low';
+
+/** Score band used for colour classes; the number is always shown next to it. */
+function scoreBand(score: number, good = 80, ok = 60): ScoreBand {
+  if (score >= good) return 'good';
+  if (score >= ok) return 'ok';
+  return 'low';
+}
+
+const BAND_COLOR: Record<ScoreBand, string> = {
+  good: 'var(--color-success)',
+  ok: 'var(--color-warning)',
+  low: 'var(--color-error-text)',
+};
+
+/** Colour for a readiness letter grade (always rendered with the grade text). */
+function gradeColor(grade: string): string {
+  if (grade.startsWith('A')) return 'var(--color-success)';
+  if (grade.startsWith('B')) return 'var(--apollo-teal)';
+  if (grade.startsWith('C')) return 'var(--color-warning)';
+  return 'var(--color-error-text)';
+}
 
 /** Circular gauge component for scores */
 function ScoreGauge({ score, size = 120, label, color }: { score: number; size?: number; label: string; color: string }) {
   const radius = (size - 12) / 2;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (score / 100) * circumference;
+  const clamped = Math.max(0, Math.min(100, score));
+  const offset = circumference - (clamped / 100) * circumference;
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
-      <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
+    <div className="progress-gauge">
+      <svg width={size} height={size} className="progress-gauge-svg" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={8} />
         <circle
           cx={size / 2} cy={size / 2} r={radius} fill="none"
           stroke={color} strokeWidth={8} strokeLinecap="round"
           strokeDasharray={circumference} strokeDashoffset={offset}
-          style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+          className="progress-gauge-arc"
         />
         <text
           x={size / 2} y={size / 2}
@@ -62,42 +140,9 @@ function ScoreGauge({ score, size = 120, label, color }: { score: number; size?:
           {score}
         </text>
       </svg>
-      <span style={{ fontSize: '0.82rem', color: 'var(--text-muted)', textAlign: 'center' }}>{label}</span>
-    </div>
-  );
-}
-
-/** HR Zone bar chart */
-function ZoneChart({ zones, percentages, totalTimeSec }: { zones: HRZone[]; percentages: number[]; totalTimeSec: number }) {
-  const formatTime = (sec: number) => {
-    const h = Math.floor(sec / 3600);
-    const m = Math.floor((sec % 3600) / 60);
-    return h > 0 ? `${h}h ${m}m` : `${m}m`;
-  };
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-      {zones.map((z, i) => (
-        <div key={z.zone} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ width: 80, fontSize: '0.82rem', color: 'var(--text-muted)', flexShrink: 0 }}>
-            <span style={{ color: z.color, fontWeight: 600 }}>Z{z.zone}</span> {z.name}
-          </div>
-          <div style={{ flex: 1, height: 20, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', position: 'relative' }}>
-            <div style={{
-              height: '100%', borderRadius: 4, background: z.color,
-              width: `${Math.max(percentages[i], 1)}%`,
-              transition: 'width 0.4s ease',
-              opacity: 0.85,
-            }} />
-          </div>
-          <span style={{ width: 40, fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'right' }}>
-            {percentages[i]}%
-          </span>
-        </div>
-      ))}
-      <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-        Total training time (30d): {formatTime(totalTimeSec)}
-      </div>
+      <span className="progress-gauge-label">
+        <span className="sr-only">{score} — </span>{label}
+      </span>
     </div>
   );
 }
@@ -106,747 +151,702 @@ function ZoneChart({ zones, percentages, totalTimeSec }: { zones: HRZone[]; perc
 function TrendLine({ scores }: { scores: { week: number; score: number }[] }) {
   if (scores.length < 2) return null;
   const max = Math.max(...scores.map((s) => s.score), 100);
+  const summary = scores.map((s) => `week ${s.week}: ${s.score}%`).join(', ');
   return (
-    <div style={{ display: 'flex', alignItems: 'end', gap: 3, height: 40, marginTop: '0.5rem' }}>
+    <div className="progress-trendline" role="img" aria-label={`Weekly adherence — ${summary}`}>
       {scores.map((s) => (
         <div
           key={s.week}
           title={`Week ${s.week}: ${s.score}%`}
-          style={{
-            flex: 1,
-            height: `${(s.score / max) * 100}%`,
-            background: s.score >= 80 ? 'var(--accent)' : s.score >= 60 ? '#f0a030' : '#f55',
-            borderRadius: '2px 2px 0 0',
-            minHeight: 2,
-            transition: 'height 0.3s',
-          }}
+          className={`progress-trendline-bar is-${scoreBand(s.score)}`}
+          style={{ height: `${(s.score / max) * 100}%` }}
         />
       ))}
     </div>
   );
 }
 
-export default function Insights() {
-  const [prediction, setPrediction] = useState<RacePrediction | null>(null);
-  const [adherence, setAdherence] = useState<TrainingAdherence | null>(null);
-  const [readiness, setReadiness] = useState<ReadinessScore | null>(null);
-  const [allReadiness, setAllReadiness] = useState<ReadinessScore[]>([]);
-  const [todayRecap, setTodayRecap] = useState<DailyRecap | null>(null);
-  const [recentRecaps, setRecentRecaps] = useState<DailyRecap[]>([]);
-  const [hrProfile, setHRProfileState] = useState<HRProfile>(getHRProfile());
-  const [editingHR, setEditingHR] = useState(false);
-  const [hrMax, setHRMax] = useState(String(hrProfile.maxHR));
-  const [hrResting, setHRResting] = useState(String(hrProfile.restingHR));
-  const [tab, setTab] = useState<'overview' | 'hr' | 'recaps' | 'settings'>('overview');
+// ── Overview: race prediction ─────────────────────────────────────────────────
 
-  const connected = isActivitySourceConnected();
-  // History synced earlier or imported from files, without a live source (computed once — reads the store)
-  const [hasStoredHistory] = useState(hasActivityData);
-  const activePlan = getActivePlan();
-  const plan = activePlan ? getPlanById(activePlan.planId) : null;
-  useEffect(() => {
-    // Load saved data first
-    setPrediction(getSavedPrediction());
-    setAdherence(getSavedAdherence());
-    setAllReadiness(getAllReadinessScores());
+const CONFIDENCE_LABEL: Record<string, string> = { high: 'High', medium: 'Medium', low: 'Low' };
 
-    // Generate fresh scores
-    if (activePlan && plan) {
-      const pred = calculateRacePrediction();
-      if (pred) setPrediction(pred);
-      const adh = calculateTrainingAdherence();
-      if (adh) setAdherence(adh);
-      const rdy = generateCurrentWeekReadiness();
-      if (rdy) setReadiness(rdy);
-      setAllReadiness(getAllReadinessScores());
-    }
+/** "High" / "Medium" / "Low", falling back to the legacy numeric confidence ("62%"). */
+function predictionConfidenceText(p: RacePrediction): string {
+  const level = p.confidenceLevel ? CONFIDENCE_LABEL[p.confidenceLevel] : undefined;
+  if (level) return level;
+  return Number.isFinite(p.confidence) ? `${Math.round(p.confidence)}%` : '—';
+}
 
-    const recap = generateTodayRecap();
-    if (recap) setTodayRecap(recap);
-    setRecentRecaps(getRecentRecaps(7));
-  }, []);
+/** "Recent race" etc.; null for legacy predictions that don't record a source. */
+function predictionSourceText(p: RacePrediction): string | null {
+  if (p.sourceLabel) return p.sourceLabel;
+  if (p.vdotSource) return getVdotSourceLabel(p.vdotSource);
+  return null;
+}
 
-  const saveHRProfile = () => {
-    const maxVal = parseInt(hrMax, 10);
-    const restVal = parseInt(hrResting, 10);
-    if (!maxVal || maxVal < 100 || maxVal > 230) return;
-    if (!restVal || restVal < 30 || restVal > 120) return;
-    const profile: HRProfile = { maxHR: maxVal, restingHR: restVal, source: 'manual', updatedAt: new Date().toISOString() };
-    setHRProfile(profile);
-    setHRProfileState(profile);
-    setEditingHR(false);
-  };
+/** "3:21:00–3:36:00", or null when the prediction has no range (legacy). */
+function predictionRangeText(p: RacePrediction): string | null {
+  const lo = p.rangeLowSec;
+  const hi = p.rangeHighSec;
+  if (typeof lo !== 'number' || typeof hi !== 'number' || !(lo > 0) || !(hi > 0)) return null;
+  return `${formatTimeSec(Math.min(lo, hi))}–${formatTimeSec(Math.max(lo, hi))}`;
+}
 
-  const zones = getHRZones(hrProfile.maxHR);
-  const zoneDist = getAggregateZoneDistribution(30);
-  const hrTrend = getHRTrend(30);
-  const prefs = getCoachingPreferences();
+/** Change against the previous prediction, e.g. "2:15 faster than the previous prediction (3:32:10)". */
+function predictionChangeText(p: RacePrediction): string | null {
+  const prev = p.previousMarathonTimeSec;
+  if (typeof prev !== 'number' || !(prev > 0)) return null;
+  const delta = Math.round(prev - p.marathonTimeSec);
+  if (delta === 0) return null;
+  const direction = delta > 0 ? 'faster' : 'slower';
+  return `${formatTimeSec(Math.abs(delta))} ${direction} than the previous prediction (${formatTimeSec(prev)})`;
+}
 
-  // Days until race
-  let daysUntilRace: number | null = null;
-  if (plan && activePlan) {
-    const raceWeek = plan.totalWeeks - 1;
-    const raceDay = plan.weeks[raceWeek]?.days.findIndex((d) => d.type === 'marathon');
-    if (raceDay != null && raceDay >= 0) {
-      const startDate = new Date(activePlan.startDate + 'T00:00:00');
-      const raceDateObj = new Date(startDate);
-      raceDateObj.setDate(raceDateObj.getDate() + raceWeek * 7 + raceDay);
-      const todayMid = new Date();
-      todayMid.setHours(0, 0, 0, 0);
-      daysUntilRace = Math.max(0, Math.round((raceDateObj.getTime() - todayMid.getTime()) / (24 * 60 * 60 * 1000)));
-    }
+function TrendChip({ trend }: { trend: string }) {
+  if (trend !== 'improving' && trend !== 'declining') return null;
+  const up = trend === 'improving';
+  return (
+    <span className={`progress-chip ${up ? 'is-up' : 'is-down'}`}>
+      <span aria-hidden="true">{up ? '▲' : '▼'}</span> {up ? 'Improving' : 'Slower'}
+    </span>
+  );
+}
+
+const PREDICTION_EMPTY_COPY =
+  'Add a recent race in Settings › Athlete Profile (or sync a race) to see a prediction.';
+
+function PredictionCard({ prediction, goalMarathonSec, computed }: {
+  prediction: RacePrediction | null;
+  goalMarathonSec: number | null;
+  computed: boolean;
+}) {
+  const titleId = 'progress-prediction-title';
+  if (!prediction) {
+    // Before the first computation finishes there is nothing to say yet.
+    if (!computed) return null;
+    return (
+      <section className="card" aria-labelledby={titleId}>
+        <h2 id={titleId} className="card-title">Race prediction</h2>
+        <EmptyState
+          icon="⏱️"
+          title="No prediction yet"
+          action={<Link to="/settings?tab=profile" className="btn btn-secondary">Add a recent race</Link>}
+        >
+          {PREDICTION_EMPTY_COPY}
+        </EmptyState>
+      </section>
+    );
   }
 
-  const gradeColor = (grade: string) => {
-    if (grade.startsWith('A')) return 'var(--color-success)';
-    if (grade.startsWith('B')) return 'var(--apollo-teal)';
-    if (grade.startsWith('C')) return 'var(--color-warning)';
-    return 'var(--color-error)';
-  };
+  const range = predictionRangeText(prediction);
+  const source = predictionSourceText(prediction);
+  const change = predictionChangeText(prediction);
+  const asOf = prediction.asOf && isDateKey(prediction.asOf) ? prediction.asOf : null;
 
   return (
-    <div>
-      <h1 className="page-title">Insights</h1>
-
-      {/* Tab navigation */}
-      <div style={{ display: 'flex', gap: '0.35rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
-        {(['overview', 'hr', 'recaps', 'settings'] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            className={`btn ${tab === t ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setTab(t)}
-            style={{ textTransform: 'capitalize', fontSize: '0.9rem' }}
-          >
-            {t === 'hr' ? 'Heart Rate Zones' : t === 'recaps' ? 'Daily Recaps' : t === 'settings' ? 'Coaching Settings' : 'Overview'}
-          </button>
-        ))}
+    <section className="card progress-prediction" aria-labelledby={titleId}>
+      <div className="progress-card-head">
+        <h2 id={titleId} className="card-title">Race prediction</h2>
+        <TrendChip trend={prediction.trend} />
       </div>
 
-      {/* ═══ OVERVIEW TAB ═══ */}
-      {tab === 'overview' && (
+      <div className="progress-prediction-main">
+        <div>
+          <p className="progress-prediction-time">{prediction.marathonTimeFormatted}</p>
+          <p className="progress-muted">Predicted marathon</p>
+        </div>
+        <div className="progress-prediction-side">
+          {range && <p className="progress-range">Likely range {range}</p>}
+          {goalMarathonSec != null && goalMarathonSec > 0 && (
+            <p className="progress-goal">Goal {formatTimeSec(goalMarathonSec)}</p>
+          )}
+        </div>
+      </div>
+
+      <dl className="progress-meta">
+        {source ? (
+          <div><dt>Source</dt><dd>{source}</dd></div>
+        ) : (
+          <div><dt>Method</dt><dd>{prediction.method.replace(/_/g, ' ')}</dd></div>
+        )}
+        <div><dt>Confidence</dt><dd>{predictionConfidenceText(prediction)}</dd></div>
+        {asOf && <div><dt>As of</dt><dd>{formatDayLabel(asOf, true)}</dd></div>}
+        <div><dt>VDOT</dt><dd>{prediction.vdot}</dd></div>
+      </dl>
+
+      {prediction.basis && <p className="progress-basis">{prediction.basis}</p>}
+
+      <h3>Other distances</h3>
+      <ul className="progress-distances">
+        <li><strong>{prediction.halfMarathonFormatted}</strong><span>Half marathon</span></li>
+        <li><strong>{prediction.tenKFormatted}</strong><span>10K</span></li>
+        <li><strong>{prediction.fiveKFormatted}</strong><span>5K</span></li>
+      </ul>
+
+      {change && <p className="progress-muted progress-change">{change}</p>}
+    </section>
+  );
+}
+
+// ── Overview: countdown ───────────────────────────────────────────────────────
+
+const PHASE_LABEL: Record<string, string> = {
+  base: 'Base phase',
+  build: 'Build phase',
+  peak: 'Peak phase',
+  taper: 'Taper',
+  race: 'Race week',
+};
+
+/** "12 days to race", "Race day is today", "Race was 3 days ago". */
+function countdownText(daysToRace: number | null): string | null {
+  if (daysToRace === null) return null;
+  if (daysToRace > 1) return `${daysToRace} days to race`;
+  if (daysToRace === 1) return '1 day to race';
+  if (daysToRace === 0) return 'Race day is today';
+  const ago = -daysToRace;
+  return `Race was ${ago} day${ago === 1 ? '' : 's'} ago`;
+}
+
+function CountdownCard({ journey, planAuthor }: { journey: JourneyState; planAuthor: string | null }) {
+  const titleId = 'progress-countdown-title';
+  if (!journey.planName && journey.daysToRace === null) {
+    return (
+      <section className="card" aria-labelledby={titleId}>
+        <h2 id={titleId} className="card-title">Race countdown</h2>
+        <EmptyState
+          icon="🗓️"
+          title="No training plan yet"
+          action={<Link to="/plan" className="btn btn-primary">Choose a plan</Link>}
+        >
+          Choose a training plan to unlock readiness scores, adherence tracking and a race-day countdown.
+        </EmptyState>
+      </section>
+    );
+  }
+
+  const countdown = countdownText(journey.daysToRace);
+  const phase = journey.trainingPhase ? PHASE_LABEL[journey.trainingPhase] ?? journey.trainingPhase : null;
+  return (
+    <section className="card progress-countdown" aria-labelledby={titleId}>
+      <h2 id={titleId} className="card-title">Race countdown</h2>
+      {countdown && <p className="progress-countdown-days">{countdown}</p>}
+      <ul className="progress-facts">
+        {journey.planName && <li>{journey.planName}{planAuthor ? ` by ${planAuthor}` : ''}</li>}
+        {journey.raceDate && <li>Race day {formatDayLabel(journey.raceDate, true)}</li>}
+        {journey.weekIndex !== null && journey.totalWeeks !== null && (
+          <li>Week {journey.weekIndex + 1} of {journey.totalWeeks}</li>
+        )}
+        {phase && <li>{phase}</li>}
+      </ul>
+    </section>
+  );
+}
+
+// ── Overview: adherence & readiness ───────────────────────────────────────────
+
+function AdherenceCard({ adherence }: { adherence: TrainingAdherence }) {
+  const titleId = 'progress-adherence-title';
+  const first = adherence.weeklyScores[0];
+  const last = adherence.weeklyScores[adherence.weeklyScores.length - 1];
+  return (
+    <section className="card" aria-labelledby={titleId}>
+      <div className="progress-card-head">
+        <h2 id={titleId} className="card-title">Training adherence</h2>
+        <span className={`progress-chip is-${adherence.rating === 'excellent' ? 'up' : adherence.rating === 'good' ? 'info' : 'warn'}`}>
+          {adherence.rating}
+        </span>
+      </div>
+      <div className="progress-gauges">
+        <ScoreGauge score={adherence.score} label="Training adherence" color={BAND_COLOR[scoreBand(adherence.score)]} />
+        <ScoreGauge
+          score={adherence.distanceAdherence}
+          label="Distance match"
+          color={BAND_COLOR[scoreBand(adherence.distanceAdherence, 90, 70)]}
+        />
+        <ScoreGauge
+          score={adherence.consistencyScore}
+          size={100}
+          label="Consistency"
+          color={BAND_COLOR[scoreBand(adherence.consistencyScore, 80, 0)]}
+        />
+      </div>
+      <div className="progress-stats">
+        <div>
+          <div className="progress-stat-label">Days completed</div>
+          <div className="progress-stat-value">{adherence.completedDays} / {adherence.totalScheduledDays}</div>
+        </div>
+        <div>
+          <div className="progress-stat-label">Intensity balance</div>
+          <div className="progress-stat-value">{adherence.intensityBalance}%</div>
+        </div>
+        <div>
+          <div className="progress-stat-label">Current streak</div>
+          <div className="progress-stat-value">{adherence.currentStreak} days</div>
+        </div>
+      </div>
+      {adherence.weeklyScores.length > 1 && (
         <>
-          {!activePlan && (
-            <div className="card">
-              <p style={{ color: 'var(--text-muted)' }}>Choose a training plan to unlock race predictions, readiness scores, and coaching insights.</p>
-            </div>
-          )}
-
-          {/* Race Day Countdown + Prediction hero card */}
-          {activePlan && plan && (
-            <div className="card" style={{
-              background: 'linear-gradient(135deg, rgba(212,165,55,0.08) 0%, rgba(91,181,181,0.05) 100%)',
-              borderColor: 'var(--apollo-gold)',
-              position: 'relative', overflow: 'hidden',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-                <div>
-                  <h3 style={{ margin: '0 0 0.25rem', fontSize: '1.2rem' }}>Race Day Prediction</h3>
-                  <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '0.88rem' }}>
-                    {plan.name} by {plan.author}
-                    {daysUntilRace != null && (
-                      <span style={{ marginLeft: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
-                        {daysUntilRace} days to race
-                      </span>
-                    )}
-                  </p>
-                </div>
-                {prediction && prediction.trend !== 'stable' && (
-                  <span style={{
-                    fontSize: '0.78rem',
-                    padding: '0.2rem 0.6rem',
-                    borderRadius: 999,
-                    background: prediction.trend === 'improving' ? 'rgba(0,200,83,0.2)' : 'rgba(255,80,80,0.2)',
-                    color: prediction.trend === 'improving' ? 'var(--accent)' : '#f55',
-                    fontWeight: 600,
-                  }}>
-                    {prediction.trend === 'improving' ? '▲ Improving' : '▼ Declining'}
-                  </span>
-                )}
-              </div>
-
-              {prediction ? (
-                <div style={{ marginTop: '1.25rem' }}>
-                  <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
-                    <div>
-                      <div style={{ fontSize: '2.5rem', fontWeight: 700, color: 'var(--apollo-gold)', lineHeight: 1, fontFamily: 'var(--font-display)' }}>
-                        {prediction.marathonTimeFormatted}
-                      </div>
-                      <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>Marathon</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap' }}>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{prediction.halfMarathonFormatted}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Half Marathon</div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{prediction.tenKFormatted}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>10K</div>
-                      </div>
-                      <div style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{prediction.fiveKFormatted}</div>
-                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>5K</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                    <span>VDOT: <strong style={{ color: 'var(--apollo-gold)' }}>{prediction.vdot}</strong></span>
-                    <span>Confidence: <strong style={{ color: 'var(--apollo-gold)' }}>{prediction.confidence}%</strong></span>
-                    <span>Method: {prediction.method.replace(/_/g, ' ')}</span>
-                    {prediction.previousMarathonTimeSec && prediction.previousMarathonTimeSec !== prediction.marathonTimeSec && (
-                      <span>
-                        Prev: {Math.floor(prediction.previousMarathonTimeSec / 3600)}:{String(Math.floor((prediction.previousMarathonTimeSec % 3600) / 60)).padStart(2, '0')}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <p style={{ color: 'var(--text-muted)', marginTop: '1rem', fontSize: '0.9rem' }}>
-                  {connected
-                    ? 'Complete at least 3 runs to unlock your race time prediction. Sync your activities to get started.'
-                    : hasStoredHistory
-                      ? 'Complete at least 3 runs to unlock your race time prediction. Connect a data source (intervals.icu or Strava) in Settings to sync new runs automatically.'
-                      : 'Connect a data source (intervals.icu or Strava) in Settings to start tracking your runs and building a race prediction.'}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Score Gauges Row */}
-          {activePlan && (adherence || readiness) && (
-            <div className="card">
-              <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: '1.5rem' }}>
-                {adherence && (
-                  <ScoreGauge
-                    score={adherence.score}
-                    label="Training Adherence"
-                    color={adherence.score >= 80 ? 'var(--color-success)' : adherence.score >= 60 ? 'var(--color-warning)' : 'var(--color-error)'}
-                  />
-                )}
-                {readiness && (
-                  <ScoreGauge
-                    score={readiness.score}
-                    label={`Readiness Wk ${readiness.weekNumber}`}
-                    color={gradeColor(readiness.grade)}
-                  />
-                )}
-                {adherence && (
-                  <ScoreGauge
-                    score={adherence.distanceAdherence}
-                    label="Distance Match"
-                    color={adherence.distanceAdherence >= 90 ? 'var(--color-success)' : adherence.distanceAdherence >= 70 ? 'var(--apollo-teal)' : 'var(--color-warning)'}
-                  />
-                )}
-                {adherence && (
-                  <ScoreGauge
-                    score={adherence.consistencyScore}
-                    size={100}
-                    label="Consistency"
-                    color={adherence.consistencyScore >= 80 ? 'var(--color-success)' : 'var(--color-warning)'}
-                  />
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Adherence Details */}
-          {adherence && (
-            <div className="card">
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Training Adherence
-                <span style={{
-                  fontSize: '0.78rem',
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: 999,
-                  background: adherence.rating === 'excellent' ? 'var(--color-success-dim)' : adherence.rating === 'good' ? 'var(--apollo-teal-dim)' : 'var(--color-warning-dim)',
-                  color: adherence.rating === 'excellent' ? 'var(--color-success)' : adherence.rating === 'good' ? 'var(--apollo-teal)' : 'var(--color-warning)',
-                  fontWeight: 600,
-                  textTransform: 'capitalize',
-                }}>{adherence.rating}</span>
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1rem' }}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Days Completed</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{adherence.completedDays} / {adherence.totalScheduledDays}</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Intensity Balance</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{adherence.intensityBalance}%</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Current Streak</div>
-                  <div style={{ fontSize: '1.3rem', fontWeight: 600 }}>{adherence.currentStreak} days</div>
-                </div>
-              </div>
-              {adherence.weeklyScores.length > 0 && (
-                <div>
-                  <div style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>Weekly Adherence Trend</div>
-                  <TrendLine scores={adherence.weeklyScores} />
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                    <span>Wk {adherence.weeklyScores[0]?.week}</span>
-                    <span>Wk {adherence.weeklyScores[adherence.weeklyScores.length - 1]?.week}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Today's recovery (sleep / HRV / resting HR via intervals.icu) — independent of the plan */}
-          {connected && (
-            <ErrorBoundary>
-              <RecoveryCard />
-            </ErrorBoundary>
-          )}
-
-          {/* Race Day Readiness */}
-          {readiness && (
-            <div className="card" style={{ borderLeft: `4px solid ${gradeColor(readiness.grade)}` }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                Race Day Readiness — Week {readiness.weekNumber}
-                <span style={{
-                  fontSize: '1.5rem',
-                  fontWeight: 700,
-                  color: gradeColor(readiness.grade),
-                }}>{readiness.grade}</span>
-                {readiness.trend !== 'stable' && (
-                  <span style={{
-                    fontSize: '0.78rem',
-                    color: readiness.trend === 'improving' ? 'var(--accent)' : '#f55',
-                  }}>
-                    {readiness.trend === 'improving' ? '▲' : '▼'}
-                  </span>
-                )}
-              </h3>
-
-              {/* Sub-score bars */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
-                {[
-                  { label: 'Volume', score: readiness.volumeScore },
-                  { label: 'Consistency', score: readiness.consistencyScore },
-                  { label: 'Long Run', score: readiness.longRunScore },
-                  { label: 'Intensity', score: readiness.intensityScore },
-                  { label: 'Recovery', score: readiness.recoveryScore },
-                ].map((item) => (
-                  <div key={item.label} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                    <span style={{ width: 80, fontSize: '0.82rem', color: 'var(--text-muted)' }}>{item.label}</span>
-                    <div style={{ flex: 1, height: 8, borderRadius: 4, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', borderRadius: 4,
-                        width: `${item.score}%`,
-                        background: item.score >= 80 ? 'var(--apollo-gold)' : item.score >= 60 ? 'var(--color-warning)' : 'var(--color-error)',
-                        transition: 'width 0.4s',
-                      }} />
-                    </div>
-                    <span style={{ width: 32, fontSize: '0.78rem', color: 'var(--text-muted)', textAlign: 'right' }}>{item.score}</span>
-                  </div>
-                ))}
-              </div>
-
-              {readiness.strengths.length > 0 && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <strong style={{ fontSize: '0.88rem', color: 'var(--color-success)' }}>What went well</strong>
-                  {readiness.strengths.map((s, i) => (
-                    <p key={i} style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s}</p>
-                  ))}
-                </div>
-              )}
-
-              {readiness.improvements.length > 0 && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <strong style={{ fontSize: '0.88rem', color: 'var(--color-warning)' }}>Areas to improve</strong>
-                  {readiness.improvements.map((s, i) => (
-                    <p key={i} style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s}</p>
-                  ))}
-                </div>
-              )}
-
-              {readiness.nextWeekTips.length > 0 && (
-                <div>
-                  <strong style={{ fontSize: '0.88rem', color: 'var(--apollo-teal)' }}>Tips for next week</strong>
-                  {readiness.nextWeekTips.map((s, i) => (
-                    <p key={i} style={{ margin: '0.25rem 0 0', fontSize: '0.85rem', color: 'var(--text-muted)', lineHeight: 1.4 }}>{s}</p>
-                  ))}
-                </div>
-              )}
-
-              {readiness.predictedMarathon && (
-                <div style={{ marginTop: '0.75rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Predicted marathon: <strong style={{ color: 'var(--text)' }}>{readiness.predictedMarathon}</strong>
-                  {readiness.daysUntilRace != null && (
-                    <span style={{ marginLeft: '1rem' }}>{readiness.daysUntilRace} days to race</span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Readiness History */}
-          {allReadiness.length > 1 && (
-            <div className="card">
-              <h3>Readiness History</h3>
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {allReadiness.map((r) => (
-                  <div key={r.weekNumber} style={{
-                    padding: '0.5rem 0.75rem',
-                    borderRadius: 8,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    textAlign: 'center',
-                    minWidth: 60,
-                  }}>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Wk {r.weekNumber}</div>
-                    <div style={{ fontSize: '1.2rem', fontWeight: 700, color: gradeColor(r.grade) }}>{r.grade}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{r.score}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Today's Recap (compact) */}
-          {todayRecap && todayRecap.grade !== 'rest_day' && (
-            <div className="card" style={{
-              borderLeft: `4px solid ${todayRecap.grade === 'outstanding' ? '#00c853' : todayRecap.grade === 'strong' ? '#4FC3F7' : todayRecap.grade === 'missed' ? '#f55' : '#f0a030'}`,
-            }}>
-              <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                Today&apos;s Recap
-                <span style={{
-                  fontSize: '0.78rem',
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: 999,
-                  background: todayRecap.grade === 'outstanding' ? 'rgba(0,200,83,0.2)' : todayRecap.grade === 'strong' ? 'rgba(79,195,247,0.2)' : todayRecap.grade === 'missed' ? 'rgba(255,80,80,0.2)' : 'rgba(240,160,48,0.2)',
-                  color: todayRecap.grade === 'outstanding' ? 'var(--accent)' : todayRecap.grade === 'strong' ? '#4FC3F7' : todayRecap.grade === 'missed' ? '#f55' : '#f0a030',
-                  fontWeight: 600,
-                  textTransform: 'capitalize',
-                }}>{todayRecap.grade}</span>
-              </h3>
-              {todayRecap.synced && (
-                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.5rem', fontSize: '0.88rem' }}>
-                  <span style={{ color: 'var(--accent)', fontWeight: 600 }}>{formatMiles(todayRecap.actualDistanceMi)}</span>
-                  <span style={{ color: 'var(--text-muted)' }}>{formatPaceFromMinPerMi(todayRecap.actualPaceMinPerMi)} pace</span>
-                  {todayRecap.avgHR && <span style={{ color: 'var(--text-muted)' }}>{todayRecap.avgHR} bpm avg</span>}
-                  {todayRecap.primaryZone && <span style={{ color: 'var(--text-muted)' }}>Zone: {todayRecap.primaryZone}</span>}
-                </div>
-              )}
-              <p style={{ fontSize: '0.88rem', color: 'var(--text)', lineHeight: 1.5, margin: 0, fontStyle: 'italic' }}>
-                {todayRecap.coachMessage}
-              </p>
-            </div>
-          )}
+          <h3>Weekly adherence trend</h3>
+          <TrendLine scores={adherence.weeklyScores} />
+          <div className="progress-axis">
+            <span>Wk {first?.week}</span>
+            <span>Wk {last?.week}</span>
+          </div>
         </>
       )}
+    </section>
+  );
+}
 
-      {/* ═══ HEART RATE TAB ═══ */}
-      {tab === 'hr' && (
-        <>
-          {/* HR Profile */}
-          <div className="card">
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              Heart Rate Profile
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                Source: {hrProfile.source}
-                {hrProfile.updatedAt && ` · ${new Date(hrProfile.updatedAt).toLocaleDateString()}`}
+function ReadinessCard({ readiness, history }: { readiness: ReadinessScore; history: ReadinessScore[] }) {
+  const titleId = 'progress-readiness-title';
+  const color = gradeColor(readiness.grade);
+  const subScores = [
+    { label: 'Volume', score: readiness.volumeScore },
+    { label: 'Consistency', score: readiness.consistencyScore },
+    { label: 'Long run', score: readiness.longRunScore },
+    { label: 'Intensity', score: readiness.intensityScore },
+    { label: 'Recovery', score: readiness.recoveryScore },
+  ];
+  return (
+    <section className="card progress-readiness" style={{ borderLeftColor: color }} aria-labelledby={titleId}>
+      <div className="progress-card-head">
+        <h2 id={titleId} className="card-title">
+          Race-day readiness — week {readiness.weekNumber}
+        </h2>
+        <span className="progress-grade-letter" style={{ color }}>
+          <span className="sr-only">Grade </span>{readiness.grade}
+        </span>
+        {readiness.trend !== 'stable' && (
+          <span className={`progress-chip ${readiness.trend === 'improving' ? 'is-up' : 'is-down'}`}>
+            <span aria-hidden="true">{readiness.trend === 'improving' ? '▲' : '▼'}</span>{' '}
+            {readiness.trend === 'improving' ? 'Improving' : 'Declining'}
+          </span>
+        )}
+      </div>
+
+      <div className="progress-readiness-body">
+        <ScoreGauge score={readiness.score} label={`Readiness week ${readiness.weekNumber}`} color={color} />
+        <ul className="progress-subscores">
+          {subScores.map((item) => (
+            <li key={item.label}>
+              <span className="progress-subscore-label">{item.label}</span>
+              <span className="progress-bar" aria-hidden="true">
+                <span className={`progress-bar-fill is-${scoreBand(item.score)}`} style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
               </span>
-            </h3>
-            {!editingHR ? (
-              <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Max HR</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#EF5350' }}>{hrProfile.maxHR} bpm</div>
-                </div>
-                <div>
-                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Resting HR</div>
-                  <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#4FC3F7' }}>{hrProfile.restingHR} bpm</div>
-                </div>
-                {hrProfile.lthr && (
-                  <div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Lactate Threshold</div>
-                    <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#FFA726' }}>{hrProfile.lthr} bpm</div>
-                  </div>
-                )}
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingHR(true)} style={{ fontSize: '0.85rem' }}>
-                  Edit
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'end' }}>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Max HR</span>
-                  <input type="number" value={hrMax} onChange={(e) => setHRMax(e.target.value)}
-                    style={{ width: 80, padding: '0.4rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-                </label>
-                <label style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Resting HR</span>
-                  <input type="number" value={hrResting} onChange={(e) => setHRResting(e.target.value)}
-                    style={{ width: 80, padding: '0.4rem', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)' }} />
-                </label>
-                <button type="button" className="btn btn-primary" onClick={saveHRProfile} style={{ fontSize: '0.85rem' }}>Save</button>
-                <button type="button" className="btn btn-secondary" onClick={() => setEditingHR(false)} style={{ fontSize: '0.85rem' }}>Cancel</button>
-              </div>
-            )}
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.75rem 0 0', lineHeight: 1.4 }}>
-              Your max HR auto-updates when synced activities contain higher heart rate data. Manually set it here for more accurate zone calculations.
-            </p>
-          </div>
+              <span className="progress-subscore-value">{item.score}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
 
-          {/* Zone Definitions */}
-          <div className="card">
-            <h3>Running Heart Rate Zones</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginBottom: '1rem', lineHeight: 1.4 }}>
-              Based on your max HR of {hrProfile.maxHR} bpm. Zones follow the standard 5-zone model used by most training platforms and watches.
-            </p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-              {zones.map((z) => (
-                <div key={z.zone} style={{
-                  display: 'flex', alignItems: 'center', gap: '1rem',
-                  padding: '0.6rem 1rem', borderRadius: 8,
-                  background: 'var(--bg)', border: '1px solid var(--border)',
-                }}>
-                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: z.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '0.9rem', color: '#fff', flexShrink: 0 }}>
-                    {z.zone}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{z.name}</div>
-                    <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>{z.description}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontWeight: 600 }}>{z.minBpm}–{z.maxBpm}</div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{z.minPct}–{z.maxPct}%</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Zone Distribution (30 days) */}
-          {zoneDist.totalTimeSec > 0 && (
-            <div className="card">
-              <h3>Zone Distribution (Last 30 Days)</h3>
-              <ZoneChart zones={zoneDist.zones} percentages={zoneDist.percentages} totalTimeSec={zoneDist.totalTimeSec} />
-              <p style={{ color: 'var(--text-muted)', fontSize: '0.82rem', margin: '0.75rem 0 0', lineHeight: 1.4 }}>
-                {zoneDist.percentages[0] + zoneDist.percentages[1] >= 60
-                  ? 'Good balance — most of your training is in easy/aerobic zones, which builds endurance efficiently.'
-                  : 'Consider spending more time in Zone 1-2. The 80/20 rule suggests 80% of training should be easy.'}
-              </p>
-            </div>
-          )}
-
-          {/* HR Trend */}
-          {hrTrend.length > 2 && (
-            <div className="card">
-              <h3>Heart Rate Trend (30 Days)</h3>
-              <div style={{ display: 'flex', alignItems: 'end', gap: 4, height: 60 }}>
-                {hrTrend.map((pt) => {
-                  const pct = hrProfile.maxHR > 0 ? (pt.avgHR / hrProfile.maxHR) * 100 : 50;
-                  return (
-                    <div
-                      key={pt.date}
-                      title={`${pt.date}: ${pt.avgHR} bpm`}
-                      style={{
-                        flex: 1, height: `${pct}%`, minHeight: 4,
-                        background: pct > 85 ? '#EF5350' : pct > 75 ? '#FFA726' : '#4FC3F7',
-                        borderRadius: '2px 2px 0 0',
-                        transition: 'height 0.3s',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.25rem' }}>
-                <span>{hrTrend[0]?.date}</span>
-                <span>{hrTrend[hrTrend.length - 1]?.date}</span>
-              </div>
-            </div>
-          )}
-
-          {!connected && (
-            <div className="card">
-              <p style={{ color: 'var(--text-muted)' }}>
-                Connect a data source (intervals.icu or Strava) in Settings to automatically sync heart rate data from your runs — intervals.icu also brings in Garmin, COROS, Polar, Suunto and Wahoo data.
-              </p>
-            </div>
-          )}
-        </>
+      {readiness.strengths.length > 0 && (
+        <div className="progress-notes">
+          <h3 className="progress-notes-title is-good">What went well</h3>
+          {readiness.strengths.map((s, i) => <p key={i}>{s}</p>)}
+        </div>
+      )}
+      {readiness.improvements.length > 0 && (
+        <div className="progress-notes">
+          <h3 className="progress-notes-title is-ok">Areas to improve</h3>
+          {readiness.improvements.map((s, i) => <p key={i}>{s}</p>)}
+        </div>
+      )}
+      {readiness.nextWeekTips.length > 0 && (
+        <div className="progress-notes">
+          <h3 className="progress-notes-title is-info">Tips for next week</h3>
+          {readiness.nextWeekTips.map((s, i) => <p key={i}>{s}</p>)}
+        </div>
       )}
 
-      {/* ═══ RECAPS TAB ═══ */}
-      {tab === 'recaps' && (
+      {history.length > 1 && (
         <>
-          {todayRecap && (
-            <div className="card" style={{
-              borderLeft: `4px solid ${todayRecap.grade === 'outstanding' ? '#00c853' : todayRecap.grade === 'strong' ? '#4FC3F7' : todayRecap.grade === 'missed' ? '#f55' : todayRecap.grade === 'rest_day' ? 'var(--border)' : '#f0a030'}`,
-            }}>
-              <h3>Today — {todayRecap.date}</h3>
-              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <span style={{
-                  fontSize: '0.82rem', padding: '0.2rem 0.6rem', borderRadius: 999, fontWeight: 600,
-                  textTransform: 'capitalize',
-                  background: todayRecap.grade === 'outstanding' ? 'rgba(0,200,83,0.2)' : todayRecap.grade === 'strong' ? 'rgba(79,195,247,0.2)' : todayRecap.grade === 'missed' ? 'rgba(255,80,80,0.2)' : todayRecap.grade === 'rest_day' ? 'rgba(255,255,255,0.06)' : 'rgba(240,160,48,0.2)',
-                  color: todayRecap.grade === 'outstanding' ? 'var(--accent)' : todayRecap.grade === 'strong' ? '#4FC3F7' : todayRecap.grade === 'missed' ? '#f55' : todayRecap.grade === 'rest_day' ? 'var(--text-muted)' : '#f0a030',
-                }}>{todayRecap.grade.replace('_', ' ')}</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Week {todayRecap.weekNumber}</span>
-                <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Planned: {todayRecap.plannedWorkout}</span>
-              </div>
-              {todayRecap.synced && (
-                <div style={{ display: 'flex', gap: '1.25rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Distance</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--accent)' }}>{formatMiles(todayRecap.actualDistanceMi)}</div>
-                    {todayRecap.plannedDistanceMi > 0 && (
-                      <div style={{ fontSize: '0.72rem', color: todayRecap.metPlan ? 'var(--accent)' : '#f0a030' }}>
-                        {todayRecap.distanceDiffMi >= 0 ? '+' : ''}{formatMiles(todayRecap.distanceDiffMi)} ({todayRecap.distanceDiffPct >= 0 ? '+' : ''}{todayRecap.distanceDiffPct.toFixed(0)}%)
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Pace</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{formatPaceFromMinPerMi(todayRecap.actualPaceMinPerMi)}</div>
-                  </div>
-                  <div>
-                    <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Duration</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{Math.floor(todayRecap.movingTimeSec / 60)}m</div>
-                  </div>
-                  {todayRecap.avgHR && (
-                    <div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Avg HR</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{todayRecap.avgHR} bpm</div>
-                    </div>
-                  )}
-                  {todayRecap.primaryZone && (
-                    <div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Zone</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{todayRecap.primaryZone}</div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div style={{ background: 'var(--bg)', borderRadius: 8, padding: '0.75rem 1rem', fontSize: '0.88rem', lineHeight: 1.5, fontStyle: 'italic', color: 'var(--text)' }}>
-                {todayRecap.coachMessage}
-              </div>
-              {todayRecap.predictedMarathon && (
-                <div style={{ marginTop: '0.5rem', fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                  Current marathon prediction: <strong style={{ color: 'var(--accent)' }}>{todayRecap.predictedMarathon}</strong>
-                </div>
-              )}
-            </div>
-          )}
-
-          {recentRecaps.length > 1 && (
-            <div className="card">
-              <h3>Recent Recaps</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {recentRecaps.filter((r) => r.date !== todayRecap?.date).map((r) => (
-                  <div key={r.date} style={{
-                    display: 'flex', alignItems: 'center', gap: '1rem',
-                    padding: '0.6rem 1rem', borderRadius: 8,
-                    background: 'var(--bg)', border: '1px solid var(--border)',
-                  }}>
-                    <div style={{ minWidth: 80 }}>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 600 }}>{r.date}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Wk {r.weekNumber}</div>
-                    </div>
-                    <span style={{
-                      fontSize: '0.72rem', padding: '0.1rem 0.4rem', borderRadius: 999, fontWeight: 600,
-                      textTransform: 'capitalize',
-                      background: r.grade === 'outstanding' ? 'rgba(0,200,83,0.2)' : r.grade === 'strong' ? 'rgba(79,195,247,0.2)' : r.grade === 'missed' ? 'rgba(255,80,80,0.2)' : 'rgba(240,160,48,0.2)',
-                      color: r.grade === 'outstanding' ? 'var(--accent)' : r.grade === 'strong' ? '#4FC3F7' : r.grade === 'missed' ? '#f55' : '#f0a030',
-                    }}>{r.grade.replace('_', ' ')}</span>
-                    <div style={{ flex: 1, fontSize: '0.82rem', color: 'var(--text-muted)' }}>
-                      {r.synced ? `${formatMiles(r.actualDistanceMi)} · ${formatPaceFromMinPerMi(r.actualPaceMinPerMi)}` : r.plannedWorkout}
-                    </div>
-                    {r.metPlan && <span style={{ color: 'var(--accent)', fontSize: '0.82rem' }}>✓</span>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {recentRecaps.length === 0 && (
-            <div className="card">
-              <p style={{ color: 'var(--text-muted)' }}>No recaps yet. Recaps are generated after each activity sync or at your scheduled recap time.</p>
-            </div>
-          )}
+          <h3>Readiness history</h3>
+          <ul className="progress-history">
+            {history.map((r) => (
+              <li key={r.weekNumber} className="progress-history-item">
+                <span className="progress-muted">Wk {r.weekNumber}</span>
+                <strong style={{ color: gradeColor(r.grade) }}>{r.grade}</strong>
+                <span className="progress-muted">{r.score}</span>
+              </li>
+            ))}
+          </ul>
         </>
       )}
+    </section>
+  );
+}
 
-      {/* ═══ SETTINGS TAB ═══ */}
-      {tab === 'settings' && (
-        <>
-          <div className="card">
-            <h3>Daily Recap</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={prefs.dailyRecapEnabled}
-                  onChange={(e) => setCoachingPreferences({ dailyRecapEnabled: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
-                />
-                <span>Enable daily training recap</span>
-              </label>
-              {prefs.dailyRecapEnabled && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Time:</span>
-                  <input
-                    type="time"
-                    value={prefs.dailyRecapTime}
-                    onChange={(e) => setCoachingPreferences({ dailyRecapTime: e.target.value })}
-                    style={{
-                      padding: '0.4rem 0.5rem', borderRadius: 8,
-                      border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-          </div>
+// ── Overview panel ────────────────────────────────────────────────────────────
 
-          <div className="card">
-            <h3>Weekly Race Day Readiness</h3>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={prefs.weeklyRecapEnabled}
-                  onChange={(e) => setCoachingPreferences({ weeklyRecapEnabled: e.target.checked })}
-                  style={{ width: 18, height: 18, accentColor: 'var(--accent)' }}
-                />
-                <span>Enable weekly readiness score</span>
-              </label>
-              {prefs.weeklyRecapEnabled && (
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ fontSize: '0.88rem', color: 'var(--text-muted)' }}>Show on:</span>
-                  <select
-                    value={prefs.weeklyRecapDay}
-                    onChange={(e) => setCoachingPreferences({ weeklyRecapDay: Number(e.target.value) })}
-                    style={{
-                      padding: '0.4rem 0.5rem', borderRadius: 8,
-                      border: '1px solid var(--border)', background: 'var(--bg)', color: 'var(--text)',
-                    }}
-                  >
-                    {WEEKDAY_NAMES.map((name, i) => (
-                      <option key={i} value={i}>{name}</option>
-                    ))}
-                  </select>
-                </label>
-              )}
-            </div>
-            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-              Best set to the day after your weekly long run or the end of the training week.
-            </p>
-          </div>
+interface OverviewData {
+  /** False until the effect recomputed (and saved) the prediction and scores. */
+  computed: boolean;
+  prediction: RacePrediction | null;
+  goalMarathonSec: number | null;
+  journey: JourneyState;
+  planAuthor: string | null;
+  hasPlan: boolean;
+  adherence: TrainingAdherence | null;
+  readiness: ReadinessScore | null;
+  allReadiness: ReadinessScore[];
+  connected: boolean;
+}
 
-          <div className="card">
-            <h3>About Insights</h3>
-            <div style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6 }}>
-              <p><strong>Race Day Prediction</strong> uses the VDOT model (Jack Daniels Running Formula) and Riegel formula, blended with your actual training pace data and heart rate efficiency. Predictions improve as you log more runs.</p>
-              <p><strong>Training Adherence</strong> measures completion rate, distance accuracy, consistency, and intensity balance against your chosen plan.</p>
-              <p><strong>Race Day Readiness</strong> is a weekly composite score evaluating volume, consistency, long run completion, effort appropriateness, and recovery balance.</p>
-              <p><strong>Heart Rate Zones</strong> are automatically populated from your connected data source (intervals.icu or Strava). Your max HR updates when higher values are detected. Zone analysis helps ensure you&apos;re training at the right intensities.</p>
-            </div>
-          </div>
-        </>
+/**
+ * Overview data. `fresh` recomputes and saves the prediction, adherence and
+ * readiness (explicit, idempotent upserts); otherwise only saved values are read.
+ */
+function readOverview(fresh: boolean): OverviewData {
+  const active = getActivePlan();
+  const plan = active ? getEffectivePlan() : null;
+  const hasPlan = Boolean(active && plan);
+  const prediction = fresh ? calculateRacePrediction() : getSavedPrediction();
+  const adherence = hasPlan ? (fresh ? calculateTrainingAdherence() : getSavedAdherence()) : null;
+  // Generate the current week first so the history includes it.
+  const readiness = hasPlan ? (fresh ? generateCurrentWeekReadiness() : getLatestReadinessScore()) : null;
+  const allReadiness = hasPlan ? getAllReadinessScores() : [];
+  return {
+    computed: fresh,
+    prediction,
+    goalMarathonSec: getAthleteProfile().goalMarathonSec ?? null,
+    journey: getJourneyState(),
+    planAuthor: plan?.author ?? null,
+    hasPlan,
+    adherence,
+    readiness,
+    allReadiness,
+    connected: isActivitySourceConnected(),
+  };
+}
+
+const readOverviewSnapshot = (): OverviewData => readOverview(false);
+const computeOverview = (): OverviewData => readOverview(true);
+
+/** Overview tab: prediction, countdown, adherence, readiness and recovery. */
+export function OverviewPanel() {
+  const data = useRefreshingState(readOverviewSnapshot, computeOverview);
+  return (
+    <>
+      <PredictionCard prediction={data.prediction} goalMarathonSec={data.goalMarathonSec} computed={data.computed} />
+      <CountdownCard journey={data.journey} planAuthor={data.planAuthor} />
+      {data.hasPlan && data.adherence && <AdherenceCard adherence={data.adherence} />}
+      {data.hasPlan && data.readiness && <ReadinessCard readiness={data.readiness} history={data.allReadiness} />}
+      {/* Today's recovery (sleep / HRV / resting HR via intervals.icu) — independent of the plan */}
+      {data.connected && (
+        <section aria-labelledby="progress-recovery-title">
+          <h2 id="progress-recovery-title" className="sr-only">Recovery</h2>
+          <ErrorBoundary variant="inline" label="Recovery">
+            <RecoveryCard />
+          </ErrorBoundary>
+        </section>
       )}
+    </>
+  );
+}
+
+// ── Heart rate panel ──────────────────────────────────────────────────────────
+
+/** Plain-language origin of the HR profile values. */
+export function hrSourceLabel(source: string | undefined): string {
+  switch (source) {
+    case 'age-estimate': return 'Estimated from your birth year';
+    case 'manual': return 'Set by you';
+    case 'intervals': return 'From your intervals.icu activities';
+    case 'strava': return 'From your Strava activities';
+    case 'garmin': return 'From Garmin';
+    case 'file': return 'From imported activity files';
+    case 'default':
+    case undefined:
+    case '':
+      return 'Default values (not personalised yet)';
+    default: return `From ${source}`;
+  }
+}
+
+/** HR zone distribution bars (30 days) */
+function ZoneChart({ zones, percentages, totalTimeSec }: { zones: HRZone[]; percentages: number[]; totalTimeSec: number }) {
+  return (
+    <div>
+      <ul className="progress-zone-bars">
+        {zones.map((z, i) => (
+          <li key={z.zone} className="progress-zone-row">
+            <span className="progress-zone-name">
+              <span className="progress-zone-dot" style={{ background: z.color }} aria-hidden="true" />
+              Z{z.zone} {z.name}
+            </span>
+            <span className="progress-zone-track" aria-hidden="true">
+              <span className="progress-zone-fill" style={{ width: `${Math.max(percentages[i] ?? 0, 1)}%`, background: z.color }} />
+            </span>
+            <span className="progress-zone-pct">{percentages[i] ?? 0}%</span>
+          </li>
+        ))}
+      </ul>
+      <p className="progress-muted progress-small">Total training time (30 days): {formatDuration(totalTimeSec)}</p>
     </div>
   );
+}
+
+interface HeartRateData {
+  profile: HRProfile;
+  zones: HRZone[];
+  distribution: ReturnType<typeof getAggregateZoneDistribution>;
+  trend: ReturnType<typeof getHRTrend>;
+}
+
+function readHeartRate(): HeartRateData {
+  const profile = getHRProfile();
+  return {
+    profile,
+    zones: getHRZones(profile.maxHR),
+    distribution: getAggregateZoneDistribution(30),
+    trend: getHRTrend(30),
+  };
+}
+
+/** Heart Rate tab: read-only profile (edit in Settings), zones, distribution and trend. */
+export function HeartRatePanel() {
+  const { profile, zones, distribution, trend } = useStoreSnapshot(readHeartRate);
+  const hasData = distribution.totalTimeSec > 0 || trend.length > 0;
+  const easyShare = (distribution.percentages[0] ?? 0) + (distribution.percentages[1] ?? 0);
+
+  return (
+    <>
+      <section className="card" aria-labelledby="progress-hr-profile-title">
+        <h2 id="progress-hr-profile-title" className="card-title">Heart rate profile</h2>
+        <dl className="progress-hr-values">
+          <div><dt>Max HR</dt><dd>{profile.maxHR} bpm</dd></div>
+          <div><dt>Resting HR</dt><dd>{profile.restingHR} bpm</dd></div>
+          {profile.lthr ? <div><dt>Lactate threshold</dt><dd>{profile.lthr} bpm</dd></div> : null}
+          <div><dt>Source</dt><dd>{hrSourceLabel(profile.source)}</dd></div>
+        </dl>
+        <p className="progress-muted progress-small">
+          Max HR updates automatically when synced runs reach a higher heart rate.
+        </p>
+        <Link to="/settings?tab=profile" className="btn btn-secondary progress-link-btn">
+          Edit heart rate in Settings
+        </Link>
+      </section>
+
+      <section className="card" aria-labelledby="progress-hr-zones-title">
+        <h2 id="progress-hr-zones-title" className="card-title">Running heart-rate zones</h2>
+        <table className="progress-table">
+          <caption className="progress-table-caption">
+            Based on your max HR of {profile.maxHR} bpm (standard 5-zone model).
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Zone</th>
+              <th scope="col">Purpose</th>
+              <th scope="col">Heart rate</th>
+              <th scope="col">% of max</th>
+            </tr>
+          </thead>
+          <tbody>
+            {zones.map((z) => (
+              <tr key={z.zone}>
+                <th scope="row">
+                  <span className="progress-zone-dot" style={{ background: z.color }} aria-hidden="true" />
+                  Z{z.zone} {z.name}
+                </th>
+                <td>{z.description}</td>
+                <td className="progress-num">{z.minBpm}–{z.maxBpm} bpm</td>
+                <td className="progress-num">{z.minPct}–{z.maxPct}%</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {!hasData && (
+        <section className="card" aria-labelledby="progress-hr-empty-title">
+          <h2 id="progress-hr-empty-title" className="card-title">Your heart-rate data</h2>
+          <EmptyState
+            icon="❤️"
+            title="No heart-rate data yet"
+            action={<Link to="/settings?tab=connections" className="btn btn-primary">Connect a data source</Link>}
+          >
+            Connect intervals.icu or Strava to sync heart rate from your runs. intervals.icu also brings in
+            Garmin, COROS, Polar, Suunto and Wahoo data.
+          </EmptyState>
+        </section>
+      )}
+
+      {distribution.totalTimeSec > 0 && (
+        <section className="card" aria-labelledby="progress-hr-dist-title">
+          <h2 id="progress-hr-dist-title" className="card-title">Zone distribution (last 30 days)</h2>
+          <ZoneChart zones={distribution.zones} percentages={distribution.percentages} totalTimeSec={distribution.totalTimeSec} />
+          <p className="progress-muted progress-small">
+            {easyShare >= 60
+              ? 'Good balance — most of your training is in easy/aerobic zones, which builds endurance efficiently.'
+              : 'Consider spending more time in Zone 1-2. The 80/20 rule suggests 80% of training should be easy.'}
+          </p>
+        </section>
+      )}
+
+      {trend.length > 2 && (
+        <section className="card" aria-labelledby="progress-hr-trend-title">
+          <h2 id="progress-hr-trend-title" className="card-title">Heart-rate trend (30 days)</h2>
+          <div
+            className="progress-hr-trend"
+            role="img"
+            aria-label={`Average heart rate per run from ${trend[0].avgHR} bpm on ${formatDayLabel(trend[0].date)} to ${trend[trend.length - 1].avgHR} bpm on ${formatDayLabel(trend[trend.length - 1].date)}`}
+          >
+            {trend.map((pt) => {
+              const pct = profile.maxHR > 0 ? (pt.avgHR / profile.maxHR) * 100 : 50;
+              const level = pct > 85 ? 'high' : pct > 75 ? 'mid' : 'low';
+              return (
+                <div
+                  key={`${pt.date}-${pt.avgHR}`}
+                  title={`${formatDayLabel(pt.date)}: ${pt.avgHR} bpm`}
+                  className={`progress-hr-bar is-${level}`}
+                  style={{ height: `${Math.min(100, pct)}%` }}
+                />
+              );
+            })}
+          </div>
+          <div className="progress-axis">
+            <span>{formatDayLabel(trend[0].date)}</span>
+            <span>{formatDayLabel(trend[trend.length - 1].date)}</span>
+          </div>
+        </section>
+      )}
+    </>
+  );
+}
+
+// ── Recaps panel ──────────────────────────────────────────────────────────────
+
+const GRADE_CLASS: Record<string, string> = {
+  outstanding: 'is-outstanding',
+  strong: 'is-strong',
+  solid: 'is-solid',
+  missed: 'is-missed',
+  pending: 'is-pending',
+  rest_day: 'is-rest',
+};
+
+function GradeChip({ grade }: { grade: string }) {
+  return <span className={`progress-grade ${GRADE_CLASS[grade] ?? 'is-solid'}`}>{grade.replace(/_/g, ' ')}</span>;
+}
+
+function TodayRecapCard({ recap }: { recap: DailyRecap }) {
+  return (
+    <section className={`card progress-recap-today ${GRADE_CLASS[recap.grade] ?? ''}`} aria-labelledby="progress-recap-today-title">
+      <h2 id="progress-recap-today-title" className="card-title">Today — {formatDayLabel(recap.date)}</h2>
+      <div className="progress-recap-tags">
+        <GradeChip grade={recap.grade} />
+        <span className="progress-muted">Week {recap.weekNumber}</span>
+        <span className="progress-muted">Planned: {recap.plannedWorkout}</span>
+      </div>
+      {recap.synced && (
+        <div className="progress-stats">
+          <div>
+            <div className="progress-stat-label">Distance</div>
+            <div className="progress-stat-value">{formatMiles(recap.actualDistanceMi)}</div>
+            {recap.plannedDistanceMi > 0 && (
+              <div className={`progress-small ${recap.metPlan ? 'progress-good' : 'progress-warn'}`}>
+                {recap.distanceDiffMi >= 0 ? '+' : ''}{formatMiles(recap.distanceDiffMi)}{' '}
+                ({recap.distanceDiffPct >= 0 ? '+' : ''}{recap.distanceDiffPct.toFixed(0)}%)
+                {recap.metPlan ? ' · plan met' : ' · below plan'}
+              </div>
+            )}
+          </div>
+          <div>
+            <div className="progress-stat-label">Pace</div>
+            <div className="progress-stat-value">{formatPaceFromMinPerMi(recap.actualPaceMinPerMi)}</div>
+          </div>
+          <div>
+            <div className="progress-stat-label">Duration</div>
+            <div className="progress-stat-value">{formatDuration(recap.movingTimeSec)}</div>
+          </div>
+          {recap.avgHR ? (
+            <div>
+              <div className="progress-stat-label">Avg HR</div>
+              <div className="progress-stat-value">{recap.avgHR} bpm</div>
+            </div>
+          ) : null}
+          {recap.primaryZone && (
+            <div>
+              <div className="progress-stat-label">Zone</div>
+              <div className="progress-stat-value">{recap.primaryZone}</div>
+            </div>
+          )}
+        </div>
+      )}
+      <p className="progress-coach">{recap.coachMessage}</p>
+    </section>
+  );
+}
+
+interface RecapsData {
+  today: DailyRecap | null;
+  /** Recent recaps excluding today, newest first. */
+  past: DailyRecap[];
+}
+
+/**
+ * Recaps data. `fresh` generates (and saves) today's recap; otherwise the saved
+ * one is read.
+ */
+function readRecaps(fresh: boolean): RecapsData {
+  const key = todayKey();
+  const today = fresh ? generateTodayRecap() : getDailyRecap(key);
+  // 1.0.5 rendered the list only for > 1 recaps and the empty message only
+  // for 0, so exactly one past recap showed a blank tab. Filter first.
+  const past = getRecentRecaps(7).filter((r) => r.date !== key);
+  return { today, past };
+}
+
+const readRecapsSnapshot = (): RecapsData => readRecaps(false);
+const computeRecaps = (): RecapsData => readRecaps(true);
+
+/** Recaps tab: today's recap and the recent ones. */
+export function RecapsPanel() {
+  const { today, past } = useRefreshingState(readRecapsSnapshot, computeRecaps);
+  return (
+    <>
+      {today && <TodayRecapCard recap={today} />}
+      <section className="card" aria-labelledby="progress-recaps-title">
+        <h2 id="progress-recaps-title" className="card-title">Recent recaps</h2>
+        {past.length > 0 ? (
+          <ul className="progress-recap-list">
+            {past.map((r) => (
+              <li key={r.date} className="progress-recap-item">
+                <div className="progress-recap-date">
+                  <strong>{formatDayLabel(r.date)}</strong>
+                  <span className="progress-muted">Wk {r.weekNumber}</span>
+                </div>
+                <GradeChip grade={r.grade} />
+                <span className="progress-recap-summary">
+                  {r.synced ? `${formatMiles(r.actualDistanceMi)} · ${formatPaceFromMinPerMi(r.actualPaceMinPerMi)}` : r.plannedWorkout}
+                </span>
+                {r.metPlan && (
+                  <span className="progress-good progress-small">
+                    <span aria-hidden="true">✓</span> Plan met
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <EmptyState
+            icon="📝"
+            title={today ? 'No earlier recaps yet' : 'No recaps yet'}
+            action={<Link to="/settings?tab=coaching" className="btn btn-secondary">Recap settings</Link>}
+          >
+            Recaps are generated after each activity sync or at your scheduled recap time.
+          </EmptyState>
+        )}
+      </section>
+    </>
+  );
+}
+
+// ── Legacy route ──────────────────────────────────────────────────────────────
+
+/** Old `/insights` page: everything moved to Progress. */
+export default function Insights() {
+  return <Navigate to="/progress" replace />;
 }

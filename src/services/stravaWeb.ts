@@ -53,6 +53,16 @@ export async function exchangeStravaCode(code: string): Promise<{
   };
 }
 
+/** A failed call to the web backend; `status` is the HTTP status code. */
+export class StravaBackendError extends Error {
+  readonly status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.name = 'StravaBackendError';
+    this.status = status;
+  }
+}
+
 export async function refreshStravaToken(refreshToken: string): Promise<{
   access_token: string;
   refresh_token: string;
@@ -64,7 +74,7 @@ export async function refreshStravaToken(refreshToken: string): Promise<{
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
   const data = await parseApiResponse(res);
-  if (!res.ok) throw new Error(getApiErrorMessage(data, `Token refresh failed (${res.status})`));
+  if (!res.ok) throw new StravaBackendError(res.status, getApiErrorMessage(data, `Token refresh failed (${res.status})`));
   if (!data || typeof data !== 'object') throw new Error('Invalid token refresh response');
   return data as {
     access_token: string;

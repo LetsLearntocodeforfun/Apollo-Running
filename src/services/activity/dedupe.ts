@@ -9,9 +9,16 @@
  * When a duplicate arrives it is merged INTO the existing record, which keeps
  * its original ID so everything keyed by activity ID (plan-day sync metadata,
  * HR history, effort recognitions, cached routes) stays valid.
+ *
+ * v1.0.6: records the athlete deleted (tombstones.ts) are skipped, so a sync
+ * or re-import can't resurrect them, and `findDuplicateCandidates` surfaces
+ * same-source duplicates (e.g. a Garmin virtual run + its Zwift copy, both
+ * relayed by intervals.icu) for the athlete to merge or keep.
  */
 
 import type { Activity, ActivitySource } from './types';
+import { loadTombstones, type TombstoneSet } from './tombstones';
+import { getSportCategory } from './sports';
 
 const START_TOLERANCE_SEC = 120;
 const DISTANCE_TOLERANCE_RATIO = 0.03;
@@ -129,10 +136,22 @@ export interface MergeResult {
   activities: Activity[];
   added: number;
   updated: number;
+  /** Incoming records skipped because the athlete deleted them on this device. */
+  skippedDeleted: number;
 }
 
-/** Merge a batch of synced activities into the stored list (deduplicating across sources). */
-export function mergeIntoStore(existing: Activity[], incoming: Activity[]): MergeResult {
+export interface MergeOptions {
+  /** Deleted-activity tombstones. Defaults to the stored ones (a read, never a write). */
+  tombstones?: TombstoneSet;
+}
+
+/**
+ * Merge a batch of synced activities into the stored list (deduplicating across sources).
+ * Every write path (sync, route enrichment, file import) goes through here, so
+ * tombstoned records are never resurrected.
+ */
+export function mergeIntoStore(existing: Activity[], incoming: Activity[], options: MergeOptions = {}): MergeResult {
+  const tombstones = options.tombstones ?? loadTombstones();
   const byId = new Map<number, Activity>();
   const byDay = new Map<string, number[]>();
   /** "intervals:i123" / "strava:456" → store ID (merged records keep their original ID). */
@@ -177,11 +196,21 @@ export function mergeIntoStore(existing: Activity[], incoming: Activity[]): Merg
 
   let added = 0;
   let updated = 0;
+  let skippedDeleted = 0;
   /** Records added by this call: later duplicates merging into them are part of the "added" count. */
   const addedNow = new Set<number>();
   for (const inc of incoming) {
+    if (tombstones.size > 0 && tombstones.hasKey(inc)) {
+      skippedDeleted++;
+      continue;
+    }
     const targetId = findDuplicate(inc);
     if (targetId === undefined) {
+      // Another source's copy of a deleted workout (nothing left in the store to merge into).
+      if (tombstones.matchesPrint(inc)) {
+        skippedDeleted++;
+        continue;
+      }
       byId.set(inc.id, inc);
       index(inc);
       addedNow.add(inc.id);
@@ -200,5 +229,99 @@ export function mergeIntoStore(existing: Activity[], incoming: Activity[]): Merg
   const activities = Array.from(byId.values()).sort((a, b) =>
     b.start_date_local < a.start_date_local ? -1 : b.start_date_local > a.start_date_local ? 1 : 0,
   );
-  return { activities, added, updated };
+  return { activities, added, updated, skippedDeleted };
+}
+
+// ── Duplicate candidates (same source allowed) ───────────────────────────────
+
+/** A pair of records that look like the same workout. */
+export interface DuplicateCandidate {
+  /** Stable key for remembering a "keep both" decision. */
+  key: string;
+  /** The richer record (HR, route, splits) — kept when merging. */
+  keep: Activity;
+  /** The lesser record — hidden when merging. */
+  drop: Activity;
+  /** Seconds between the two start times. */
+  startDeltaSec: number;
+  /** Relative distance difference (0.01 = 1 %). */
+  distanceDeltaRatio: number;
+}
+
+/** Order-independent key for a pair of activity IDs. */
+export function duplicatePairKey(a: number, b: number): string {
+  return a < b ? `${a}-${b}` : `${b}-${a}`;
+}
+
+/** Run, VirtualRun and TrailRun are interchangeable; other sports must share a category (and type for "other"). */
+function compatibleTypes(a: Activity, b: Activity): boolean {
+  const ca = getSportCategory(a);
+  const cb = getSportCategory(b);
+  if (ca !== cb) return false;
+  if (ca === 'other') return (a.sport_type || a.type) === (b.sport_type || b.type);
+  return true;
+}
+
+/** Richness score: which copy of a duplicate pair to keep. */
+function richness(a: Activity): number {
+  let score = priority(a.source);
+  if (a.average_heartrate && a.average_heartrate > 0) score += 4;
+  if (a.map?.summary_polyline) score += 2;
+  if ((a.splits_metric?.length ?? 0) > 0 || (a.splits_standard?.length ?? 0) > 0 || (a.laps?.length ?? 0) > 0) score += 1;
+  return score;
+}
+
+/**
+ * Pairs of visible records that are probably the same workout, including two
+ * records from the SAME source (|Δstart| ≤ 120 s, |Δdistance| ≤ 3 %, compatible
+ * sport types). Hidden records and pairs in `dismissed` (keys from
+ * {@link duplicatePairKey}) are ignored. Pure.
+ */
+export function findDuplicateCandidates(
+  activities: Activity[],
+  options: { dismissed?: ReadonlySet<string> } = {},
+): DuplicateCandidate[] {
+  const dismissed = options.dismissed ?? new Set<string>();
+  const timed = activities
+    .filter((a) => !a.hidden)
+    .map((a) => ({ a, t: startEpochSec(a) }))
+    .filter((x) => Number.isFinite(x.t))
+    .sort((x, y) => x.t - y.t);
+
+  const out: DuplicateCandidate[] = [];
+  const paired = new Set<number>();
+  for (let i = 0; i < timed.length; i++) {
+    const { a, t } = timed[i];
+    if (paired.has(a.id)) continue;
+    for (let j = i + 1; j < timed.length && timed[j].t - t <= START_TOLERANCE_SEC; j++) {
+      const b = timed[j].a;
+      if (paired.has(b.id) || a.id === b.id) continue;
+      const key = duplicatePairKey(a.id, b.id);
+      if (dismissed.has(key) || !compatibleTypes(a, b)) continue;
+      const da = a.distance || 0;
+      const db = b.distance || 0;
+      const maxD = Math.max(da, db);
+      if (maxD > 0) {
+        if (Math.abs(da - db) > DISTANCE_TOLERANCE_RATIO * maxD) continue;
+      } else {
+        const ma = a.moving_time || a.elapsed_time || 0;
+        const mb = b.moving_time || b.elapsed_time || 0;
+        if (Math.abs(ma - mb) > Math.max(120, 0.1 * Math.max(ma, mb))) continue;
+      }
+      const ra = richness(a);
+      const rb = richness(b);
+      const keepA = ra !== rb ? ra > rb : da !== db ? da > db : a.id < b.id;
+      out.push({
+        key,
+        keep: keepA ? a : b,
+        drop: keepA ? b : a,
+        startDeltaSec: Math.abs(timed[j].t - t),
+        distanceDeltaRatio: maxD > 0 ? Math.abs(da - db) / maxD : 0,
+      });
+      paired.add(a.id);
+      paired.add(b.id);
+      break;
+    }
+  }
+  return out;
 }
