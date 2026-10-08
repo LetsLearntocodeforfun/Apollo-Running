@@ -137,7 +137,7 @@ describe('RaceWeekPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Reset', hidden: true }));
     expect(progressText()).toBe(`0 of ${total} done (0%)`);
     expect(screen.queryByText('Reset checklist?')).toBeNull();
-  });
+  }, 60_000); // the heaviest RTL test (many role queries over the full checklist); slow on CI runners
 
   it('cancelling the reset keeps checked items', () => {
     render(<RaceWeekPanel ctx={emptyCtx()} />);

@@ -71,6 +71,19 @@ async function capturedText(): Promise<string> {
   return captured!.text();
 }
 
+/**
+ * Wait until `done()` holds: polls on setImmediate with a real-time limit, so
+ * slow CI runners get enough event-loop turns. Leaves fake timers alone
+ * (vi.waitFor would advance the fake clock between checks).
+ */
+async function settleUntil(done: () => boolean, timeoutMs = 5_000): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while (!done()) {
+    if (performance.now() > deadline) throw new Error(`Condition not met within ${timeoutMs} ms`);
+    await new Promise((r) => setImmediate(r));
+  }
+}
+
 describe('backups contain only the athlete data (V1, V4)', () => {
   it('5 consecutive backups are each about the size of the store (no nesting)', async () => {
     const raw = seedStore(200);
@@ -345,14 +358,12 @@ describe('automatic backups (V6)', () => {
     const stop = startAutoBackupScheduler(60_000);
     try {
       for (let hour = 0; hour < 3; hour++) {
-        vi.setSystemTime(new Date(Date.parse('2026-10-01T08:00:00Z') + (hour + 1) * 3_600_000));
+        const hourStart = Date.parse('2026-10-01T08:00:00Z') + (hour + 1) * 3_600_000;
+        vi.setSystemTime(new Date(hourStart));
         await vi.advanceTimersByTimeAsync(60_000);
-        // let the async backup (crypto.subtle) settle
-        for (let i = 0; i < 20 && getBackupRecords().length < Math.min(hour + 1, 2); i++) {
-          await new Promise((r) => setImmediate(r));
-        }
+        // let this hour's async backup (crypto.subtle) settle
+        await settleUntil(() => getBackupRecords().some((r) => Date.parse(r.createdAt) >= hourStart));
       }
-      for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
     } finally {
       stop();
     }
