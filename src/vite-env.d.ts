@@ -48,6 +48,10 @@ declare global {
       openDownloadPage: () => Promise<boolean>;
       onStateChanged: (callback: (state: UpdateState) => void) => () => void;
     };
+    /** v1.0.7 (PX-12): run a flush before the window closes or the app quits. Optional for older builds. */
+    lifecycle?: {
+      onBeforeClose: (flush: () => Promise<void> | void) => () => void;
+    };
   }
 
   interface Window {

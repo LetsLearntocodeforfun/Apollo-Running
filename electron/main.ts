@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, safeStorage, session, type IpcMainInvokeEvent } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, safeStorage, session, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -27,7 +27,9 @@ const isDev = !app.isPackaged;
 const DEV_SERVER_URL = 'http://localhost:5173';
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
-const STRAVA_SCOPES = 'activity:read_all,activity:write,profile:read_all';
+// v1.0.7 (PX-07): read-only. Apollo reads activities (incl. private ones) and
+// the basic profile; it never writes to Strava, so it doesn't ask to.
+const STRAVA_SCOPES = 'read,activity:read_all';
 
 function logDev(...args: unknown[]): void {
   if (isDev) {
@@ -304,9 +306,63 @@ function createWindow() {
     app.quit();
   });
 
+  // v1.0.7 (PX-12): before the window goes away (close button, Cmd+Q, quit to
+  // install an update), let the app commit pending IndexedDB writes. Waits at
+  // most FLUSH_TIMEOUT_MS and only when the app registered its flush handler.
+  let flushedForClose = false;
+  win.on('close', (event) => {
+    if (flushedForClose || win.webContents.isDestroyed() || win.webContents.isCrashed()) return;
+    if (!flushReadyContents.has(win.webContents)) return;
+    event.preventDefault();
+    void requestRendererFlush(win).finally(() => {
+      flushedForClose = true;
+      if (quitRequested) app.quit();
+      else if (!win.isDestroyed()) win.close();
+    });
+  });
+
   win.on('closed', () => { 
     if (mainWindow === win) mainWindow = null;
     closeOAuthServer();
+  });
+}
+
+// ----- Flush pending data before closing (PX-12) -----
+
+/** Longest wait for the app to finish writing before a window closes. */
+const FLUSH_TIMEOUT_MS = 4000;
+/** Renderers that registered a flush handler (window.electronAPI.lifecycle.onBeforeClose). */
+const flushReadyContents = new WeakSet<WebContents>();
+/** True once the app is quitting (Cmd+Q, menu quit, update install). */
+let quitRequested = false;
+
+app.on('before-quit', () => { quitRequested = true; });
+
+ipcMain.on('lifecycle:flush-ready', (event: IpcMainEvent, ready: unknown) => {
+  if (ready === true) flushReadyContents.add(event.sender);
+  else flushReadyContents.delete(event.sender);
+});
+
+/** Ask the window's app to flush its writes; resolves when it's done or after FLUSH_TIMEOUT_MS. */
+function requestRendererFlush(win: BrowserWindow): Promise<void> {
+  const contents = win.webContents;
+  return new Promise((resolve) => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onDone = (event: IpcMainEvent) => {
+      if (event.sender === contents) finish();
+    };
+    const finish = () => {
+      if (timer) clearTimeout(timer);
+      ipcMain.removeListener('lifecycle:flush-done', onDone);
+      resolve();
+    };
+    timer = setTimeout(finish, FLUSH_TIMEOUT_MS);
+    ipcMain.on('lifecycle:flush-done', onDone);
+    try {
+      contents.send('lifecycle:flush-request');
+    } catch {
+      finish();
+    }
   });
 }
 

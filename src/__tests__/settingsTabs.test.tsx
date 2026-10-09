@@ -212,6 +212,7 @@ describe('Connections', () => {
   });
 
   it('U1: a failed connect changes no sync preference', async () => {
+    setAppPreferences({ autoSyncOnLaunch: false, syncWellness: true });
     vi.mocked(connectIntervals).mockRejectedValueOnce(new Error('Invalid API key'));
     renderSettings('/settings?tab=connections');
     fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'bad' } });

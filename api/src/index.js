@@ -2,7 +2,8 @@ const { app } = require('@azure/functions');
 
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
-const STRAVA_SCOPES = 'activity:read_all,activity:write,profile:read_all';
+// v1.0.7 (PX-07): read-only — Apollo never writes to Strava.
+const STRAVA_SCOPES = 'read,activity:read_all';
 
 const JSON_HEADERS = { 'Content-Type': 'application/json' };
 

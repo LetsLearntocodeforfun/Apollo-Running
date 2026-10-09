@@ -23,7 +23,9 @@ export interface AppPreferences {
   /**
    * Read sleep, HRV, resting HR and readiness from intervals.icu (wellness) on every
    * sync. Only runs while intervals.icu is connected. The connect form sets it
-   * explicitly; the default (on) keeps installs that predate that choice unchanged.
+   * explicitly. v1.0.7 (PX-18): off by default for new installs; saved
+   * preferences from earlier versions that never stored a choice keep it on, so
+   * existing recovery cards don't silently stop updating.
    */
   syncWellness: boolean;
   /** Timestamp of last auto-sync to implement cooldown */
@@ -38,7 +40,7 @@ const DEFAULT_PREFS: AppPreferences = {
   backgroundSyncMinutes: 60,
   autoCheckUpdates: false,
   autoDownloadUpdates: false,
-  syncWellness: true,
+  syncWellness: false,
   lastAutoSyncAt: null,
 };
 
@@ -52,7 +54,10 @@ export function getAppPreferences(): AppPreferences {
   try {
     const raw = persistence.getItem(PREFS_KEY);
     if (!raw) return { ...DEFAULT_PREFS };
-    return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    const stored = JSON.parse(raw) as Partial<AppPreferences>;
+    // Preferences saved before v1.0.7 without a wellness choice keep the old default (on).
+    const legacyWellness = stored && typeof stored === 'object' && !('syncWellness' in stored) ? { syncWellness: true } : {};
+    return { ...DEFAULT_PREFS, ...legacyWellness, ...stored };
   } catch {
     return { ...DEFAULT_PREFS };
   }

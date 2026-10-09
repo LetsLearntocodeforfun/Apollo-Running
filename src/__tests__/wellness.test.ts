@@ -126,6 +126,9 @@ function history(days: number, tweak: (offset: number) => Partial<WellnessRecord
 
 beforeEach(() => {
   vi.setSystemTime(NOW);
+  // v1.0.7 (PX-18): wellness sync is off by default for new installs; these
+  // tests exercise it switched on, as the intervals.icu connect form allows.
+  setAppPreferences({ syncWellness: true });
 });
 
 afterEach(() => {

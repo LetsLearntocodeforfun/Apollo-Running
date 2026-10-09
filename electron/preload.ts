@@ -57,6 +57,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
       return () => ipcRenderer.removeListener('updater:state-changed', handler);
     },
   },
+  /**
+   * v1.0.7 (PX-12): before the window closes or the app quits, the main process
+   * asks the app to finish pending database writes and waits (briefly) for it.
+   */
+  lifecycle: {
+    onBeforeClose: (flush: () => Promise<void> | void): (() => void) => {
+      const handler = () => {
+        Promise.resolve()
+          .then(flush)
+          .catch(() => { /* never block closing */ })
+          .finally(() => ipcRenderer.send('lifecycle:flush-done'));
+      };
+      ipcRenderer.on('lifecycle:flush-request', handler);
+      ipcRenderer.send('lifecycle:flush-ready', true);
+      return () => {
+        ipcRenderer.removeListener('lifecycle:flush-request', handler);
+        ipcRenderer.send('lifecycle:flush-ready', false);
+      };
+    },
+  },
 });
 
 // Type used by the updater bridge (mirrors main process UpdateState)

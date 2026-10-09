@@ -34,6 +34,15 @@ root.render(
   </React.StrictMode>
 );
 
+// v1.0.7 (PX-12): don't lose the last changes when Apollo closes. On desktop the
+// main process waits for this flush before closing the window; in browsers we
+// flush whenever the page is hidden or unloaded (best effort).
+window.electronAPI?.lifecycle?.onBeforeClose(() => persistence.flush());
+window.addEventListener('pagehide', () => { void persistence.flush(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') void persistence.flush();
+});
+
 // Wait for IndexedDB hydration and (desktop) the encrypted credential store,
 // so connection checks are accurate on first render, then render the app.
 Promise.all([
