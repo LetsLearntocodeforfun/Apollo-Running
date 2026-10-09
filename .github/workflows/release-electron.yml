@@ -1,20 +1,39 @@
 name: Build & Release Electron Installers
 
-# Trigger on version tags like v1.0.0, v2.1.3, etc.
+# Tags like v1.0.7 build, verify and publish installers for Windows, macOS and
+# Linux. "Run workflow" (workflow_dispatch) does a full dry run: it builds every
+# installer and the checksum file as downloadable workflow artifacts but
+# publishes nothing, so the pipeline can be tested before tagging.
+#
+# v1.0.7 hardening (PX-06):
+# - least privilege: read-only by default; only the publish job can write;
+# - every third-party action is pinned to a commit SHA (Dependabot updates them);
+# - SHA256SUMS.txt and GitHub build-provenance attestations for every installer,
+#   so anyone can verify a download came from this repository's CI;
+# - Node 22; Linux builds pinned to Ubuntu 24.04.
+#
+# Code signing (see docs/SIGNING.md): macOS signing/notarization switches on
+# automatically when the MAC_CSC_LINK / APPLE_* secrets exist. Without them the
+# Apple Silicon build is ad-hoc signed (electron-builder's fallback) and the
+# Intel build is unsigned, exactly as in v1.0.6.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
 
-# Required for creating/updating GitHub Releases
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   # ─── Step 0: Refuse to release anything that doesn't type-check and pass tests ───
   verify:
     name: Verify (version, types, tests)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       # Electron itself isn't launched here; electron-builder downloads its own copy later.
@@ -22,17 +41,20 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       # The tag must match package.json, otherwise latest*.yml (auto-update)
       # would advertise a different version than the tag/release.
       - name: Check tag matches package.json version
+        if: startsWith(github.ref, 'refs/tags/')
         run: |
           PKG_VERSION="v$(node -p "require('./package.json').version")"
           if [ "${GITHUB_REF_NAME}" != "${PKG_VERSION}" ]; then
@@ -60,20 +82,23 @@ jobs:
             platform: win
           - os: macos-latest
             platform: mac
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             platform: linux
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.platform }})
+    timeout-minutes: 45
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       # Linux needs additional system libraries for building deb/AppImage
@@ -90,17 +115,24 @@ jobs:
       - name: Build Electron app
         run: npm run build:electron
 
-      # Build installers WITHOUT publishing (avoids race conditions)
+      # Build installers WITHOUT publishing (the publish job attaches them).
       - name: Package installers
         run: npx electron-builder --publish never
         env:
-          # Disable auto code-signing discovery (prevents failures when
-          # no signing certificates are configured as repo secrets).
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+          # Keychain discovery only when a macOS signing certificate is provided;
+          # otherwise electron-builder ad-hoc signs the Apple Silicon build.
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_LINK != '' && 'true' || 'false' }}
+          # Optional macOS Developer ID signing + notarization (docs/SIGNING.md).
+          # Scoped to the mac job so a macOS certificate is never used on Windows.
+          CSC_LINK: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.platform == 'mac' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_ID || '' }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'mac' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_TEAM_ID || '' }}
 
       # Upload installer files as workflow artifacts
       - name: Upload installer artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: installers-${{ matrix.platform }}
           path: |
@@ -114,21 +146,30 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
-  # ─── Step 2: Create a GitHub Release and attach all artifacts ───
+  # ─── Step 2: Checksums, provenance, and (for tags) the GitHub Release ───
   publish:
-    name: Publish Release
+    name: ${{ startsWith(github.ref, 'refs/tags/') && 'Publish Release' || 'Dry run (no release)' }}
     needs: build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write          # create the GitHub Release (tags only)
+      id-token: write          # sign the build-provenance attestation (Sigstore)
+      attestations: write      # store the attestation
+      artifact-metadata: write # link the attestation to the release assets
 
     steps:
+      - name: Checkout repository (release notes template)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: .github/release-notes
+
       - name: Download all artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           path: artifacts
           merge-multiple: false
-
-      - name: List downloaded files
-        run: find artifacts -type f | head -50
 
       # Collect all installer files into a flat directory
       - name: Flatten artifacts
@@ -142,10 +183,43 @@ jobs:
           echo "=== Files to release ==="
           ls -lh release/
 
+      # Lets people check a download with `shasum -a 256 -c SHA256SUMS.txt`
+      # (macOS/Linux) or `Get-FileHash` (Windows). See docs/INSTALL.md.
+      - name: Generate SHA256SUMS.txt
+        working-directory: release
+        run: |
+          shopt -s nullglob
+          files=(*.exe *.dmg *.zip *.AppImage *.deb)
+          if [ ${#files[@]} -eq 0 ]; then echo "::error::No installers to checksum"; exit 1; fi
+          sha256sum -- "${files[@]}" > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload dry-run bundle
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-dry-run
+          path: release/*
+          retention-days: 5
+
+      # Free supply-chain proof: `gh attestation verify <file> -R LetsLearntocodeforfun/Apollo-Running`
+      - name: Attest build provenance
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: |
+            release/*.exe
+            release/*.dmg
+            release/*.zip
+            release/*.AppImage
+            release/*.deb
+
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           draft: false
+          body_path: .github/release-notes/INSTALL_NOTES.md
           generate_release_notes: true
           files: release/*
         env:

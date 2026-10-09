@@ -3,6 +3,10 @@ name: CI
 # Type-checks, tests and builds every push to main and every pull request.
 # Release installers are built separately by release-electron.yml (on tags),
 # which repeats the same type-check + test gate before packaging.
+#
+# v1.0.7: Node 22 (Node 20 is end-of-life), current action majors pinned to
+# commit SHAs (Dependabot keeps them fresh), Ubuntu pinned to 24.04 so GitHub's
+# ubuntu-latest switch can't change the build without notice.
 on:
   push:
     branches:
@@ -26,17 +30,19 @@ env:
 jobs:
   verify:
     name: Type-check, test & build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies
@@ -78,7 +84,7 @@ jobs:
   # machine's time zone or daylight-saving transitions.
   timezones:
     name: Tests (TZ=${{ matrix.tz }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -90,12 +96,14 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
 
       - name: Install dependencies

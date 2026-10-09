@@ -23,7 +23,7 @@
 ## Table of Contents
 
 - [Why Apollo](#why-apollo)
-- [Quick Start](#quick-start)
+- [Download & Install](#download--install)
 - [Features at a Glance](#features-at-a-glance)
 - [The Training Calendar](#the-training-calendar)
 - [How the App Works — Page by Page](#how-the-app-works--page-by-page)
@@ -117,18 +117,41 @@ What sets Apollo apart:
 
 ---
 
-## Quick Start
+## Download & Install
+
+**No coding needed.** Download the installer for your computer from the **[latest release](https://github.com/LetsLearntocodeforfun/Apollo-Running/releases/latest)**:
+
+| Your computer | File to download |
+|---|---|
+| Windows 10/11 | `Apollo-Setup-<version>.exe` |
+| Mac with Apple Silicon (M1 and later) | `Apollo-<version>-arm64.dmg` |
+| Mac with an Intel chip | `Apollo-<version>.dmg` |
+| Linux (any distribution) | `Apollo-<version>.AppImage` |
+| Debian / Ubuntu | `apollo-marathon_<version>_amd64.deb` |
+
+The first time you open Apollo, your computer asks you to confirm once. That's because the installers aren't signed with a paid publisher certificate yet:
+
+- **Windows:** *More info → Run anyway*.
+- **macOS 15+:** *System Settings → Privacy & Security → Open Anyway*.
+- **macOS 14 and earlier:** *Control-click → Open*.
+
+**[Step-by-step install guide →](docs/INSTALL.md)**
+
+Every release includes `SHA256SUMS.txt` and GitHub build-provenance attestations, so you can check that your download is genuine. Why the prompt appears, and the free signing routes we're pursuing: [docs/SIGNING.md](docs/SIGNING.md).
+
+Apollo's guided onboarding then walks you through choosing a plan, setting your race date, picking your units and setting coaching preferences. To bring in your runs (free via intervals.icu, by importing files or exports, or via Strava if you have API access), see [Integrations](#integrations).
+
+### Run from source (developers)
 
 ```bash
 git clone https://github.com/LetsLearntocodeforfun/Apollo-Running.git
 cd Apollo-Running
-npm install
-npm run dev
+npm ci
+npm run dev            # browser: http://localhost:5173
+npm run dev:electron   # desktop app
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser. Apollo's guided onboarding will walk you through choosing a plan, setting your start date, picking your preferred units, and configuring coaching preferences.
-
-To bring in your runs — free via intervals.icu, by importing files/exports, or via Strava if you have API access — see [Integrations](#integrations).
+Requires Node.js 22 or later.
 
 ---
 
