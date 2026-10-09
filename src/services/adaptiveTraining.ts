@@ -734,17 +734,22 @@ function buildAheadRecommendation(
   input: TrainingAnalysisInput,
   scenario: DetectedScenario,
   stats: AnalysisStats,
-): AdaptiveRecommendation {
+): AdaptiveRecommendation | null {
   const longRunPaceStr = stats.avgLongRunPace > 0 ? formatPaceFromMinPerMi(stats.avgLongRunPace) : 'a strong pace';
+
+  // v1.0.7 (L-6): never offer more mileage inside the taper (last 3 weeks before race week).
+  const modification = buildMileageModification(input, 1.10, 4, 'Increased mileage 10% — you earned it!');
+  const weeksBoosted = modification.weekAdjustments.length;
+  if (weeksBoosted === 0) return null;
 
   const options: RecommendationOption[] = [
     {
       key: 'increase_mileage',
       label: 'Increase weekly mileage 10%',
-      description: 'Bump up your upcoming weeks by 10% to push your fitness further.',
-      impact: `Next 4 weeks get a 10% mileage boost`,
+      description: 'Bump up your upcoming weeks by 10% to push your fitness further. Your taper stays untouched.',
+      impact: `Next ${weeksBoosted} week${weeksBoosted === 1 ? '' : 's'} get a 10% mileage boost`,
       actionType: 'apply_modification',
-      actionPayload: buildMileageModification(input, 1.10, 4, 'Increased mileage 10% — you earned it!'),
+      actionPayload: modification,
     },
     {
       key: 'keep_crushing',
@@ -945,6 +950,19 @@ function buildRaceWeekRecommendation(
 
 // ── Modification Builders ─────────────────────────────────────────────────────
 
+/**
+ * v1.0.7 (L-6): weeks before race week that are protected from any mileage
+ * increase. Tapers cut volume over the final ~2–3 weeks (Bosquet 2007), so
+ * coaching must never add mileage there.
+ */
+export const NO_INCREASE_WEEKS_BEFORE_RACE = 3;
+
+/** Last plan week (0-based) that a mileage increase may touch, or -1 if none. */
+export function lastIncreasableWeek(totalWeeks: number): number {
+  // The race week is totalWeeks - 1; protect it and the NO_INCREASE_WEEKS_BEFORE_RACE weeks before it.
+  return totalWeeks - 1 - NO_INCREASE_WEEKS_BEFORE_RACE - 1;
+}
+
 /** Build a PlanModification that scales mileage for upcoming weeks. */
 function buildMileageModification(
   input: TrainingAnalysisInput,
@@ -953,9 +971,12 @@ function buildMileageModification(
   description: string,
 ): PlanModification {
   const weekAdjustments: WeekAdjustment[] = [];
+  const increaseLimit = lastIncreasableWeek(input.totalWeeks);
   for (let i = 0; i < weeksToAdjust; i++) {
     const targetWeek = input.currentWeekIndex + 1 + i;
     if (targetWeek >= input.totalWeeks) break;
+    // L-6: increases never reach into the taper or race week.
+    if (multiplier > 1 && targetWeek > increaseLimit) break;
     // Safety: never increase more than 10%
     const safeMult = multiplier > 1 ? Math.min(multiplier, 1.10) : multiplier;
     weekAdjustments.push({
