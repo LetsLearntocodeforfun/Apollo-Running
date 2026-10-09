@@ -9,7 +9,7 @@ import type { JourneyState } from '../../services/journey';
 import type { PhaseName } from '../../services/periodization';
 import { deriveVdot, getVdotSourceLabel, formatTimeSec, type RacePrediction } from '../../services/racePrediction';
 import { getSavedTrainingPaces } from '../../services/paceCalculator';
-import { getWorkoutTarget } from '../../services/workoutTargets';
+import { getWorkoutTargetForDay } from '../../services/workoutTargets';
 import type { WorkoutTarget } from '../../types/workout';
 import { formatPaceFromMinPerMi, paceUnitLabel } from '../../services/unitPreferences';
 import { daysBetween, isDateKey, parseDateKey } from '../../utils/localDate';
@@ -125,9 +125,9 @@ export function isPacedDay(day: PlanDay): boolean {
 /** Workout target for a plan day, or null (rest/cross days, no VDOT). */
 export function targetForDay(day: PlanDay, vdot: number | null): WorkoutTarget | null {
   if (vdot == null || !(vdot > 0) || !isPacedDay(day)) return null;
-  const note = day.note || (day.type === 'run' ? 'Easy' : 'Race');
   try {
-    return getWorkoutTarget(note, vdot, day.distanceMi);
+    // v1.0.7 (T-1): classify with getWorkoutKind, like the watch push does.
+    return getWorkoutTargetForDay(day, vdot);
   } catch {
     return null;
   }

@@ -10,24 +10,86 @@
 import type { WorkoutTarget, WorkoutCategory } from '../types/workout';
 import { calculateTrainingPaces, type TrainingPaces } from './paceCalculator';
 import { persistence } from './db/persistence';
+import { getWorkoutKind, type PlanDay, type PlanWorkoutKind } from '../data/plans';
 
 const TARGETS_CACHE_KEY = 'apollo_workout_targets';
 
 /**
  * Map from plan day `note` field to canonical WorkoutCategory.
- * The note field values found across all built-in plans:
- *   Easy, Tempo, Speed, Long, Medium Long, Strength, Race, Race day
+ * The note values used by the built-in plans are `PLAN_NOTE_TAXONOMY`
+ * (Easy, Long, Tempo, Speed, Strength, Medium Long, Marathon Pace, Recovery,
+ * Race, Rest, Cross).
+ *
+ * v1.0.7 (T-1): "Marathon Pace" is its own category. Earlier versions mapped it
+ * to tempo, so Today, the plan preview and compliance showed threshold pace
+ * (HR zone 4) on marathon-pace days while the watch push used marathon pace.
  */
 function noteToCategory(note: string): WorkoutCategory {
   const lc = note.toLowerCase().trim();
   if (lc === 'easy' || lc === 'recovery') return 'easy';
-  if (lc === 'tempo' || lc === 'marathon pace') return 'tempo';
+  if (lc === 'marathon pace' || lc === 'mp') return 'marathon_pace';
+  if (lc === 'tempo' || lc === 'threshold') return 'tempo';
   if (lc === 'speed' || lc === 'intervals') return 'speed';
   if (lc === 'long') return 'long';
-  if (lc === 'medium long') return 'medium_long';
+  if (lc === 'medium long' || lc === 'medium-long') return 'medium_long';
   if (lc === 'strength') return 'strength';
   if (lc === 'race' || lc === 'race day') return 'race';
   return 'easy'; // default to easy for unknown types
+}
+
+/** Target category for a canonical plan workout kind (see `getWorkoutKind`). */
+export function categoryForKind(kind: PlanWorkoutKind): WorkoutCategory {
+  switch (kind) {
+    case 'long': return 'long';
+    case 'medium_long': return 'medium_long';
+    case 'tempo': return 'tempo';
+    case 'marathon_pace': return 'marathon_pace';
+    case 'strength': return 'strength';
+    case 'speed': return 'speed';
+    case 'race':
+    case 'marathon': return 'race';
+    case 'cross': return 'cross';
+    case 'rest': return 'rest';
+    case 'easy':
+    case 'recovery':
+    default:
+      return 'easy';
+  }
+}
+
+/** Canonical note (from `PLAN_NOTE_TAXONOMY`) for a plan workout kind. */
+export function noteForKind(kind: PlanWorkoutKind): string {
+  switch (kind) {
+    case 'recovery': return 'Recovery';
+    case 'long': return 'Long';
+    case 'medium_long': return 'Medium Long';
+    case 'tempo': return 'Tempo';
+    case 'marathon_pace': return 'Marathon Pace';
+    case 'strength': return 'Strength';
+    case 'speed': return 'Speed';
+    case 'race':
+    case 'marathon': return 'Race';
+    case 'cross': return 'Cross';
+    case 'rest': return 'Rest';
+    case 'easy':
+    default:
+      return 'Easy';
+  }
+}
+
+/**
+ * Workout target for a plan day, classified with `getWorkoutKind` — the same
+ * classifier the watch push (planCalendarSync) uses — so Today, the plan
+ * preview, compliance and the watch always agree on the kind of session.
+ * Returns null for rest/cross days or without a VDOT.
+ */
+export function getWorkoutTargetForDay(day: PlanDay | null | undefined, vdot: number): WorkoutTarget | null {
+  if (!day || !(vdot > 0)) return null;
+  const kind = getWorkoutKind(day);
+  if (kind === 'rest' || kind === 'cross') return null;
+  const paces = calculateTrainingPaces(vdot);
+  if (!paces) return null;
+  return buildTarget(categoryForKind(kind), paces, day.distanceMi);
 }
 
 /**

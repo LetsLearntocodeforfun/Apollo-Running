@@ -67,9 +67,12 @@ describe('getWorkoutTarget', () => {
       expect(range.maxSecPerMi - range.minSecPerMi).toBe(10);
     });
 
-    it('should map "marathon pace" note to tempo category', () => {
+    it('should map "marathon pace" note to the marathon_pace category (T-1)', () => {
       const target = getWorkoutTarget('marathon pace', VDOT_45)!;
-      expect(target.category).toBe('tempo');
+      expect(target.category).toBe('marathon_pace');
+      expect(target.hrZone).toBe(3);
+      expect(getWorkoutTarget('Marathon Pace', VDOT_45)!.category).toBe('marathon_pace');
+      expect(getWorkoutTarget('MP', VDOT_45)!.category).toBe('marathon_pace');
     });
 
     it('should include interval structure for long tempos (6+ mi)', () => {

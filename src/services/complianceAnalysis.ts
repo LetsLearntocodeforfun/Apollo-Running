@@ -225,6 +225,10 @@ function generateCoachingSuggestion(
       return `Running intervals too fast can compromise form and recovery. ` +
         `Focus on consistent repeats at the target pace rather than maximum effort.`;
     }
+    if (cat === 'marathon_pace') {
+      return `Faster than your goal marathon pace. Marathon-pace runs rehearse race rhythm and fueling; ` +
+        `running them faster adds fatigue without extra benefit. Hold the target pace.`;
+    }
   }
 
   if (paceCompliance.direction === 'too_slow') {
@@ -239,6 +243,10 @@ function generateCoachingSuggestion(
     if (cat === 'speed') {
       return `Interval pace was below target. If you're fatigued, reduce the number of repeats ` +
         `rather than slowing down — quality over quantity for speed work.`;
+    }
+    if (cat === 'marathon_pace') {
+      return `Slower than your goal marathon pace. Heat, hills or fatigue can explain one run; ` +
+        `if it keeps happening, your goal pace may be too ambitious for now.`;
     }
     if (cat === 'easy' || cat === 'long') {
       // Slower than easy pace is usually fine

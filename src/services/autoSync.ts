@@ -51,6 +51,7 @@ import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveT
 import { processActivityEffort } from './effortService';
 import { formatMiles, formatPaceFromMinPerMi, metersToMiles, calcPaceMinPerMi, formatDistanceShort } from './unitPreferences';
 import { analyzeCompliance, saveComplianceResult } from './complianceAnalysis';
+import { noteForKind } from './workoutTargets';
 import { estimateActivityLoad, formatHoursMinutes } from './crossTraining';
 import { syncPlanCalendarIfChanged } from './planCalendarSync';
 import { syncWellness } from './wellness';
@@ -509,8 +510,9 @@ export function syncPlanWithActivities(activities: Activity[], today: string = t
     let complianceFeedback = '';
     if (plannedDay.note) {
       try {
+        // v1.0.7 (T-1): score against the same workout kind Today and the watch use.
         const compliance = analyzeCompliance(
-          plannedDay.note,
+          noteForKind(getWorkoutKind(plannedDay)),
           paceMinPerMi,
           actualMi,
           plannedDay.distanceMi ?? 0,

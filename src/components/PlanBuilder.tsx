@@ -20,7 +20,7 @@ import {
   type TrainingPlan,
 } from '../data/plans';
 import { getCurrentTrainingPaces, getSavedTrainingPaces } from '../services/paceCalculator';
-import { getWorkoutTarget } from '../services/workoutTargets';
+import { getWorkoutTargetForDay } from '../services/workoutTargets';
 import { detectPhases, type PhaseName, type TrainingPhase } from '../services/periodization';
 import {
   formatMiles,
@@ -779,7 +779,7 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                       </thead>
                       <tbody>
                         {week.days.map((day, dayIdx) => {
-                          const target = vdot > 0 && day.note ? getWorkoutTarget(day.note, vdot, day.distanceMi) : null;
+                          const target = vdot > 0 && day.note ? getWorkoutTargetForDay(day, vdot) : null;
                           const paceStr = target?.targetPaceRange
                             ? formatPaceRangeForUnit(target.targetPaceRange.minSecPerMi, target.targetPaceRange.maxSecPerMi, unit)
                             : '';
