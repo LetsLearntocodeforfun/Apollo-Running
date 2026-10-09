@@ -102,7 +102,7 @@ What sets Apollo apart:
 - **Free sync with every major platform** — Connect a free [intervals.icu](https://intervals.icu) account and Apollo pulls every run, ride, and swim recorded on Garmin, COROS, Suunto, Polar, Wahoo, Zwift, and more — full history on the first sync, incremental after that. Prefer zero accounts? Drag in FIT/GPX/TCX files or your whole Garmin/Strava data export. Strava's paid API is supported too, but never required.
 - **Your plan on your wrist** — Push your training plan to the intervals.icu calendar with VDOT-calibrated paces, and intervals.icu delivers each structured workout to your Garmin, COROS, Suunto, or Wahoo watch.
 - **Recovery that reads your watch** — Sleep, HRV, and resting heart rate sync free from intervals.icu into a daily recovery check that compares today against *your* normal ranges and tells you when to back off.
-- **Plans from the coaches who wrote the book** — Hal Higdon, Hanson's, Pfitzinger, Nike Run Club, and FIRST. Or build your own from scratch with our custom plan builder.
+- **Plans based on the methods you know** — Hal Higdon, Hansons, Pfitzinger, Nike Run Club and FIRST. Each plan says how closely it follows the coach's published plan and links to the official source. Apollo is independent and not endorsed by any of them. Or build your own from scratch with the custom plan builder.
 - **A research-grade nutrition and physiology engine** — Mile-by-mile glycogen depletion modeling (Brooks & Mercier 1994), personalized sweat rate calculations (Sawka 2007), evidence-based carb loading protocols (Burke 2011), and in-race fueling plans with caffeine optimization (Jeukendrup 2014, Goldstein 2010). This is the science that sports dietitians charge $200+ to deliver.
 - **What-if scenario planning** — "What if I lose 10 lbs?" "What if I miss two weeks?" Apollo quantifies the time impact using published research (Hoogkamer 2016, Mujika & Padilla 2000) so you make informed decisions, not guesses.
 - **Intelligence that earns its name** — Race predictions refined across your entire training block. Adaptive recommendations that detect overtraining before you feel it. Fatigue resistance indexing, pacing decay curves, aerobic decoupling analysis, a 7-factor bonk risk score, automatic training periodization detection, a full Performance Management Chart (CTL/ATL/TSB), and running economy tracking that catches overtraining early.
@@ -362,18 +362,20 @@ You're running in under two minutes.
 
 ## Built-In Marathon Plans
 
-Eight proven plans from the coaches who defined the discipline.
+Eight plans based on well-known coaching methods. Each one says how closely it follows the coach's published plan and links to the official source, so the original is always one click away.
 
-| Plan | Author | Days/Week | Peak (~mi/wk) | Philosophy |
-|------|--------|-----------|----------------|------------|
-| Novice 1 | Hal Higdon | 4 + cross | ~45 | The most popular first-marathon plan in the world |
-| Novice 2 | Hal Higdon | 4 + cross | ~48 | One step up — slightly more volume, same structure |
-| Intermediate 1 | Hal Higdon | 5 + cross | ~50 | For runners with a solid base who want more |
-| Advanced 1 | Hal Higdon | 5 + cross | ~57 | PR-focused with dedicated speedwork sessions |
-| Beginner | Hanson's | 6 | ~55 | Cumulative fatigue philosophy — long run capped at 16 mi |
-| 18/55 | Pete Pfitzinger | 5 | ~55 | Performance-focused with marathon-pace workouts |
-| Marathon Plan | Nike Run Club | 5 | ~52 | Modern digital-first design with guided speed sessions |
-| Run Less, Run Faster | FIRST | 3 + 2 cross | ~40 | Three quality runs per week (tempo, intervals, long) |
+| Plan | Follows | Fidelity | Days/Week | Official source |
+|------|---------|----------|-----------|-----------------|
+| Novice 1 | Hal Higdon | Follows the published schedule | 4 + cross | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/novice-1-marathon/) |
+| Novice 2 | Hal Higdon | Follows the published schedule | 4 + cross | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/novice-2-marathon/) |
+| Intermediate 1 | Hal Higdon | Follows the published schedule | 5 + cross | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/intermediate-1-marathon/) |
+| Advanced 1 | Hal Higdon | Follows the published schedule | 6 | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/advanced-1-marathon/) |
+| Beginner (Just Finish) | Hansons Marathon Method | Built from the published method | 6 | [Luke Humphrey Running](https://lukehumphreyrunning.com/) |
+| 18/55 | Pete Pfitzinger | Simplified version (no LT/VO₂max sessions or tune-up races yet) | 5 | [*Advanced Marathoning* (Human Kinetics)](https://us.humankinetics.com/products/advanced-marathoning-4th-edition) |
+| Marathon Plan | Nike Run Club | Simplified version | 5 | [Nike Run Club app (free)](https://www.nike.com/nrc-app) |
+| Run Less, Run Faster | FIRST | Built from the published method | 3 + 2 cross | [FIRST at Furman University](https://www.furman.edu/first/) |
+
+> Apollo is independent, free and not affiliated with any coach, author, publisher or brand. Coach and brand names say which published method a plan follows. They don't mean the coach or brand made, licensed or endorses Apollo's version. For the official plan and full coaching, use the coach's own website, book or app.
 
 **Custom Plan Builder** generates progressive plans with cutback weeks every 4th week (86% volume), a two-week taper (72% then 45%), and varied workout types (easy, long, tempo, speed, cross training). Mileage builds from your current weekly volume to your target peak.
 

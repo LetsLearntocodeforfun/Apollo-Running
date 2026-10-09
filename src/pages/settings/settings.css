@@ -448,3 +448,15 @@
   .settings-dl { grid-template-columns: 1fr; }
   .settings-dl dd { margin-bottom: var(--space-2); }
 }
+
+/* v1.0.7: About › Training plans & coaches */
+.settings-plan-sources {
+  margin: 0.75rem 0 0;
+  padding-left: 1.1rem;
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.settings-plan-sources li + li {
+  margin-top: 0.35rem;
+}

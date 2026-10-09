@@ -25,12 +25,30 @@ const RELEASES_PATH = '/LetsLearntocodeforfun/Apollo-Running/releases';
 
 /**
  * Domains (and their subdomains) whose https pages may be opened in the OS
- * browser: activity platforms and their auth / help pages.
+ * browser. v1.0.7 (PX-11): besides activity platforms, this covers every
+ * official site the app links to — World Marathon Majors race websites and
+ * the coaches' official plans, books and apps — which v1.0.6 silently
+ * blocked. src/__tests__/externalLinks.test.ts fails if an in-app link is
+ * missing here.
  */
 export const EXTERNAL_DOMAIN_ALLOWLIST: readonly string[] = [
+  // Activity platforms and their auth / help pages
   'strava.com',
   'intervals.icu',
   'connect.garmin.com',
+  // World Marathon Majors official websites (src/data/worldMajors.ts)
+  'marathon.tokyo',
+  'baa.org',
+  'tcslondonmarathon.com',
+  'bmw-berlin-marathon.com',
+  'chicagomarathon.com',
+  'nyrr.org',
+  // Official coach sources linked from plans (src/data/plans.ts attribution)
+  'halhigdon.com',
+  'lukehumphreyrunning.com',
+  'humankinetics.com',
+  'nike.com',
+  'furman.edu',
 ];
 
 /** Longest URL accepted from the renderer for opening externally. */

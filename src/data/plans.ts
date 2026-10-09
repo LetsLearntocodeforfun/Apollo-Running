@@ -42,6 +42,66 @@ export interface TrainingPlan {
   weeks: PlanWeek[];
   /** Optional half-marathon week (0-based) */
   halfMarathonWeek?: number;
+  /** v1.0.7: how Apollo's version relates to the coach's published plan, with official sources. */
+  attribution?: PlanAttribution;
+}
+
+/**
+ * How closely Apollo's version of a plan follows the coach's published plan (v1.0.7):
+ * - `published-schedule`: the same weekly structure and distances as the coach's published schedule;
+ * - `method`: generated from the method's published principles (not a copy of its tables);
+ * - `representative`: a simplified plan in the style of the original (some elements missing).
+ */
+export type PlanFidelity = 'published-schedule' | 'method' | 'representative';
+
+/** An official place to get the coach's own plan or guidance. */
+export interface PlanSource {
+  label: string;
+  /** https URL; must be allowed by the desktop link policy (electron/security.ts). */
+  url: string;
+  kind: 'free-plan' | 'book' | 'website' | 'app';
+}
+
+export interface PlanAttribution {
+  /** Coach, method or brand the plan follows. */
+  coach: string;
+  fidelity: PlanFidelity;
+  /** Plain-language summary of what Apollo's version keeps and what differs. */
+  note: string;
+  /** Official sources for the full plan and coaching. */
+  sources: PlanSource[];
+}
+
+/** Short labels for each fidelity level (plan cards). */
+export const PLAN_FIDELITY_LABEL: Record<PlanFidelity, string> = {
+  'published-schedule': 'Follows the published schedule',
+  method: 'Built from the published method',
+  representative: 'Simplified version',
+};
+
+/**
+ * Shown wherever coach plans are listed (v1.0.7). Coach and brand names say
+ * which published method a plan follows; they don't imply endorsement.
+ */
+export const PLAN_INDEPENDENCE_NOTICE =
+  'Apollo is independent, free and not affiliated with any coach, author, publisher or brand. ' +
+  'Coach and brand names say which published method a plan follows. They don’t mean the coach ' +
+  'or brand made, licensed or endorses Apollo’s version. For the official plan and full coaching, ' +
+  'use the links to the coach’s own website, book or app.';
+
+/** One line for plan lists and headers, e.g. "Follows Hal Higdon’s published schedule". */
+export function planAttributionLine(plan: Pick<TrainingPlan, 'author' | 'attribution'>): string {
+  const a = plan.attribution;
+  if (!a) return plan.author;
+  switch (a.fidelity) {
+    case 'published-schedule':
+      return `Follows ${a.coach}’s published schedule`;
+    case 'method':
+      return `Built from the ${a.coach} method`;
+    case 'representative':
+    default:
+      return `Inspired by ${a.coach} (simplified)`;
+  }
 }
 
 export interface PlanRecommendation {
@@ -226,7 +286,7 @@ function buildHansonsBeginner(): TrainingPlan {
   return {
     id: 'hansons-beginner',
     name: "Beginner (Just Finish)",
-    author: "Hanson's",
+    author: 'Hansons',
     description: 'Based on the Hansons Marathon Method beginner program. Six days of running with Wednesday off, and the long run caps at 16 miles. Speed work comes first, then strength, plus a Thursday tempo at goal marathon pace. It builds cumulative fatigue and ends with a ~10-day taper.',
     totalWeeks: 18,
     weeks,
@@ -528,6 +588,67 @@ const HAL_HIGDON_ADVANCED_1 = buildHalHigdonAdvanced1();
 const PFITZINGER_18_55 = buildPfitzinger1855();
 const NIKE_RUN_CLUB = buildNikeRunClubMarathon();
 const FIRST = buildFirst();
+
+/** Hal Higdon's free online schedule for one of his plans (v1.0.7). */
+function higdonAttribution(planName: string, slug: string): PlanAttribution {
+  return {
+    coach: 'Hal Higdon',
+    fidelity: 'published-schedule',
+    note: `Same weekly structure and distances as Hal Higdon’s free ${planName} schedule. Apollo adds VDOT pace targets, ` +
+      'race-date placement and tracking. Hal Higdon’s page has his own advice for every workout.',
+    sources: [
+      { label: `Hal Higdon’s ${planName} schedule (free)`, url: `https://www.halhigdon.com/training-programs/marathon-training/${slug}/`, kind: 'free-plan' },
+      { label: 'All of Hal Higdon’s marathon plans', url: 'https://www.halhigdon.com/training/marathon-training/', kind: 'website' },
+    ],
+  };
+}
+
+// v1.0.7 plan honesty (no plans removed): each built-in says how closely it
+// follows the coach's published plan and links to the official source.
+HAL_HIGDON_NOVICE_1.attribution = higdonAttribution('Novice 1', 'novice-1-marathon');
+HAL_HIGDON_NOVICE_2.attribution = higdonAttribution('Novice 2', 'novice-2-marathon');
+HAL_HIGDON_INTERMEDIATE_1.attribution = higdonAttribution('Intermediate 1', 'intermediate-1-marathon');
+HAL_HIGDON_ADVANCED_1.attribution = higdonAttribution('Advanced 1', 'advanced-1-marathon');
+HANSONS_BEGINNER.attribution = {
+  coach: 'Hansons',
+  fidelity: 'method',
+  note: 'Built from the Hansons Marathon Method’s published principles: six run days, speed then strength sessions, ' +
+    'Thursday marathon-pace tempos, a 16-mile long-run cap and cumulative fatigue. It isn’t a copy of the book’s tables; ' +
+    'the book and Luke Humphrey Running (the method’s co-author) have the full program.',
+  sources: [
+    { label: 'Luke Humphrey Running: Hansons Marathon Method plans', url: 'https://lukehumphreyrunning.com/', kind: 'website' },
+  ],
+};
+PFITZINGER_18_55.attribution = {
+  coach: 'Pete Pfitzinger',
+  fidelity: 'representative',
+  note: 'A simplified plan in the spirit of the 18-week, 55-mile schedule in Advanced Marathoning: medium-long runs, ' +
+    'marathon-pace runs, long runs to 20 miles and a 3-week taper. It doesn’t yet include the book’s lactate-threshold ' +
+    'and VO₂max sessions or tune-up races. A more faithful rebuild is planned. For the real schedule, use the book.',
+  sources: [
+    { label: 'Advanced Marathoning by Pete Pfitzinger & Scott Douglas (Human Kinetics)', url: 'https://us.humankinetics.com/products/advanced-marathoning-4th-edition', kind: 'book' },
+  ],
+};
+NIKE_RUN_CLUB.attribution = {
+  coach: 'Nike Run Club',
+  fidelity: 'representative',
+  note: 'A representative 18-week structure in the style of Nike Run Club’s free guided marathon program: speed, ' +
+    'recovery, tempo and long runs building to 20 miles. For Nike’s own guided runs and coaching, use the free ' +
+    'Nike Run Club app.',
+  sources: [
+    { label: 'Nike Run Club app (free)', url: 'https://www.nike.com/nrc-app', kind: 'app' },
+  ],
+};
+FIRST.attribution = {
+  coach: 'FIRST',
+  fidelity: 'method',
+  note: 'Three key runs a week (intervals, tempo, long) plus two cross-training days, as in the Run Less, Run Faster ' +
+    'program from the Furman Institute of Running and Scientific Training. Pace targets come from Apollo’s VDOT paces, ' +
+    'not FIRST’s own pace tables; the book and FIRST’s site have the full program.',
+  sources: [
+    { label: 'FIRST at Furman University', url: 'https://www.furman.edu/first/', kind: 'website' },
+  ],
+};
 
 export const BUILT_IN_PLANS: TrainingPlan[] = [
   HAL_HIGDON_NOVICE_1,

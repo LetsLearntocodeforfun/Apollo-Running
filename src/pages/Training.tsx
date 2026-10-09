@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CUSTOM_PLAN_ID, setCustomPlan, type PlanDay, type TrainingPlan } from '../data/plans';
+import { CUSTOM_PLAN_ID, planAttributionLine, setCustomPlan, type PlanDay, type TrainingPlan } from '../data/plans';
 import PlanBuilder from '../components/PlanBuilder';
 import {
   getActivePlan,
@@ -519,7 +519,7 @@ export default function Training() {
             <div style={{ flex: '1 1 16rem' }}>
               <h2 id="plan-header-title" style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>{plan.name}</h2>
               <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
-                by {plan.author} · Week 1 began {formatMediumDate(active.startDate)}
+                {planAttributionLine(plan)} · Week 1 began {formatMediumDate(active.startDate)}
                 {raceDate ? ` · Race day ${formatMediumDate(raceDate)}` : ''}
                 {todayPos ? ` · Week ${todayPos.weekIndex + 1} of ${plan.weeks.length}` : ''}
               </p>

@@ -10,8 +10,9 @@
  */
 
 import { useId, useState } from 'react';
-import { BUILT_IN_PLANS, CUSTOM_PLAN_ID, getPlanById } from '../../data/plans';
+import { BUILT_IN_PLANS, CUSTOM_PLAN_ID, getPlanById, planAttributionLine } from '../../data/plans';
 import type { TrainingPlan } from '../../data/plans';
+import { PlanSourceNote } from './PlanSourceNote';
 import { previewStartPlan, startPlan } from '../../services/planProgress';
 import type { ActivePlan, StartPlanInput, StartPlanPreview } from '../../services/planProgress';
 import { ConfirmDialog } from '../ui';
@@ -57,7 +58,7 @@ export interface PlanChooserProps {
 }
 
 function planMeta(p: TrainingPlan): string {
-  return `${p.author} · ${p.weeks.length} weeks`;
+  return `${planAttributionLine(p)} · ${p.weeks.length} weeks`;
 }
 
 export function PlanChooser({
@@ -147,6 +148,7 @@ export function PlanChooser({
 
       {pendingPlan && (
         <div className="plan-chooser-setup">
+          <PlanSourceNote plan={pendingPlan} />
           <RaceDatePlanSetup plan={pendingPlan} value={setup} onChange={setSetup} idPrefix={`${uid}-setup`} today={today} />
         </div>
       )}

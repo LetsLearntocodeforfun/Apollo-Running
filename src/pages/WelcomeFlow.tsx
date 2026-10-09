@@ -21,10 +21,12 @@ import {
   getCustomPlan,
   getPlanById,
   getPlanOverview,
+  planAttributionLine,
   setCustomPlan,
   type TrainingPlan,
 } from '../data/plans';
 import PlanBuilder from '../components/PlanBuilder';
+import { PlanSourceNote } from '../components/plan/PlanSourceNote';
 import {
   getActivePlan,
   previewStartPlan,
@@ -486,7 +488,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
                 checked={planChoice === plan.id}
                 onSelect={choosePlan}
                 title={plan.name}
-                sub={`${plan.author} · ${plan.totalWeeks} weeks · peak ~${formatMiles(peakMi, 0, unit)} a week`}
+                sub={`${planAttributionLine(plan)} · ${plan.totalWeeks} weeks · peak ~${formatMiles(peakMi, 0, unit)} a week`}
               />
             ))}
             <RadioOption
@@ -507,6 +509,8 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
             />
           </div>
         </fieldset>
+
+        {selectedPlan?.attribution && !builderOpen && <PlanSourceNote plan={selectedPlan} />}
 
         {builderOpen && (
           <div className="wf-panel">
@@ -781,7 +785,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
           <dt>Plan</dt>
           <dd>
             {active && activePlan
-              ? `${activePlan.name} (${activePlan.author})${active.joinedWeekIndex ? ` — joining at week ${active.joinedWeekIndex + 1}` : ''}`
+              ? `${activePlan.name} (${planAttributionLine(activePlan)})${active.joinedWeekIndex ? ` — joining at week ${active.joinedWeekIndex + 1}` : ''}`
               : 'No plan yet'}
           </dd>
         </div>

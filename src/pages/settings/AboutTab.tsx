@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_VERSION } from '../../version';
+import { BUILT_IN_PLANS, PLAN_INDEPENDENCE_NOTICE, planAttributionLine } from '../../data/plans';
 import { StatusLine, settingsTabPath, useAppPrefs, useStatus, type Status } from './shared';
 
 type Updater = ElectronAPI['updater'];
@@ -201,6 +202,25 @@ export default function AboutTab() {
           </div>
         )
       )}
+
+      <div className="card settings-card">
+        <h2 className="card-title settings-card-title">Training plans &amp; coaches</h2>
+        <p className="settings-lead">{PLAN_INDEPENDENCE_NOTICE}</p>
+        <ul className="settings-plan-sources">
+          {BUILT_IN_PLANS.map((plan) => (
+            <li key={plan.id}>
+              <span className="settings-strong">{plan.name}</span>{' '}
+              <span className="settings-muted">— {planAttributionLine(plan)}</span>
+              {plan.attribution?.sources.map((s) => (
+                <span key={s.url}>
+                  {' · '}
+                  <a href={s.url} target="_blank" rel="noopener noreferrer">{s.label}</a>
+                </span>
+              ))}
+            </li>
+          ))}
+        </ul>
+      </div>
     </>
   );
 }
