@@ -6,6 +6,7 @@ import {
 import { onActivitiesUpdated } from '../../services/activitySource';
 import { onPlanOverlayChanged } from '../../services/planOverlay';
 import {
+  FORM_SEED_DAYS,
   getZoneColor,
   getZoneLabel,
   RACE_WINDOW_TSB,
@@ -33,16 +34,18 @@ interface ChartRow {
   /** Projection (dashed) series. */
   pCtl?: number;
   pTsb?: number;
+  /** v1.0.7 (L-2): race-morning form (before the race's own load), race-day row only. */
+  raceMorning?: number;
 }
 
-const ZONES: TSBZone[] = ['overreaching', 'productive', 'fresh', 'peak', 'transition', 'detrained'];
+const ZONES: TSBZone[] = ['overreaching', 'productive', 'fresh', 'peak', 'transition', 'very_fresh'];
 const ZONE_RANGE: Record<TSBZone, string> = {
   overreaching: 'below −20',
   productive: '−20 to 0',
   fresh: '0 to +15',
   peak: '+15 to +25',
   transition: '+25 to +30',
-  detrained: 'above +30',
+  very_fresh: 'above +30',
 };
 
 function shortDate(key: string): string {
@@ -54,6 +57,10 @@ function shortDate(key: string): string {
 export function fitnessTakeaway(data: FitnessFormData): string {
   const c = data.pmc.current;
   if (!c) return 'No training load yet — sync or import runs to see fitness and form.';
+  // v1.0.7 (L-3): no zone (or race-day verdict) until 28 days of history seed the model.
+  if (!data.formReliable) {
+    return `Fitness ${Math.round(c.ctl)} so far. Form and zones appear once there are ${FORM_SEED_DAYS} days of history (${data.pmc.historyDays ?? 0} so far).`;
+  }
   const parts = [`Form ${formatTsb(c.tsb)} (${getZoneLabel(c.zone)}) today, fitness ${Math.round(c.ctl)}.`];
   if (data.raceDate && data.daysToRace !== null && data.daysToRace > 0) {
     if (data.raceDayTsb !== null) {
@@ -62,7 +69,8 @@ export function fitnessTakeaway(data: FitnessFormData): string {
         ? 'inside the race window'
         : data.raceDayTsb < lo ? 'below the race window' : 'above the race window';
       const basis = data.pmc.projectionSource === 'plan' ? 'following your plan' : 'at your recent load';
-      parts.push(`Race day projects to ${formatTsb(data.raceDayTsb)}, ${verdict} (+${lo} to +${hi}) ${basis}.`);
+      // L-2: race-morning form, i.e. before the race's own load.
+      parts.push(`Race-morning form projects to ${formatTsb(data.raceDayTsb)}, ${verdict} (+${lo} to +${hi}) ${basis}.`);
     } else {
       parts.push(`Race in ${data.daysToRace} days.`);
     }
@@ -87,6 +95,7 @@ function FormTooltip({ active, label, payload }: FormTooltipProps) {
       {!projected && row.atl !== undefined && <div>Fatigue (ATL): {Math.round(row.atl)}</div>}
       {projected && row.pCtl !== undefined && <div>Fitness (CTL): {Math.round(row.pCtl)}</div>}
       {tsb !== undefined && <div>Form (TSB): {formatTsb(tsb)}{row.zone ? ` · ${getZoneLabel(row.zone)}` : ''}</div>}
+      {row.raceMorning !== undefined && <div>Race-morning form: {formatTsb(row.raceMorning)}</div>}
     </div>
   );
 }
@@ -115,16 +124,23 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
 
   const rows = useMemo<ChartRow[]>(() => {
     const from = addDays(data.today, -Number(range));
+    // L-3: no zone colours/labels until the model is seeded.
+    const zoneOf = (z: TSBZone): TSBZone | undefined => (data.formReliable ? z : undefined);
     const hist: ChartRow[] = data.pmc.dataPoints
       .filter((p) => p.date > from)
-      .map((p) => ({ date: p.date, ctl: p.ctl, atl: p.atl, tsb: p.tsb, zone: p.zone }));
+      .map((p) => ({ date: p.date, ctl: p.ctl, atl: p.atl, tsb: p.tsb, zone: zoneOf(p.zone) }));
     if (hist.length > 0 && data.pmc.projection.length > 0) {
       const last = hist[hist.length - 1];
       last.pCtl = last.ctl;
       last.pTsb = last.tsb;
     }
-    const proj: ChartRow[] = data.pmc.projection.map((p) => ({ date: p.date, pCtl: p.ctl, pTsb: p.tsb, zone: p.zone }));
-    return [...hist, ...proj];
+    const proj: ChartRow[] = data.pmc.projection.map((p) => ({ date: p.date, pCtl: p.ctl, pTsb: p.tsb, zone: zoneOf(p.zone) }));
+    const out = [...hist, ...proj];
+    if (data.raceDate && data.raceDayTsb !== null) {
+      const raceRow = out.find((r) => r.date === data.raceDate);
+      if (raceRow) raceRow.raceMorning = data.raceDayTsb;
+    }
+    return out;
   }, [data, range]);
 
   /** Weekly samples (plus today and race day) for the table view. */
@@ -216,6 +232,9 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
         <li><span className="ff-swatch ff-swatch--atl" aria-hidden="true" />Fatigue (ATL, 7-day)</li>
         <li><span className="ff-swatch ff-swatch--proj" aria-hidden="true" />Projection{data.pmc.projectionSource === 'plan' ? ' (planned load)' : data.pmc.projectionSource === 'recent-average' ? ' (recent average load)' : ''}</li>
       </ul>
+      {!data.formReliable && (
+        <p className="ff-note">Form zones appear once there are {FORM_SEED_DAYS} days of history.</p>
+      )}
       <ul className="ff-zones" aria-label="Form (TSB) zones">
         {ZONES.map((z) => (
           <li key={z}>
@@ -245,7 +264,7 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
                 const tsb = projected ? r.pTsb : r.tsb;
                 return (
                   <tr key={r.date} className={projected ? 'is-projected' : undefined}>
-                    <th scope="row">{shortDate(r.date)}{projected ? ' (projected)' : ''}{r.date === data.raceDate ? ' · race day' : ''}</th>
+                    <th scope="row">{shortDate(r.date)}{projected ? ' (projected)' : ''}{r.date === data.raceDate ? ` · race day${r.raceMorning !== undefined ? ` (morning form ${formatTsb(r.raceMorning)})` : ''}` : ''}</th>
                     <td>{Math.round((projected ? r.pCtl : r.ctl) ?? 0)}</td>
                     <td>{projected ? '—' : Math.round(r.atl ?? 0)}</td>
                     <td>{tsb !== undefined ? formatTsb(tsb) : '—'}</td>

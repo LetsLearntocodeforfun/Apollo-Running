@@ -80,7 +80,7 @@ describe('FitnessFormChart', () => {
     render(<FitnessFormChart raceDate="2026-11-01" />);
     const caption = document.querySelector('figcaption');
     expect(caption?.textContent).toMatch(/Form [+−]?\d+ \(.+\) today/);
-    expect(caption?.textContent).toMatch(/Race day projects to/);
+    expect(caption?.textContent).toMatch(/Race-morning form projects to/);
     const toggle = screen.getByRole('button', { name: 'View as table' });
     expect(toggle.getAttribute('aria-expanded')).toBe('false');
     fireEvent.click(toggle);
@@ -96,6 +96,6 @@ describe('FitnessFormChart', () => {
     expect(pts[pts.length - 1].date).toBe('2026-10-07');
     expect(data.pmc.projection[data.pmc.projection.length - 1].date).toBe('2026-10-20');
     expect(data.daysToRace).toBe(13);
-    expect(fitnessTakeaway(data)).toMatch(/Race day projects to/);
+    expect(fitnessTakeaway(data)).toMatch(/Race-morning form projects to/);
   });
 });

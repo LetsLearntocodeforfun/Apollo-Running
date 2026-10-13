@@ -8,16 +8,24 @@ import {
   isDayCompleted,
   getWeekDayForDate,
   getLastSyncTime,
+  makePlanInstanceId,
 } from './planProgress';
-import { getPlanById } from '../data/plans';
-import { getEffectivePlan } from './planOverlay';
+import type { PlanDay } from '../data/plans';
+import {
+  applyAdaptiveChanges,
+  getEffectivePlan,
+  isOverlayChangeActive,
+  undoChange,
+  type AdaptiveWeekChange,
+} from './planOverlay';
 import { getAllWeeklyMileage } from './autoSync';
 import { computeCurrentReadiness } from './weeklyReadiness';
-import { getSavedAdherence } from './racePrediction';
+import { getSavedAdherence, getSavedPrediction, MARATHON_M, type RacePrediction } from './racePrediction';
+import { getCurrentTrainingPaces, type TrainingPaces } from './paceCalculator';
 import { isActivitySourceConnected } from './activitySource';
 import { persistence } from './db/persistence';
-import { formatPaceFromMinPerMi } from './unitPreferences';
-import { daysBetween, todayKey } from '../utils/localDate';
+import { formatMiles, formatPaceFromMinPerMi } from './unitPreferences';
+import { addDays, daysBetween, todayKey } from '../utils/localDate';
 import type {
   AdaptiveRecommendation,
   AdaptivePreferences,
@@ -32,6 +40,7 @@ import type {
   SyncedRunData,
   RecommendationOption,
   RecommendationPriority,
+  AnalysisPaceBands,
 } from '../types/recommendations';
 
 // ── Storage Keys ──────────────────────────────────────────────────────────────
@@ -143,9 +152,21 @@ function saveModifications(mods: PlanModification[]): void {
   persistence.setItem(MODIFICATIONS_KEY, JSON.stringify(mods));
 }
 
+/** Instance id (`${planId}@${startDate}`) of the active plan, or null. */
+function activeInstanceId(): string | null {
+  const active = getActivePlan();
+  return active ? makePlanInstanceId(active.planId, active.startDate) : null;
+}
+
 /**
  * Apply a plan modification — adjusts upcoming weeks in the training plan.
- * Stores a snapshot of the original data for undo capability.
+ * Stores a snapshot of the original data for display.
+ *
+ * v1.0.7 (T-2): the change is written through the plan overlay as one entry
+ * for the active plan *instance*, using the effective (placed) plan's week
+ * numbers. The shared built-in plan object is never mutated, so the change
+ * survives a reload, doesn't leak into plan previews or other instances, lands
+ * on the right week after a late join, and works for custom plans.
  */
 export function applyRecommendation(
   recommendationId: string,
@@ -157,20 +178,24 @@ export function applyRecommendation(
 
   const option = rec.options.find((o) => o.key === optionKey);
   if (!option || option.actionType !== 'apply_modification' || !option.actionPayload) return null;
+  if (typeof option.actionPayload !== 'object') return null;
 
-  const modification = option.actionPayload as PlanModification;
+  const instanceId = activeInstanceId();
+  if (!instanceId) return null;
+  // T-2: a recommendation made for another plan instance must not edit this one.
+  if (rec.planInstanceId && rec.planInstanceId !== instanceId) return null;
+  const plan = getEffectivePlan();
+  if (!plan) return null;
+
+  const modification: PlanModification = { ...(option.actionPayload as PlanModification) };
   modification.appliedAt = new Date().toISOString();
   modification.undone = false;
   modification.recommendationId = recommendationId;
 
-  // Build original snapshot before applying
-  const activePlan = getActivePlan();
-  if (!activePlan) return null;
-  const plan = getPlanById(activePlan.planId);
-  if (!plan) return null;
-
+  // Snapshot of the effective weeks before the change (display only; undo uses the overlay).
   const originalSnapshot: WeekSnapshot[] = [];
-  for (const adj of modification.weekAdjustments) {
+  const changes: AdaptiveWeekChange[] = [];
+  for (const adj of modification.weekAdjustments ?? []) {
     const week = plan.weeks[adj.weekIndex];
     if (!week) continue;
     originalSnapshot.push({
@@ -183,31 +208,22 @@ export function applyRecommendation(
         note: d.note,
       })),
     });
-
-    // Apply mileage multiplier
-    if (adj.mileageMultiplier != null && adj.mileageMultiplier !== 1) {
-      for (const day of week.days) {
-        if (day.distanceMi != null && day.type === 'run') {
-          day.distanceMi = Math.round(day.distanceMi * adj.mileageMultiplier * 10) / 10;
-          day.label = `${day.distanceMi} mi ${day.note?.toLowerCase() ?? 'run'}`;
-        }
-      }
-    }
-
-    // Apply day-level overrides
-    if (adj.dayOverrides) {
-      for (const ov of adj.dayOverrides) {
-        const targetDay = week.days[ov.dayIndex];
-        if (!targetDay) continue;
-        targetDay.type = ov.type;
-        targetDay.label = ov.label;
-        targetDay.distanceMi = ov.distanceMi;
-        targetDay.note = ov.note;
-      }
-    }
+    changes.push({
+      weekIndex: adj.weekIndex,
+      mileageMultiplier: adj.mileageMultiplier,
+      dayOverrides: adj.dayOverrides?.map((ov) => ({
+        dayIndex: ov.dayIndex,
+        day: { type: ov.type, label: ov.label, distanceMi: ov.distanceMi, note: ov.note } as PlanDay,
+      })),
+    });
   }
 
+  const result = applyAdaptiveChanges(changes, modification.description || 'Adaptive coaching change');
+  if (!result.ok || !result.logId) return null;
+
   modification.originalSnapshot = originalSnapshot;
+  modification.planInstanceId = result.instanceId ?? instanceId;
+  modification.overlayLogIds = [result.logId];
   modification.id = `mod-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
 
   // Persist
@@ -223,40 +239,51 @@ export function applyRecommendation(
 
 /**
  * Undo a previously applied plan modification.
- * Restores the original week data from the stored snapshot.
+ *
+ * v1.0.7 (T-2): removes the modification's overlay entries from the plan
+ * instance it was applied to (never edits a shared plan object). Fails when a
+ * later edit changed the same days. Records from before v1.0.7 (no overlay ids)
+ * were in-memory only and are gone after a reload, so they are just marked undone.
  */
 export function undoRecommendation(modificationId: string): boolean {
+  return undoRecommendationWithReason(modificationId).ok;
+}
+
+/** Message shown when an adaptive change can't be undone because later edits touched the same days. */
+export const UNDO_BLOCKED_MESSAGE = 'Can\u2019t undo: a later change edited the same days. Undo it from the Plan screen first.';
+
+/**
+ * Same as {@link undoRecommendation}, with a user-facing reason when the undo
+ * is refused (v1.0.7, T-2).
+ */
+export function undoRecommendationWithReason(modificationId: string): { ok: boolean; error?: string } {
   const mods = getPlanModifications();
   const mod = mods.find((m) => m.id === modificationId);
-  if (!mod || mod.undone) return false;
+  if (!mod) return { ok: false, error: 'That adjustment could not be found.' };
+  if (mod.undone) return { ok: false, error: 'That adjustment was already undone.' };
 
-  const activePlan = getActivePlan();
-  if (!activePlan) return false;
-  const plan = getPlanById(activePlan.planId);
-  if (!plan) return false;
-
-  // Restore original data
-  for (const snap of mod.originalSnapshot) {
-    const week = plan.weeks[snap.weekIndex];
-    if (!week) continue;
-    for (const daySnap of snap.days) {
-      const day = week.days[daySnap.dayIndex];
-      if (!day) continue;
-      day.type = daySnap.type;
-      day.label = daySnap.label;
-      day.distanceMi = daySnap.distanceMi;
-      day.note = daySnap.note;
-    }
+  const ids = mod.overlayLogIds ?? [];
+  for (const logId of [...ids].reverse()) {
+    // Already undone elsewhere (e.g. the plan's own Undo): nothing left to remove.
+    if (!isOverlayChangeActive(logId, mod.planInstanceId)) continue;
+    const res = undoChange(logId, mod.planInstanceId);
+    if (!res.ok) return { ok: false, error: UNDO_BLOCKED_MESSAGE };
   }
 
   mod.undone = true;
   saveModifications(mods);
-  return true;
+  return { ok: true };
 }
 
-/** Get the most recent non-undone modification. */
+/**
+ * Get the most recent non-undone modification of the active plan instance
+ * (v1.0.7, T-2: another instance's changes can't be undone from here).
+ */
 export function getLastModification(): PlanModification | null {
-  const mods = getPlanModifications().filter((m) => !m.undone);
+  const instanceId = activeInstanceId();
+  const mods = getPlanModifications().filter(
+    (m) => !m.undone && (!m.planInstanceId || m.planInstanceId === instanceId),
+  );
   return mods.length > 0 ? mods[mods.length - 1] : null;
 }
 
@@ -420,6 +447,8 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
     overallCompletionRate: totalScheduled > 0 ? totalCompleted / totalScheduled : 1,
     weeklyMileage,
     syncedRuns,
+    // v1.0.7 (L-7): the athlete's own VDOT pace bands (null without a VDOT source).
+    paces: readPaceBands(),
     readinessScore: readiness?.score ?? 0,
     adherenceScore: adherence?.score ?? 0,
     daysSinceLastSync,
@@ -431,10 +460,167 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   };
 }
 
+// ── Pace bands, plan-relative load and spikes (v1.0.7: L-5, L-7, L-8) ────────
+
+/** L-7: easy runs count as too fast only when this much (min/mi) faster than the fast end of the easy band. */
+const EASY_FAST_TOLERANCE_MIN = 10 / 60;
+/** L-5: flag a week only when actual mileage exceeds the PLANNED mileage by more than this share... */
+export const OVER_PLAN_THRESHOLD = 0.15;
+/** ...and by at least this many miles (small weeks). */
+const OVER_PLAN_MIN_MILES = 2;
+/** L-5: a single run longer than this × the longest run of the previous 30 days is a spike (Frandsen 2025). */
+export const RUN_SPIKE_RATIO = 1.1;
+const METERS_PER_MILE = 1609.344;
+
+/** v1.0.7 (L-7): VDOT pace bands in min/mi from training paces (sec/mi), or null. */
+export function paceBandsFromTrainingPaces(p: TrainingPaces | null | undefined): AnalysisPaceBands | null {
+  if (!p || !(p.vdot > 0) || !(p.easy?.min > 0) || !(p.easy?.max > 0) || !(p.marathon > 0)) return null;
+  return {
+    vdot: p.vdot,
+    easyFastMinPerMi: p.easy.min / 60,
+    easySlowMinPerMi: p.easy.max / 60,
+    marathonMinPerMi: p.marathon / 60,
+    thresholdMinPerMi: p.threshold / 60,
+  };
+}
+
+function readPaceBands(): AnalysisPaceBands | null {
+  try {
+    return paceBandsFromTrainingPaces(getCurrentTrainingPaces());
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * v1.0.7 (L-7): easy runs are too fast when they average faster than the fast
+ * end of the athlete's own Daniels easy band (minus a small tolerance), not a
+ * fixed 8:30/mi. Without a VDOT source nothing is flagged.
+ */
+export function isEasyPaceTooFast(avgEasyPace: number, bands?: AnalysisPaceBands | null): boolean {
+  return !!bands && avgEasyPace > 0 && avgEasyPace < bands.easyFastMinPerMi - EASY_FAST_TOLERANCE_MIN;
+}
+
+/**
+ * v1.0.7 (L-7): long runs are "ahead" when they average faster than the fast
+ * end of the athlete's easy band (long runs are run at easy effort), not a fixed
+ * 9:30/mi. Without a VDOT source nothing is flagged.
+ */
+export function isLongRunPaceAhead(avgLongPace: number, bands?: AnalysisPaceBands | null): boolean {
+  return !!bands && avgLongPace > 0 && avgLongPace < bands.easyFastMinPerMi;
+}
+
+/** A plan week whose actual mileage is well above what the plan prescribed. */
+export interface OverPlanWeek {
+  weekIndex: number;
+  plannedMi: number;
+  actualMi: number;
+  /** (actual − planned) ÷ planned. */
+  overPct: number;
+}
+
+/**
+ * v1.0.7 (L-5): the current or previous plan week when actual mileage exceeds
+ * the planned mileage by more than {@link OVER_PLAN_THRESHOLD}. A week-over-week
+ * jump the plan itself prescribes (e.g. after a cutback week) is never flagged.
+ */
+export function findOverPlanWeek(
+  weekly: { weekIndex: number; plannedMi: number; actualMi: number }[],
+  currentWeekIndex: number,
+): OverPlanWeek | null {
+  for (const wi of [currentWeekIndex, currentWeekIndex - 1]) {
+    const w = weekly.find((x) => x.weekIndex === wi);
+    if (!w || !(w.plannedMi > 0)) continue;
+    const over = w.actualMi - w.plannedMi;
+    const overPct = over / w.plannedMi;
+    if (overPct > OVER_PLAN_THRESHOLD && over >= OVER_PLAN_MIN_MILES) {
+      return { weekIndex: wi, plannedMi: w.plannedMi, actualMi: w.actualMi, overPct };
+    }
+  }
+  return null;
+}
+
+/** A single run much longer than anything in the previous 30 days. */
+export interface RunSpike {
+  date: string;
+  distanceMi: number;
+  longestPrior30Mi: number;
+  ratio: number;
+  /** True when the run also went more than 10 % beyond its planned distance (or was unplanned). */
+  beyondPlan: boolean;
+}
+
+/**
+ * v1.0.7 (L-5): the largest single-run spike in the last 7 days, i.e. a run more than
+ * {@link RUN_SPIKE_RATIO} × the longest run in the 30 days before it. Needs at
+ * least one earlier run in that window.
+ */
+export function findRunSpike(runs: SyncedRunData[], today: string): RunSpike | null {
+  const recentFrom = addDays(today, -7);
+  let best: RunSpike | null = null;
+  for (const r of runs) {
+    if (!(r.actualDistanceMi > 0) || r.date <= recentFrom || r.date > today) continue;
+    const windowFrom = addDays(r.date, -30);
+    let longest = 0;
+    for (const p of runs) {
+      if (p.date >= windowFrom && p.date < r.date && p.actualDistanceMi > longest) longest = p.actualDistanceMi;
+    }
+    if (!(longest > 0)) continue;
+    const ratio = r.actualDistanceMi / longest;
+    if (ratio <= RUN_SPIKE_RATIO) continue;
+    if (!best || ratio > best.ratio) {
+      best = {
+        date: r.date,
+        distanceMi: r.actualDistanceMi,
+        longestPrior30Mi: longest,
+        ratio,
+        beyondPlan: !(r.plannedDistanceMi > 0) || r.actualDistanceMi > r.plannedDistanceMi * 1.1,
+      };
+    }
+  }
+  return best;
+}
+
+/** A marathon goal-pace range (min/mi) and what it came from. */
+export interface RacePaceRange {
+  fastMinPerMi: number;
+  slowMinPerMi: number;
+  basis: 'prediction' | 'vdot';
+}
+
+/**
+ * v1.0.7 (L-8): race-week pace advice as a RANGE from the predicted marathon
+ * time (its likely range, else ±2 %), falling back to VDOT marathon pace ±2 %.
+ * Never derived from average training pace. Null when neither exists.
+ */
+export function raceWeekPaceRange(
+  bands: AnalysisPaceBands | null | undefined,
+  prediction: Pick<RacePrediction, 'marathonTimeSec' | 'rangeLowSec' | 'rangeHighSec'> | null | undefined,
+): RacePaceRange | null {
+  const miles = MARATHON_M / METERS_PER_MILE;
+  if (prediction && prediction.marathonTimeSec > 0) {
+    const lo = prediction.rangeLowSec && prediction.rangeLowSec > 0 ? prediction.rangeLowSec : prediction.marathonTimeSec * 0.98;
+    const hi = prediction.rangeHighSec && prediction.rangeHighSec > 0 ? prediction.rangeHighSec : prediction.marathonTimeSec * 1.02;
+    return { fastMinPerMi: Math.min(lo, hi) / 60 / miles, slowMinPerMi: Math.max(lo, hi) / 60 / miles, basis: 'prediction' };
+  }
+  if (bands && bands.marathonMinPerMi > 0) {
+    return { fastMinPerMi: bands.marathonMinPerMi * 0.98, slowMinPerMi: bands.marathonMinPerMi * 1.02, basis: 'vdot' };
+  }
+  return null;
+}
+
+/** Stats used internally (adds plan-relative load and spikes to {@link AnalysisStats}). */
+type AdaptiveStats = AnalysisStats & {
+  /** L-5: a week run well above its planned mileage. */
+  overPlan: OverPlanWeek | null;
+  /** L-5: a single-run spike in the last 7 days. */
+  runSpike: RunSpike | null;
+};
+
 // ── Analysis Engine ───────────────────────────────────────────────────────────
 
 /** Compute summary statistics from the input data. */
-function computeStats(input: TrainingAnalysisInput): AnalysisStats {
+function computeStats(input: TrainingAnalysisInput): AdaptiveStats {
   const longRuns = input.syncedRuns.filter(
     (r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0,
   );
@@ -502,8 +688,9 @@ function computeStats(input: TrainingAnalysisInput): AnalysisStats {
     }
   }
 
-  // Pacing analysis: easy days too fast? (< 9:00/mi is fast for most easy runs)
-  const easyDaysTooFast = avgEasyPace > 0 && avgEasyPace < 8.5;
+  // Pacing analysis: easy days too fast? v1.0.7 (L-7): judged against the
+  // athlete's own VDOT easy band instead of a fixed 8:30/mi.
+  const easyDaysTooFast = isEasyPaceTooFast(avgEasyPace, input.paces);
 
   // Hard days too slow? Compare tempo/speed runs to easy pace
   const hardRuns = input.syncedRuns.filter(
@@ -527,6 +714,9 @@ function computeStats(input: TrainingAnalysisInput): AnalysisStats {
     last2WeeksCompletionRate: input.recentCompletionRate,
     easyDaysTooFast,
     hardDaysTooSlow,
+    // L-5: plan-relative load and single-run spikes.
+    overPlan: findOverPlanWeek(input.weeklyMileage, input.currentWeekIndex),
+    runSpike: findRunSpike(input.syncedRuns, input.today ?? todayKey()),
   };
 }
 
@@ -543,9 +733,10 @@ function detectAheadOfSchedule(
   if (longRuns.length >= 4) {
     const recentLong = longRuns.slice(-4);
     const avgPace = recentLong.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentLong.length;
-    if (avgPace < 9.5) {
+    // v1.0.7 (L-7): faster than the athlete's own easy band, not a fixed 9:30/mi.
+    if (isLongRunPaceAhead(avgPace, input.paces)) {
       triggers.push(
-        `Last ${recentLong.length} long runs averaged ${formatPaceFromMinPerMi(avgPace)} — faster than typical training pace`,
+        `Last ${recentLong.length} long runs averaged ${formatPaceFromMinPerMi(avgPace)}, faster than your easy range (from ${formatPaceFromMinPerMi(input.paces!.easyFastMinPerMi)})`,
       );
       confidence += 30;
     }
@@ -607,15 +798,28 @@ function detectBehindSchedule(
   return { scenario: 'behind_schedule', confidence: Math.min(confidence, 100), triggers };
 }
 
-function detectOvertraining(input: TrainingAnalysisInput, stats: AnalysisStats): DetectedScenario | null {
+function detectOvertraining(input: TrainingAnalysisInput, stats: AdaptiveStats): DetectedScenario | null {
   const triggers: string[] = [];
   let confidence = 0;
 
-  if (stats.weeklyMileageChangePct > 0.25) {
+  // v1.0.7 (L-5): compare actual mileage with what the PLAN prescribed, not with
+  // last week. A jump the plan itself schedules (e.g. after a cutback) is fine.
+  if (stats.overPlan) {
+    const o = stats.overPlan;
     triggers.push(
-      `Weekly mileage jumped ${Math.round(stats.weeklyMileageChangePct * 100)}% from previous week`,
+      `Week ${o.weekIndex + 1}: ${formatMiles(o.actualMi)} run vs ${formatMiles(o.plannedMi)} planned (+${Math.round(o.overPct * 100)}%)`,
     );
     confidence += 35;
+  }
+
+  // L-5: single-run spike (> 110 % of the longest run in the previous 30 days).
+  // On its own it only triggers when the run also went beyond its planned distance.
+  if (stats.runSpike) {
+    const s = stats.runSpike;
+    triggers.push(
+      `A ${formatMiles(s.distanceMi)} run on ${s.date} was ${Math.round((s.ratio - 1) * 100)}% longer than your longest run in the previous 30 days (${formatMiles(s.longestPrior30Mi)})`,
+    );
+    confidence += s.beyondPlan ? 35 : 20;
   }
 
   if (stats.consecutiveDaysWithoutRest >= 7) {
@@ -699,7 +903,7 @@ function detectRaceWeekOptimization(input: TrainingAnalysisInput): DetectedScena
 /** Detect which training scenarios are present. */
 function detectScenarios(
   input: TrainingAnalysisInput,
-  stats: AnalysisStats,
+  stats: AdaptiveStats,
 ): DetectedScenario[] {
   const scenarios: DetectedScenario[] = [];
   const prefs = getAdaptivePreferences();
@@ -827,9 +1031,19 @@ function buildBehindRecommendation(
 function buildOvertrainingRecommendation(
   input: TrainingAnalysisInput,
   scenario: DetectedScenario,
-  stats: AnalysisStats,
+  stats: AdaptiveStats,
 ): AdaptiveRecommendation {
-  const jumpPct = Math.round(stats.weeklyMileageChangePct * 100);
+  // v1.0.7 (L-5): the message names what actually fired (over plan / single-run spike).
+  let message: string;
+  if (stats.overPlan) {
+    const o = stats.overPlan;
+    message = `You've run ${formatMiles(o.actualMi)} in week ${o.weekIndex + 1}, ${Math.round(o.overPct * 100)}% more than the ${formatMiles(o.plannedMi)} your plan prescribes. Going well beyond the plan is what raises injury risk, so let's absorb it with a lighter week.`;
+  } else if (stats.runSpike) {
+    const s = stats.runSpike;
+    message = `Your ${formatMiles(s.distanceMi)} run was ${Math.round((s.ratio - 1) * 100)}% longer than anything in the previous 30 days (${formatMiles(s.longestPrior30Mi)}). Single runs more than 10% longer than your recent longest are linked to running injuries, so keep the next few days easy.`;
+  } else {
+    message = `You've been running ${stats.consecutiveDaysWithoutRest}+ days straight without rest and your pace is slowing. These are classic signs of accumulated fatigue. A recovery week now will make you stronger for race day.`;
+  }
   const options: RecommendationOption[] = [
     {
       key: 'force_rest',
@@ -856,9 +1070,7 @@ function buildOvertrainingRecommendation(
     priority: 'high',
     status: 'active',
     title: 'Slow Down — Your Body Needs a Break',
-    message: jumpPct > 20
-      ? `Warning: Your mileage jumped ${jumpPct}% this week. The general rule is no more than 10% increase per week. This increases injury risk significantly. Let's take an easy week — your race will thank you!`
-      : `You've been running ${stats.consecutiveDaysWithoutRest}+ days straight without rest and your pace is slowing. These are classic signs of accumulated fatigue. A recovery week now will make you stronger for race day.`,
+    message,
     reasoning: scenario.triggers.join('. ') + '.',
     options,
     dismissible: true,
@@ -868,7 +1080,7 @@ function buildOvertrainingRecommendation(
 }
 
 function buildInconsistentRecommendation(
-  _input: TrainingAnalysisInput,
+  input: TrainingAnalysisInput,
   scenario: DetectedScenario,
   stats: AnalysisStats,
 ): AdaptiveRecommendation {
@@ -885,7 +1097,11 @@ function buildInconsistentRecommendation(
 
   let message: string;
   if (stats.easyDaysTooFast) {
-    message = `Your easy day average pace is ${easyPaceStr} — that's faster than most runners should go on recovery days. Easy runs should feel conversational (typically 1:30-2:00/mi slower than your race pace). Running easy days too fast means you can't go hard enough on quality days, and you accumulate fatigue faster.`;
+    // v1.0.7 (L-7): compare with the athlete's own easy range.
+    const band = input.paces
+      ? ` Your easy range from your current fitness (VDOT ${Math.round(input.paces.vdot)}) is ${formatPaceFromMinPerMi(input.paces.easyFastMinPerMi)}–${formatPaceFromMinPerMi(input.paces.easySlowMinPerMi)}.`
+      : '';
+    message = `Your easy day average pace is ${easyPaceStr}, faster than your easy range.${band} Easy runs should feel conversational. Running easy days too fast means you can't go hard enough on quality days, and you accumulate fatigue faster.`;
   } else {
     message = `Your hard workout paces are very close to your easy day pace. This "gray zone" training is less effective than proper polarization. Try running easy days slower and hard days faster — the contrast is what builds fitness.`;
   }
@@ -911,14 +1127,14 @@ function buildRaceWeekRecommendation(
   scenario: DetectedScenario,
   _stats: AnalysisStats,
 ): AdaptiveRecommendation {
-  // Estimate race pace from recent training
-  const recentRuns = input.syncedRuns.filter((r) => r.actualPaceMinPerMi > 0).slice(-10);
-  const avgPace = recentRuns.length > 0
-    ? recentRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentRuns.length
-    : 0;
-  // Marathon race pace is typically 5-10% slower than average training pace
-  const estRacePace = avgPace > 0 ? avgPace * 1.03 : 0;
-  const racePaceStr = formatPaceFromMinPerMi(estRacePace);
+  // v1.0.7 (L-8): race pace from the predicted marathon time (or VDOT marathon
+  // pace) as a range, never average training pace × 1.03.
+  let prediction: RacePrediction | null = null;
+  try { prediction = getSavedPrediction(); } catch { prediction = null; }
+  const range = raceWeekPaceRange(input.paces, prediction);
+  const paceAdvice = range
+    ? `Based on your ${range.basis === 'prediction' ? 'predicted marathon time' : 'current fitness (VDOT)'}, goal pace is around ${formatPaceFromMinPerMi(range.fastMinPerMi)}–${formatPaceFromMinPerMi(range.slowMinPerMi)}. Start at the slower end. `
+    : '';
 
   const options: RecommendationOption[] = [
     {
@@ -938,7 +1154,7 @@ function buildRaceWeekRecommendation(
     status: 'active',
     title: `Race Week! ${input.weeksRemaining} Week${input.weeksRemaining !== 1 ? 's' : ''} to Go`,
     message: `The finish line is near! Your readiness score is ${input.readinessScore}% — ${input.readinessScore >= 80 ? "you're in great shape" : 'solid preparation'}. ` +
-      (estRacePace > 0 ? `Based on your training, a target race pace around ${racePaceStr} would be sustainable. ` : '') +
+      paceAdvice +
       `Remember: the taper is sacred. Trust your training, don't try anything new on race day, and start conservative — you can always speed up in the second half.`,
     reasoning: scenario.triggers.join('. ') + '.',
     options,
@@ -1051,6 +1267,8 @@ export function analyzeTrainingProgress(force = false): TrainingAnalysisResult |
     }
 
     if (rec && shouldEmitRecommendation(rec.priority)) {
+      // T-2: key the recommendation to the plan instance it was made for.
+      rec.planInstanceId = makePlanInstanceId(input.planId, input.startDate);
       recommendations.push(rec);
     }
   }

@@ -98,9 +98,9 @@ describe('classifyTSBZone', () => {
     expect(classifyTSBZone(30)).toBe('transition');
   });
 
-  it('should classify detrained (TSB > 30)', () => {
-    expect(classifyTSBZone(31)).toBe('detrained');
-    expect(classifyTSBZone(50)).toBe('detrained');
+  it('should classify very fresh (TSB > 30, L-14: not "detrained")', () => {
+    expect(classifyTSBZone(31)).toBe('very_fresh');
+    expect(classifyTSBZone(50)).toBe('very_fresh');
   });
 });
 
@@ -108,8 +108,8 @@ describe('classifyTSBZone', () => {
 
 describe('getZoneColor', () => {
   it('should return a color for each zone', () => {
-    const zones: Array<'overreaching' | 'productive' | 'fresh' | 'peak' | 'transition' | 'detrained'> = [
-      'overreaching', 'productive', 'fresh', 'peak', 'transition', 'detrained',
+    const zones: Array<'overreaching' | 'productive' | 'fresh' | 'peak' | 'transition' | 'very_fresh'> = [
+      'overreaching', 'productive', 'fresh', 'peak', 'transition', 'very_fresh',
     ];
     for (const zone of zones) {
       expect(getZoneColor(zone)).toMatch(/^#[0-9A-F]{6}$/i);
@@ -288,7 +288,7 @@ describe('projectForward', () => {
   it('should classify zones for projected days', () => {
     const projection = projectForward(snapshot, 30, 7);
     for (const p of projection) {
-      expect(['overreaching', 'productive', 'fresh', 'peak', 'transition', 'detrained']).toContain(p.zone);
+      expect(['overreaching', 'productive', 'fresh', 'peak', 'transition', 'very_fresh']).toContain(p.zone);
     }
   });
 
@@ -333,7 +333,7 @@ describe('tsbToReadinessScore', () => {
     expect(score).toBeLessThanOrEqual(40);
   });
 
-  it('should give decreasing score when detrained', () => {
+  it('should give decreasing score when very fresh', () => {
     const score = tsbToReadinessScore(35, 20);
     expect(score).toBeLessThan(100);
     expect(score).toBeGreaterThanOrEqual(40);

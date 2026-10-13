@@ -26,6 +26,7 @@ import {
   type StreamSample,
 } from '../activity/streams';
 import type { ParsedActivity, ParsedLap, ParsedSample } from './types';
+import { recordMeasuredTimeInZones } from '../heartRate';
 
 /**
  * File imports get their own numeric ID range (FILE_ID_OFFSET + start epoch
@@ -637,6 +638,20 @@ export function toActivity(p: ParsedActivity, opts: ToActivityOptions): Activity
     const standard = deriveSplits(stream, MILE_M);
     if (metric.length) splitsMetric = metric;
     if (standard.length) splitsStandard = standard;
+  }
+
+  // v1.0.7 (L-11): runs with heart-rate samples count as measured time in zone
+  // right away. Zones are kept aside (createRecord: false) until the store has
+  // deduplicated the activity; the post-import HR capture then uses them.
+  if (isRun && samples.some((s) => validHeartRate(s.heartRate) !== undefined)) {
+    try {
+      recordMeasuredTimeInZones(
+        id,
+        startLocal.slice(0, 10),
+        samples.map((s, i) => ({ t: times[i], hr: validHeartRate(s.heartRate) })),
+        { movingTimeSec: moving, averageHR: avgHr, maxHR: maxHr, source: 'file', createRecord: false },
+      );
+    } catch { /* non-critical */ }
   }
 
   return stripUndefined<Activity>({

@@ -27,6 +27,8 @@ import {
   type LatLngPair,
   type StreamSample,
 } from './activity/streams';
+import { recordMeasuredTimeInZones } from './heartRate';
+import { dateKeyFromLocalIso } from '../utils/localDate';
 
 const INTERVALS_API = 'https://intervals.icu/api/v1';
 const REQUEST_TIMEOUT_MS = 30_000;
@@ -694,6 +696,18 @@ export async function getIntervalsActivityDetail(base: Activity, creds?: Interva
     if (samples.length > 1) {
       detail.splits_metric = deriveSplits(samples, 1000);
       detail.splits_standard = deriveSplits(samples, 1609.344);
+    }
+    // v1.0.7 (L-11): real time in zone from the heart-rate stream (runs only).
+    const date = dateKeyFromLocalIso(detail.start_date_local);
+    if (isRun && date && samples.some((x) => typeof x.hr === 'number')) {
+      try {
+        recordMeasuredTimeInZones(detail.id, date, samples, {
+          movingTimeSec: detail.moving_time,
+          averageHR: detail.average_heartrate,
+          maxHR: detail.max_heartrate,
+          source: 'intervals',
+        });
+      } catch { /* non-critical */ }
     }
   }
 

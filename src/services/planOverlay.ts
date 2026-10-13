@@ -43,6 +43,10 @@ export interface DayRef {
 export interface OverlayResult {
   ok: boolean;
   error?: string;
+  /** v1.0.7 (T-2): id of the log entry a successful change created (use it to undo that change). */
+  logId?: string;
+  /** v1.0.7 (T-2): plan instance the change was written to. */
+  instanceId?: string;
 }
 
 export type OverlayChangeKind = 'move' | 'skip' | 'restore' | 'convert' | 'week-scale' | 'adaptive';
@@ -367,6 +371,17 @@ function commit(ctx: Ctx, kind: OverlayChangeKind, source: OverlaySource, summar
   return { ok: true };
 }
 
+/** Put the days of an undo record back as they were before its change. */
+function restoreUndo(rec: PlanOverlayRecord, undo: UndoRecord): void {
+  for (const [k, state] of Object.entries(undo.days)) {
+    if (state.had) rec.dayOverrides[k] = state.value ?? null;
+    else delete rec.dayOverrides[k];
+    if (state.partner) rec.swapPartners[k] = state.partner;
+    else delete rec.swapPartners[k];
+  }
+  rec.log = rec.log.filter((e) => e.id !== undo.logId);
+}
+
 function dayAt(ctx: Ctx, ref: DayRef): PlanDay {
   return ctx.plan.weeks[ref.weekIndex].days[ref.dayIndex];
 }
@@ -506,17 +521,100 @@ export function undoLastChange(): OverlayResult {
   if ('error' in ctx) return { ok: false, error: ctx.error };
   const last = ctx.rec.undo.pop();
   if (!last) return { ok: false, error: 'Nothing to undo.' };
-  for (const [k, state] of Object.entries(last.days)) {
-    if (state.had) ctx.rec.dayOverrides[k] = state.value ?? null;
-    else delete ctx.rec.dayOverrides[k];
-    if (state.partner) ctx.rec.swapPartners[k] = state.partner;
-    else delete ctx.rec.swapPartners[k];
-  }
-  ctx.rec.log = ctx.rec.log.filter((e) => e.id !== last.logId);
+  restoreUndo(ctx.rec, last);
   ctx.store[ctx.instanceId] = ctx.rec;
   writeStore(ctx.store);
   emitPlanEvent(PLAN_OVERLAY_CHANGED_EVENT, { reason: 'undo' });
   return { ok: true };
+}
+
+// ── Adaptive changes (v1.0.7, T-2) ──────────────────────────────────────────
+
+/** One week of an adaptive change, in effective (placed) plan week numbers. */
+export interface AdaptiveWeekChange {
+  /** 0-based week of the *effective* plan (what the athlete sees, after late joins / race-date placement). */
+  weekIndex: number;
+  /** Scale the week's remaining runs (0.3–1.5). */
+  mileageMultiplier?: number;
+  /** Replace specific days (`day: null` skips the day). */
+  dayOverrides?: { dayIndex: number; day: PlanDay | null }[];
+}
+
+/**
+ * v1.0.7 (T-2): apply an adaptive-coaching change to the active plan instance as
+ * ONE overlay entry (one undo step). Week numbers are the effective plan's.
+ * Completed days, race day and anything after it are left alone, and races
+ * can't be added. The shared built-in plan is never touched; the change is
+ * persisted per instance and works for custom plans too.
+ * Returns the log id to pass to {@link undoChange}.
+ */
+export function applyAdaptiveChanges(changes: AdaptiveWeekChange[], summary: string): OverlayResult {
+  const ctx = context();
+  if ('error' in ctx) return { ok: false, error: ctx.error };
+  const next = new Map<string, PlanDay | null>();
+  for (const ch of changes) {
+    if (!Number.isInteger(ch.weekIndex) || ch.weekIndex < 0 || ch.weekIndex >= ctx.plan.weeks.length) continue;
+    const mult = ch.mileageMultiplier;
+    if (mult != null && mult !== 1) {
+      if (!Number.isFinite(mult) || mult < 0.3 || mult > 1.5) return { ok: false, error: 'Scale factor must be between 0.3 and 1.5.' };
+      for (let d = 0; d < 7; d++) {
+        const ref = { weekIndex: ch.weekIndex, dayIndex: d };
+        const day = dayAt(ctx, ref);
+        if (day.type !== 'run' || !(day.distanceMi && day.distanceMi > 0)) continue;
+        if (editError(ctx, ref)) continue;
+        const mi = Math.max(1, roundTenth(day.distanceMi * mult));
+        next.set(refKey(ref), { ...clone(day), distanceMi: mi, label: relabelDistance(day.label, mi) });
+      }
+    }
+    for (const ov of ch.dayOverrides ?? []) {
+      const ref = { weekIndex: ch.weekIndex, dayIndex: ov.dayIndex };
+      if (editError(ctx, ref)) continue;
+      if (ov.day && (ov.day.type === 'marathon' || ov.day.type === 'race')) continue;
+      next.set(refKey(ref), ov.day ? clone(ov.day) : null);
+    }
+  }
+  if (next.size === 0) return { ok: false, error: 'No remaining days to change.' };
+  const before = snapshot(ctx.rec, [...next.keys()]);
+  for (const [k, day] of next) ctx.rec.dayOverrides[k] = day;
+  const res = commit(ctx, 'adaptive', 'adaptive', summary, before);
+  const entry = ctx.rec.log[ctx.rec.log.length - 1];
+  return res.ok && entry ? { ...res, logId: entry.id, instanceId: ctx.instanceId } : res;
+}
+
+/** True while the change `logId` is still applied (and undoable) in `instanceId` (default: the active instance). */
+export function isOverlayChangeActive(logId: string, instanceId?: string): boolean {
+  const id = instanceId ?? activeInstanceId();
+  if (!id) return false;
+  return normalizeRecord(readStore()[id], id).undo.some((u) => u.logId === logId);
+}
+
+function activeInstanceId(): string | null {
+  const active = getActivePlan();
+  return active ? makePlanInstanceId(active.planId, active.startDate) : null;
+}
+
+/**
+ * v1.0.7 (T-2): undo one specific change (not necessarily the latest) of a plan
+ * instance (default: the active one). Refused when a later change touched the
+ * same days. Undo those first so nothing is silently lost.
+ */
+export function undoChange(logId: string, instanceId?: string): OverlayResult {
+  const id = instanceId ?? activeInstanceId();
+  if (!id) return { ok: false, error: 'No active plan.' };
+  const store = readStore();
+  const rec = normalizeRecord(store[id], id);
+  const idx = rec.undo.findIndex((u) => u.logId === logId);
+  if (idx < 0) return { ok: false, error: 'That change can no longer be undone.' };
+  const target = rec.undo[idx];
+  const keys = new Set(Object.keys(target.days));
+  const touchedLater = rec.undo.slice(idx + 1).some((u) => Object.keys(u.days).some((k) => keys.has(k)));
+  if (touchedLater) return { ok: false, error: 'Those days were changed again later. Undo the later changes first.' };
+  rec.undo.splice(idx, 1);
+  restoreUndo(rec, target);
+  store[id] = rec;
+  writeStore(store);
+  emitPlanEvent(PLAN_OVERLAY_CHANGED_EVENT, { reason: 'undo' });
+  return { ok: true, logId, instanceId: id };
 }
 
 /** Change log of the active instance, oldest first (undone changes are removed). */

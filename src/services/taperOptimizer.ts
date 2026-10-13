@@ -79,11 +79,34 @@ const IDEAL_TSB_MAX = 25;
 
 // ── Core Model ────────────────────────────────────────────────────────────────
 
+/** Options for {@link calculateFitnessFatigue}. */
+export interface FitnessFatigueOptions {
+  /**
+   * v1.0.7 (L-3): seed CTL and ATL with the average daily TSS of the first
+   * `seedDays` calendar days instead of starting both at zero (which makes every
+   * new user look "Overreached" for 4-6 weeks). No seeding when the history is
+   * shorter than `seedDays`, or when 0/omitted.
+   */
+  seedDays?: number;
+}
+
+/**
+ * v1.0.7 (L-3): average daily TSS over the first `days` calendar days of a
+ * gap-filled, sorted history, or null when the history is shorter.
+ */
+export function seedLoad(filled: DailyTrainingLoad[], days: number): number | null {
+  if (!(days > 0) || filled.length < days) return null;
+  let total = 0;
+  for (let i = 0; i < days; i++) total += filled[i].tss;
+  return total / days;
+}
+
 /**
  * Calculate CTL, ATL, TSB for each day from training history.
  */
 export function calculateFitnessFatigue(
   history: DailyTrainingLoad[],
+  options: FitnessFatigueOptions = {},
 ): FitnessFatigueSnapshot[] {
   if (history.length === 0) return [];
 
@@ -93,8 +116,10 @@ export function calculateFitnessFatigue(
   // Fill in rest days (TSS = 0)
   const filled = fillMissingDays(sorted);
 
-  let ctl = 0;
-  let atl = 0;
+  // L-3: start from the athlete's typical load when there is enough history.
+  const seed = seedLoad(filled, options.seedDays ?? 0) ?? 0;
+  let ctl = seed;
+  let atl = seed;
   const snapshots: FitnessFatigueSnapshot[] = [];
 
   for (const day of filled) {

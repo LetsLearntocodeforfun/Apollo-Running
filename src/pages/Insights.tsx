@@ -566,7 +566,9 @@ export function hrSourceLabel(source: string | undefined): string {
 }
 
 /** HR zone distribution bars (30 days) */
-function ZoneChart({ zones, percentages, totalTimeSec }: { zones: HRZone[]; percentages: number[]; totalTimeSec: number }) {
+function ZoneChart({ zones, percentages, totalTimeSec, estimated = false }: { zones: HRZone[]; percentages: number[]; totalTimeSec: number; estimated?: boolean }) {
+  // v1.0.7 (L-11): estimated shares are shown as approximate ("~").
+  const approx = estimated ? '~' : '';
   return (
     <div>
       <ul className="progress-zone-bars">
@@ -579,7 +581,7 @@ function ZoneChart({ zones, percentages, totalTimeSec }: { zones: HRZone[]; perc
             <span className="progress-zone-track" aria-hidden="true">
               <span className="progress-zone-fill" style={{ width: `${Math.max(percentages[i] ?? 0, 1)}%`, background: z.color }} />
             </span>
-            <span className="progress-zone-pct">{percentages[i] ?? 0}%</span>
+            <span className="progress-zone-pct">{approx}{percentages[i] ?? 0}%</span>
           </li>
         ))}
       </ul>
@@ -622,7 +624,7 @@ export function HeartRatePanel() {
           <div><dt>Source</dt><dd>{hrSourceLabel(profile.source)}</dd></div>
         </dl>
         <p className="progress-muted progress-small">
-          Max HR updates automatically when synced runs reach a higher heart rate.
+          Max HR updates automatically when synced runs reach a higher heart rate, unless you entered it yourself.
         </p>
         <Link to="/settings?tab=profile" className="btn btn-secondary progress-link-btn">
           Edit heart rate in Settings
@@ -675,8 +677,17 @@ export function HeartRatePanel() {
 
       {distribution.totalTimeSec > 0 && (
         <section className="card" aria-labelledby="progress-hr-dist-title">
-          <h2 id="progress-hr-dist-title" className="card-title">Zone distribution (last 30 days)</h2>
-          <ZoneChart zones={distribution.zones} percentages={distribution.percentages} totalTimeSec={distribution.totalTimeSec} />
+          <h2 id="progress-hr-dist-title" className="card-title">
+            {distribution.estimated ? 'Estimated zone distribution (last 30 days)' : 'Zone distribution (last 30 days)'}
+          </h2>
+          <ZoneChart zones={distribution.zones} percentages={distribution.percentages} totalTimeSec={distribution.totalTimeSec} estimated={distribution.estimated} />
+          {distribution.estimated && (
+            <p className="progress-muted progress-small" data-testid="hr-zones-estimated-note">
+              {distribution.measuredShare > 0
+                ? `Estimated: ${Math.round((1 - distribution.measuredShare) * 100)}% of this time has no second-by-second heart rate, so its zones are estimated from each run's average heart rate.`
+                : 'Estimated from each run\u2019s average heart rate, not measured second by second. Real time in zone needs heart-rate streams.'}
+            </p>
+          )}
           <p className="progress-muted progress-small">
             {easyShare >= 60
               ? 'Good balance — most of your training is in easy/aerobic zones, which builds endurance efficiently.'
@@ -769,7 +780,7 @@ function TodayRecapCard({ recap }: { recap: DailyRecap }) {
           ) : null}
           {recap.primaryZone && (
             <div>
-              <div className="progress-stat-label">Zone</div>
+              <div className="progress-stat-label">{recap.primaryZoneEstimated ? 'Zone (estimated)' : 'Zone'}</div>
               <div className="progress-stat-value">{recap.primaryZone}</div>
             </div>
           )}

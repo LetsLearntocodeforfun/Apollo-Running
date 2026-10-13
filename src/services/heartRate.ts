@@ -4,6 +4,14 @@ import { persistence } from './db/persistence';
 
 const HR_PROFILE_KEY = 'apollo_hr_profile';
 const HR_HISTORY_KEY = 'apollo_hr_history';
+/**
+ * v1.0.7 (L-11): measured zone times (activity id → seconds in zones 1-5) for
+ * activities that have no HR record yet, e.g. file imports. The sync's HR capture
+ * picks them up for activities that were actually stored, so duplicates dropped
+ * by the store never leave orphan HR records.
+ */
+const HR_MEASURED_ZONES_KEY = 'apollo_hr_measured_zones';
+const MAX_PENDING_MEASURED = 500;
 
 /** Standard 5-zone heart rate model */
 export interface HRZone {
@@ -42,6 +50,12 @@ export interface ActivityHRData {
   avgCadence?: number;
   /** Training effect score (Garmin) */
   trainingEffect?: number;
+  /**
+   * v1.0.7 (L-11): where `timeInZones` came from. 'measured' = from a heart-rate
+   * stream or source-reported zone times; 'estimated' = synthesized from average
+   * HR. Records written before v1.0.7 have no value and were always estimated.
+   */
+  zoneSource?: 'measured' | 'estimated';
 }
 
 const ZONE_DEFS: { name: string; description: string; minPct: number; maxPct: number; color: string }[] = [
@@ -111,7 +125,11 @@ export function upsertActivityHR(data: ActivityHRData): void {
   const history = getHRHistory();
   const idx = history.findIndex((h) => h.activityId === data.activityId);
   if (idx >= 0) {
-    history[idx] = data;
+    const prev = history[idx];
+    // v1.0.7 (L-11): a later average-HR rebuild must not replace measured zone times.
+    history[idx] = prev.zoneSource === 'measured' && data.zoneSource !== 'measured'
+      ? { ...data, timeInZones: prev.timeInZones, zoneSource: 'measured' }
+      : data;
   } else {
     history.push(data);
   }
@@ -120,7 +138,46 @@ export function upsertActivityHR(data: ActivityHRData): void {
   saveHRHistory(history);
 }
 
-/** Estimate time-in-zones from average HR when detailed zone data isn't available */
+/**
+ * v1.0.7 (L-11): measured time in zones (seconds, zones 1-5) from a heart-rate
+ * stream. Each sample's HR counts for the time until the next sample (gaps over
+ * 30 s, e.g. auto-pause, are capped). Below zone 1 counts as zone 1. Null when
+ * the stream has fewer than 2 HR samples.
+ */
+export function timeInZonesFromStream(
+  samples: ReadonlyArray<{ t: number; hr?: number }>,
+  maxHR: number,
+): number[] | null {
+  if (!(maxHR > 0)) return null;
+  const pts = samples.filter((s) => Number.isFinite(s.t) && typeof s.hr === 'number' && s.hr > 0);
+  if (pts.length < 2) return null;
+  const zones = getHRZones(maxHR);
+  const out = [0, 0, 0, 0, 0];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const dt = Math.min(30, Math.max(0, pts[i + 1].t - pts[i].t));
+    if (dt <= 0) continue;
+    const hr = pts[i].hr as number;
+    let z = 0;
+    for (let k = zones.length - 1; k >= 0; k--) {
+      if (hr >= zones[k].minBpm) { z = k; break; }
+    }
+    out[z] += dt;
+  }
+  const total = out.reduce((s, v) => s + v, 0);
+  return total > 0 ? out.map((v) => Math.round(v)) : null;
+}
+
+/** True when `v` is five finite, non-negative zone times with a positive total. */
+function isZoneTimes(v: unknown): v is number[] {
+  return Array.isArray(v) && v.length === 5 && v.every((x) => typeof x === 'number' && Number.isFinite(x) && x >= 0)
+    && v.reduce((s: number, x: number) => s + x, 0) > 0;
+}
+
+/**
+ * Estimate time-in-zones from average HR when detailed zone data isn't available.
+ * v1.0.7 (L-11): this is a synthetic bell curve around average HR, not a
+ * measurement; records built from it are tagged `zoneSource: 'estimated'`.
+ */
 export function estimateTimeInZones(avgHR: number, maxHR: number, movingTimeSec: number): number[] {
   const zones = getHRZones(maxHR);
   const timeInZones = [0, 0, 0, 0, 0];
@@ -156,6 +213,8 @@ export function buildHRDataFromActivity(
   movingTimeSec: number,
   avgCadence?: number,
   source: string = 'strava',
+  /** v1.0.7 (L-11): real zone times (s, zones 1-5) from an HR stream or the source, when available. */
+  measuredTimeInZones?: number[] | null,
 ): ActivityHRData | null {
   if (!averageHR || averageHR <= 0) return null;
 
@@ -171,7 +230,9 @@ export function buildHRDataFromActivity(
     setHRProfile({ ...profile, maxHR, source, updatedAt: new Date().toISOString() });
   }
 
-  const timeInZones = estimateTimeInZones(averageHR, profile.maxHR, movingTimeSec);
+  // L-11: prefer measured zone times; only synthesize (and say so) when there are none.
+  const measured = isZoneTimes(measuredTimeInZones) ? measuredTimeInZones.map((x) => Math.round(x)) : null;
+  const timeInZones = measured ?? estimateTimeInZones(averageHR, profile.maxHR, movingTimeSec);
 
   return {
     activityId,
@@ -182,7 +243,79 @@ export function buildHRDataFromActivity(
     source,
     movingTimeSec,
     avgCadence,
+    zoneSource: measured ? 'measured' : 'estimated',
   };
+}
+
+function readPendingMeasured(): Record<string, number[]> {
+  try {
+    const raw = persistence.getItem(HR_MEASURED_ZONES_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function savePendingMeasured(activityId: number, zones: number[]): void {
+  const map = readPendingMeasured();
+  delete map[String(activityId)];
+  map[String(activityId)] = zones;
+  const keys = Object.keys(map);
+  for (const k of keys.slice(0, Math.max(0, keys.length - MAX_PENDING_MEASURED))) delete map[k];
+  persistence.setItem(HR_MEASURED_ZONES_KEY, JSON.stringify(map));
+}
+
+/**
+ * v1.0.7 (L-11): measured zone times (s, zones 1-5) for an activity, from its HR
+ * record or from zones saved at import time, or null.
+ */
+export function getMeasuredTimeInZones(activityId: number): number[] | null {
+  const rec = getHRHistory().find((h) => h.activityId === activityId);
+  if (rec && rec.zoneSource === 'measured' && isZoneTimes(rec.timeInZones)) return rec.timeInZones.slice();
+  const pending = readPendingMeasured()[String(activityId)];
+  return isZoneTimes(pending) ? pending.slice() : null;
+}
+
+/**
+ * v1.0.7 (L-11): store measured time in zones from an activity's heart-rate
+ * stream (e.g. when its detail is fetched from intervals.icu). Updates the
+ * activity's HR record, or creates one from the stream when there is none.
+ * With `createRecord: false` (file imports, before the store has deduplicated
+ * the activity) zones for an activity without a record are kept aside and used
+ * when the sync's HR capture builds that record. Returns true when saved.
+ */
+export function recordMeasuredTimeInZones(
+  activityId: number,
+  date: string,
+  samples: ReadonlyArray<{ t: number; hr?: number }>,
+  opts: { movingTimeSec?: number; averageHR?: number; maxHR?: number; source?: string; createRecord?: boolean } = {},
+): boolean {
+  const profile = getHRProfile();
+  const zones = timeInZonesFromStream(samples, profile.maxHR);
+  if (!zones) return false;
+  const history = getHRHistory();
+  const existing = history.find((h) => h.activityId === activityId);
+  if (!existing && opts.createRecord === false) {
+    savePendingMeasured(activityId, zones);
+    return true;
+  }
+  const hrs = samples.map((s) => s.hr).filter((h): h is number => typeof h === 'number' && h > 0);
+  const streamAvg = hrs.length ? Math.round(hrs.reduce((a, b) => a + b, 0) / hrs.length) : 0;
+  const streamMax = hrs.length ? Math.max(...hrs) : 0;
+  upsertActivityHR({
+    ...(existing ?? {
+      activityId,
+      date,
+      averageHR: opts.averageHR && opts.averageHR > 0 ? opts.averageHR : streamAvg,
+      maxHR: opts.maxHR && opts.maxHR > 0 ? opts.maxHR : streamMax,
+      source: opts.source ?? 'intervals',
+      movingTimeSec: opts.movingTimeSec && opts.movingTimeSec > 0 ? opts.movingTimeSec : zones.reduce((a, b) => a + b, 0),
+    }),
+    timeInZones: zones,
+    zoneSource: 'measured',
+  });
+  return true;
 }
 
 /** @deprecated Use buildHRDataFromActivity (source-aware). Kept for backward compatibility. */
@@ -216,6 +349,10 @@ export function getAggregateZoneDistribution(days: number = 30): {
   totalTime: number[];
   totalTimeSec: number;
   percentages: number[];
+  /** v1.0.7 (L-11): true when any activity in the window has synthesized (not measured) zone times. */
+  estimated: boolean;
+  /** v1.0.7 (L-11): share (0-1) of the window's time whose zones were measured. */
+  measuredShare: number;
 } {
   const history = getHRHistory();
   const cutoff = new Date();
@@ -224,6 +361,8 @@ export function getAggregateZoneDistribution(days: number = 30): {
 
   const totalTime = [0, 0, 0, 0, 0];
   let totalTimeSec = 0;
+  let measuredSec = 0;
+  let estimated = false;
 
   for (const h of history) {
     if (h.date < cutoffStr) continue;
@@ -231,6 +370,9 @@ export function getAggregateZoneDistribution(days: number = 30): {
       totalTime[i] += h.timeInZones[i] || 0;
     }
     totalTimeSec += h.movingTimeSec;
+    // L-11: anything not explicitly measured (incl. pre-1.0.7 records) is an estimate.
+    if (h.zoneSource === 'measured') measuredSec += h.movingTimeSec;
+    else estimated = true;
   }
 
   const percentages = totalTime.map((t) => totalTimeSec > 0 ? Math.round((t / totalTimeSec) * 100) : 0);
@@ -240,6 +382,8 @@ export function getAggregateZoneDistribution(days: number = 30): {
     totalTime,
     totalTimeSec,
     percentages,
+    estimated,
+    measuredShare: totalTimeSec > 0 ? measuredSec / totalTimeSec : 0,
   };
 }
 

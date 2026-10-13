@@ -43,6 +43,11 @@ export interface DailyRecap {
   avgHR?: number;
   maxHR?: number;
   primaryZone?: string;
+  /**
+   * v1.0.7 (L-11): true when `primaryZone` comes from zone times estimated from
+   * average HR (no heart-rate stream), so it must be labelled as an estimate.
+   */
+  primaryZoneEstimated?: boolean;
   /** Weekly context */
   weekNumber: number;
   weeklyMileage: WeeklyMileage | null;
@@ -141,9 +146,12 @@ export function computeDailyRecap(dateStr?: string, today: string = todayKey()):
   const zones = getHRZones();
 
   let primaryZone: string | undefined;
+  let primaryZoneEstimated: boolean | undefined;
   if (todayHR && todayHR.timeInZones.length === 5) {
     const maxIdx = todayHR.timeInZones.indexOf(Math.max(...todayHR.timeInZones));
     primaryZone = zones[maxIdx]?.name;
+    // L-11: only stream-measured zone times are real; older records were all estimated.
+    primaryZoneEstimated = todayHR.zoneSource !== 'measured';
   }
 
   // Grade
@@ -187,7 +195,7 @@ export function computeDailyRecap(dateStr?: string, today: string = todayKey()):
   const coachMessage = buildCoachMessage(
     grade, plannedDay.type, plannedDay.note ?? '',
     actualDistanceMi, plannedDistanceMi, actualPaceMinPerMi,
-    weeklyMileage, primaryZone, journalMood, journalEnergy, sleepHours, metPlan
+    weeklyMileage, primaryZone, journalMood, journalEnergy, sleepHours, metPlan, primaryZoneEstimated
   );
 
   // Compliance data (from auto-sync compliance analysis)
@@ -219,6 +227,7 @@ export function computeDailyRecap(dateStr?: string, today: string = todayKey()):
     avgHR: todayHR?.averageHR,
     maxHR: todayHR?.maxHR,
     primaryZone,
+    primaryZoneEstimated,
     weekNumber: weekIndex + 1,
     weeklyMileage,
     coachMessage,
@@ -250,6 +259,7 @@ function buildCoachMessage(
   energy?: number,
   sleepHours?: number,
   metPlan?: boolean,
+  zoneEstimated?: boolean,
 ): string {
   const lines: string[] = [];
   const paceStr = formatPaceFromMinPerMi(pace);
@@ -288,9 +298,14 @@ function buildCoachMessage(
     }
 
     if (primaryZone) {
-      lines.push(`Primary heart rate zone: ${primaryZone}.`);
+      // L-11: say when the zone is an estimate from average HR, not measured time in zone.
+      lines.push(zoneEstimated
+        ? `Estimated heart rate zone (from your average HR): ${primaryZone}.`
+        : `Primary heart rate zone: ${primaryZone}.`);
       if (noteLC === 'easy' && (primaryZone === 'Threshold' || primaryZone === 'VO2 Max')) {
-        lines.push('⚠️ Your HR was high for an easy day — try slowing down to keep easy runs truly easy.');
+        lines.push(zoneEstimated
+          ? '⚠️ Your average HR was high for an easy day — try slowing down to keep easy runs truly easy.'
+          : '⚠️ Your HR was high for an easy day — try slowing down to keep easy runs truly easy.');
       }
     }
   }

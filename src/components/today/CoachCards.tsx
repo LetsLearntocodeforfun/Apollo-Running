@@ -48,7 +48,10 @@ export function DailyRecapCard({ recap, onDismiss }: DailyRecapCardProps) {
           <span className="today-result-main">{formatMiles(recap.actualDistanceMi)}</span>
           <span>{formatPaceFromMinPerMi(recap.actualPaceMinPerMi)} pace</span>
           {recap.avgHR ? <span>{recap.avgHR} bpm</span> : null}
-          {recap.primaryZone ? <span>Zone: {recap.primaryZone}</span> : null}
+          {recap.primaryZone ? (
+            // v1.0.7 (L-11): estimated zones are labelled as such.
+            <span>{recap.primaryZoneEstimated ? 'Est. zone' : 'Zone'}: {recap.primaryZone}</span>
+          ) : null}
         </p>
       )}
       <p className="today-result-feedback">{recap.coachMessage}</p>

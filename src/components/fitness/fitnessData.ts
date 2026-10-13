@@ -15,6 +15,7 @@ import {
   buildPMC,
   plannedDailyLoadsFromPlan,
   recentTssPerMile,
+  raceMorningTsb,
   type PMCResult,
   type PlannedDailyLoad,
 } from '../../services/pmcChart';
@@ -42,10 +43,18 @@ export interface FitnessFormData {
   today: string;
   raceDate: string | null;
   daysToRace: number | null;
-  /** Projected TSB on race day, when a projection reaches it. */
+  /**
+   * Race-morning form: projected TSB on race day *before* the race's own load
+   * (v1.0.7, L-2), when the series reaches it.
+   */
   raceDayTsb: number | null;
   /** True when there are fewer than 42 days of history (CTL still building). */
   warmingUp: boolean;
+  /**
+   * v1.0.7 (L-3): false until there are 28 days of history. Until then the form
+   * zone and readiness score are hidden (they'd read "Overreached" for every new user).
+   */
+  formReliable: boolean;
 }
 
 interface ActivePlanRef {
@@ -111,14 +120,16 @@ export function getFitnessForm(options: FitnessFormOptions = {}): FitnessFormDat
   }
 
   const pmc = buildPMC(activities, projectionDays, { today, includeCrossTraining, maxHR, plannedLoads });
-  const raceDay = raceDate ? pmc.projection.find((p) => p.date === raceDate) : undefined;
+  // L-2: race-morning form (before that day's load), not the post-race value.
+  const raceDayTsb = raceDate ? raceMorningTsb(pmc, raceDate) : null;
   const value: FitnessFormData = {
     pmc,
     today,
     raceDate: raceDate ?? null,
     daysToRace,
-    raceDayTsb: raceDay ? raceDay.tsb : null,
+    raceDayTsb,
     warmingUp: (pmc.historyDays ?? 0) < 42,
+    formReliable: pmc.formReliable ?? true,
   };
   memo = { key, plan: planRef?.plan ?? null, value };
   return value;

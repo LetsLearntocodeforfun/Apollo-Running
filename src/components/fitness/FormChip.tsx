@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { onActivitiesUpdated } from '../../services/activitySource';
-import { getZoneLabel, type TSBZone } from '../../services/pmcChart';
+import { FORM_SEED_DAYS, getZoneLabel, type TSBZone } from '../../services/pmcChart';
 import { formatTsb, getFitnessForm } from './fitnessData';
 import './FormChip.css';
 
@@ -16,7 +16,7 @@ const SHORT_ZONE: Record<TSBZone, string> = {
   fresh: 'Fresh',
   peak: 'Race-ready',
   transition: 'Transition',
-  detrained: 'Detrained',
+  very_fresh: 'Very fresh', // v1.0.7 (L-14): was "Detrained"
 };
 
 /**
@@ -34,6 +34,22 @@ export default function FormChip({ compact = false }: FormChipProps) {
     return getFitnessForm();
   }, [tick]);
   const current = data.pmc.current;
+
+  // v1.0.7 (L-3): no zone or readiness until there are 28 days of history:
+  // unseeded fitness/fatigue would read "Overreached" for every new user.
+  if (current && !data.formReliable) {
+    const days = Math.max(0, Math.min(FORM_SEED_DAYS, data.pmc.historyDays ?? 0));
+    return (
+      <div
+        className={`form-chip form-chip--empty${compact ? ' form-chip--compact' : ''}`}
+        role="group"
+        aria-label={`Form: building your baseline, ${days} of ${FORM_SEED_DAYS} days of history.`}
+      >
+        <span className="form-chip-label" aria-hidden="true">Form</span>
+        <span className="form-chip-note" aria-hidden="true">Building baseline · {days}/{FORM_SEED_DAYS} days</span>
+      </div>
+    );
+  }
 
   if (!current) {
     return (

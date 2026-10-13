@@ -10,7 +10,7 @@ import {
   getAdaptivePreferences,
   dismissRecommendation,
   applyRecommendation,
-  undoRecommendation,
+  undoRecommendationWithReason,
   getLastModification,
   expireStaleRecommendations,
   getRecommendationBadgeCount,
@@ -37,6 +37,8 @@ interface UseAdaptiveRecommendationsResult {
   accept: (id: string, optionKey: string) => PlanModification | null;
   /** Undo the last plan modification */
   undo: () => boolean;
+  /** v1.0.7 (T-2): why the last undo was refused (null after a successful undo or other action). */
+  undoError: string | null;
   /** Force re-analyze */
   refresh: () => void;
 }
@@ -50,6 +52,7 @@ export function useAdaptiveRecommendations(): UseAdaptiveRecommendationsResult {
   const [analyzing, setAnalyzing] = useState(false);
   const [badgeCount, setBadgeCount] = useState(0);
   const [lastModification, setLastModification] = useState<PlanModification | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
   const mountedRef = useRef(true);
 
   const prefs = getAdaptivePreferences();
@@ -98,6 +101,7 @@ export function useAdaptiveRecommendations(): UseAdaptiveRecommendationsResult {
   }, [loadState]);
 
   const accept = useCallback((id: string, optionKey: string): PlanModification | null => {
+    setUndoError(null);
     const mod = applyRecommendation(id, optionKey);
     loadState();
     return mod;
@@ -106,9 +110,10 @@ export function useAdaptiveRecommendations(): UseAdaptiveRecommendationsResult {
   const undo = useCallback((): boolean => {
     const mod = getLastModification();
     if (!mod) return false;
-    const success = undoRecommendation(mod.id);
+    const result = undoRecommendationWithReason(mod.id);
+    setUndoError(result.ok ? null : result.error ?? null);
     loadState();
-    return success;
+    return result.ok;
   }, [loadState]);
 
   const refresh = useCallback(() => {
@@ -124,6 +129,7 @@ export function useAdaptiveRecommendations(): UseAdaptiveRecommendationsResult {
     dismiss,
     accept,
     undo,
+    undoError,
     refresh,
   };
 }

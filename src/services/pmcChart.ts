@@ -45,7 +45,9 @@ import { formatMiles } from './unitPreferences';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-export type TSBZone = 'overreaching' | 'productive' | 'fresh' | 'peak' | 'transition' | 'detrained';
+// v1.0.7 (L-14): form above +30 is 'very_fresh' (was 'detrained'): a high TSB
+// only says fatigue is low, not that fitness has been lost.
+export type TSBZone = 'overreaching' | 'productive' | 'fresh' | 'peak' | 'transition' | 'very_fresh';
 
 export interface PMCDataPoint {
   date: string;
@@ -71,6 +73,8 @@ export interface PMCProjection {
   zone: TSBZone;
   /** Daily TSS assumed for this projected day. */
   dailyTSS?: number;
+  /** v1.0.7 (L-2): form on the morning of this day, before its load (= the previous day's TSB). */
+  morningTsb?: number;
 }
 
 export interface PMCResult {
@@ -95,6 +99,12 @@ export interface PMCResult {
   historyDays?: number;
   /** What drove the projection: the plan, the recent average, or nothing. */
   projectionSource?: 'plan' | 'recent-average' | 'none';
+  /**
+   * v1.0.7 (L-3): true once there are at least {@link FORM_SEED_DAYS} days of
+   * history, so fitness and fatigue could be seeded from real load. Until then
+   * the form zone and readiness score are not meaningful and should be hidden.
+   */
+  formReliable?: boolean;
 }
 
 /** Planned (or assumed) training stress for one future day. */
@@ -124,7 +134,13 @@ const TSB_OVERREACHING = -20;
 const TSB_PRODUCTIVE_MAX = 0;
 const TSB_FRESH_MAX = 15;
 const TSB_PEAK_MAX = 25;
-const TSB_DETRAINED = 30;
+const TSB_VERY_FRESH = 30;
+
+/**
+ * v1.0.7 (L-3): days of history used to seed CTL/ATL (their average daily load),
+ * and the minimum history before the form zone / readiness are shown.
+ */
+export const FORM_SEED_DAYS = 28;
 
 /** Race-day TSB window (+15…+25). */
 export const RACE_WINDOW_TSB: readonly [number, number] = [TSB_FRESH_MAX, TSB_PEAK_MAX];
@@ -143,8 +159,8 @@ export function classifyTSBZone(tsb: number): TSBZone {
   if (tsb < TSB_PRODUCTIVE_MAX) return 'productive';
   if (tsb < TSB_FRESH_MAX) return 'fresh';
   if (tsb <= TSB_PEAK_MAX) return 'peak';
-  if (tsb <= TSB_DETRAINED) return 'transition';
-  return 'detrained';
+  if (tsb <= TSB_VERY_FRESH) return 'transition';
+  return 'very_fresh';
 }
 
 /**
@@ -157,9 +173,9 @@ export function getZoneColor(zone: TSBZone): string {
     fresh: '#4FC3F7',          // light blue
     peak: '#FFD700',           // gold
     transition: '#FFA726',     // orange
-    detrained: '#78909C',      // grey
+    very_fresh: '#78909C',     // grey
   };
-  return colors[zone];
+  return colors[zone] ?? colors.very_fresh;
 }
 
 /**
@@ -172,9 +188,10 @@ export function getZoneLabel(zone: TSBZone): string {
     fresh: 'Fresh',
     peak: 'Peak Race Readiness',
     transition: 'Transition',
-    detrained: 'Detrained',
+    very_fresh: 'Very fresh',
   };
-  return labels[zone];
+  // Older cached results may still carry the pre-1.0.7 'detrained' key (L-14).
+  return labels[zone] ?? labels.very_fresh;
 }
 
 // ── Activity to TSS Conversion ───────────────────────────────────────────────
@@ -408,6 +425,8 @@ export function projectForward(
   for (let d = 1; d <= days; d++) {
     const dateStr = addDays(current.date, d);
     const tssToday = planned?.get(dateStr) ?? avgDailyTSS;
+    // L-2: form before this day's load.
+    const morningTsb = Math.round((ctl - atl) * 10) / 10;
 
     ctl = ctl + CTL_DECAY * (tssToday - ctl);
     atl = atl + ATL_DECAY * (tssToday - atl);
@@ -420,6 +439,7 @@ export function projectForward(
       tsb: Math.round(tsb * 10) / 10,
       zone: classifyTSBZone(tsb),
       dailyTSS: Math.round(tssToday),
+      morningTsb,
     });
   }
 
@@ -449,7 +469,7 @@ export function tsbToReadinessScore(tsb: number, ctl: number): number {
     // Overreaching: 0-30
     score = Math.max(0, 30 + (tsb + 20) * 1.5);
   } else {
-    // Detrained (TSB > 25): decreasing score
+    // Beyond the race window (TSB > 25): very fresh, decreasing score
     score = Math.max(40, 100 - (tsb - 25) * 3);
   }
 
@@ -458,6 +478,22 @@ export function tsbToReadinessScore(tsb: number, ctl: number): number {
   score = Math.min(100, score + ctlBonus);
 
   return Math.round(Math.max(0, Math.min(100, score)));
+}
+
+/**
+ * v1.0.7 (L-2): race-morning form, i.e. TSB on the morning of `date` before that
+ * day's load (the previous day's TSB in the history + projection series).
+ * Reading TSB *after* the race day's load makes a well-tapered athlete look
+ * barely fresh (+1 instead of +25) and nudges them to over-taper.
+ * Null when `date` (or the day before it) isn't in the series.
+ */
+export function raceMorningTsb(pmc: Pick<PMCResult, 'dataPoints' | 'projection'>, date: string): number | null {
+  const proj = pmc.projection.find((p) => p.date === date);
+  if (proj && typeof proj.morningTsb === 'number') return proj.morningTsb;
+  const series: { date: string; tsb: number }[] = [...pmc.dataPoints, ...pmc.projection];
+  const idx = series.findIndex((p) => p.date === date);
+  if (idx <= 0) return null;
+  return series[idx - 1].tsb;
 }
 
 /** Text label for a readiness score. */
@@ -535,9 +571,12 @@ export function recentTssPerMile(loads: DailyTrainingLoad[], today: string = tod
 function generateInsights(
   dataPoints: PMCDataPoint[],
   current: PMCResult['current'],
+  formReliable = true,
 ): string[] {
   const insights: string[] = [];
   if (!current || dataPoints.length < 14) return insights;
+  // L-3: no zone advice (e.g. "overreaching") until the model has enough history.
+  if (!formReliable) return insights;
 
   // Fitness trend (last 14 days)
   const recent = dataPoints.slice(-14);
@@ -562,8 +601,8 @@ function generateInsights(
     case 'peak':
       insights.push('You\'re in the peak readiness zone (TSB +15 to +25). This is the ideal window for racing.');
       break;
-    case 'detrained':
-      insights.push('Extended rest has moved you into the detrained zone. Gradually rebuild volume.');
+    case 'very_fresh':
+      insights.push('You\'re very fresh (form above +30). Ideal for a race; outside a taper it means your training load has dropped, so rebuild gradually.');
       break;
   }
 
@@ -605,7 +644,9 @@ export function buildPMC(
   const padded = dailyLoads.length > 0 && dailyLoads[dailyLoads.length - 1].date < today
     ? [...dailyLoads, { date: today, tss: 0, distanceMi: 0, type: 'rest' as const }]
     : dailyLoads;
-  const snapshots = calculateFitnessFatigue(padded);
+  // L-3: seed fitness/fatigue from the first 28 days so new users don't start at
+  // zero (which reads as "Overreached" for weeks).
+  const snapshots = calculateFitnessFatigue(padded, { seedDays: FORM_SEED_DAYS });
 
   // Build daily TSS lookup for data points
   const tssMap = new Map<string, number>();
@@ -659,10 +700,11 @@ export function buildPMC(
   }
 
   // Insights
-  const insights = generateInsights(dataPoints, current);
   const historyDays = dailyLoads.length > 0 ? daysBetween(dailyLoads[0].date, today) + 1 : 0;
+  const formReliable = historyDays >= FORM_SEED_DAYS;
+  const insights = generateInsights(dataPoints, current, formReliable);
 
-  return { dataPoints, annotations, projection, current, insights, historyDays, projectionSource };
+  return { dataPoints, annotations, projection, current, insights, historyDays, projectionSource, formReliable };
 }
 
 // ── Persistence ───────────────────────────────────────────────────────────────

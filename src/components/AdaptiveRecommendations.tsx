@@ -220,6 +220,7 @@ export default function AdaptiveRecommendations() {
     dismiss,
     accept,
     undo,
+    undoError,
     refresh,
   } = useAdaptiveRecommendations();
 
@@ -329,6 +330,13 @@ export default function AdaptiveRecommendations() {
             Undo
           </button>
         </div>
+      )}
+
+      {/* v1.0.7 (T-2): say why an undo was refused instead of failing silently. */}
+      {undoError && lastModification && !lastModification.undone && (
+        <p role="alert" style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', margin: '-0.4rem 0 0.75rem' }}>
+          {undoError}
+        </p>
       )}
 
       {undoSuccess && (
