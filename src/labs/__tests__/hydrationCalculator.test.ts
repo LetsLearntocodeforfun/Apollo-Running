@@ -3,10 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  calculateSweatRate,
-  assessDehydrationRisk,
-} from '@/labs/hydrationCalculator';
+import { calculateSweatRate, assessDehydrationRisk } from '@/labs/hydrationCalculator';
 
 const baseAthlete = { weightKg: 70, vo2max: 50, sex: 'male' as const };
 const coolConditions = { tempF: 55, humidityPct: 40, altitudeFt: 0 };
@@ -29,10 +26,7 @@ describe('calculateSweatRate', () => {
 
   it('should estimate lower sweat rate for female athletes', () => {
     const male = calculateSweatRate(baseAthlete, coolConditions, 480, 240);
-    const female = calculateSweatRate(
-      { ...baseAthlete, sex: 'female' as const },
-      coolConditions, 480, 240,
-    );
+    const female = calculateSweatRate({ ...baseAthlete, sex: 'female' as const }, coolConditions, 480, 240);
     expect(female.adjustedSweatRateMlHr).toBeLessThan(male.adjustedSweatRateMlHr);
   });
 

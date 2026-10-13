@@ -97,7 +97,9 @@ function normalizedFilePath(u: URL, caseInsensitive: boolean): string {
   let p = u.pathname;
   try {
     p = decodeURIComponent(p);
-  } catch { /* keep encoded form */ }
+  } catch {
+    /* keep encoded form */
+  }
   return caseInsensitive ? p.toLowerCase() : p;
 }
 
@@ -116,15 +118,19 @@ export function isTrustedAppUrl(raw: unknown, trusted: TrustedAppLocation): bool
   if (trusted.devServerOrigin && (parsed.protocol === 'http:' || parsed.protocol === 'https:')) {
     try {
       if (parsed.origin === new URL(trusted.devServerOrigin).origin) return true;
-    } catch { /* malformed dev origin — fall through */ }
+    } catch {
+      /* malformed dev origin — fall through */
+    }
   }
   if (trusted.indexUrl && parsed.protocol === 'file:') {
     try {
       const index = new URL(trusted.indexUrl);
       const ci = !!trusted.caseInsensitivePaths;
-      return index.protocol === 'file:'
-        && parsed.host.toLowerCase() === index.host.toLowerCase()
-        && normalizedFilePath(parsed, ci) === normalizedFilePath(index, ci);
+      return (
+        index.protocol === 'file:' &&
+        parsed.host.toLowerCase() === index.host.toLowerCase() &&
+        normalizedFilePath(parsed, ci) === normalizedFilePath(index, ci)
+      );
     } catch {
       return false;
     }
@@ -136,7 +142,11 @@ export function isTrustedAppUrl(raw: unknown, trusted: TrustedAppLocation): bool
  * Top-level navigation policy (`will-navigate`, `will-redirect`, main-frame
  * `will-frame-navigate`): same-document navigations and the app itself only.
  */
-export function isAllowedTopLevelNavigation(raw: unknown, isSameDocument: boolean, trusted: TrustedAppLocation): boolean {
+export function isAllowedTopLevelNavigation(
+  raw: unknown,
+  isSameDocument: boolean,
+  trusted: TrustedAppLocation,
+): boolean {
   if (isSameDocument) return true;
   return isTrustedAppUrl(raw, trusted);
 }
@@ -146,7 +156,11 @@ export function isAllowedTopLevelNavigation(raw: unknown, isSameDocument: boolea
  * about:srcdoc), same-document navigations, or the app itself. Remote pages
  * are never framed.
  */
-export function isAllowedSubframeNavigation(raw: unknown, isSameDocument: boolean, trusted: TrustedAppLocation): boolean {
+export function isAllowedSubframeNavigation(
+  raw: unknown,
+  isSameDocument: boolean,
+  trusted: TrustedAppLocation,
+): boolean {
   if (isSameDocument) return true;
   if (typeof raw !== 'string') return false;
   if (raw === 'about:blank' || raw === 'about:srcdoc') return true;
@@ -184,16 +198,13 @@ export interface UpdaterPrefs {
 
 /** Coerce untrusted `updater:configure` input; only literal `true` enables an option. */
 export function parseUpdaterPrefs(input: unknown): UpdaterPrefs {
-  const rec = input && typeof input === 'object' ? input as Record<string, unknown> : {};
+  const rec = input && typeof input === 'object' ? (input as Record<string, unknown>) : {};
   return { autoCheck: rec.autoCheck === true, autoDownload: rec.autoDownload === true };
 }
 
 /** Result of checking a Strava OAuth loopback callback. */
 export type OAuthCallbackCheck =
-  | { kind: 'not-found' }
-  | { kind: 'bad-state' }
-  | { kind: 'denied' }
-  | { kind: 'code'; code: string; scope?: string };
+  { kind: 'not-found' } | { kind: 'bad-state' } | { kind: 'denied' } | { kind: 'code'; code: string; scope?: string };
 
 /**
  * Classify a request to the OAuth loopback server. The CSRF `state` is

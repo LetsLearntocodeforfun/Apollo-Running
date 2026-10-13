@@ -134,7 +134,9 @@ function ReconnectBanner({ source, state, busy, onRetry, children }: ReconnectBa
           : 'Connect Strava again to renew access, or retry if the problem was temporary.'}
       </p>
       <div className="settings-actions">
-        <button type="button" className="btn btn-secondary" disabled={busy} onClick={onRetry}>Retry</button>
+        <button type="button" className="btn btn-secondary" disabled={busy} onClick={onRetry}>
+          Retry
+        </button>
         {children}
       </div>
     </div>
@@ -201,9 +203,13 @@ export default function ConnectionsTab() {
   }, [refreshSourceState]);
 
   // File imports store activities without a sync status event: keep "On this device" current.
-  useEffect(() => onActivitiesUpdated(() => {
-    setActivityCount(getStoredActivities().length);
-  }), []);
+  useEffect(
+    () =>
+      onActivitiesUpdated(() => {
+        setActivityCount(getStoredActivities().length);
+      }),
+    [],
+  );
 
   useEffect(() => {
     if (replacingSecret) secretInputRef.current?.focus();
@@ -225,17 +231,19 @@ export default function ConnectionsTab() {
       setSyncProgressText('Importing your activity history…');
       const report = await runSync(intervalsImportOptions((p) => setSyncProgressText(formatSyncProgress(p))));
       refreshSourceState();
-      const name = (athlete.firstname || '').trim()
-        || `${athlete.firstname || ''} ${athlete.lastname || ''}`.trim()
-        || 'your intervals.icu athlete';
+      const name =
+        (athlete.firstname || '').trim() ||
+        `${athlete.firstname || ''} ${athlete.lastname || ''}`.trim() ||
+        'your intervals.icu athlete';
       const imported = report.summary?.fetched ?? 0;
       const matched = report.results.length;
       const planNote = matched > 0 ? ` (${formatCount(matched, 'plan day', 'plan days')} matched)` : '';
       const errorText = describeSyncErrors(report);
       // Usually means the account only has activities intervals.icu imported from Strava, which its API doesn't share.
-      const emptyNote = imported === 0 && !errorText
-        ? ' No activities found — in intervals.icu › Settings, connect Garmin, COROS or your other device platform directly (activities it imports from Strava aren\u2019t available to other apps).'
-        : '';
+      const emptyNote =
+        imported === 0 && !errorText
+          ? ' No activities found — in intervals.icu › Settings, connect Garmin, COROS or your other device platform directly (activities it imports from Strava aren\u2019t available to other apps).'
+          : '';
       const summary = `Connected as ${name} — imported ${formatCount(imported, 'activity', 'activities')}${planNote}.${emptyNote}`;
       if (errorText) intervalsStatus.error(`${summary} Some data could not be synced: ${errorText}`);
       else intervalsStatus.success(summary);
@@ -362,7 +370,9 @@ export default function ConnectionsTab() {
       // can't slip in between.
       const authUrl = await api.strava.getAuthUrl(creds.clientId);
       const callback = api.oauth.startServer();
-      callback.catch(() => { /* awaited below */ });
+      callback.catch(() => {
+        /* awaited below */
+      });
       await api.openExternal(authUrl);
       const server = await callback;
       const tokens = await api.strava.exchangeCode({
@@ -377,9 +387,13 @@ export default function ConnectionsTab() {
         athlete: tokens.athlete,
       });
       setStravaConnected(true);
-      stravaStatus.success(`Connected as ${tokens.athlete?.firstname ?? 'Strava'} — importing your Strava activities in the background…`);
+      stravaStatus.success(
+        `Connected as ${tokens.athlete?.firstname ?? 'Strava'} — importing your Strava activities in the background…`,
+      );
       // Fire-and-forget: progress shows via onSyncStatus; failures land in the source's sync state.
-      runSync().catch(() => { /* reported via sync state */ });
+      runSync().catch(() => {
+        /* reported via sync state */
+      });
     } catch (e) {
       stravaStatus.error(e instanceof Error ? e.message : 'Strava connection failed.');
     } finally {
@@ -399,8 +413,9 @@ export default function ConnectionsTab() {
           {intervalsInfo && <span className="settings-badge settings-badge--teal">Connected</span>}
         </h2>
         <p className="settings-lead">
-          intervals.icu is a free training platform that collects your workouts from Garmin Connect, Zwift, Wahoo, COROS, Suunto, Polar and more — runs, rides and cross-training.
-          Connect it once and Apollo can sync every activity.
+          intervals.icu is a free training platform that collects your workouts from Garmin Connect, Zwift, Wahoo,
+          COROS, Suunto, Polar and more — runs, rides and cross-training. Connect it once and Apollo can sync every
+          activity.
         </p>
         {intervalsInfo ? (
           <>
@@ -410,7 +425,9 @@ export default function ConnectionsTab() {
               <dt>API key</dt>
               <dd>
                 {window.electronAPI
-                  ? (keychainError ? 'For this session only (system keychain unavailable)' : 'Saved (encrypted on this device)')
+                  ? keychainError
+                    ? 'For this session only (system keychain unavailable)'
+                    : 'Saved (encrypted on this device)'
                   : 'Saved in this browser'}
               </dd>
               <dt>Last sync</dt>
@@ -423,26 +440,48 @@ export default function ConnectionsTab() {
                 source="intervals"
                 state={intervalsReconnect}
                 busy={syncBusy}
-                onRetry={() => { void handleRetry('intervals'); }}
+                onRetry={() => {
+                  void handleRetry('intervals');
+                }}
               />
             )}
             {intervalsSync.lastError && !intervalsReconnect && (
               <p className="settings-error-text">
-                Last sync failed{intervalsSync.lastErrorAt ? ` (${formatSyncTime(intervalsSync.lastErrorAt)})` : ''}: {intervalsSync.lastError}
+                Last sync failed{intervalsSync.lastErrorAt ? ` (${formatSyncTime(intervalsSync.lastErrorAt)})` : ''}:{' '}
+                {intervalsSync.lastError}
               </p>
             )}
             <p className="settings-hint">
-              Automatic sync: {appPrefs.autoSyncOnLaunch ? 'On' : 'Off'} · Wellness: {appPrefs.syncWellness ? 'On' : 'Off'} —{' '}
-              <Link to={settingsTabPath('sync')}>change in Sync</Link>
+              Automatic sync: {appPrefs.autoSyncOnLaunch ? 'On' : 'Off'} · Wellness:{' '}
+              {appPrefs.syncWellness ? 'On' : 'Off'} — <Link to={settingsTabPath('sync')}>change in Sync</Link>
             </p>
             <div className="settings-actions">
-              <button type="button" className="btn btn-primary" disabled={syncBusy} onClick={() => { void handleIntervalsSync(false); }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={syncBusy}
+                onClick={() => {
+                  void handleIntervalsSync(false);
+                }}
+              >
                 {intervalsAction === 'sync' ? 'Syncing…' : 'Sync now'}
               </button>
-              <button type="button" className="btn btn-secondary" disabled={syncBusy} onClick={() => { void handleIntervalsSync(true); }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={syncBusy}
+                onClick={() => {
+                  void handleIntervalsSync(true);
+                }}
+              >
                 {intervalsAction === 'full' ? 'Importing…' : 'Re-import full history'}
               </button>
-              <button type="button" className="btn btn-secondary" disabled={syncBusy} onClick={() => setConfirmDisconnect('intervals')}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={syncBusy}
+                onClick={() => setConfirmDisconnect('intervals')}
+              >
                 Disconnect
               </button>
             </div>
@@ -452,17 +491,23 @@ export default function ConnectionsTab() {
             <ol className="settings-steps">
               <li>
                 Create a free account at{' '}
-                <a href="https://intervals.icu" target="_blank" rel="noopener noreferrer">intervals.icu</a>.
+                <a href="https://intervals.icu" target="_blank" rel="noopener noreferrer">
+                  intervals.icu
+                </a>
+                .
               </li>
               <li>
-                In intervals.icu › <strong>Settings</strong>, connect Garmin Connect, Zwift, Wahoo, COROS, Suunto or Polar.
+                In intervals.icu › <strong>Settings</strong>, connect Garmin Connect, Zwift, Wahoo, COROS, Suunto or
+                Polar.
                 <span className="settings-hint settings-hint--block">
                   For Garmin, allow <strong>Download activities</strong> and <strong>Download wellness data</strong>.
-                  Connect your device platform directly — activities intervals.icu imports from Strava aren&apos;t available to other apps.
+                  Connect your device platform directly — activities intervals.icu imports from Strava aren&apos;t
+                  available to other apps.
                 </span>
               </li>
               <li>
-                In intervals.icu › <strong>Settings › Developer Settings</strong>, copy your <strong>API key</strong> (and Athlete ID) and paste them below.
+                In intervals.icu › <strong>Settings › Developer Settings</strong>, copy your <strong>API key</strong>{' '}
+                (and Athlete ID) and paste them below.
               </li>
             </ol>
             <form
@@ -473,7 +518,9 @@ export default function ConnectionsTab() {
               }}
             >
               <div className="settings-field">
-                <label htmlFor="settings-intervals-key" className="settings-label">API key</label>
+                <label htmlFor="settings-intervals-key" className="settings-label">
+                  API key
+                </label>
                 <input
                   id="settings-intervals-key"
                   type="password"
@@ -486,7 +533,9 @@ export default function ConnectionsTab() {
                 />
               </div>
               <div className="settings-field">
-                <label htmlFor="settings-intervals-athlete" className="settings-label">Athlete ID</label>
+                <label htmlFor="settings-intervals-athlete" className="settings-label">
+                  Athlete ID
+                </label>
                 <input
                   id="settings-intervals-athlete"
                   type="text"
@@ -499,12 +548,15 @@ export default function ConnectionsTab() {
                   className="settings-input"
                 />
                 <p id="settings-intervals-athlete-hint" className="settings-hint">
-                  Shown next to your API key, e.g. i12345. Leave blank (or enter 0) to use the account that owns the key.
+                  Shown next to your API key, e.g. i12345. Leave blank (or enter 0) to use the account that owns the
+                  key.
                 </p>
               </div>
               <fieldset className="settings-fieldset">
                 <legend className="settings-label">After connecting</legend>
-                <p className="settings-hint">Choose what Apollo does after connecting. You can change both any time in Settings › Sync.</p>
+                <p className="settings-hint">
+                  Choose what Apollo does after connecting. You can change both any time in Settings › Sync.
+                </p>
                 <label className="settings-check">
                   <input
                     type="checkbox"
@@ -553,16 +605,26 @@ export default function ConnectionsTab() {
           {stravaConnected && <span className="settings-badge settings-badge--strava">Connected</span>}
         </h2>
         <p className="settings-lead">
-          Strava API access may require a paid plan. If you have access, connect it here — otherwise use intervals.icu above, it&apos;s free.
+          Strava API access may require a paid plan. If you have access, connect it here — otherwise use intervals.icu
+          above, it&apos;s free.
         </p>
         {stravaConnected && stravaReconnect && isStravaAvailable() && (
           <ReconnectBanner
             source="strava"
             state={stravaReconnect}
             busy={syncBusy || stravaBusy}
-            onRetry={() => { void handleRetry('strava'); }}
+            onRetry={() => {
+              void handleRetry('strava');
+            }}
           >
-            <button type="button" className="btn btn-primary" disabled={stravaBusy} onClick={() => { void connectStrava(); }}>
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={stravaBusy}
+              onClick={() => {
+                void connectStrava();
+              }}
+            >
               Connect Strava again
             </button>
           </ReconnectBanner>
@@ -571,10 +633,19 @@ export default function ConnectionsTab() {
           // v1.0.7: the free web version has no backend for Strava's token exchange.
           // Tokens saved earlier (e.g. by a self-hosted web build) can still be cleared.
           <>
-            <p className="settings-hint" data-testid="strava-desktop-only">{STRAVA_DESKTOP_ONLY_NOTE}</p>
+            <p className="settings-hint" data-testid="strava-desktop-only">
+              {STRAVA_DESKTOP_ONLY_NOTE}
+            </p>
             {stravaConnected && (
               <div className="settings-actions">
-                <button type="button" onClick={() => setConfirmDisconnect('strava')} disabled={syncBusy} className="btn btn-secondary">Disconnect</button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDisconnect('strava')}
+                  disabled={syncBusy}
+                  className="btn btn-secondary"
+                >
+                  Disconnect
+                </button>
               </div>
             )}
           </>
@@ -585,9 +656,23 @@ export default function ConnectionsTab() {
             </p>
             <div className="settings-actions">
               {stravaConnected ? (
-                <button type="button" onClick={() => setConfirmDisconnect('strava')} disabled={syncBusy} className="btn btn-secondary">Disconnect</button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDisconnect('strava')}
+                  disabled={syncBusy}
+                  className="btn btn-secondary"
+                >
+                  Disconnect
+                </button>
               ) : (
-                <button type="button" onClick={() => { void connectStrava(); }} disabled={stravaBusy} className="btn btn-primary">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void connectStrava();
+                  }}
+                  disabled={stravaBusy}
+                  className="btn btn-primary"
+                >
                   {stravaBusy ? 'Redirecting…' : 'Connect Strava'}
                 </button>
               )}
@@ -596,12 +681,18 @@ export default function ConnectionsTab() {
         ) : (
           <>
             <p className="settings-lead">
-              Create an app at <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer">strava.com/settings/api</a> to get a Client ID and Client Secret.
-              Use Authorization Callback Domain: <code className="settings-code">127.0.0.1</code> (or leave default).
+              Create an app at{' '}
+              <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener noreferrer">
+                strava.com/settings/api
+              </a>{' '}
+              to get a Client ID and Client Secret. Use Authorization Callback Domain:{' '}
+              <code className="settings-code">127.0.0.1</code> (or leave default).
             </p>
             <div className="settings-form">
               <div className="settings-field">
-                <label htmlFor="settings-strava-client-id" className="settings-label">Client ID</label>
+                <label htmlFor="settings-strava-client-id" className="settings-label">
+                  Client ID
+                </label>
                 <input
                   id="settings-strava-client-id"
                   type="text"
@@ -630,11 +721,16 @@ export default function ConnectionsTab() {
                   />
                   {stravaSecretSaved && (
                     <div className="settings-row">
-                      <p id="settings-strava-secret-hint" className="settings-hint">Leave empty to keep the saved secret.</p>
+                      <p id="settings-strava-secret-hint" className="settings-hint">
+                        Leave empty to keep the saved secret.
+                      </p>
                       <button
                         type="button"
                         className="btn btn-ghost"
-                        onClick={() => { setReplacingSecret(false); setStravaSecretInput(''); }}
+                        onClick={() => {
+                          setReplacingSecret(false);
+                          setStravaSecretInput('');
+                        }}
                       >
                         Keep saved secret
                       </button>
@@ -643,9 +739,13 @@ export default function ConnectionsTab() {
                 </div>
               ) : (
                 <div className="settings-field">
-                  <span id="settings-strava-secret-label" className="settings-label">Client secret</span>
+                  <span id="settings-strava-secret-label" className="settings-label">
+                    Client secret
+                  </span>
                   <div className="settings-row">
-                    <span className="settings-secret-saved"><span aria-hidden="true">••••</span> saved</span>
+                    <span className="settings-secret-saved">
+                      <span aria-hidden="true">••••</span> saved
+                    </span>
                     <button
                       type="button"
                       className="btn btn-secondary"
@@ -658,11 +758,27 @@ export default function ConnectionsTab() {
                 </div>
               )}
               <div className="settings-actions">
-                <button type="button" onClick={handleSaveStrava} className="btn btn-secondary">Save credentials</button>
+                <button type="button" onClick={handleSaveStrava} className="btn btn-secondary">
+                  Save credentials
+                </button>
                 {stravaConnected ? (
-                  <button type="button" onClick={() => setConfirmDisconnect('strava')} disabled={syncBusy} className="btn btn-secondary">Disconnect</button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDisconnect('strava')}
+                    disabled={syncBusy}
+                    className="btn btn-secondary"
+                  >
+                    Disconnect
+                  </button>
                 ) : (
-                  <button type="button" onClick={() => { void connectStrava(); }} disabled={stravaBusy} className="btn btn-primary">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void connectStrava();
+                    }}
+                    disabled={stravaBusy}
+                    className="btn btn-primary"
+                  >
                     {stravaBusy ? 'Connecting…' : 'Connect Strava'}
                   </button>
                 )}
@@ -680,7 +796,8 @@ export default function ConnectionsTab() {
           {intervalsInfo && <span className="settings-badge settings-badge--teal">Via intervals.icu</span>}
         </h2>
         <p className="settings-lead">
-          Garmin watches sync to Apollo through <strong>intervals.icu</strong> — free, and no Garmin developer approval needed.
+          Garmin watches sync to Apollo through <strong>intervals.icu</strong> — free, and no Garmin developer approval
+          needed.
         </p>
         <ol className="settings-steps">
           <li>
@@ -689,13 +806,15 @@ export default function ConnectionsTab() {
           </li>
           <li>
             To send your Apollo training plan to the watch, Garmin needs a second, separate approval:{' '}
-            <strong>Upload planned workouts</strong>. The download approvals don&apos;t cover it, and it&apos;s only needed for that.
+            <strong>Upload planned workouts</strong>. The download approvals don&apos;t cover it, and it&apos;s only
+            needed for that.
           </li>
           <li>Connect intervals.icu above. New activities then flow Garmin › intervals.icu › Apollo.</li>
         </ol>
         <p className="settings-hint">
-          Zwift works the same way: connect it in intervals.icu. intervals.icu can also send your run workouts to Zwift — set your
-          Zwift profile 5K time so the paces fit. Wahoo, COROS, Suunto and Polar connect through intervals.icu too.
+          Zwift works the same way: connect it in intervals.icu. intervals.icu can also send your run workouts to Zwift
+          — set your Zwift profile 5K time so the paces fit. Wahoo, COROS, Suunto and Polar connect through
+          intervals.icu too.
         </p>
       </div>
 

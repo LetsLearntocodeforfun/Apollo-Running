@@ -72,7 +72,7 @@ describe('haversineDistance', () => {
   });
 
   it('calculates known distance between NYC and LA (~3940 km)', () => {
-    const nyc = { lat: 40.7128, lng: -74.0060 };
+    const nyc = { lat: 40.7128, lng: -74.006 };
     const la = { lat: 34.0522, lng: -118.2437 };
     const dist = haversineDistance(nyc, la);
     expect(dist / 1000).toBeCloseTo(3940, -2); // within 100 km
@@ -191,7 +191,10 @@ describe('simplifyRoute', () => {
   });
 
   it('returns input for 2 or fewer points', () => {
-    const coords = [{ lat: 0, lng: 0 }, { lat: 1, lng: 1 }];
+    const coords = [
+      { lat: 0, lng: 0 },
+      { lat: 1, lng: 1 },
+    ];
     expect(simplifyRoute(coords)).toEqual(coords);
   });
 });

@@ -62,17 +62,23 @@ export default function RaceDay() {
   const tabParam = searchParams.get('tab');
   const tab: RaceDayTab = isRaceDayTab(tabParam) ? tabParam : defaultTabForDays(ctx.daysToRace);
 
-  const goToTab = useCallback((next: string) => {
-    if (!isRaceDayTab(next)) return;
-    const params = new URLSearchParams(searchParams);
-    params.set('tab', next);
-    setSearchParams(params, { replace: true });
-  }, [searchParams, setSearchParams]);
+  const goToTab = useCallback(
+    (next: string) => {
+      if (!isRaceDayTab(next)) return;
+      const params = new URLSearchParams(searchParams);
+      params.set('tab', next);
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
-  const handleChooseRace = useCallback((race: MarathonRace) => {
-    chooseMyRace(race);
-    refresh();
-  }, [refresh]);
+  const handleChooseRace = useCallback(
+    (race: MarathonRace) => {
+      chooseMyRace(race);
+      refresh();
+    },
+    [refresh],
+  );
 
   return (
     <div className="race-day">

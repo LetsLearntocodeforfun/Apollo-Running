@@ -42,7 +42,9 @@ beforeEach(() => {
     return 'blob:test';
   };
   (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {};
-  HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) { downloadName = this.download; };
+  HTMLAnchorElement.prototype.click = function click(this: HTMLAnchorElement) {
+    downloadName = this.download;
+  };
 });
 
 afterEach(() => {
@@ -54,7 +56,10 @@ afterEach(() => {
 describe('orphaned backup payloads are relisted', () => {
   it('reconcileBackupRegistry lists unlisted payloads (restorable) and deletes unreadable ones', async () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {});
-    await putBackupPayload('backup_1791800000000_aaaa', payload('2026-10-12T00:00:00.000Z', { apollo_plan: '{"id":"half"}' }));
+    await putBackupPayload(
+      'backup_1791800000000_aaaa',
+      payload('2026-10-12T00:00:00.000Z', { apollo_plan: '{"id":"half"}' }),
+    );
     await putBackupPayload('backup_1791800000001_bad', '{"metadata": {"trunc');
 
     expect(await reconcileBackupRegistry()).toBe(1);
@@ -123,7 +128,9 @@ describe('Settings › Data: damaged data set aside', () => {
     expect(persistence.getItem(entry.key)).not.toBeNull();
 
     // Confirm deletes it and the card disappears.
-    fireEvent.click(within(screen.getByTestId('quarantine-card')).getByRole('button', { name: /^Discard damaged copy/ }));
+    fireEvent.click(
+      within(screen.getByTestId('quarantine-card')).getByRole('button', { name: /^Discard damaged copy/ }),
+    );
     fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Discard' }));
     expect(persistence.getItem(entry.key)).toBeNull();
     expect(getQuarantinedEntries()).toEqual([]);

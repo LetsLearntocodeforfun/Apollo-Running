@@ -59,7 +59,9 @@ interface UnitToggleProps<T extends string> {
 function UnitToggle<T extends string>({ id, label, hint, options, value, onChange }: UnitToggleProps<T>) {
   return (
     <div className="settings-unit-group">
-      <span id={`${id}-label`} className="settings-label">{label}</span>
+      <span id={`${id}-label`} className="settings-label">
+        {label}
+      </span>
       <div role="group" aria-labelledby={`${id}-label`} aria-describedby={`${id}-hint`} className="settings-segmented">
         {options.map((o) => (
           <button
@@ -74,14 +76,20 @@ function UnitToggle<T extends string>({ id, label, hint, options, value, onChang
           </button>
         ))}
       </div>
-      <p id={`${id}-hint`} className="settings-hint">{hint}</p>
+      <p id={`${id}-hint`} className="settings-hint">
+        {hint}
+      </p>
     </div>
   );
 }
 
 function FieldError({ field, errors }: { field: ProfileField; errors: ProfileErrors }) {
   const error = errors[field];
-  return error ? <p id={`${fieldId(field)}-error`} className="settings-field-error">{error}</p> : null;
+  return error ? (
+    <p id={`${fieldId(field)}-error`} className="settings-field-error">
+      {error}
+    </p>
+  ) : null;
 }
 
 export default function ProfileTab() {
@@ -90,8 +98,8 @@ export default function ProfileTab() {
   const [distanceUnit, setDistanceUnitState] = useState<DistanceUnit>(() => getDistanceUnit());
   const [temperatureUnit, setTemperatureUnitState] = useState<TemperatureUnit>(() => getTemperatureUnit());
   const [massUnit, setMassUnitState] = useState<MassUnit>(() => getMassUnit());
-  const [draft, setDraft] = useState<ProfileDraft>(
-    () => draftFromProfile(getAthleteProfile(), getHRProfile(), getMassUnit(), getDistanceUnit()),
+  const [draft, setDraft] = useState<ProfileDraft>(() =>
+    draftFromProfile(getAthleteProfile(), getHRProfile(), getMassUnit(), getDistanceUnit()),
   );
   const [errors, setErrors] = useState<ProfileErrors>({});
 
@@ -124,7 +132,9 @@ export default function ProfileTab() {
     setDistanceUnit(unit);
     void syncPlanCalendarIfChanged();
     refreshUnits();
-    unitsStatus.success(unit === 'km' ? 'Distances and paces now show in kilometers.' : 'Distances and paces now show in miles.');
+    unitsStatus.success(
+      unit === 'km' ? 'Distances and paces now show in kilometers.' : 'Distances and paces now show in miles.',
+    );
   };
 
   const chooseTemperatureUnit = (unit: TemperatureUnit) => {
@@ -208,7 +218,9 @@ export default function ProfileTab() {
           <h2 className="card-title settings-card-title">Heart rate &amp; body</h2>
           <div className="settings-grid">
             <div className="settings-field">
-              <label htmlFor={fieldId('maxHR')} className="settings-label">Max heart rate (bpm)</label>
+              <label htmlFor={fieldId('maxHR')} className="settings-label">
+                Max heart rate (bpm)
+              </label>
               <input
                 {...describe('maxHR', 'settings-profile-hr-hint')}
                 type="number"
@@ -222,7 +234,9 @@ export default function ProfileTab() {
               <FieldError field="maxHR" errors={errors} />
             </div>
             <div className="settings-field">
-              <label htmlFor={fieldId('restingHR')} className="settings-label">Resting heart rate (bpm)</label>
+              <label htmlFor={fieldId('restingHR')} className="settings-label">
+                Resting heart rate (bpm)
+              </label>
               <input
                 {...describe('restingHR', 'settings-profile-hr-hint')}
                 type="number"
@@ -237,12 +251,15 @@ export default function ProfileTab() {
             </div>
           </div>
           <p id="settings-profile-hr-hint" className="settings-hint">
-            Used for heart-rate zones and HR-based fitness estimates. Max HR also updates itself when a synced activity records a higher value.
+            Used for heart-rate zones and HR-based fitness estimates. Max HR also updates itself when a synced activity
+            records a higher value.
           </p>
 
           <div className="settings-grid">
             <div className="settings-field">
-              <label htmlFor={fieldId('weight')} className="settings-label">Weight ({massUnit})</label>
+              <label htmlFor={fieldId('weight')} className="settings-label">
+                Weight ({massUnit})
+              </label>
               <input
                 {...describe('weight', 'settings-profile-weight-hint')}
                 type="number"
@@ -252,11 +269,15 @@ export default function ProfileTab() {
                 onChange={(e) => set('weight', e.target.value)}
                 className="settings-input settings-input--short"
               />
-              <p id="settings-profile-weight-hint" className="settings-hint">Used for fueling, carb-loading and hydration amounts.</p>
+              <p id="settings-profile-weight-hint" className="settings-hint">
+                Used for fueling, carb-loading and hydration amounts.
+              </p>
               <FieldError field="weight" errors={errors} />
             </div>
             <div className="settings-field">
-              <label htmlFor={fieldId('birthYear')} className="settings-label">Birth year (optional)</label>
+              <label htmlFor={fieldId('birthYear')} className="settings-label">
+                Birth year (optional)
+              </label>
               <input
                 {...describe('birthYear', 'settings-profile-private-hint')}
                 type="number"
@@ -269,7 +290,9 @@ export default function ProfileTab() {
               <FieldError field="birthYear" errors={errors} />
             </div>
             <div className="settings-field">
-              <label htmlFor={fieldId('sex')} className="settings-label">Sex (optional)</label>
+              <label htmlFor={fieldId('sex')} className="settings-label">
+                Sex (optional)
+              </label>
               <select
                 {...describe('sex', 'settings-profile-private-hint')}
                 value={draft.sex}
@@ -293,11 +316,14 @@ export default function ProfileTab() {
           <fieldset className="settings-fieldset">
             <legend className="settings-label">Recent race result</legend>
             <p id="settings-profile-race-hint" className="settings-hint">
-              Used for your VDOT, training paces and race prediction (the most reliable source). Use an all-out race from the last few months.
+              Used for your VDOT, training paces and race prediction (the most reliable source). Use an all-out race
+              from the last few months.
             </p>
             <div className="settings-grid">
               <div className="settings-field">
-                <label htmlFor={fieldId('raceDistance')} className="settings-label">Distance</label>
+                <label htmlFor={fieldId('raceDistance')} className="settings-label">
+                  Distance
+                </label>
                 <select
                   {...describe('raceDistance', 'settings-profile-race-hint')}
                   value={draft.raceDistance}
@@ -306,7 +332,9 @@ export default function ProfileTab() {
                 >
                   <option value="">No recent race</option>
                   {RACE_PRESETS.map((p) => (
-                    <option key={p.id} value={p.id}>{p.label}</option>
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
                   ))}
                   <option value="custom">Custom distance</option>
                 </select>
@@ -314,7 +342,9 @@ export default function ProfileTab() {
               </div>
               {raceIsCustom && (
                 <div className="settings-field">
-                  <label htmlFor={fieldId('raceCustom')} className="settings-label">Custom distance ({distanceUnit})</label>
+                  <label htmlFor={fieldId('raceCustom')} className="settings-label">
+                    Custom distance ({distanceUnit})
+                  </label>
                   <input
                     {...describe('raceCustom')}
                     type="number"
@@ -328,7 +358,9 @@ export default function ProfileTab() {
                 </div>
               )}
               <div className="settings-field">
-                <label htmlFor={fieldId('raceTime')} className="settings-label">Finish time</label>
+                <label htmlFor={fieldId('raceTime')} className="settings-label">
+                  Finish time
+                </label>
                 <input
                   {...describe('raceTime', 'settings-profile-race-time-hint')}
                   type="text"
@@ -339,11 +371,15 @@ export default function ProfileTab() {
                   onChange={(e) => set('raceTime', e.target.value)}
                   className="settings-input settings-input--short"
                 />
-                <p id="settings-profile-race-time-hint" className="settings-hint">e.g. 1:45:30 or 24:10</p>
+                <p id="settings-profile-race-time-hint" className="settings-hint">
+                  e.g. 1:45:30 or 24:10
+                </p>
                 <FieldError field="raceTime" errors={errors} />
               </div>
               <div className="settings-field">
-                <label htmlFor={fieldId('raceDate')} className="settings-label">Date</label>
+                <label htmlFor={fieldId('raceDate')} className="settings-label">
+                  Date
+                </label>
                 <input
                   {...describe('raceDate')}
                   type="date"
@@ -355,7 +391,9 @@ export default function ProfileTab() {
                 <FieldError field="raceDate" errors={errors} />
               </div>
               <div className="settings-field">
-                <label htmlFor={fieldId('raceName')} className="settings-label">Race name (optional)</label>
+                <label htmlFor={fieldId('raceName')} className="settings-label">
+                  Race name (optional)
+                </label>
                 <input
                   {...describe('raceName')}
                   type="text"
@@ -370,7 +408,9 @@ export default function ProfileTab() {
           </fieldset>
 
           <div className="settings-field">
-            <label htmlFor={fieldId('goalTime')} className="settings-label">Goal marathon time (optional)</label>
+            <label htmlFor={fieldId('goalTime')} className="settings-label">
+              Goal marathon time (optional)
+            </label>
             <input
               {...describe('goalTime', 'settings-profile-goal-hint')}
               type="text"
@@ -381,7 +421,9 @@ export default function ProfileTab() {
               onChange={(e) => set('goalTime', e.target.value)}
               className="settings-input settings-input--short"
             />
-            <p id="settings-profile-goal-hint" className="settings-hint">Used for Race Day pacing and fueling plans.</p>
+            <p id="settings-profile-goal-hint" className="settings-hint">
+              Used for Race Day pacing and fueling plans.
+            </p>
             <FieldError field="goalTime" errors={errors} />
           </div>
         </div>
@@ -389,7 +431,9 @@ export default function ProfileTab() {
         <div className="card settings-card">
           <h2 className="card-title settings-card-title">Race fueling</h2>
           <div className="settings-field">
-            <label htmlFor={fieldId('carbTolerance')} className="settings-label">Carbs you can take per hour (g/h)</label>
+            <label htmlFor={fieldId('carbTolerance')} className="settings-label">
+              Carbs you can take per hour (g/h)
+            </label>
             <input
               {...describe('carbTolerance', 'settings-profile-carb-hint')}
               type="number"
@@ -403,8 +447,9 @@ export default function ProfileTab() {
             />
             <p id="settings-profile-carb-hint" className="settings-hint">
               {/* v1.0.7 (R-7): same range as the Fuel tab and the fueling engine. */}
-              Used to size your race fueling plan ({CARB_TOLERANCE_MIN_G_PER_HOUR}–{CARB_TOLERANCE_MAX_G_PER_HOUR} g/h; above
-              60 needs glucose + fructose and a trained gut). Leave empty to use {DEFAULT_CARB_TOLERANCE_G_PER_HOUR} g/h.
+              Used to size your race fueling plan ({CARB_TOLERANCE_MIN_G_PER_HOUR}–{CARB_TOLERANCE_MAX_G_PER_HOUR} g/h;
+              above 60 needs glucose + fructose and a trained gut). Leave empty to use{' '}
+              {DEFAULT_CARB_TOLERANCE_G_PER_HOUR} g/h.
             </p>
             <FieldError field="carbTolerance" errors={errors} />
           </div>
@@ -427,7 +472,9 @@ export default function ProfileTab() {
         </div>
 
         <div className="settings-save-bar">
-          <button type="submit" className="btn btn-primary">Save profile</button>
+          <button type="submit" className="btn btn-primary">
+            Save profile
+          </button>
           <StatusLine status={saveStatus.status} />
         </div>
       </form>

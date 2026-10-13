@@ -57,7 +57,7 @@ describe('adaptive coaching false positives (V5)', () => {
     expect(result?.recommendations.map((r) => r.scenario)).not.toContain('behind_schedule');
   });
 
-  it('today\'s key workout is not counted as missed (Saturday morning, week 1 on track)', () => {
+  it("today's key workout is not counted as missed (Saturday morning, week 1 on track)", () => {
     const plan = getEffectivePlan();
     if (!plan) throw new Error('no plan');
     // Tue–Thu done; today is Saturday (marathon-pace day), long run tomorrow.

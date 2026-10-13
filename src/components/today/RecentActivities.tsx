@@ -44,29 +44,44 @@ function runTier(a: Activity) {
 export default function RecentActivities({ activities, busyMessage }: RecentActivitiesProps) {
   return (
     <section className="card" aria-labelledby="today-recent-title">
-      <h2 id="today-recent-title" className="today-section-title">Recent activities</h2>
+      <h2 id="today-recent-title" className="today-section-title">
+        Recent activities
+      </h2>
       {activities.length === 0 ? (
-        busyMessage
-          ? <p role="status" className="today-muted">{busyMessage}</p>
-          : <p className="today-muted">No activities yet. Get out there and train!</p>
+        busyMessage ? (
+          <p role="status" className="today-muted">
+            {busyMessage}
+          </p>
+        ) : (
+          <p className="today-muted">No activities yet. Get out there and train!</p>
+        )
       ) : (
         <ul className="today-recent-list">
           {activities.slice(0, MAX_ROWS).map((a) => {
             const tier = runTier(a);
             const hasMap = !!a.map?.summary_polyline;
             return (
-              <li key={`${a.source ?? 'strava'}-${a.id}`} className={`today-recent-item${hasMap ? ' today-recent-item--map' : ''}`}>
+              <li
+                key={`${a.source ?? 'strava'}-${a.id}`}
+                className={`today-recent-item${hasMap ? ' today-recent-item--map' : ''}`}
+              >
                 {hasMap && <RouteMapThumbnail activity={a} />}
                 <div>
                   <span className="today-recent-name">
                     <span aria-hidden="true">{getSportIcon(a)} </span>
                     {a.name || getSportLabel(a)}
                     {tier && (
-                      <span className={`today-tier-dot today-tier-dot--${tier}`} role="img" aria-label={TIER_CONFIG[tier].label} title={TIER_CONFIG[tier].label} />
+                      <span
+                        className={`today-tier-dot today-tier-dot--${tier}`}
+                        role="img"
+                        aria-label={TIER_CONFIG[tier].label}
+                        title={TIER_CONFIG[tier].label}
+                      />
                     )}
                   </span>
                   <span className="today-recent-meta">
-                    {activityDate(a)} · {getSportLabel(a)}{a.trainer ? ' · Indoor' : ''}
+                    {activityDate(a)} · {getSportLabel(a)}
+                    {a.trainer ? ' · Indoor' : ''}
                   </span>
                 </div>
                 <span className="today-recent-stats">{activityStatsLine(a)}</span>
@@ -76,7 +91,9 @@ export default function RecentActivities({ activities, busyMessage }: RecentActi
         </ul>
       )}
       <div className="today-actions">
-        <Link to="/activities" className="btn btn-secondary">View all activities</Link>
+        <Link to="/activities" className="btn btn-secondary">
+          View all activities
+        </Link>
       </div>
     </section>
   );

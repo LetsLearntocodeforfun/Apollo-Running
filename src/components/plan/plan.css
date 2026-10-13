@@ -284,11 +284,26 @@
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
-.phase-ribbon-seg--base { border-top-color: var(--color-info); background: var(--color-info-dim); }
-.phase-ribbon-seg--build { border-top-color: var(--color-success); background: var(--color-success-dim); }
-.phase-ribbon-seg--peak { border-top-color: var(--apollo-orange); background: var(--apollo-orange-dim); }
-.phase-ribbon-seg--taper { border-top-color: var(--apollo-teal); background: var(--apollo-teal-dim); }
-.phase-ribbon-seg--race { border-top-color: var(--color-error); background: var(--color-error-dim); }
+.phase-ribbon-seg--base {
+  border-top-color: var(--color-info);
+  background: var(--color-info-dim);
+}
+.phase-ribbon-seg--build {
+  border-top-color: var(--color-success);
+  background: var(--color-success-dim);
+}
+.phase-ribbon-seg--peak {
+  border-top-color: var(--apollo-orange);
+  background: var(--apollo-orange-dim);
+}
+.phase-ribbon-seg--taper {
+  border-top-color: var(--apollo-teal);
+  background: var(--apollo-teal-dim);
+}
+.phase-ribbon-seg--race {
+  border-top-color: var(--color-error);
+  background: var(--color-error-dim);
+}
 
 .phase-ribbon-seg--current {
   outline: 2px solid var(--apollo-gold);

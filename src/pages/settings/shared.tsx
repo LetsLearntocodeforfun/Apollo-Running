@@ -64,17 +64,22 @@ export function useStatus(): StatusApi {
   const mounted = useRef(true);
   useEffect(() => {
     mounted.current = true;
-    return () => { mounted.current = false; };
+    return () => {
+      mounted.current = false;
+    };
   }, []);
   const set = useCallback((next: Status | null) => {
     if (mounted.current) setStatus(next);
   }, []);
-  const actions = useMemo(() => ({
-    success: (text: string) => set({ tone: 'success', text }),
-    error: (text: string) => set({ tone: 'error', text }),
-    info: (text: string) => set({ tone: 'info', text }),
-    clear: () => set(null),
-  }), [set]);
+  const actions = useMemo(
+    () => ({
+      success: (text: string) => set({ tone: 'success', text }),
+      error: (text: string) => set({ tone: 'error', text }),
+      info: (text: string) => set({ tone: 'info', text }),
+      clear: () => set(null),
+    }),
+    [set],
+  );
   return { status, ...actions };
 }
 

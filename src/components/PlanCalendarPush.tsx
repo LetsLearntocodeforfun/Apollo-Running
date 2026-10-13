@@ -40,9 +40,12 @@ const INTERVALS_SETTINGS_URL = 'https://intervals.icu/settings';
 type Action = 'push' | 'auto' | 'remove';
 
 const badgeStyle = {
-  fontSize: '0.75rem', background: 'var(--apollo-teal-dim)',
-  color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
-  borderRadius: 'var(--radius-full)', fontWeight: 600,
+  fontSize: '0.75rem',
+  background: 'var(--apollo-teal-dim)',
+  color: 'var(--apollo-teal)',
+  padding: '0.15rem 0.6rem',
+  borderRadius: 'var(--radius-full)',
+  fontWeight: 600,
   fontFamily: 'var(--font-display)',
 } as const;
 
@@ -68,9 +71,11 @@ function formatWhen(iso: string): string {
 }
 
 function describePush(result: PushResult): string {
-  const parts = [result.upserted > 0
-    ? `Sent ${plural(result.upserted, 'workout')} (${formatDay(result.from)} – ${formatDay(result.to)})`
-    : 'No upcoming workouts to send'];
+  const parts = [
+    result.upserted > 0
+      ? `Sent ${plural(result.upserted, 'workout')} (${formatDay(result.from)} – ${formatDay(result.to)})`
+      : 'No upcoming workouts to send',
+  ];
   if (result.deleted > 0) parts.push(`removed ${plural(result.deleted, 'outdated workout')}`);
   return `${parts.join(' · ')}.`;
 }
@@ -160,7 +165,8 @@ export default function PlanCalendarPush() {
       return;
     }
     void run('push', 'Preparing your workouts…', async () =>
-      describePush(await pushPlanToIntervals({ onProgress: setProgress })));
+      describePush(await pushPlanToIntervals({ onProgress: setProgress })),
+    );
   };
 
   const handleAutoChange = (enabled: boolean) => {
@@ -191,9 +197,10 @@ export default function PlanCalendarPush() {
     });
   };
 
-  const lastFailure = connected && pushState.lastError
-    ? `Last update failed${pushState.lastErrorAt ? ` (${formatWhen(pushState.lastErrorAt)})` : ''}: ${pushState.lastError}`
-    : null;
+  const lastFailure =
+    connected && pushState.lastError
+      ? `Last update failed${pushState.lastErrorAt ? ` (${formatWhen(pushState.lastErrorAt)})` : ''}: ${pushState.lastError}`
+      : null;
   const shownError = error ?? lastFailure;
 
   const removeButton = (
@@ -203,10 +210,14 @@ export default function PlanCalendarPush() {
   );
 
   return (
-    <div className="card" style={{
-      borderLeftWidth: 3, borderLeftStyle: 'solid',
-      borderLeftColor: connected && plan ? 'var(--apollo-teal)' : 'var(--border)',
-    }}>
+    <div
+      className="card"
+      style={{
+        borderLeftWidth: 3,
+        borderLeftStyle: 'solid',
+        borderLeftColor: connected && plan ? 'var(--apollo-teal)' : 'var(--border)',
+      }}
+    >
       <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
         <span style={{ color: 'var(--apollo-teal)' }}>Send your plan to your watch</span>
         {connected && pushState.enabled && <span style={badgeStyle}>Auto-update on</span>}
@@ -217,23 +228,30 @@ export default function PlanCalendarPush() {
       </p>
       <p style={{ ...textStyle, margin: '0 0 1rem' }}>
         To get them on a Garmin watch, open{' '}
-        <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">intervals.icu → Settings</a>
-        {' '}→ Connections and tick <strong>Upload planned workouts</strong> on the Garmin box. That is a separate
-        permission from downloading your activities. intervals.icu then sends the <strong>next 7 days</strong> of
-        planned workouts to Garmin, so later weeks appear on the watch as they come into range.
+        <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
+          intervals.icu → Settings
+        </a>{' '}
+        → Connections and tick <strong>Upload planned workouts</strong> on the Garmin box. That is a separate permission
+        from downloading your activities. intervals.icu then sends the <strong>next 7 days</strong> of planned workouts
+        to Garmin, so later weeks appear on the watch as they come into range.
       </p>
 
       {!connected ? (
         <p style={{ ...textStyle, margin: 0 }}>
           intervals.icu isn&apos;t connected yet.{' '}
-          <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>Connect it in Settings › Connections</Link>
-          {' '}(it&apos;s free), then come back here to send your plan.
+          <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>
+            Connect it in Settings › Connections
+          </Link>{' '}
+          (it&apos;s free), then come back here to send your plan.
         </p>
       ) : !plan ? (
         <>
           <p style={{ ...textStyle, margin: '0 0 0.75rem' }}>
-            No active training plan. <Link to="/plan" style={{ fontWeight: 600 }}>Choose a plan</Link> and Apollo
-            can send its workouts to your calendar.
+            No active training plan.{' '}
+            <Link to="/plan" style={{ fontWeight: 600 }}>
+              Choose a plan
+            </Link>{' '}
+            and Apollo can send its workouts to your calendar.
           </p>
           {pushState.pushedIds.length > 0 && removeButton}
         </>
@@ -241,15 +259,16 @@ export default function PlanCalendarPush() {
         <>
           <p style={{ ...hintStyle, margin: '0 0 0.75rem' }}>
             {sentCurrentPlan && pushState.lastPushAt
-              ? `${plan.name}: last sent ${formatWhen(pushState.lastPushAt)}`
-                + (pushState.lastResult && pushState.lastResult.upserted > 0
+              ? `${plan.name}: last sent ${formatWhen(pushState.lastPushAt)}` +
+                (pushState.lastResult && pushState.lastResult.upserted > 0
                   ? ` · ${plural(pushState.lastResult.upserted, 'workout')} through ${formatDay(pushState.lastResult.to)}.`
                   : '.')
               : `${plan.name} hasn't been sent to intervals.icu yet.`}
             {storedStatus && ` ${storedStatus}`}
             {!hasPaces && (
               <>
-                {' '}Workouts go out as plain distances until Apollo knows your training paces.{' '}
+                {' '}
+                Workouts go out as plain distances until Apollo knows your training paces.{' '}
                 <Link to="/settings?tab=profile">Add a recent race in Settings › Athlete Profile</Link>.
               </>
             )}
@@ -261,7 +280,15 @@ export default function PlanCalendarPush() {
             {removeButton}
           </div>
           <div style={{ marginTop: '1rem', maxWidth: 560 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: busy ? 'default' : 'pointer', flexWrap: 'wrap' }}>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                cursor: busy ? 'default' : 'pointer',
+                flexWrap: 'wrap',
+              }}
+            >
               <input
                 type="checkbox"
                 checked={pushState.enabled}
@@ -280,44 +307,66 @@ export default function PlanCalendarPush() {
       )}
 
       {/* Always mounted so screen readers announce new messages. */}
-      <div role="status" aria-live="polite" style={{ marginTop: progress || notice ? '0.75rem' : 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+      <div
+        role="status"
+        aria-live="polite"
+        style={{ marginTop: progress || notice ? '0.75rem' : 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}
+      >
         {progress && <div style={{ color: 'var(--text-muted)' }}>{progress}</div>}
         {!progress && notice && <div style={{ color: 'var(--color-success)', fontWeight: 600 }}>{notice}</div>}
       </div>
       {!progress && shownError && (
-        <div role="alert" style={{ marginTop: '0.5rem', fontSize: 'var(--text-sm)', lineHeight: 1.5, color: 'var(--color-error-text, var(--color-error))' }}>
-          <span aria-hidden="true">⚠ </span>{shownError}
+        <div
+          role="alert"
+          style={{
+            marginTop: '0.5rem',
+            fontSize: 'var(--text-sm)',
+            lineHeight: 1.5,
+            color: 'var(--color-error-text, var(--color-error))',
+          }}
+        >
+          <span aria-hidden="true">⚠ </span>
+          {shownError}
         </div>
       )}
 
       {thresholdPaceMissing && (
-        <div role="note" style={{
-          ...textStyle, color: 'var(--text)', margin: '1rem 0 0', padding: '0.6rem 0.75rem',
-          background: 'var(--color-warning-dim)', borderLeft: '3px solid var(--color-warning)',
-          borderRadius: 'var(--radius-sm)',
-        }}>
-          Your intervals.icu Run threshold pace isn&apos;t set, so Garmin will show these workouts without pace
-          targets. Set it in{' '}
-          <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">intervals.icu → Settings → Sport settings</a>
-          {' '}(your marathon pace is a reasonable starting point), then use <strong>Remove Apollo workouts</strong> and
-          send again.
+        <div
+          role="note"
+          style={{
+            ...textStyle,
+            color: 'var(--text)',
+            margin: '1rem 0 0',
+            padding: '0.6rem 0.75rem',
+            background: 'var(--color-warning-dim)',
+            borderLeft: '3px solid var(--color-warning)',
+            borderRadius: 'var(--radius-sm)',
+          }}
+        >
+          Your intervals.icu Run threshold pace isn&apos;t set, so Garmin will show these workouts without pace targets.
+          Set it in{' '}
+          <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
+            intervals.icu → Settings → Sport settings
+          </a>{' '}
+          (your marathon pace is a reasonable starting point), then use <strong>Remove Apollo workouts</strong> and send
+          again.
         </div>
       )}
       <p style={{ ...hintStyle, margin: '1rem 0 0' }}>
-        Garmin tip: your watch only shows the pace targets if a Run threshold pace is set in intervals.icu
-        (Settings → Sport settings). If you set it after sending, use <strong>Remove Apollo workouts</strong> and
-        send your plan again so Garmin gets fresh copies.
+        Garmin tip: your watch only shows the pace targets if a Run threshold pace is set in intervals.icu (Settings →
+        Sport settings). If you set it after sending, use <strong>Remove Apollo workouts</strong> and send your plan
+        again so Garmin gets fresh copies.
       </p>
       <p style={{ ...hintStyle, margin: '0.5rem 0 0' }}>
-        Zwift tip: intervals.icu sends run workouts to Zwift too (since December 2025). Zwift sets run targets from
-        the 5K time in your Zwift profile, so set it to about your intervals.icu Run threshold pace × 5 km.
-        Apollo only changes workouts it created, never your own events or past days.
+        Zwift tip: intervals.icu sends run workouts to Zwift too (since December 2025). Zwift sets run targets from the
+        5K time in your Zwift profile, so set it to about your intervals.icu Run threshold pace × 5 km. Apollo only
+        changes workouts it created, never your own events or past days.
       </p>
 
       <ConfirmDialog
         open={confirmRemove}
         title="Remove Apollo workouts?"
-        message={(
+        message={
           <>
             <p style={{ margin: '0 0 0.5rem' }}>
               This removes the workouts Apollo added to your intervals.icu calendar from today on.
@@ -326,7 +375,7 @@ export default function PlanCalendarPush() {
               Past workouts and anything you created yourself stay. Automatic updates will be turned off.
             </p>
           </>
-        )}
+        }
         confirmLabel="Remove workouts"
         tone="danger"
         onConfirm={handleRemoveConfirmed}

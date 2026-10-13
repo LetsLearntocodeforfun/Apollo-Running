@@ -50,7 +50,9 @@ function timelineRows(): HTMLElement[] {
 }
 
 function cells(row: HTMLElement): string[] {
-  return within(row).getAllByRole('cell').map((c) => c.textContent ?? '');
+  return within(row)
+    .getAllByRole('cell')
+    .map((c) => c.textContent ?? '');
 }
 
 function dayCard(name: string | RegExp): HTMLElement {
@@ -99,7 +101,9 @@ describe('FuelPanel', () => {
       expect(cells(row)[3]).toBe('25 g');
     }
     // No gel in the final 15 minutes of a 4:00 finish.
-    const [h, m] = cells(rows[rows.length - 1])[0].split(':').map(Number);
+    const [h, m] = cells(rows[rows.length - 1])[0]
+      .split(':')
+      .map(Number);
     expect(h * 60 + m).toBeLessThanOrEqual(225);
     expect(persistence.keys()).toEqual([]);
   });

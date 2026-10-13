@@ -17,12 +17,7 @@
  */
 
 import { useState, useMemo, useRef, useCallback } from 'react';
-import {
-  processRoute,
-  getPolylineForActivity,
-  bearingToCompass,
-  type RouteData,
-} from '../services/routeService';
+import { processRoute, getPolylineForActivity, bearingToCompass, type RouteData } from '../services/routeService';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -56,16 +51,19 @@ export interface RouteMapProps {
 
 // ─── Size Presets ────────────────────────────────────────────
 
-const SIZE_CONFIG: Record<RouteMapSize, {
-  width: number;
-  height: number;
-  strokeWidth: number;
-  markerRadius: number;
-  endpointRadius: number;
-  fontSize: number;
-  showMarkers: boolean;
-  showCompass: boolean;
-}> = {
+const SIZE_CONFIG: Record<
+  RouteMapSize,
+  {
+    width: number;
+    height: number;
+    strokeWidth: number;
+    markerRadius: number;
+    endpointRadius: number;
+    fontSize: number;
+    showMarkers: boolean;
+    showCompass: boolean;
+  }
+> = {
   thumbnail: {
     width: 80,
     height: 60,
@@ -182,32 +180,38 @@ export default function RouteMap({
   }, [route, effectiveShowMarkers]);
 
   // Hover handler for detail mode
-  const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-    if (!route || size === 'thumbnail' || !svgRef.current) return;
-    const rect = svgRef.current.getBoundingClientRect();
-    const mx = ((e.clientX - rect.left) / rect.width) * config.width;
-    const my = ((e.clientY - rect.top) / rect.height) * config.height;
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<SVGSVGElement>) => {
+      if (!route || size === 'thumbnail' || !svgRef.current) return;
+      const rect = svgRef.current.getBoundingClientRect();
+      const mx = ((e.clientX - rect.left) / rect.width) * config.width;
+      const my = ((e.clientY - rect.top) / rect.height) * config.height;
 
-    // Find nearest point
-    let minDist = Infinity;
-    let nearestIdx = 0;
-    for (let i = 0; i < route.projectedPoints.length; i++) {
-      const p = route.projectedPoints[i];
-      const d = Math.hypot(p.x - mx, p.y - my);
-      if (d < minDist) { minDist = d; nearestIdx = i; }
-    }
+      // Find nearest point
+      let minDist = Infinity;
+      let nearestIdx = 0;
+      for (let i = 0; i < route.projectedPoints.length; i++) {
+        const p = route.projectedPoints[i];
+        const d = Math.hypot(p.x - mx, p.y - my);
+        if (d < minDist) {
+          minDist = d;
+          nearestIdx = i;
+        }
+      }
 
-    if (minDist < 30) {
-      const seg = route.segments[Math.min(nearestIdx, route.segments.length - 1)];
-      setHoverInfo({
-        x: route.projectedPoints[nearestIdx].x,
-        y: route.projectedPoints[nearestIdx].y,
-        distKm: (seg.cumulativeMeters / 1000).toFixed(1),
-      });
-    } else {
-      setHoverInfo(null);
-    }
-  }, [route, size, config.width, config.height]);
+      if (minDist < 30) {
+        const seg = route.segments[Math.min(nearestIdx, route.segments.length - 1)];
+        setHoverInfo({
+          x: route.projectedPoints[nearestIdx].x,
+          y: route.projectedPoints[nearestIdx].y,
+          distKm: (seg.cumulativeMeters / 1000).toFixed(1),
+        });
+      } else {
+        setHoverInfo(null);
+      }
+    },
+    [route, size, config.width, config.height],
+  );
 
   const handleMouseLeave = useCallback(() => setHoverInfo(null), []);
 
@@ -302,10 +306,26 @@ export default function RouteMap({
         {size !== 'thumbnail' && (
           <g opacity="0.04">
             {Array.from({ length: Math.floor(config.width / 40) }, (_, i) => (
-              <line key={`v${i}`} x1={(i + 1) * 40} y1="0" x2={(i + 1) * 40} y2={config.height} stroke="#D4A537" strokeWidth="0.5" />
+              <line
+                key={`v${i}`}
+                x1={(i + 1) * 40}
+                y1="0"
+                x2={(i + 1) * 40}
+                y2={config.height}
+                stroke="#D4A537"
+                strokeWidth="0.5"
+              />
             ))}
             {Array.from({ length: Math.floor(config.height / 40) }, (_, i) => (
-              <line key={`h${i}`} x1="0" y1={(i + 1) * 40} x2={config.width} y2={(i + 1) * 40} stroke="#D4A537" strokeWidth="0.5" />
+              <line
+                key={`h${i}`}
+                x1="0"
+                y1={(i + 1) * 40}
+                x2={config.width}
+                y2={(i + 1) * 40}
+                stroke="#D4A537"
+                strokeWidth="0.5"
+              />
             ))}
           </g>
         )}
@@ -330,37 +350,55 @@ export default function RouteMap({
           strokeWidth={config.strokeWidth}
           strokeLinecap="round"
           strokeLinejoin="round"
-          {...(animate && pathLength > 0 ? {
-            strokeDasharray: pathLength.toFixed(0),
-            strokeDashoffset: '0',
-            style: { animation: `${animId} 1.5s ease-out forwards` },
-          } : {})}
+          {...(animate && pathLength > 0
+            ? {
+                strokeDasharray: pathLength.toFixed(0),
+                strokeDashoffset: '0',
+                style: { animation: `${animId} 1.5s ease-out forwards` },
+              }
+            : {})}
         />
 
         {/* Distance markers */}
-        {effectiveShowMarkers && markers.map((m, i) => (
-          <g key={i}>
-            <circle cx={m.x} cy={m.y} r={config.markerRadius} fill="var(--apollo-navy)" stroke="#D4A537" strokeWidth="1" />
-            {config.fontSize > 0 && (
-              <text
-                x={m.x}
-                y={m.y + config.fontSize * 0.35}
-                textAnchor="middle"
-                fill="#D4A537"
-                fontSize={config.fontSize * 0.8}
-                fontFamily="var(--font-display)"
-                fontWeight="600"
-              >
-                {m.label}
-              </text>
-            )}
-          </g>
-        ))}
+        {effectiveShowMarkers &&
+          markers.map((m, i) => (
+            <g key={i}>
+              <circle
+                cx={m.x}
+                cy={m.y}
+                r={config.markerRadius}
+                fill="var(--apollo-navy)"
+                stroke="#D4A537"
+                strokeWidth="1"
+              />
+              {config.fontSize > 0 && (
+                <text
+                  x={m.x}
+                  y={m.y + config.fontSize * 0.35}
+                  textAnchor="middle"
+                  fill="#D4A537"
+                  fontSize={config.fontSize * 0.8}
+                  fontFamily="var(--font-display)"
+                  fontWeight="600"
+                >
+                  {m.label}
+                </text>
+              )}
+            </g>
+          ))}
 
         {/* Start marker (green) */}
         {showEndpoints && startPt && (
           <g>
-            <circle cx={startPt.x} cy={startPt.y} r={config.endpointRadius + 1} fill="none" stroke="#2ECC71" strokeWidth="1.5" opacity="0.4" />
+            <circle
+              cx={startPt.x}
+              cy={startPt.y}
+              r={config.endpointRadius + 1}
+              fill="none"
+              stroke="#2ECC71"
+              strokeWidth="1.5"
+              opacity="0.4"
+            />
             <circle cx={startPt.x} cy={startPt.y} r={config.endpointRadius} fill="#2ECC71" />
             {size !== 'thumbnail' && (
               <text
@@ -380,7 +418,15 @@ export default function RouteMap({
         {/* End marker (gold) */}
         {showEndpoints && endPt && !route.isLoop && (
           <g>
-            <circle cx={endPt.x} cy={endPt.y} r={config.endpointRadius + 1} fill="none" stroke="#D4A537" strokeWidth="1.5" opacity="0.4" />
+            <circle
+              cx={endPt.x}
+              cy={endPt.y}
+              r={config.endpointRadius + 1}
+              fill="none"
+              stroke="#D4A537"
+              strokeWidth="1.5"
+              opacity="0.4"
+            />
             <circle cx={endPt.x} cy={endPt.y} r={config.endpointRadius} fill="#D4A537" />
             {size !== 'thumbnail' && (
               <text
@@ -400,7 +446,16 @@ export default function RouteMap({
         {/* Loop indicator (on start point) */}
         {showEndpoints && route.isLoop && size !== 'thumbnail' && (
           <g>
-            <circle cx={startPt.x} cy={startPt.y} r={config.endpointRadius + 3} fill="none" stroke="#D4A537" strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />
+            <circle
+              cx={startPt.x}
+              cy={startPt.y}
+              r={config.endpointRadius + 3}
+              fill="none"
+              stroke="#D4A537"
+              strokeWidth="1"
+              strokeDasharray="3 2"
+              opacity="0.6"
+            />
           </g>
         )}
 
@@ -434,20 +489,22 @@ export default function RouteMap({
 
       {/* Compass badge overlay */}
       {effectiveShowCompass && (
-        <div style={{
-          position: 'absolute',
-          top: 8,
-          right: 8,
-          background: 'rgba(13,27,42,0.85)',
-          border: '1px solid rgba(212,165,55,0.2)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '2px 6px',
-          fontSize: '0.65rem',
-          fontFamily: 'var(--font-display)',
-          fontWeight: 600,
-          color: 'var(--apollo-gold)',
-          letterSpacing: '0.05em',
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: 8,
+            background: 'rgba(13,27,42,0.85)',
+            border: '1px solid rgba(212,165,55,0.2)',
+            borderRadius: 'var(--radius-sm)',
+            padding: '2px 6px',
+            fontSize: '0.65rem',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            color: 'var(--apollo-gold)',
+            letterSpacing: '0.05em',
+          }}
+        >
           {bearingToCompass(route.bearing)}
           {route.isLoop && <span style={{ marginLeft: 4, color: 'var(--apollo-teal)' }}>↻</span>}
         </div>
@@ -456,10 +513,50 @@ export default function RouteMap({
       {/* Art Deco corner accents (card/detail only) */}
       {size !== 'thumbnail' && (
         <>
-          <div style={{ position: 'absolute', top: 0, left: 0, width: 20, height: 20, borderTop: '1px solid rgba(212,165,55,0.2)', borderLeft: '1px solid rgba(212,165,55,0.2)' }} />
-          <div style={{ position: 'absolute', top: 0, right: 0, width: 20, height: 20, borderTop: '1px solid rgba(212,165,55,0.2)', borderRight: '1px solid rgba(212,165,55,0.2)' }} />
-          <div style={{ position: 'absolute', bottom: 0, left: 0, width: 20, height: 20, borderBottom: '1px solid rgba(212,165,55,0.2)', borderLeft: '1px solid rgba(212,165,55,0.2)' }} />
-          <div style={{ position: 'absolute', bottom: 0, right: 0, width: 20, height: 20, borderBottom: '1px solid rgba(212,165,55,0.2)', borderRight: '1px solid rgba(212,165,55,0.2)' }} />
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: 20,
+              height: 20,
+              borderTop: '1px solid rgba(212,165,55,0.2)',
+              borderLeft: '1px solid rgba(212,165,55,0.2)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: 20,
+              height: 20,
+              borderTop: '1px solid rgba(212,165,55,0.2)',
+              borderRight: '1px solid rgba(212,165,55,0.2)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              width: 20,
+              height: 20,
+              borderBottom: '1px solid rgba(212,165,55,0.2)',
+              borderLeft: '1px solid rgba(212,165,55,0.2)',
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              right: 0,
+              width: 20,
+              height: 20,
+              borderBottom: '1px solid rgba(212,165,55,0.2)',
+              borderRight: '1px solid rgba(212,165,55,0.2)',
+            }}
+          />
         </>
       )}
     </div>
@@ -468,17 +565,12 @@ export default function RouteMap({
 
 // ─── Thumbnail convenience wrapper ───────────────────────────
 
-export function RouteMapThumbnail({ activity, onClick }: {
+export function RouteMapThumbnail({
+  activity,
+  onClick,
+}: {
   activity: RouteMapProps['activity'];
   onClick?: () => void;
 }) {
-  return (
-    <RouteMap
-      activity={activity}
-      size="thumbnail"
-      animate={false}
-      showEndpoints={true}
-      onClick={onClick}
-    />
-  );
+  return <RouteMap activity={activity} size="thumbnail" animate={false} showEndpoints={true} onClick={onClick} />;
 }

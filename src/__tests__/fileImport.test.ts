@@ -142,9 +142,16 @@ function fakeFit(sessions: ParsedActivity[]): Uint8Array {
 }
 
 /** A FIT session with a sample every 5 s at a steady speed. */
-function fitSession(type: string, start: number, minutes: number, speed: number, extra: Partial<ParsedActivity> = {}): ParsedActivity {
+function fitSession(
+  type: string,
+  start: number,
+  minutes: number,
+  speed: number,
+  extra: Partial<ParsedActivity> = {},
+): ParsedActivity {
   const samples = [];
-  for (let s = 0; s <= minutes * 60; s += 5) samples.push({ time: start + s * 1000, distance: s * speed, heartRate: 140 });
+  for (let s = 0; s <= minutes * 60; s += 5)
+    samples.push({ time: start + s * 1000, distance: s * speed, heartRate: 140 });
   return { type, startTime: start, samples, laps: [], totals: { elapsedSec: minutes * 60 }, ...extra };
 }
 
@@ -155,9 +162,11 @@ function gpx(start: number, minutes: number, trackInfo = '', step = 2.5e-4): str
     const time = new Date(start + i * 10_000).toISOString();
     points.push(`<trkpt lat="${45 + i * step}" lon="7"><ele>${100 + i / 10}</ele><time>${time}</time></trkpt>`);
   }
-  return '<?xml version="1.0" encoding="UTF-8"?>\n'
-    + '<gpx version="1.1" creator="StravaGPX" xmlns="http://www.topografix.com/GPX/1/1">'
-    + `<trk>${trackInfo}<trkseg>${points.join('\n')}</trkseg></trk></gpx>`;
+  return (
+    '<?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<gpx version="1.1" creator="StravaGPX" xmlns="http://www.topografix.com/GPX/1/1">' +
+    `<trk>${trackInfo}<trkseg>${points.join('\n')}</trkseg></trk></gpx>`
+  );
 }
 
 /** A TCX ride with one lap (Strava's TCX exports start with whitespace before the declaration). */
@@ -165,14 +174,18 @@ function tcx(start: number, minutes: number): string {
   const iso = (ms: number): string => new Date(ms).toISOString();
   const points: string[] = [];
   for (let i = 0; i <= minutes * 6; i++) {
-    points.push(`<Trackpoint><Time>${iso(start + i * 10_000)}</Time><DistanceMeters>${i * 60}</DistanceMeters>`
-      + '<HeartRateBpm><Value>130</Value></HeartRateBpm></Trackpoint>');
+    points.push(
+      `<Trackpoint><Time>${iso(start + i * 10_000)}</Time><DistanceMeters>${i * 60}</DistanceMeters>` +
+        '<HeartRateBpm><Value>130</Value></HeartRateBpm></Trackpoint>',
+    );
   }
-  return '          <?xml version="1.0" encoding="UTF-8"?>\n'
-    + '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">'
-    + `<Activities><Activity Sport="Biking"><Id>${iso(start)}</Id><Lap StartTime="${iso(start)}">`
-    + `<TotalTimeSeconds>${minutes * 60}</TotalTimeSeconds><DistanceMeters>${minutes * 360}</DistanceMeters>`
-    + `<Track>${points.join('\n')}</Track></Lap></Activity></Activities></TrainingCenterDatabase>`;
+  return (
+    '          <?xml version="1.0" encoding="UTF-8"?>\n' +
+    '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">' +
+    `<Activities><Activity Sport="Biking"><Id>${iso(start)}</Id><Lap StartTime="${iso(start)}">` +
+    `<TotalTimeSeconds>${minutes * 60}</TotalTimeSeconds><DistanceMeters>${minutes * 360}</DistanceMeters>` +
+    `<Track>${points.join('\n')}</Track></Lap></Activity></Activities></TrainingCenterDatabase>`
+  );
 }
 
 /** A gzip stream whose only block uses the reserved block type: corrupt. */
@@ -199,12 +212,20 @@ const STRAVA_CSV = [
 function stravaArchive(): Uint8Array {
   const brick = fakeFit([
     fitSession('Ride', BRICK_START, 20, 8, { utcOffsetSec: 3600, device: 'Forerunner 965', origin: 'GARMIN' }),
-    fitSession('Run', BRICK_START + 21 * 60_000, 40, 3, { utcOffsetSec: 3600, device: 'Forerunner 965', origin: 'GARMIN' }),
+    fitSession('Run', BRICK_START + 21 * 60_000, 40, 3, {
+      utcOffsetSec: 3600,
+      device: 'Forerunner 965',
+      origin: 'GARMIN',
+    }),
   ]);
   return zip([
     { name: 'activities.csv', data: STRAVA_CSV, deflate: true },
     { name: 'activities/', data: '' },
-    { name: 'activities/1001.gpx', data: gpx(RUN_START, 30, '<name>Morning Run</name><type>running</type>'), deflate: true },
+    {
+      name: 'activities/1001.gpx',
+      data: gpx(RUN_START, 30, '<name>Morning Run</name><type>running</type>'),
+      deflate: true,
+    },
     { name: 'activities/1002.tcx.gz', data: gzip(bytes(tcx(RIDE_START, 30))) },
     { name: 'activities/1003.fit.gz', data: gzip(brick) },
     { name: 'profile.csv', data: 'Athlete ID,Email Address\n42,runner@example.com\n' },
@@ -215,18 +236,31 @@ function stravaArchive(): Uint8Array {
 
 /** A Garmin "Export Your Data" ZIP: FIT uploads in a nested archive, names in summarizedActivities. */
 function garminExport(): Uint8Array {
-  const summaries = [{
-    summarizedActivitiesExport: [
-      {
-        activityId: 9001, name: 'Paris - Long Run', activityType: 'running', sportType: 'RUNNING',
-        beginTimestamp: GARMIN_START, startTimeGmt: GARMIN_START, startTimeLocal: GARMIN_START + 2 * 3_600_000,
-      },
-      { activityId: 9002, name: 'Pool Swim', activityType: 'lap_swimming', startTimeGmt: GARMIN_START + DAY_MS },
-    ],
-  }];
-  const uploads = zip([{ name: 'runner@example.com_9001.fit', data: fakeFit([fitSession('', GARMIN_START + 3000, 90, 3)]) }]);
+  const summaries = [
+    {
+      summarizedActivitiesExport: [
+        {
+          activityId: 9001,
+          name: 'Paris - Long Run',
+          activityType: 'running',
+          sportType: 'RUNNING',
+          beginTimestamp: GARMIN_START,
+          startTimeGmt: GARMIN_START,
+          startTimeLocal: GARMIN_START + 2 * 3_600_000,
+        },
+        { activityId: 9002, name: 'Pool Swim', activityType: 'lap_swimming', startTimeGmt: GARMIN_START + DAY_MS },
+      ],
+    },
+  ];
+  const uploads = zip([
+    { name: 'runner@example.com_9001.fit', data: fakeFit([fitSession('', GARMIN_START + 3000, 90, 3)]) },
+  ]);
   return zip([
-    { name: 'DI_CONNECT/DI-Connect-Fitness/runner@example.com_0_summarizedActivities.json', data: JSON.stringify(summaries), deflate: true },
+    {
+      name: 'DI_CONNECT/DI-Connect-Fitness/runner@example.com_0_summarizedActivities.json',
+      data: JSON.stringify(summaries),
+      deflate: true,
+    },
     { name: 'DI_CONNECT/DI-Connect-Uploaded-Files/UploadedFiles_0-_Part1.zip', data: uploads },
     { name: 'DI_CONNECT/DI-Connect-Wellness/runner@example.com_sleepData.json', data: '[]' },
   ]);
@@ -249,7 +283,8 @@ afterEach(() => {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const NOT_AN_ACTIVITY = 'Not an activity file. Choose FIT, GPX or TCX files, or a Strava or Garmin export (.zip).';
-const MANUAL_ENTRY = "1 activity was entered manually on Strava without a recording file, so there's nothing to import for them.";
+const MANUAL_ENTRY =
+  "1 activity was entered manually on Strava without a recording file, so there's nothing to import for them.";
 
 /** A browser File (what the import card passes in), holding a copy of `data`. */
 function file(name: string, data: Uint8Array): File {
@@ -367,16 +402,18 @@ describe('importActivityFiles: Strava archive', () => {
 
     // The plan is re-matched against the new activities first, then open pages are told.
     expect(events).toEqual(['refresh (4 stored)', 'notify']);
-    expect(summaries).toEqual([{
-      sources: ['file'],
-      fetched: 4,
-      added: 4,
-      updated: 0,
-      full: false,
-      errors: [],
-      startedAt: expect.any(String),
-      finishedAt: expect.any(String),
-    }]);
+    expect(summaries).toEqual([
+      {
+        sources: ['file'],
+        fetched: 4,
+        added: 4,
+        updated: 0,
+        full: false,
+        errors: [],
+        startedAt: expect.any(String),
+        finishedAt: expect.any(String),
+      },
+    ]);
   });
 
   it('merges into a legacy Strava record with the same Activity ID, keeping its name, and a re-import changes nothing', async () => {
@@ -451,10 +488,13 @@ describe('importActivityFiles: Strava archive', () => {
 
   it('reports progress as archives are opened and their files read', async () => {
     const { lines, onProgress } = progressLog();
-    await importActivityFiles([
-      { name: 'export.zip', data: stravaArchive() },
-      { name: 'evening.gpx', data: bytes(gpx(RUN_START + 10 * DAY_MS, 20)) },
-    ], { onProgress });
+    await importActivityFiles(
+      [
+        { name: 'export.zip', data: stravaArchive() },
+        { name: 'evening.gpx', data: bytes(gpx(RUN_START + 10 * DAY_MS, 20)) },
+      ],
+      { onProgress },
+    );
     expect(lines).toEqual([
       ['reading', 'Reading export.zip…', 0, 2, 0],
       ['reading', 'Opening export.zip…', 0, 1, 0], // the ZIP is replaced by the files inside…
@@ -487,18 +527,20 @@ describe('importActivityFiles: Garmin export', () => {
       cancelled: false,
     });
     const startSec = (GARMIN_START + 3000) / 1000;
-    expect(getStoredActivities()).toEqual([expect.objectContaining({
-      id: FILE_ID_OFFSET + startSec,
-      name: 'Paris - Long Run',
-      type: 'Run',
-      distance: 16200,
-      moving_time: 5400,
-      start_date: '2024-06-01T05:30:03Z',
-      start_date_local: '2024-06-01T07:30:03Z', // the FIT has no local offset: Garmin's local start time supplies it
-      source: 'file',
-      source_id: `file:${startSec}`,
-      origin: 'GARMIN',
-    })]);
+    expect(getStoredActivities()).toEqual([
+      expect.objectContaining({
+        id: FILE_ID_OFFSET + startSec,
+        name: 'Paris - Long Run',
+        type: 'Run',
+        distance: 16200,
+        moving_time: 5400,
+        start_date: '2024-06-01T05:30:03Z',
+        start_date_local: '2024-06-01T07:30:03Z', // the FIT has no local offset: Garmin's local start time supplies it
+        source: 'file',
+        source_id: `file:${startSec}`,
+        origin: 'GARMIN',
+      }),
+    ]);
     expect(lines.map((line) => line[1])).toEqual([
       'Reading garmin_export.zip…',
       'Opening garmin_export.zip…',
@@ -531,15 +573,21 @@ describe('importActivityFiles: picked files', () => {
     });
     const stored = storedById();
     expect(stored.get(1001)).toMatchObject({ name: 'Sunrise 5K', type: 'Run', source_id: 'strava:1001' });
-    expect(stored.get(1002)).toMatchObject({ name: 'Zwift - Watopia, easy spin', type: 'VirtualRide', source_id: 'strava:1002' });
+    expect(stored.get(1002)).toMatchObject({
+      name: 'Zwift - Watopia, easy spin',
+      type: 'VirtualRide',
+      source_id: 'strava:1002',
+    });
   });
 
   it('explains every picked file that yields nothing, and keeps importing the rest', async () => {
-    const route = '<?xml version="1.0"?><gpx version="1.1" creator="komoot"><rte><name>Loop</name>'
-      + '<rtept lat="45.0" lon="7.0"/><rtept lat="45.01" lon="7.0"/></rte></gpx>';
-    const course = '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">'
-      + '<Courses><Course><Name>Loop</Name><Track><Trackpoint><Time>2024-05-01T07:00:00Z</Time></Trackpoint>'
-      + '</Track></Course></Courses></TrainingCenterDatabase>';
+    const route =
+      '<?xml version="1.0"?><gpx version="1.1" creator="komoot"><rte><name>Loop</name>' +
+      '<rtept lat="45.0" lon="7.0"/><rtept lat="45.01" lon="7.0"/></rte></gpx>';
+    const course =
+      '<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2">' +
+      '<Courses><Course><Name>Loop</Name><Track><Trackpoint><Time>2024-05-01T07:00:00Z</Time></Trackpoint>' +
+      '</Track></Course></Courses></TrainingCenterDatabase>';
     const result = await importActivityFiles([
       { name: 'photo.jpg', data: new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 16, 74, 70, 73, 70]) },
       { name: 'route.gpx', data: bytes(route) },
@@ -562,7 +610,10 @@ describe('importActivityFiles: picked files', () => {
     expect(result.skipped).toEqual([
       { name: 'activities.csv', reason: NOT_AN_ACTIVITY }, // metadata is read before everything else
       { name: 'photo.jpg', reason: NOT_AN_ACTIVITY },
-      { name: 'route.gpx', reason: 'No timed track points: this looks like a route or course, not a recorded workout.' },
+      {
+        name: 'route.gpx',
+        reason: 'No timed track points: this looks like a route or course, not a recorded workout.',
+      },
       { name: 'course.tcx', reason: 'No workouts in this TCX file (it may hold a course).' },
       { name: 'settings.fit', reason: 'No workout in this FIT file (it may hold settings, a course or health data).' },
       { name: 'blip.fit', reason: 'Too short to import (under a minute, with no distance).' },
@@ -643,16 +694,19 @@ describe('importActivityFiles: cancellation', () => {
 
   it('stops between picked files', async () => {
     const controller = new AbortController();
-    const result = await importActivityFiles([
-      { name: 'a.gpx', data: bytes(gpx(RUN_START, 30)) },
-      { name: 'b.gpx', data: bytes(gpx(RUN_START + DAY_MS, 30)) },
-      { name: 'c.gpx', data: bytes(gpx(RUN_START + 2 * DAY_MS, 30)) },
-    ], {
-      signal: controller.signal,
-      onProgress: (p) => {
-        if (p.message === 'Reading b.gpx…') controller.abort(); // the file being read still finishes
+    const result = await importActivityFiles(
+      [
+        { name: 'a.gpx', data: bytes(gpx(RUN_START, 30)) },
+        { name: 'b.gpx', data: bytes(gpx(RUN_START + DAY_MS, 30)) },
+        { name: 'c.gpx', data: bytes(gpx(RUN_START + 2 * DAY_MS, 30)) },
+      ],
+      {
+        signal: controller.signal,
+        onProgress: (p) => {
+          if (p.message === 'Reading b.gpx…') controller.abort(); // the file being read still finishes
+        },
       },
-    });
+    );
     expect(result).toMatchObject({ filesRead: 2, activitiesFound: 2, added: 2, cancelled: true });
     expect(getStoredActivities()).toHaveLength(2);
   });
@@ -682,16 +736,28 @@ function syncedRun(n: number, startMs: number): Activity {
 describe('importActivityFiles: a full activity store', () => {
   it('keeps records and the most recent activities, and counts the older ones that no longer fit', async () => {
     // One short of the limit: a run a day from 2011 on, all newer than the files below.
-    const synced = Array.from({ length: MAX_STORED_ACTIVITIES - 1 }, (_, n) => syncedRun(n, Date.UTC(2011, 0, 1, 6) + n * DAY_MS));
+    const synced = Array.from({ length: MAX_STORED_ACTIVITIES - 1 }, (_, n) =>
+      syncedRun(n, Date.UTC(2011, 0, 1, 6) + n * DAY_MS),
+    );
     expect(storeActivities(synced)).toEqual({
-      added: MAX_STORED_ACTIVITIES - 1, updated: 0, dropped: 0, droppedRuns: 0, droppedOther: 0, skippedDeleted: 0,
+      added: MAX_STORED_ACTIVITIES - 1,
+      updated: 0,
+      dropped: 0,
+      droppedRuns: 0,
+      droppedOther: 0,
+      skippedDeleted: 0,
     });
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined); // the store warns when it trims
     try {
       // 2010 history: a FIT file with 250 short runs (one full save batch, no records among them),
       // then three identical ~5 km December runs as GPX.
-      const history = fakeFit(Array.from({ length: 250 }, (_, k) => fitSession('Run', Date.UTC(2010, 0, 1, 7) + k * DAY_MS, 2, 3)));
-      const december = [1, 2, 3].map((day) => ({ name: `dec${day}.gpx`, data: bytes(gpx(Date.UTC(2010, 11, day, 7), 30)) }));
+      const history = fakeFit(
+        Array.from({ length: 250 }, (_, k) => fitSession('Run', Date.UTC(2010, 0, 1, 7) + k * DAY_MS, 2, 3)),
+      );
+      const december = [1, 2, 3].map((day) => ({
+        name: `dec${day}.gpx`,
+        data: bytes(gpx(Date.UTC(2010, 11, day, 7), 30)),
+      }));
       const result = await importActivityFiles([{ name: 'history.fit', data: history }, ...december]);
 
       // The first save keeps the newest of the 250 runs. Then the oldest runs go, except records (B16):
@@ -708,8 +774,8 @@ describe('importActivityFiles: a full activity store', () => {
         cancelled: false,
       });
       expect(describeImportResult(result)).toBe(
-        `Added 253 activities. Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities `
-          + '(races and personal records always stay), so 252 older ones weren\'t kept.',
+        `Added 253 activities. Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities ` +
+          "(races and personal records always stay), so 252 older ones weren't kept.",
       );
       const stored = getStoredActivities();
       expect(stored).toHaveLength(MAX_STORED_ACTIVITIES);
@@ -758,12 +824,22 @@ describe('importActivityFiles: robustness', () => {
 describe('isImportableFileName', () => {
   it('picks activity files, archives and export metadata out of a dropped folder', () => {
     const wanted = [
-      'export/activities.csv', 'export/activities/1001.gpx', 'export/activities/1002.TCX.gz', 'run.fit', 'run.fit.gz',
-      'garmin.zip', 'DI_CONNECT/DI-Connect-Fitness/me_0_summarizedActivities.json',
+      'export/activities.csv',
+      'export/activities/1001.gpx',
+      'export/activities/1002.TCX.gz',
+      'run.fit',
+      'run.fit.gz',
+      'garmin.zip',
+      'DI_CONNECT/DI-Connect-Fitness/me_0_summarizedActivities.json',
     ];
     const ignored = [
-      'export/profile.csv', 'export/media/0a1b2c.jpg', 'export/__MACOSX/activities/._1001.gpx', 'export/._run.fit',
-      'notes.txt', 'backup.gz', 'DI_CONNECT/DI-Connect-Wellness/me_sleepData.json',
+      'export/profile.csv',
+      'export/media/0a1b2c.jpg',
+      'export/__MACOSX/activities/._1001.gpx',
+      'export/._run.fit',
+      'notes.txt',
+      'backup.gz',
+      'DI_CONNECT/DI-Connect-Wellness/me_sleepData.json',
     ];
     expect(wanted.filter((name) => !isImportableFileName(name))).toEqual([]);
     expect(ignored.filter((name) => isImportableFileName(name))).toEqual([]);

@@ -74,7 +74,8 @@ export async function refreshStravaToken(refreshToken: string): Promise<{
     body: JSON.stringify({ refresh_token: refreshToken }),
   });
   const data = await parseApiResponse(res);
-  if (!res.ok) throw new StravaBackendError(res.status, getApiErrorMessage(data, `Token refresh failed (${res.status})`));
+  if (!res.ok)
+    throw new StravaBackendError(res.status, getApiErrorMessage(data, `Token refresh failed (${res.status})`));
   if (!data || typeof data !== 'object') throw new Error('Invalid token refresh response');
   return data as {
     access_token: string;

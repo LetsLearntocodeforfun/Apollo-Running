@@ -85,7 +85,9 @@ describe('checkJoinFitness (T-3)', () => {
 
   it('skips the check without fitness data', () => {
     expect(checkJoinFitness(pfitz, placePlan(pfitz, RACE_8_WEEKS, TODAY), null)).toBeNull();
-    expect(checkJoinFitness(pfitz, placePlan(pfitz, RACE_8_WEEKS, TODAY), { weeklyMiles: null, longestRunMi: null })).toBeNull();
+    expect(
+      checkJoinFitness(pfitz, placePlan(pfitz, RACE_8_WEEKS, TODAY), { weeklyMiles: null, longestRunMi: null }),
+    ).toBeNull();
   });
 
   it('uses +20% (min +5 mi) for weekly volume and +10% (min +1 mi) for the long run', () => {
@@ -96,7 +98,13 @@ describe('checkJoinFitness (T-3)', () => {
   });
 
   it('suggests gentler plans for the same race date', () => {
-    const safer = saferPlansForRace(BUILT_IN_PLANS, '2027-04-25', { weeklyMiles: 15, longestRunMi: 6 }, 'pfitzinger-18-55', TODAY);
+    const safer = saferPlansForRace(
+      BUILT_IN_PLANS,
+      '2027-04-25',
+      { weeklyMiles: 15, longestRunMi: 6 },
+      'pfitzinger-18-55',
+      TODAY,
+    );
     expect(safer.map((p) => p.id)).toContain('hal-higdon-novice-1');
     expect(safer.map((p) => p.id)).not.toContain('pfitzinger-18-55');
   });

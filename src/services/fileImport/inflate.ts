@@ -64,8 +64,8 @@ const LEN_EXTRA = new Uint8Array([
 ]);
 /** Base distances for distance codes 0..29 and their extra bits. */
 const DIST_BASE = new Uint16Array([
-  1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073,
-  4097, 6145, 8193, 12289, 16385, 24577,
+  1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537, 2049, 3073, 4097, 6145,
+  8193, 12289, 16385, 24577,
 ]);
 const DIST_EXTRA = new Uint8Array([
   0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13,
@@ -419,7 +419,9 @@ async function nativeDecompress(
   const writer = stream.writable.getWriter();
   // Write and read concurrently: awaiting the write first can deadlock on back-pressure.
   const written = writer.write(data).then(() => writer.close());
-  written.catch(() => { /* the same failure surfaces from the reader */ });
+  written.catch(() => {
+    /* the same failure surfaces from the reader */
+  });
   const reader = stream.readable.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -431,7 +433,9 @@ async function nativeDecompress(
       if (total > maxOutput) {
         // Stop decompressing the rest instead of buffering it.
         if (typeof reader.cancel === 'function') {
-          Promise.resolve(reader.cancel()).catch(() => { /* already failing */ });
+          Promise.resolve(reader.cancel()).catch(() => {
+            /* already failing */
+          });
         }
         throw new OutputLimitError();
       }

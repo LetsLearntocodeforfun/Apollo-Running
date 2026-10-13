@@ -140,7 +140,9 @@ describe('assessRaceWeather', () => {
   it('should provide heat tips when hot', () => {
     const result = assessRaceWeather(hotForecast, 12600);
     expect(result.tips.length).toBeGreaterThan(0);
-    expect(result.tips.some((t) => t.toLowerCase().includes('heat') || t.toLowerCase().includes('hydration'))).toBe(true);
+    expect(result.tips.some((t) => t.toLowerCase().includes('heat') || t.toLowerCase().includes('hydration'))).toBe(
+      true,
+    );
   });
 
   it('should provide wind tips when windy', () => {
@@ -186,8 +188,12 @@ describe('getMarathonCoords', () => {
 
   it('should have coordinates for all 6 World Majors', () => {
     const ids = [
-      'tokyo-marathon-2026', 'boston-marathon-2026', 'london-marathon-2026',
-      'berlin-marathon-2026', 'chicago-marathon-2026', 'nyc-marathon-2026',
+      'tokyo-marathon-2026',
+      'boston-marathon-2026',
+      'london-marathon-2026',
+      'berlin-marathon-2026',
+      'chicago-marathon-2026',
+      'nyc-marathon-2026',
     ];
     for (const id of ids) {
       const coords = getMarathonCoords(id);

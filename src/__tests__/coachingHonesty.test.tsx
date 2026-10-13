@@ -79,7 +79,7 @@ afterEach(() => {
 // ── L-2 ──────────────────────────────────────────────────────────────────────
 
 describe('race-morning form (L-2)', () => {
-  it('projection carries the form before each day\'s load', () => {
+  it("projection carries the form before each day's load", () => {
     const planned = new Map([['2026-10-11', 260]]);
     const proj = projectForward({ date: '2026-10-07', ctl: 60, atl: 40, tsb: 20 }, 10, 5, planned);
     const raceIdx = proj.findIndex((p) => p.date === '2026-10-11');
@@ -117,7 +117,12 @@ describe('race-morning form (L-2)', () => {
 
 describe('cold start (L-3)', () => {
   const loads = (days: number, tss: number): DailyTrainingLoad[] =>
-    Array.from({ length: days }, (_, i) => ({ date: addDays('2026-01-01', i), tss, distanceMi: 6, type: 'easy' as const }));
+    Array.from({ length: days }, (_, i) => ({
+      date: addDays('2026-01-01', i),
+      tss,
+      distanceMi: 6,
+      type: 'easy' as const,
+    }));
 
   it('seeds CTL/ATL from the average of the first 28 days', () => {
     expect(seedLoad(loads(28, 50), 28)).toBe(50);
@@ -169,7 +174,11 @@ describe('time in zone honesty (L-11)', () => {
   it('computes measured zone times from an HR stream', () => {
     // max HR 200 → Z2 starts at 120, Z4 at 160.
     const samples = [
-      { t: 0, hr: 125 }, { t: 10, hr: 125 }, { t: 20, hr: 165 }, { t: 30, hr: 165 }, { t: 40, hr: 165 },
+      { t: 0, hr: 125 },
+      { t: 10, hr: 125 },
+      { t: 20, hr: 165 },
+      { t: 30, hr: 165 },
+      { t: 40, hr: 165 },
     ];
     expect(timeInZonesFromStream(samples, 200)).toEqual([0, 20, 0, 20, 0]);
     expect(timeInZonesFromStream([{ t: 0, hr: 120 }], 200)).toBeNull();
@@ -179,14 +188,25 @@ describe('time in zone honesty (L-11)', () => {
     setHRProfile({ maxHR: 200, restingHR: 50, source: 'manual', updatedAt: '' });
     const est = buildHRDataFromActivity(1, '2026-10-06', 150, 170, 3600)!;
     expect(est.zoneSource).toBe('estimated');
-    const real = buildHRDataFromActivity(2, '2026-10-06', 150, 170, 3600, undefined, 'intervals', [600, 1800, 900, 300, 0])!;
+    const real = buildHRDataFromActivity(
+      2,
+      '2026-10-06',
+      150,
+      170,
+      3600,
+      undefined,
+      'intervals',
+      [600, 1800, 900, 300, 0],
+    )!;
     expect(real.zoneSource).toBe('measured');
     expect(real.timeInZones).toEqual([600, 1800, 900, 300, 0]);
   });
 
   it('aggregate is flagged estimated unless every activity is measured', () => {
     setHRProfile({ maxHR: 200, restingHR: 50, source: 'manual', updatedAt: '' });
-    upsertActivityHR(buildHRDataFromActivity(2, '2026-10-06', 150, 170, 3600, undefined, 'intervals', [600, 1800, 900, 300, 0])!);
+    upsertActivityHR(
+      buildHRDataFromActivity(2, '2026-10-06', 150, 170, 3600, undefined, 'intervals', [600, 1800, 900, 300, 0])!,
+    );
     expect(getAggregateZoneDistribution(30)).toMatchObject({ estimated: false, measuredShare: 1 });
     upsertActivityHR(buildHRDataFromActivity(3, '2026-10-05', 140, 160, 3600)!);
     const agg = getAggregateZoneDistribution(30);
@@ -196,7 +216,9 @@ describe('time in zone honesty (L-11)', () => {
 
   it('a later average-HR rebuild never replaces measured zone times', () => {
     setHRProfile({ maxHR: 200, restingHR: 50, source: 'manual', updatedAt: '' });
-    upsertActivityHR(buildHRDataFromActivity(2, '2026-10-06', 150, 170, 3600, undefined, 'intervals', [600, 1800, 900, 300, 0])!);
+    upsertActivityHR(
+      buildHRDataFromActivity(2, '2026-10-06', 150, 170, 3600, undefined, 'intervals', [600, 1800, 900, 300, 0])!,
+    );
     upsertActivityHR(buildHRDataFromActivity(2, '2026-10-06', 150, 170, 3600)!);
     expect(getAggregateZoneDistribution(30).estimated).toBe(false);
   });
@@ -204,7 +226,11 @@ describe('time in zone honesty (L-11)', () => {
   it('the Insights zone panel says "Estimated" for synthesized data', () => {
     setHRProfile({ maxHR: 200, restingHR: 50, source: 'manual', updatedAt: '' });
     upsertActivityHR(buildHRDataFromActivity(3, '2026-10-05', 140, 160, 3600)!);
-    render(<MemoryRouter><HeartRatePanel /></MemoryRouter>);
+    render(
+      <MemoryRouter>
+        <HeartRatePanel />
+      </MemoryRouter>,
+    );
     expect(screen.getByText(/Estimated zone distribution/)).toBeTruthy();
     expect(screen.getByTestId('hr-zones-estimated-note').textContent).toMatch(/average heart rate/);
   });
@@ -216,7 +242,7 @@ describe('VDOT pace bands (L-7) and race pace range (L-8)', () => {
   const v50 = paceBandsFromTrainingPaces(calculateTrainingPaces(50))!; // E ≈ 7:52–9:26, M ≈ 7:17
   const v35 = paceBandsFromTrainingPaces(calculateTrainingPaces(35))!; // slower runner
 
-  it('judges easy pace against the runner\'s own easy band', () => {
+  it("judges easy pace against the runner's own easy band", () => {
     // 8:15/mi: inside a VDOT-50 easy band, but far too fast for a VDOT-35 runner.
     expect(isEasyPaceTooFast(8.25, v50)).toBe(false);
     expect(isEasyPaceTooFast(8.25, v35)).toBe(true);
@@ -235,7 +261,11 @@ describe('VDOT pace bands (L-7) and race pace range (L-8)', () => {
   });
 
   it('race-week pace is a range around predicted marathon pace, never avg training pace × 1.03', () => {
-    const r = raceWeekPaceRange(v50, { marathonTimeSec: 3 * 3600 + 10 * 60, rangeLowSec: 3 * 3600 + 5 * 60, rangeHighSec: 3 * 3600 + 18 * 60 })!;
+    const r = raceWeekPaceRange(v50, {
+      marathonTimeSec: 3 * 3600 + 10 * 60,
+      rangeLowSec: 3 * 3600 + 5 * 60,
+      rangeHighSec: 3 * 3600 + 18 * 60,
+    })!;
     expect(r.basis).toBe('prediction');
     expect(r.fastMinPerMi).toBeCloseTo((3 * 60 + 5) / 26.2188, 2);
     expect(r.slowMinPerMi).toBeCloseTo((3 * 60 + 18) / 26.2188, 2);
@@ -268,8 +298,14 @@ describe('plan-relative load (L-5)', () => {
 
   it('flags a single run > 110 % of the 30-day longest', () => {
     const r = (date: string, mi: number, planned = mi): SyncedRunData => ({
-      weekIndex: 0, dayIndex: 0, actualDistanceMi: mi, actualPaceMinPerMi: 9, plannedDistanceMi: planned,
-      plannedNote: 'Long', movingTimeSec: mi * 540, date,
+      weekIndex: 0,
+      dayIndex: 0,
+      actualDistanceMi: mi,
+      actualPaceMinPerMi: 9,
+      plannedDistanceMi: planned,
+      plannedNote: 'Long',
+      movingTimeSec: mi * 540,
+      date,
     });
     const runs = [r('2026-09-20', 12), r('2026-09-27', 13), r('2026-10-05', 16, 13)];
     const spike = findRunSpike(runs, '2026-10-07');
@@ -290,7 +326,8 @@ describe('plan-prescribed jumps end to end (L-5)', () => {
     const START = '2026-01-05';
     setActivePlan({ planId: PLAN, startDate: START });
     const plan = getEffectivePlan()!;
-    const miles = (w: number) => plan.weeks[w].days.reduce((s, d) => s + (d.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+    const miles = (w: number) =>
+      plan.weeks[w].days.reduce((s, d) => s + (d.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
     // A week the plan itself raises by > 25 % over the week before (e.g. after a cutback).
     let w = 1;
     while (w < plan.weeks.length - 5 && !(miles(w) > miles(w - 1) * 1.25)) w++;

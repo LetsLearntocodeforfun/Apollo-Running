@@ -11,10 +11,14 @@ export default function MultiTabNotice({ coordinator }: { coordinator: TabCoordi
   const [state, setState] = useState<TabState>(() => coordinator.getState());
   const [dismissed, setDismissed] = useState(false);
 
-  useEffect(() => coordinator.subscribe((next) => {
-    setState(next);
-    setDismissed(false);
-  }), [coordinator]);
+  useEffect(
+    () =>
+      coordinator.subscribe((next) => {
+        setState(next);
+        setDismissed(false);
+      }),
+    [coordinator],
+  );
 
   let title = 'Apollo is open in another tab.';
   let message: string | null = null;

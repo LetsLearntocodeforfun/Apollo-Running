@@ -82,9 +82,7 @@ describe('generateCourseTraining', () => {
     const plan = generateCourseTraining(race);
     expect(plan.keyWorkouts.length).toBeGreaterThanOrEqual(3);
     // Should mention bridges
-    const hasBridge = plan.keyWorkouts.some((w) =>
-      w.description.toLowerCase().includes('bridge'),
-    );
+    const hasBridge = plan.keyWorkouts.some((w) => w.description.toLowerCase().includes('bridge'));
     expect(hasBridge).toBe(true);
   });
 
@@ -101,9 +99,7 @@ describe('generateCourseTraining', () => {
     const plan = generateCourseTraining(race);
     expect(plan.keyWorkouts.length).toBeGreaterThanOrEqual(2);
     // Should mention wind
-    const hasWind = plan.keyWorkouts.some((w) =>
-      w.description.toLowerCase().includes('wind'),
-    );
+    const hasWind = plan.keyWorkouts.some((w) => w.description.toLowerCase().includes('wind'));
     expect(hasWind).toBe(true);
   });
 
@@ -118,9 +114,8 @@ describe('generateCourseTraining', () => {
     const plan = generateCourseTraining(race);
     expect(plan.keyWorkouts.length).toBeGreaterThanOrEqual(2);
     // Should mention cobblestone or varied surfaces
-    const hasSurface = plan.keyWorkouts.some((w) =>
-      w.description.toLowerCase().includes('cobble') ||
-      w.description.toLowerCase().includes('surface'),
+    const hasSurface = plan.keyWorkouts.some(
+      (w) => w.description.toLowerCase().includes('cobble') || w.description.toLowerCase().includes('surface'),
     );
     expect(hasSurface).toBe(true);
   });
@@ -134,11 +129,17 @@ describe('generateCourseTraining', () => {
 
   it('should generate hill-heavy plan for difficult courses', () => {
     const race = makeRace({
-      name: 'Mountain Marathon', city: 'Denver',
+      name: 'Mountain Marathon',
+      city: 'Denver',
       course: {
-        totalGainFt: 2000, totalLossFt: 2000, netChangeFt: 0,
-        highPointFt: 500, lowPointFt: 0, difficulty: 8,
-        bqFriendly: false, prFriendly: false,
+        totalGainFt: 2000,
+        totalLossFt: 2000,
+        netChangeFt: 0,
+        highPointFt: 500,
+        lowPointFt: 0,
+        difficulty: 8,
+        bqFriendly: false,
+        prFriendly: false,
         elevationPoints: [],
       },
     });
@@ -149,18 +150,22 @@ describe('generateCourseTraining', () => {
 
   it('should generate flat-focused plan for easy courses', () => {
     const race = makeRace({
-      name: 'Flat Fast Marathon', city: 'Flatland',
+      name: 'Flat Fast Marathon',
+      city: 'Flatland',
       course: {
-        totalGainFt: 50, totalLossFt: 50, netChangeFt: 0,
-        highPointFt: 20, lowPointFt: 0, difficulty: 1,
-        bqFriendly: true, prFriendly: true,
+        totalGainFt: 50,
+        totalLossFt: 50,
+        netChangeFt: 0,
+        highPointFt: 20,
+        lowPointFt: 0,
+        difficulty: 1,
+        bqFriendly: true,
+        prFriendly: true,
         elevationPoints: [],
       },
     });
     const plan = generateCourseTraining(race);
-    const hasTempoOrLongRun = plan.keyWorkouts.some((w) =>
-      w.category === 'tempo' || w.category === 'long_run',
-    );
+    const hasTempoOrLongRun = plan.keyWorkouts.some((w) => w.category === 'tempo' || w.category === 'long_run');
     expect(hasTempoOrLongRun).toBe(true);
   });
 
@@ -189,8 +194,12 @@ describe('getKeyWorkouts', () => {
 describe('L-36 — World Majors are matched by id, never by name', () => {
   it('a custom "Boston Run to Remember Half" gets the generic plan (no Newton hills)', () => {
     const half = importCustomMarathon({
-      name: 'Boston Run to Remember Half', city: 'Boston', country: 'United States',
-      date: '2027-05-30', courseType: 'loop', distanceMi: 13.1,
+      name: 'Boston Run to Remember Half',
+      city: 'Boston',
+      country: 'United States',
+      date: '2027-05-30',
+      courseType: 'loop',
+      distanceMi: 13.1,
     });
     expect(identifyWorldMajor(half)).toBeNull();
     const plan = generateCourseTraining(half);
@@ -247,9 +256,13 @@ describe('L-37 — no shared state is mutated', () => {
 describe('L-38 — net drop and distance', () => {
   it('a big net-downhill custom course gets eccentric downhill prep, not the flat plan', () => {
     const race = importCustomMarathon({
-      name: 'Canyon Drop Marathon', city: 'Somewhere', country: 'United States',
-      date: '2027-06-05', courseType: 'point-to-point',
-      elevationGainFt: 300, elevationLossFt: 5300,
+      name: 'Canyon Drop Marathon',
+      city: 'Somewhere',
+      country: 'United States',
+      date: '2027-06-05',
+      courseType: 'point-to-point',
+      elevationGainFt: 300,
+      elevationLossFt: 5300,
     });
     expect(getCourseFacts(race).netDropFt).toBe(5000);
     const plan = generateCourseTraining(race);
@@ -268,9 +281,15 @@ describe('L-38 — net drop and distance', () => {
   it('net drop comes from gain/loss even when netChangeFt has the wrong sign', () => {
     const race = makeRace({
       course: {
-        totalGainFt: 300, totalLossFt: 5300, netChangeFt: 5000,
-        highPointFt: 5400, lowPointFt: 100, difficulty: 2,
-        bqFriendly: true, prFriendly: true, elevationPoints: [],
+        totalGainFt: 300,
+        totalLossFt: 5300,
+        netChangeFt: 5000,
+        highPointFt: 5400,
+        lowPointFt: 100,
+        difficulty: 2,
+        bqFriendly: true,
+        prFriendly: true,
+        elevationPoints: [],
       },
     });
     expect(getCourseFacts(race).netDropFt).toBe(5000);
@@ -278,9 +297,15 @@ describe('L-38 — net drop and distance', () => {
 
   it('half-marathon long runs are 10-13 mi / 90-120 min, never 18-20 mi', () => {
     const half = importCustomMarathon({
-      name: 'Hilly Harbour Half', city: 'Anywhere', country: 'United States',
-      date: '2027-04-04', courseType: 'loop', distanceMi: 13.1,
-      elevationGainFt: 900, elevationLossFt: 900, difficulty: 7,
+      name: 'Hilly Harbour Half',
+      city: 'Anywhere',
+      country: 'United States',
+      date: '2027-04-04',
+      courseType: 'loop',
+      distanceMi: 13.1,
+      elevationGainFt: 900,
+      elevationLossFt: 900,
+      difficulty: 7,
     });
     const flatHalf = makeRace({ distanceMi: 13.1 });
     for (const race of [half, flatHalf]) {
@@ -297,7 +322,12 @@ describe('L-38 — net drop and distance', () => {
   });
 
   it('copes with partial race objects (no loss, net change or distance)', () => {
-    const partial = { name: 'Mountain Marathon', city: 'Denver', courseType: 'out-and-back', course: { totalGainFt: 2000, difficulty: 8 } };
+    const partial = {
+      name: 'Mountain Marathon',
+      city: 'Denver',
+      courseType: 'out-and-back',
+      course: { totalGainFt: 2000, difficulty: 8 },
+    };
     const plan = generateCourseTraining(partial as unknown as MarathonRace);
     expect(plan.source).toBe('generic');
     expect(plan.keyWorkouts.some((w) => w.category === 'hill')).toBe(true);
@@ -356,8 +386,32 @@ describe('L-40 — units', () => {
       ...['boston', 'nyc', 'berlin', 'chicago', 'tokyo', 'london'].map((id) => makeMajor(id, id, id)),
       makeRace(),
       makeRace({ distanceMi: 13.1 }),
-      makeRace({ course: { totalGainFt: 2000, totalLossFt: 2000, netChangeFt: 0, highPointFt: 0, lowPointFt: 0, difficulty: 8, bqFriendly: false, prFriendly: false, elevationPoints: [] } }),
-      makeRace({ course: { totalGainFt: 300, totalLossFt: 5300, netChangeFt: -5000, highPointFt: 0, lowPointFt: 0, difficulty: 2, bqFriendly: false, prFriendly: false, elevationPoints: [] } }),
+      makeRace({
+        course: {
+          totalGainFt: 2000,
+          totalLossFt: 2000,
+          netChangeFt: 0,
+          highPointFt: 0,
+          lowPointFt: 0,
+          difficulty: 8,
+          bqFriendly: false,
+          prFriendly: false,
+          elevationPoints: [],
+        },
+      }),
+      makeRace({
+        course: {
+          totalGainFt: 300,
+          totalLossFt: 5300,
+          netChangeFt: -5000,
+          highPointFt: 0,
+          lowPointFt: 0,
+          difficulty: 2,
+          bqFriendly: false,
+          prFriendly: false,
+          elevationPoints: [],
+        },
+      }),
     ];
     for (const race of races) {
       const text = allText(generateCourseTraining(race, { unit: 'km' }));
@@ -377,8 +431,13 @@ describe('L-40 — units', () => {
 });
 
 describe('groupWorkoutsByWindow', () => {
-  const w = (name: string, weeksOut: string, priority: 1 | 2 | 3 = 1): CourseWorkout =>
-    ({ name, description: '', weeksOut, category: 'tempo', priority });
+  const w = (name: string, weeksOut: string, priority: 1 | 2 | 3 = 1): CourseWorkout => ({
+    name,
+    description: '',
+    weeksOut,
+    category: 'tempo',
+    priority,
+  });
 
   it('parses windows', () => {
     expect(parseWeeksOut('12-16')).toEqual({ min: 12, max: 16 });
@@ -387,7 +446,14 @@ describe('groupWorkoutsByWindow', () => {
   });
 
   it('buckets by distance to the window (±1 week counts as now)', () => {
-    const input = [w('far', '14-20'), w('edge-far', '11-13'), w('in', '8-12'), w('edge-near', '6-9'), w('near', '3-6'), w('single', '11')];
+    const input = [
+      w('far', '14-20'),
+      w('edge-far', '11-13'),
+      w('in', '8-12'),
+      w('edge-near', '6-9'),
+      w('near', '3-6'),
+      w('single', '11'),
+    ];
     const snapshot = input.map((x) => x.name);
     const g = groupWorkoutsByWindow(input, 10);
     expect(g.now.map((x) => x.name).sort()).toEqual(['edge-far', 'edge-near', 'in', 'single']);

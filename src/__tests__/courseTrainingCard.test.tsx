@@ -96,7 +96,14 @@ describe('CourseTrainingCard', () => {
   });
 
   it('shows the generic plan for a custom race', () => {
-    const race = { ...getMarathonById('berlin', TODAY)!, id: 'custom-flat-10k-1', name: 'Flat 10K', category: 'custom' as const, isWorldMajor: false, distanceMi: 6.2 };
+    const race = {
+      ...getMarathonById('berlin', TODAY)!,
+      id: 'custom-flat-10k-1',
+      name: 'Flat 10K',
+      category: 'custom' as const,
+      isWorldMajor: false,
+      distanceMi: 6.2,
+    };
     render(<CourseTrainingCard ctx={makeCtx({ race, daysToRace: 30 })} />);
     expect(screen.getByText('Based on the Flat 10K course profile')).toBeTruthy();
     expect(screen.getByRole('region', { name: /^Now/ })).toBeTruthy();

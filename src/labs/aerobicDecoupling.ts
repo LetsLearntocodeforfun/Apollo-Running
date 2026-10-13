@@ -87,9 +87,7 @@ export function calculateDecoupling(
   const maxPace = medianPace * 1.3;
   const minHR = 90; // filter splits with implausibly low HR
 
-  const validSplits = splits.filter(
-    (s) => s.paceSec <= maxPace && s.avgHR >= minHR,
-  );
+  const validSplits = splits.filter((s) => s.paceSec <= maxPace && s.avgHR >= minHR);
 
   if (validSplits.length < 6) return null;
 
@@ -110,7 +108,7 @@ export function calculateDecoupling(
   const effSecond = hrSecondHalf / paceSecondHalf;
 
   // Decoupling % — positive means efficiency dropped (HR drifted up)
-  const decouplingPct = Math.round(((effSecond / effFirst) - 1) * 10000) / 100;
+  const decouplingPct = Math.round((effSecond / effFirst - 1) * 10000) / 100;
 
   const rating = rateDecoupling(decouplingPct);
 
@@ -171,8 +169,7 @@ export function getDecouplingHistory(): DecouplingResult[] {
  * Compares the early half of entries to the recent half.
  */
 export function getDecouplingTrend(minEntries: number = 4): DecouplingTrend | null {
-  const history = getDecouplingHistory()
-    .sort((a, b) => a.date.localeCompare(b.date));
+  const history = getDecouplingHistory().sort((a, b) => a.date.localeCompare(b.date));
 
   if (history.length < minEntries) return null;
 
@@ -188,7 +185,13 @@ export function getDecouplingTrend(minEntries: number = 4): DecouplingTrend | nu
 
   const message = buildTrendMessage(trend, earlyAvg, recentAvg, history.length);
 
-  return { trend, earlyAvg: Math.round(earlyAvg * 100) / 100, recentAvg: Math.round(recentAvg * 100) / 100, changePct, message };
+  return {
+    trend,
+    earlyAvg: Math.round(earlyAvg * 100) / 100,
+    recentAvg: Math.round(recentAvg * 100) / 100,
+    changePct,
+    message,
+  };
 }
 
 function buildTrendMessage(

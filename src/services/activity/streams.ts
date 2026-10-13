@@ -116,8 +116,7 @@ function finishSplit(
     elapsed_time: elapsed,
     moving_time: moving,
     average_speed: moving > 0 ? Math.round((distance / moving) * 1000) / 1000 : 0,
-    elevation_difference:
-      acc.startAlt != null && endAlt != null ? Math.round((endAlt - acc.startAlt) * 10) / 10 : 0,
+    elevation_difference: acc.startAlt != null && endAlt != null ? Math.round((endAlt - acc.startAlt) * 10) / 10 : 0,
   };
   if (acc.hrTime > 0) split.average_heartrate = Math.round((acc.hrWeighted / acc.hrTime) * 10) / 10;
   return split;

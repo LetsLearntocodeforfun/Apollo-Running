@@ -32,9 +32,12 @@ export const NETWORK_DESTINATIONS: readonly NetworkDestination[] = [
   {
     id: 'intervals-api',
     host: 'intervals.icu',
-    purpose: 'Read your activities, wellness (sleep, HRV, resting HR) and sport settings; write planned workouts to your calendar when plan push is on.',
-    trigger: 'Only after you connect intervals.icu: when you sync (manually, or on launch / in the background if you turned that on), open an activity, sync wellness (if enabled) or push your plan (if enabled).',
-    dataSent: 'Your intervals.icu API key (HTTP Basic auth), athlete ID, date ranges and activity IDs; planned workouts when you push your plan.',
+    purpose:
+      'Read your activities, wellness (sleep, HRV, resting HR) and sport settings; write planned workouts to your calendar when plan push is on.',
+    trigger:
+      'Only after you connect intervals.icu: when you sync (manually, or on launch / in the background if you turned that on), open an activity, sync wellness (if enabled) or push your plan (if enabled).',
+    dataSent:
+      'Your intervals.icu API key (HTTP Basic auth), athlete ID, date ranges and activity IDs; planned workouts when you push your plan.',
     defaultOn: false,
     platform: 'all',
   },
@@ -51,8 +54,10 @@ export const NETWORK_DESTINATIONS: readonly NetworkDestination[] = [
     id: 'strava-oauth',
     host: 'www.strava.com (oauth)',
     purpose: 'Sign in to Strava and keep the connection alive (authorize, token exchange and refresh).',
-    trigger: 'When you click Connect Strava (the sign-in page opens in your browser), and when the access token expires during a sync (about every 6 hours).',
-    dataSent: 'Desktop: your Strava client ID and client secret plus the authorization code or refresh token, sent by the app itself (main process), never by the page. Web: the code or refresh token go to Apollo\u2019s own server (below), which adds the secret.',
+    trigger:
+      'When you click Connect Strava (the sign-in page opens in your browser), and when the access token expires during a sync (about every 6 hours).',
+    dataSent:
+      'Desktop: your Strava client ID and client secret plus the authorization code or refresh token, sent by the app itself (main process), never by the page. Web: the code or refresh token go to Apollo\u2019s own server (below), which adds the secret.',
     defaultOn: false,
     platform: 'all',
   },
@@ -77,7 +82,8 @@ export const NETWORK_DESTINATIONS: readonly NetworkDestination[] = [
   {
     id: 'web-bff',
     host: 'this website (/api)',
-    purpose: 'Web: exchange and refresh Strava tokens through Apollo\u2019s own server so the client secret never reaches the browser.',
+    purpose:
+      'Web: exchange and refresh Strava tokens through Apollo\u2019s own server so the client secret never reaches the browser.',
     trigger: 'When you connect Strava in the browser, and when its token is refreshed.',
     dataSent: 'The Strava authorization code or refresh token.',
     defaultOn: false,

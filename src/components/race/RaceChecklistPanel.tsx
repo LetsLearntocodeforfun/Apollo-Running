@@ -49,7 +49,9 @@ export default function RaceChecklistPanel({ ctx }: RacePanelProps) {
   if (!list) {
     return (
       <section className="race-week-section" aria-labelledby={titleId}>
-        <h2 id={titleId} className="race-week-title">Race week checklist</h2>
+        <h2 id={titleId} className="race-week-title">
+          Race week checklist
+        </h2>
         <p className="race-week-muted">Loading checklist…</p>
       </section>
     );
@@ -119,7 +121,9 @@ export default function RaceChecklistPanel({ ctx }: RacePanelProps) {
           disabled={item.hidden}
           onChange={() => handleToggle(item.id)}
         />
-        <label htmlFor={checkId} className="race-week-item-text">{item.text}</label>
+        <label htmlFor={checkId} className="race-week-item-text">
+          {item.text}
+        </label>
         {item.isCourse && <span className="race-week-tag">Course</span>}
         {item.isCustom && <span className="race-week-tag">Yours</span>}
         {item.hidden && <span className="race-week-tag">Hidden</span>}
@@ -129,7 +133,8 @@ export default function RaceChecklistPanel({ ctx }: RacePanelProps) {
           </button>
         ) : (
           <button type="button" className="btn btn-ghost race-week-item-action" onClick={() => handleHideToggle(item)}>
-            {item.hidden ? 'Unhide' : 'Hide'}<span className="sr-only">: {item.text}</span>
+            {item.hidden ? 'Unhide' : 'Hide'}
+            <span className="sr-only">: {item.text}</span>
           </button>
         )}
       </li>
@@ -139,7 +144,9 @@ export default function RaceChecklistPanel({ ctx }: RacePanelProps) {
   return (
     <section className="race-week-section" aria-labelledby={titleId}>
       <div className="race-week-header">
-        <h2 id={titleId} className="race-week-title">Race week checklist</h2>
+        <h2 id={titleId} className="race-week-title">
+          Race week checklist
+        </h2>
         <p className="race-week-muted">
           {ctx.race ? `For ${ctx.race.name}` : 'No race selected — showing a general race-week list.'}
         </p>
@@ -179,10 +186,13 @@ export default function RaceChecklistPanel({ ctx }: RacePanelProps) {
                   aria-controls={panelId}
                   onClick={() => toggleOpen(cat)}
                 >
-                  <span className="race-week-chevron" aria-hidden="true">{isOpen ? '▾' : '▸'}</span>
+                  <span className="race-week-chevron" aria-hidden="true">
+                    {isOpen ? '▾' : '▸'}
+                  </span>
                   <span className="race-week-cat-label">{CATEGORY_LABELS[cat]}</span>
                   <span className="race-week-cat-count">
-                    {done}/{visible.length}<span className="sr-only"> done</span>
+                    {done}/{visible.length}
+                    <span className="sr-only"> done</span>
                   </span>
                 </button>
               </h3>
@@ -193,7 +203,9 @@ export default function RaceChecklistPanel({ ctx }: RacePanelProps) {
                   <ul className="race-week-items">{shown.map(renderItem)}</ul>
                 )}
                 <form className="race-week-add" onSubmit={(e) => handleAdd(e, cat)}>
-                  <label htmlFor={inputId} className="sr-only">New item for {CATEGORY_LABELS[cat]}</label>
+                  <label htmlFor={inputId} className="sr-only">
+                    New item for {CATEGORY_LABELS[cat]}
+                  </label>
                   <input
                     id={inputId}
                     type="text"

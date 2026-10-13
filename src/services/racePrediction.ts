@@ -99,7 +99,7 @@ const ADHERENCE_KEY = 'apollo_adherence';
 
 /** Oxygen cost (ml·kg⁻¹·min⁻¹) of running at `metersPerMin` (Daniels & Gilbert, 1979). */
 export function vo2AtVelocity(metersPerMin: number): number {
-  return -4.60 + 0.182258 * metersPerMin + 0.000104 * metersPerMin * metersPerMin;
+  return -4.6 + 0.182258 * metersPerMin + 0.000104 * metersPerMin * metersPerMin;
 }
 
 /** Velocity (m/min) whose oxygen cost is `vo2` — the positive root of {@link vo2AtVelocity}. */
@@ -107,7 +107,7 @@ export function velocityAtVo2(vo2: number): number {
   if (!Number.isFinite(vo2)) return 0;
   const a = 0.000104;
   const b = 0.182258;
-  const c = -4.60 - vo2;
+  const c = -4.6 - vo2;
   const disc = b * b - 4 * a * c;
   if (disc < 0) return 0;
   return Math.max(0, (-b + Math.sqrt(disc)) / (2 * a));
@@ -248,9 +248,11 @@ const HR_MIN_RUNS = 3;
 
 const STANDARD_RACE_DISTANCES_M = [5000, 8000, 10000, 12000, 15000, 16093.44, 21097.5, 25000, 30000, MARATHON_M];
 /** Words that name a race (word-boundary matched). */
-const RACE_NAME_RE = /\b(race|racing|marathon|half[- ]?marathon|halfmarathon|half|parkrun|park run|5k|8k|10k|12k|15k|25k|30k|10[- ]?mile|10[- ]?miler|turkey trot|championships?|grand prix|xc)\b/i;
+const RACE_NAME_RE =
+  /\b(race|racing|marathon|half[- ]?marathon|halfmarathon|half|parkrun|park run|5k|8k|10k|12k|15k|25k|30k|10[- ]?mile|10[- ]?miler|turkey trot|championships?|grand prix|xc)\b/i;
 /** Words that mark a training run even when a race word appears (e.g. "marathon pace"). */
-const NOT_RACE_NAME_RE = /\b(pace|paced|pacer|pacing|tempo|easy|recovery|shake ?out|warm[- ]?up|cool[- ]?down|training|workout|long run|intervals?|repeats?|progression|fartlek|strides|simulation|sim|rehearsal|preview)\b/i;
+const NOT_RACE_NAME_RE =
+  /\b(pace|paced|pacer|pacing|tempo|easy|recovery|shake ?out|warm[- ]?up|cool[- ]?down|training|workout|long run|intervals?|repeats?|progression|fartlek|strides|simulation|sim|rehearsal|preview)\b/i;
 
 function confidenceForAge(ageDays: number): VdotConfidence {
   if (ageDays <= 120) return 'high';
@@ -483,7 +485,9 @@ function activePlanRaceDays(): Map<string, number> {
         }
       });
     });
-  } catch { /* no plan */ }
+  } catch {
+    /* no plan */
+  }
   return out;
 }
 
@@ -523,18 +527,22 @@ export function deriveVdot(opts: DeriveVdotOptions = {}): DerivedVdot {
   if (fromProfile) raceEvidence.push(fromProfile);
   raceEvidence.push(...raceActivityCandidates(activities, today, planRaceDays));
   if (raceEvidence.length > 0) {
-    raceEvidence.sort((a, b) =>
-      CONFIDENCE_RANK[a.confidence] - CONFIDENCE_RANK[b.confidence] ||
-      a.sourceRank - b.sourceRank ||
-      (b.asOf ?? '').localeCompare(a.asOf ?? '') ||
-      b.vdot - a.vdot);
+    raceEvidence.sort(
+      (a, b) =>
+        CONFIDENCE_RANK[a.confidence] - CONFIDENCE_RANK[b.confidence] ||
+        a.sourceRank - b.sourceRank ||
+        (b.asOf ?? '').localeCompare(a.asOf ?? '') ||
+        b.vdot - a.vdot,
+    );
     return stripRank(raceEvidence[0]);
   }
 
   let hrProfile: HRProfile | null = null;
   try {
     hrProfile = opts.hrProfile !== undefined ? opts.hrProfile : getHRProfile();
-  } catch { /* no HR profile */ }
+  } catch {
+    /* no HR profile */
+  }
   const hr = hrEstimateCandidate(activities, today, hrProfile, planRaceDays);
 
   const effort = bestEffortCandidate(activities, today);
@@ -617,19 +625,22 @@ export function computeRacePrediction(opts: DeriveVdotOptions = {}): RacePredict
     low = Math.min(tDg, riegel) * 0.985;
     high = Math.max(point * 1.02, riegelSlow);
     method = 'daniels_riegel_blend';
-    basis = `Based on your ${raceDistanceLabel(perf.distanceM)} (${formatTimeSec(perf.timeSec)} on ${perf.date}, VDOT ${vdot}), ` +
+    basis =
+      `Based on your ${raceDistanceLabel(perf.distanceM)} (${formatTimeSec(perf.timeSec)} on ${perf.date}, VDOT ${vdot}), ` +
       'blending Daniels–Gilbert with Riegel.';
   } else if (derived.source === 'best_effort' && perf) {
     low = tDg * 0.97;
     high = tDg * (lowVolume ? 1.08 : 1.06);
     method = 'daniels_vdot';
-    basis = `Based on your best ${raceDistanceLabel(perf.distanceM)} effort (${formatTimeSec(perf.timeSec)} on ${perf.date}, VDOT ${vdot}). ` +
+    basis =
+      `Based on your best ${raceDistanceLabel(perf.distanceM)} effort (${formatTimeSec(perf.timeSec)} on ${perf.date}, VDOT ${vdot}). ` +
       'Training efforts are rarely all-out, so a race result will sharpen this.';
   } else {
     low = tDg * 0.94;
-    high = tDg * 1.10;
+    high = tDg * 1.1;
     method = 'heart_rate_estimate';
-    basis = `Estimated from your heart rate on steady runs over the last 6 weeks (VDOT ${vdot}). ` +
+    basis =
+      `Estimated from your heart rate on steady runs over the last 6 weeks (VDOT ${vdot}). ` +
       'Add a recent race in your profile for a sharper prediction.';
   }
 
@@ -642,9 +653,10 @@ export function computeRacePrediction(opts: DeriveVdotOptions = {}): RacePredict
     high *= 1.02;
   }
   if (lowVolume) {
-    basis += mpw == null
-      ? ' The range is wider because your recent weekly volume is unknown.'
-      : ` The range is wider for your weekly volume (~${formatMiles(mpw, 0)}/week).`;
+    basis +=
+      mpw == null
+        ? ' The range is wider because your recent weekly volume is unknown.'
+        : ` The range is wider for your weekly volume (~${formatMiles(mpw, 0)}/week).`;
   }
 
   const marathonTimeSec = Math.round(point);
@@ -666,7 +678,8 @@ export function computeRacePrediction(opts: DeriveVdotOptions = {}): RacePredict
       // Unchanged inputs: keep the last real change visible instead of resetting it.
       trend = prev.trend;
       previousMarathonTimeSec = prev.previousMarathonTimeSec;
-    } else if (diff < -60) trend = 'improving'; // faster by > 1 min
+    } else if (diff < -60)
+      trend = 'improving'; // faster by > 1 min
     else if (diff > 60) trend = 'declining';
   }
 
@@ -756,7 +769,8 @@ function readActivePlan(): ActivePlanContext | null {
   if (!active?.planId || !isDateKey(active.startDate)) return null;
   const plan = getEffectivePlan();
   if (!plan) return null;
-  const joined = Number.isInteger(active.joinedWeekIndex) && (active.joinedWeekIndex ?? 0) > 0 ? active.joinedWeekIndex! : 0;
+  const joined =
+    Number.isInteger(active.joinedWeekIndex) && (active.joinedWeekIndex ?? 0) > 0 ? active.joinedWeekIndex! : 0;
   return { plan, planId: active.planId, startDate: active.startDate, firstDay: joined * 7 };
 }
 
@@ -809,11 +823,13 @@ export function calculateTrainingAdherence(): TrainingAdherence | null {
 
   // 3. Consistency: longest gap between training days, using the activity
   //    dates (not the sync time, which is the same for a backfill — V17).
-  const activityDates = Array.from(new Set(
-    allMeta
-      .map((m) => m.meta.activityDate ?? dateKeyFromLocalIso(m.meta.syncedAt))
-      .filter((k): k is string => !!k && isDateKey(k) && k <= today),
-  )).sort();
+  const activityDates = Array.from(
+    new Set(
+      allMeta
+        .map((m) => m.meta.activityDate ?? dateKeyFromLocalIso(m.meta.syncedAt))
+        .filter((k): k is string => !!k && isDateKey(k) && k <= today),
+    ),
+  ).sort();
   let maxGapDays = 0;
   for (let i = 1; i < activityDates.length; i++) {
     maxGapDays = Math.max(maxGapDays, daysBetween(activityDates[i - 1], activityDates[i]));
@@ -835,7 +851,7 @@ export function calculateTrainingAdherence(): TrainingAdherence | null {
   const totalCategorized = easyDays + hardDays;
   // Ideal ratio: ~80% easy, 20% hard
   const easyPct = totalCategorized > 0 ? easyDays / totalCategorized : 0;
-  const intensityBalance = totalCategorized < 3 ? 50 : (easyPct >= 0.6 && easyPct <= 0.9 ? 100 : easyPct > 0.9 ? 80 : 60);
+  const intensityBalance = totalCategorized < 3 ? 50 : easyPct >= 0.6 && easyPct <= 0.9 ? 100 : easyPct > 0.9 ? 80 : 60;
 
   // 5. Current streak: consecutive plan days met, walking back from today.
   //    Rest days count as met; today's workout doesn't break it before the day is over.
@@ -878,9 +894,9 @@ export function calculateTrainingAdherence(): TrainingAdherence | null {
   // Overall score: weighted blend
   const score = Math.round(
     completionRate * 100 * 0.35 +
-    Math.min(distanceAdherence, 100) * 0.25 +
-    consistencyScore * 0.20 +
-    intensityBalance * 0.20
+      Math.min(distanceAdherence, 100) * 0.25 +
+      consistencyScore * 0.2 +
+      intensityBalance * 0.2,
   );
 
   let rating: TrainingAdherence['rating'];

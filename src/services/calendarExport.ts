@@ -35,12 +35,12 @@ import { addDays, isDateKey, todayKey } from '../utils/localDate';
 
 export interface CalendarEvent {
   uid: string;
-  date: string;          // YYYY-MM-DD (all-day event)
-  summary: string;       // Event title
-  description: string;   // Full workout details (plain text, unescaped)
-  durationMin: number;   // Estimated moving time (0 for rest days)
-  weekNumber: number;    // 1-based plan week
-  dayOfWeek: number;     // 0=Mon, 6=Sun
+  date: string; // YYYY-MM-DD (all-day event)
+  summary: string; // Event title
+  description: string; // Full workout details (plain text, unescaped)
+  durationMin: number; // Estimated moving time (0 for rest days)
+  weekNumber: number; // 1-based plan week
+  dayOfWeek: number; // 0=Mon, 6=Sun
   /** 'workout' for runs/cross-training/races, 'rest' for rest (and skipped) days. */
   kind: 'workout' | 'rest';
 }
@@ -94,14 +94,16 @@ const SEQUENCE_EPOCH_MS = Date.UTC(2024, 0, 1);
  * characters are not allowed in TEXT and are dropped.
  */
 export function escapeICSText(text: string): string {
-  return text
-    .replace(/\r\n?/g, '\n')
-    // eslint-disable-next-line no-control-regex
-    .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
-    .replace(/\\/g, '\\\\')
-    .replace(/;/g, '\\;')
-    .replace(/,/g, '\\,')
-    .replace(/\n/g, '\\n');
+  return (
+    text
+      .replace(/\r\n?/g, '\n')
+      // eslint-disable-next-line no-control-regex
+      .replace(/[\u0000-\u0008\u000B-\u001F\u007F]/g, '')
+      .replace(/\\/g, '\\\\')
+      .replace(/;/g, '\\;')
+      .replace(/,/g, '\\,')
+      .replace(/\n/g, '\\n')
+  );
 }
 
 /** UTF-8 length of one code point. */
@@ -140,11 +142,17 @@ function icsDate(dateKey: string): string {
 
 /** UTC date-time `YYYYMMDDTHHMMSSZ` (RFC 5545 form #2). */
 function icsUtcDateTime(date: Date): string {
-  return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  return date
+    .toISOString()
+    .replace(/[-:]/g, '')
+    .replace(/\.\d{3}Z$/, 'Z');
 }
 
 function slug(text: string): string {
-  const s = text.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  const s = text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
   return s || 'plan';
 }
 
@@ -205,7 +213,9 @@ function weekLine(weekNumber: number, totalWeeks: number, planName: string): str
 function workoutDescription(workout: PlannedWorkout, weekNumber: number, plan: TrainingPlan): string {
   const body = workout.description.split('\n').map(humanizeLine).join('\n');
   const minutes = Math.max(1, Math.round(workout.moving_time / 60));
-  return [body, `Estimated time: ${formatMinutes(minutes)}`, weekLine(weekNumber, plan.weeks.length, plan.name)].join('\n\n');
+  return [body, `Estimated time: ${formatMinutes(minutes)}`, weekLine(weekNumber, plan.weeks.length, plan.name)].join(
+    '\n\n',
+  );
 }
 
 function restDescription(day: PlanDay, weekNumber: number, plan: TrainingPlan): string {
@@ -218,9 +228,14 @@ function restDescription(day: PlanDay, weekNumber: number, plan: TrainingPlan): 
 // ── Paces ─────────────────────────────────────────────────────────────────────
 
 function isTrainingPaces(p: TrainingPaces | null | undefined): p is TrainingPaces {
-  return !!p && typeof p.vdot === 'number' && !!p.easy
-    && typeof p.easy.min === 'number' && typeof p.easy.max === 'number'
-    && [p.marathon, p.threshold, p.interval].every((v) => typeof v === 'number' && v > 0);
+  return (
+    !!p &&
+    typeof p.vdot === 'number' &&
+    !!p.easy &&
+    typeof p.easy.min === 'number' &&
+    typeof p.easy.max === 'number' &&
+    [p.marathon, p.threshold, p.interval].every((v) => typeof v === 'number' && v > 0)
+  );
 }
 
 /**

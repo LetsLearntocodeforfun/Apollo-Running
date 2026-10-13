@@ -55,7 +55,10 @@ describe('labs boundary (R-14)', () => {
         if (pointsIntoLabs(file, match[1])) offenders.push(`${path.relative(SRC, file)} → ${match[1]}`);
       }
     }
-    expect(offenders, 'Screens and services must not import experimental src/labs modules (see src/labs/README.md)').toEqual([]);
+    expect(
+      offenders,
+      'Screens and services must not import experimental src/labs modules (see src/labs/README.md)',
+    ).toEqual([]);
   });
 
   it('detects labs imports in every form it guards against', () => {

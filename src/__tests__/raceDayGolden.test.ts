@@ -134,7 +134,10 @@ describe('golden: Boston 4:00:00 even split', () => {
     expect(byTitle('Half marathon').time).toBe('12:00 PM');
     expect(byTitle('Projected finish').offsetSec).toBe(GOAL_SEC);
     expect(byTitle('Projected finish').time).toBe('2:00 PM');
-    expect(byTitle('5K').offsetSec).toBeCloseTo(timeAtDistance(s.milePaces, 5 / KM_PER_MI) * (GOAL_SEC / finishOf(s)), 6);
+    expect(byTitle('5K').offsetSec).toBeCloseTo(
+      timeAtDistance(s.milePaces, 5 / KM_PER_MI) * (GOAL_SEC / finishOf(s)),
+      6,
+    );
     expect(byTitle('20 mi').offsetSec).toBeCloseTo(timeAtDistance(s.milePaces, 20) * (GOAL_SEC / finishOf(s)), 6);
 
     // Events are sorted, the gun is at 0 and every milestone is after it.

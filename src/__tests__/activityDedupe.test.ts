@@ -104,8 +104,13 @@ describe('mergeActivity', () => {
   it('lets a file copy fill gaps in a legacy Strava record without changing its identity', () => {
     const legacy = act({ id: 111, name: 'Strava title' }); // pre-migration record: no source
     const file = act({
-      id: 300000000000000 + 1715515200, source: 'file', source_id: 'run.fit', origin: 'GARMIN',
-      name: 'Imported run', average_cadence: 86, device_name: 'Garmin Forerunner 965',
+      id: 300000000000000 + 1715515200,
+      source: 'file',
+      source_id: 'run.fit',
+      origin: 'GARMIN',
+      name: 'Imported run',
+      average_cadence: 86,
+      device_name: 'Garmin Forerunner 965',
     });
     const merged = mergeActivity(legacy, file);
     expect(merged.id).toBe(111);
@@ -128,11 +133,27 @@ describe('mergeActivity', () => {
 
 describe('mergeIntoStore', () => {
   it('adds new activities, merges duplicates and sorts newest first', () => {
-    const older = act({ id: 5, source: 'strava', start_date: '2024-05-01T12:00:00Z', start_date_local: '2024-05-01T07:00:00Z' });
-    const r = mergeIntoStore([older, stravaRun], [icuRun, act({
-      id: 100000000000999, source: 'intervals', source_id: 'i999', type: 'VirtualRide', distance: 30000,
-      start_date: '2024-05-13T23:00:00Z', start_date_local: '2024-05-13T18:00:00Z',
-    })]);
+    const older = act({
+      id: 5,
+      source: 'strava',
+      start_date: '2024-05-01T12:00:00Z',
+      start_date_local: '2024-05-01T07:00:00Z',
+    });
+    const r = mergeIntoStore(
+      [older, stravaRun],
+      [
+        icuRun,
+        act({
+          id: 100000000000999,
+          source: 'intervals',
+          source_id: 'i999',
+          type: 'VirtualRide',
+          distance: 30000,
+          start_date: '2024-05-13T23:00:00Z',
+          start_date_local: '2024-05-13T18:00:00Z',
+        }),
+      ],
+    );
     expect(r.added).toBe(1);
     expect(r.updated).toBe(1);
     expect(r.activities.map((a) => a.id)).toEqual([100000000000999, 111, 5]);
@@ -164,8 +185,14 @@ describe('mergeIntoStore', () => {
 });
 
 describe('storeActivities', () => {
-  const counts = (added: number, updated: number, dropped = 0, droppedRuns = dropped) =>
-    ({ added, updated, dropped, droppedRuns, droppedOther: dropped - droppedRuns, skippedDeleted: 0 });
+  const counts = (added: number, updated: number, dropped = 0, droppedRuns = dropped) => ({
+    added,
+    updated,
+    dropped,
+    droppedRuns,
+    droppedOther: dropped - droppedRuns,
+    skippedDeleted: 0,
+  });
 
   it('stores each workout once across sources and returns counts', () => {
     expect(storeActivities([stravaRun])).toEqual(counts(1, 0));

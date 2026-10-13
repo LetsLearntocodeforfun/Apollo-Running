@@ -99,7 +99,9 @@ function RaceBadge({ days }: { days: number | null }) {
   const spoken = days === 0 ? 'race day is today' : `${days} day${days === 1 ? '' : 's'} to race`;
   return (
     <>
-      <span className="nav-badge" aria-hidden="true">{text}</span>
+      <span className="nav-badge" aria-hidden="true">
+        {text}
+      </span>
       <span className="sr-only">, {spoken}</span>
     </>
   );
@@ -188,8 +190,12 @@ function PageFrame({ focusHeading, children }: { focusHeading: boolean; children
 function useIdlePrefetch(): void {
   useEffect(() => {
     const prefetch = () => {
-      loadPlan().catch(() => { /* retried on navigation */ });
-      loadProgress().catch(() => { /* retried on navigation */ });
+      loadPlan().catch(() => {
+        /* retried on navigation */
+      });
+      loadProgress().catch(() => {
+        /* retried on navigation */
+      });
     };
     if (typeof window.requestIdleCallback === 'function') {
       const id = window.requestIdleCallback(prefetch, { timeout: 5000 });
@@ -217,9 +223,9 @@ function StatusBanners({ pathname }: { pathname: string }) {
       {storage.degraded && (
         <div className="app-banner app-banner--error" role="alert">
           <div className="app-banner-text">
-            <strong>Storage unavailable.</strong>{' '}
-            {storage.reason ?? 'Apollo could not open its local database.'}{' '}
-            Syncing and saving large data are paused so your complete data isn't overwritten. Reloading usually fixes this.
+            <strong>Storage unavailable.</strong> {storage.reason ?? 'Apollo could not open its local database.'}{' '}
+            Syncing and saving large data are paused so your complete data isn't overwritten. Reloading usually fixes
+            this.
           </div>
           <button type="button" className="btn btn-secondary" onClick={() => window.location.reload()}>
             Reload Apollo
@@ -253,7 +259,12 @@ function StatusBanners({ pathname }: { pathname: string }) {
               Open download page
             </a>
           )}
-          <button type="button" className="app-banner-dismiss" onClick={dismissUpdate} aria-label="Dismiss update message">
+          <button
+            type="button"
+            className="app-banner-dismiss"
+            onClick={dismissUpdate}
+            aria-label="Dismiss update message"
+          >
             <span aria-hidden="true">×</span>
           </button>
         </div>
@@ -309,7 +320,10 @@ function AppShell() {
                 <Route path="/auth/strava/callback" element={<AuthStravaCallback />} />
                 {/* v1.0.5 routes */}
                 <Route path="/training" element={<RedirectKeepingSearch to="/plan" />} />
-                <Route path="/analytics" element={<RedirectKeepingSearch to="/progress" defaults={{ tab: 'trends' }} />} />
+                <Route
+                  path="/analytics"
+                  element={<RedirectKeepingSearch to="/progress" defaults={{ tab: 'trends' }} />}
+                />
                 <Route path="/insights" element={<RedirectKeepingSearch to="/progress" />} />
                 <Route path="/race-strategy" element={<RedirectKeepingSearch to="/race" />} />
                 <Route path="*" element={<NotFound />} />
@@ -322,7 +336,9 @@ function AppShell() {
       <div className="app-toast-region" role="status" aria-live="polite">
         {toast && (
           <div className="app-toast">
-            <span className="app-toast-icon" aria-hidden="true">⟳</span>
+            <span className="app-toast-icon" aria-hidden="true">
+              ⟳
+            </span>
             <span>{toast}</span>
           </div>
         )}

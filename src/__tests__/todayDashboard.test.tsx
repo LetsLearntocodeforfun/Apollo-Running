@@ -79,8 +79,15 @@ describe('todayModel helpers', () => {
 
   it('journey header skips unknown parts', () => {
     const base: JourneyState = {
-      phase: 'training', planId: 'p', planName: 'P', raceDate: '2026-11-22', daysToRace: 46,
-      weekIndex: 8, dayIndex: 2, totalWeeks: 18, trainingPhase: 'build',
+      phase: 'training',
+      planId: 'p',
+      planName: 'P',
+      raceDate: '2026-11-22',
+      daysToRace: 46,
+      weekIndex: 8,
+      dayIndex: 2,
+      totalWeeks: 18,
+      trainingPhase: 'build',
     };
     expect(journeyHeaderParts(base)).toEqual(['Week 9 of 18', 'Build', '46 days to race']);
     expect(journeyHeaderParts({ ...base, weekIndex: null, trainingPhase: null })).toEqual(['46 days to race']);
@@ -95,7 +102,12 @@ describe('todayModel helpers', () => {
   });
 
   it('prediction range as h:mm–h:mm', () => {
-    const p = { marathonTimeSec: 12100, marathonTimeFormatted: '3:21:40', rangeLowSec: 11880, rangeHighSec: 12360 } as RacePrediction;
+    const p = {
+      marathonTimeSec: 12100,
+      marathonTimeFormatted: '3:21:40',
+      rangeLowSec: 11880,
+      rangeHighSec: 12360,
+    } as RacePrediction;
     expect(predictionRangeText(p)).toBe('3:18–3:26');
   });
 });
@@ -156,15 +168,25 @@ describe('Today screen', () => {
     let d = journey.dayIndex!;
     for (let i = 0; i < 14; i++) {
       d += 1;
-      if (d > 6) { w += 1; d = 0; }
+      if (d > 6) {
+        w += 1;
+        d = 0;
+      }
       if (isWorkoutDay(plan.weeks[w]?.days[d])) break;
     }
     render(
       <MemoryRouter>
         <TodayWorkout
-          plan={plan} planId={PLAN_ID} weekIndex={w} dayIndex={d}
-          dateKey={getDateKeyForDay(active.startDate, w, d)} startDate={active.startDate}
-          headingLevel={2} completed={false} syncMeta={null} vdot={null}
+          plan={plan}
+          planId={PLAN_ID}
+          weekIndex={w}
+          dayIndex={d}
+          dateKey={getDateKeyForDay(active.startDate, w, d)}
+          startDate={active.startDate}
+          headingLevel={2}
+          completed={false}
+          syncMeta={null}
+          vdot={null}
         />
       </MemoryRouter>,
     );
@@ -177,9 +199,12 @@ describe('Today screen', () => {
   });
 
   it('shows personal pace targets once a recent race is known', () => {
-    persistence.setItem('apollo_athlete_profile', JSON.stringify({
-      recentRace: { distanceM: 10000, timeSec: 2700, date: '2026-09-20' },
-    }));
+    persistence.setItem(
+      'apollo_athlete_profile',
+      JSON.stringify({
+        recentRace: { distanceM: 10000, timeSec: 2700, date: '2026-09-20' },
+      }),
+    );
     startPlan({ planId: PLAN_ID, raceDate: '2026-12-13' });
     renderToday();
     expect(screen.getByText('Target pace')).toBeTruthy();
@@ -222,7 +247,8 @@ describe('Today screen', () => {
 // ── Static guard: nothing reachable from Today may import recharts ──────────
 
 const SRC = resolve(__dirname, '..');
-const IMPORT_RE = /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
+const IMPORT_RE =
+  /(?:import|export)\s[^'"]*?from\s*['"]([^'"]+)['"]|import\s*\(\s*['"]([^'"]+)['"]\s*\)|import\s+['"]([^'"]+)['"]/g;
 
 function resolveModule(fromFile: string, spec: string): string | null {
   const base = spec.startsWith('@/') ? join(SRC, spec.slice(2)) : resolve(dirname(fromFile), spec);
@@ -260,7 +286,9 @@ describe('Today bundle guard', () => {
     const files = [
       join(SRC, 'pages', 'Dashboard.tsx'),
       join(SRC, 'components', 'RecoveryCard.tsx'),
-      ...readdirSync(todayDir).filter((f) => /\.(ts|tsx)$/.test(f)).map((f) => join(todayDir, f)),
+      ...readdirSync(todayDir)
+        .filter((f) => /\.(ts|tsx)$/.test(f))
+        .map((f) => join(todayDir, f)),
     ];
     for (const f of files) expect(readFileSync(f, 'utf8'), f).not.toContain('recharts');
   });

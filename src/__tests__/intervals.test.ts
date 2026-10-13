@@ -31,7 +31,11 @@ import { decodePolyline } from '@/services/routeService';
 
 const CREDS: IntervalsCredentials = { apiKey: 'secret-key', athleteId: 'i42' };
 
-interface FakeReply { status?: number; body?: unknown; headers?: Record<string, string> }
+interface FakeReply {
+  status?: number;
+  body?: unknown;
+  headers?: Record<string, string>;
+}
 
 function fakeResponse({ status = 200, body, headers = {} }: FakeReply): Response {
   const text = body === undefined ? '' : typeof body === 'string' ? body : JSON.stringify(body);
@@ -58,13 +62,16 @@ interface FetchCall {
 /** Stub global fetch; the handler receives the parsed URL (and method/body) of each request. */
 function mockFetch(handler: (url: URL, req: { method: string; body: unknown }) => FakeReply) {
   const calls: FetchCall[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (input: unknown, init?: { method?: string; headers?: Record<string, string>; body?: string }) => {
-    const url = new URL(String(input));
-    const method = init?.method ?? 'GET';
-    const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
-    calls.push({ url, headers: init?.headers ?? {}, method, body, initKeys: Object.keys(init ?? {}).sort() });
-    return fakeResponse(handler(url, { method, body }));
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: unknown, init?: { method?: string; headers?: Record<string, string>; body?: string }) => {
+      const url = new URL(String(input));
+      const method = init?.method ?? 'GET';
+      const body: unknown = typeof init?.body === 'string' ? JSON.parse(init.body) : undefined;
+      calls.push({ url, headers: init?.headers ?? {}, method, body, initKeys: Object.keys(init ?? {}).sort() });
+      return fakeResponse(handler(url, { method, body }));
+    }),
+  );
   return calls;
 }
 
@@ -124,10 +131,17 @@ describe('mapIntervalsActivity', () => {
 
   it('maps a Zwift ride with power and keeps cycling cadence in rpm', () => {
     const ride = mapIntervalsActivity({
-      id: 'i777', type: 'VirtualRide', start_date_local: '2024-06-01T18:05:00',
-      distance: 32000, moving_time: 3600, average_cadence: 88,
-      icu_average_watts: 205, icu_weighted_avg_watts: 221, trainer: true,
-      device_name: 'Zwift', source: 'ZWIFT',
+      id: 'i777',
+      type: 'VirtualRide',
+      start_date_local: '2024-06-01T18:05:00',
+      distance: 32000,
+      moving_time: 3600,
+      average_cadence: 88,
+      icu_average_watts: 205,
+      icu_weighted_avg_watts: 221,
+      trainer: true,
+      device_name: 'Zwift',
+      source: 'ZWIFT',
     })!;
     expect(ride.type).toBe('VirtualRide');
     expect(ride.average_cadence).toBe(88);
@@ -220,7 +234,13 @@ describe('getIntervalsAthlete', () => {
   it('returns the profile of the key owner', async () => {
     mockFetch(() => ({ body: { id: 'i42', firstname: 'Marc', lastname: 'C', profile_medium: 'https://x/y.png' } }));
     const athlete = await getIntervalsAthlete({ apiKey: 'k', athleteId: '0' });
-    expect(athlete).toEqual({ id: 'i42', firstname: 'Marc', lastname: 'C', profile: 'https://x/y.png', source: 'intervals' });
+    expect(athlete).toEqual({
+      id: 'i42',
+      firstname: 'Marc',
+      lastname: 'C',
+      profile: 'https://x/y.png',
+      source: 'intervals',
+    });
   });
 
   it('splits a single display name', async () => {
@@ -232,7 +252,12 @@ describe('getIntervalsAthlete', () => {
 });
 
 describe('getIntervalsRoute', () => {
-  const latlngs = [[45.5231, -122.6765], [45.5241, -122.6775], [null, null], [45.5251, -122.6785]];
+  const latlngs = [
+    [45.5231, -122.6765],
+    [45.5241, -122.6775],
+    [null, null],
+    [45.5251, -122.6785],
+  ];
 
   it('encodes the GPS track as polylines', async () => {
     const calls = mockFetch(() => ({ body: { bounds: [], latlngs } }));
@@ -256,19 +281,41 @@ describe('getIntervalsRoute', () => {
 
 describe('getIntervalsActivityDetail', () => {
   it('adds laps, derived splits and the route while keeping the store ID', async () => {
-    const time = Array.from({ length: 501 }, (_, i) => i * 5);        // 0..2500 s
-    const distance = time.map((t) => t * 4);                           // 4 m/s → 10 km
+    const time = Array.from({ length: 501 }, (_, i) => i * 5); // 0..2500 s
+    const distance = time.map((t) => t * 4); // 4 m/s → 10 km
     mockFetch((url) => {
       if (url.pathname.endsWith('/streams.json')) {
-        return { body: [{ type: 'time', data: time }, { type: 'distance', data: distance }, { type: 'heartrate', data: time.map(() => 150) }] };
+        return {
+          body: [
+            { type: 'time', data: time },
+            { type: 'distance', data: distance },
+            { type: 'heartrate', data: time.map(() => 150) },
+          ],
+        };
       }
-      if (url.pathname.endsWith('/map')) return { body: { latlngs: [[45.1, -122.1], [45.2, -122.2]] } };
+      if (url.pathname.endsWith('/map'))
+        return {
+          body: {
+            latlngs: [
+              [45.1, -122.1],
+              [45.2, -122.2],
+            ],
+          },
+        };
       return {
         body: {
           ...garminRun,
           name: 'Renamed on intervals.icu',
           icu_intervals: [
-            { type: 'WORK', distance: 1000, moving_time: 240, average_heartrate: 165, average_cadence: 180, start_index: 0, end_index: 48 },
+            {
+              type: 'WORK',
+              distance: 1000,
+              moving_time: 240,
+              average_heartrate: 165,
+              average_cadence: 180,
+              start_index: 0,
+              end_index: 48,
+            },
             { type: 'RECOVERY', distance: 400, moving_time: 150, start_index: 48, end_index: 78 },
             { type: 'WORK', label: 'Hill', distance: 1000, moving_time: 250, start_index: 78, end_index: 128 },
           ],
@@ -293,7 +340,9 @@ describe('getIntervalsActivityDetail', () => {
   });
 
   it('skips streams and maps for indoor sessions without distance', async () => {
-    const calls = mockFetch(() => ({ body: { id: 'i5', type: 'WeightTraining', start_date_local: '2024-01-02T06:00:00', icu_intervals: [] } }));
+    const calls = mockFetch(() => ({
+      body: { id: 'i5', type: 'WeightTraining', start_date_local: '2024-01-02T06:00:00', icu_intervals: [] },
+    }));
     const base = mapIntervalsActivity({ id: 'i5', type: 'WeightTraining', start_date_local: '2024-01-02T06:00:00' })!;
     const detail = await getIntervalsActivityDetail(base, CREDS);
     expect(calls).toHaveLength(1);
@@ -358,7 +407,9 @@ describe('sendIntervals', () => {
 
   it('throws IntervalsAuthError for a rejected key', async () => {
     const calls = mockFetch(() => ({ status: 403 }));
-    await expect(sendIntervals('DELETE', '/athlete/i42/x', undefined, CREDS)).rejects.toBeInstanceOf(IntervalsAuthError);
+    await expect(sendIntervals('DELETE', '/athlete/i42/x', undefined, CREDS)).rejects.toBeInstanceOf(
+      IntervalsAuthError,
+    );
     expect(calls).toHaveLength(1);
     expect(calls[0].body).toBeUndefined();
   });
@@ -394,13 +445,17 @@ describe('upsertIntervalsEvents', () => {
 
   it('refuses events without an external_id (repeats would duplicate them)', async () => {
     const calls = mockFetch(() => ({ body: [] }));
-    await expect(upsertIntervalsEvents([{ ...plannedEvent(1), external_id: undefined }], CREDS)).rejects.toThrow(/external_id/);
+    await expect(upsertIntervalsEvents([{ ...plannedEvent(1), external_id: undefined }], CREDS)).rejects.toThrow(
+      /external_id/,
+    );
     expect(calls).toHaveLength(0);
   });
 
   it('retries server errors because the upsert is idempotent', async () => {
     let n = 0;
-    mockFetch(() => (++n < 2 ? { status: 500, headers: { 'Retry-After': '1' } } : { body: [{ id: 1, external_id: 'apollo:test:1' }] }));
+    mockFetch(() =>
+      ++n < 2 ? { status: 500, headers: { 'Retry-After': '1' } } : { body: [{ id: 1, external_id: 'apollo:test:1' }] },
+    );
     await expect(upsertIntervalsEvents([plannedEvent(1)], CREDS)).resolves.toHaveLength(1);
     expect(n).toBe(2);
   });
@@ -440,8 +495,13 @@ describe('deleteIntervalsEventsByExternalId', () => {
 
 describe('listIntervalsEvents', () => {
   it('requests the date window and categories', async () => {
-    const calls = mockFetch(() => ({ body: [{ id: 7, external_id: 'apollo:x', start_date_local: '2026-10-12T00:00:00' }] }));
-    const events = await listIntervalsEvents({ oldest: '2026-10-01', newest: '2026-10-31', category: ['WORKOUT', 'NOTE'] }, CREDS);
+    const calls = mockFetch(() => ({
+      body: [{ id: 7, external_id: 'apollo:x', start_date_local: '2026-10-12T00:00:00' }],
+    }));
+    const events = await listIntervalsEvents(
+      { oldest: '2026-10-01', newest: '2026-10-31', category: ['WORKOUT', 'NOTE'] },
+      CREDS,
+    );
     expect(events).toEqual([{ id: 7, external_id: 'apollo:x', start_date_local: '2026-10-12T00:00:00' }]);
     const { url, method } = calls[0];
     expect(method).toBe('GET');
@@ -473,9 +533,18 @@ describe('fetchIntervalsWellness', () => {
     expect(url.pathname).toBe('/api/v1/athlete/i42/wellness');
     expect(url.searchParams.get('oldest')).toBe('2026-09-05');
     expect(url.searchParams.get('newest')).toBe('2026-10-04');
-    expect(url.searchParams.get('fields')?.split(',')).toEqual(expect.arrayContaining([
-      'id', 'restingHR', 'hrv', 'sleepSecs', 'sleepScore', 'readiness', 'tempRestingHR', 'tempWeight',
-    ]));
+    expect(url.searchParams.get('fields')?.split(',')).toEqual(
+      expect.arrayContaining([
+        'id',
+        'restingHR',
+        'hrv',
+        'sleepSecs',
+        'sleepScore',
+        'readiness',
+        'tempRestingHR',
+        'tempWeight',
+      ]),
+    );
     expect(headers.Authorization).toBe('Basic ' + btoa('API_KEY:secret-key'));
   });
 
@@ -492,15 +561,23 @@ describe('fetchIntervalsWellness', () => {
     expect(await fetchIntervalsWellness({ oldest: '2026-10-01', newest: '2026-10-02' }, CREDS)).toEqual([]);
 
     const calls = mockFetch(() => ({ status: 401 }));
-    await expect(fetchIntervalsWellness({ oldest: '2026-10-01', newest: '2026-10-02' }, CREDS))
-      .rejects.toBeInstanceOf(IntervalsAuthError);
+    await expect(fetchIntervalsWellness({ oldest: '2026-10-01', newest: '2026-10-02' }, CREDS)).rejects.toBeInstanceOf(
+      IntervalsAuthError,
+    );
     expect(calls).toHaveLength(1);
   });
 });
 
 describe('fetchIntervalsSportSettings', () => {
   it('reads the per-sport settings and drops malformed entries', async () => {
-    const run = { id: 3, types: ['Run', 'VirtualRun', 'TrailRun'], lthr: 168, max_hr: 189, threshold_pace: 4.2, pace_units: 'MINS_KM' };
+    const run = {
+      id: 3,
+      types: ['Run', 'VirtualRun', 'TrailRun'],
+      lthr: 168,
+      max_hr: 189,
+      threshold_pace: 4.2,
+      pace_units: 'MINS_KM',
+    };
     const calls = mockFetch(() => ({ body: [{ id: 1, types: ['Ride', 'VirtualRide'] }, run, null, [1, 2]] }));
     expect(await fetchIntervalsSportSettings(CREDS)).toEqual([{ id: 1, types: ['Ride', 'VirtualRide'] }, run]);
     expect(calls).toHaveLength(1);

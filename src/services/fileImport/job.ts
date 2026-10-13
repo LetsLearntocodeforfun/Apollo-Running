@@ -129,9 +129,11 @@ function headline(r: ImportResult): string {
   const changes: string[] = [];
   if (r.added > 0) changes.push(`Added ${plural(r.added, 'activity', 'activities')}`);
   if (r.updated > 0) {
-    changes.push(r.added > 0
-      ? `updated ${r.updated.toLocaleString()} you already had`
-      : `Updated ${plural(r.updated, 'activity', 'activities')} you already had`);
+    changes.push(
+      r.added > 0
+        ? `updated ${r.updated.toLocaleString()} you already had`
+        : `Updated ${plural(r.updated, 'activity', 'activities')} you already had`,
+    );
   }
   if (changes.length > 0) {
     const text = `${changes.join(' and ')}.`;
@@ -156,7 +158,9 @@ function headline(r: ImportResult): string {
 export function describeImportResult(r: ImportResult): string {
   const text = headline(r);
   if (!(r.dropped > 0)) return text;
-  const older = r.dropped === 1 ? 'older one wasn\'t' : 'older ones weren\'t';
-  return `${text} Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities `
-    + `(races and personal records always stay), so ${r.dropped.toLocaleString()} ${older} kept.`;
+  const older = r.dropped === 1 ? "older one wasn't" : "older ones weren't";
+  return (
+    `${text} Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities ` +
+    `(races and personal records always stay), so ${r.dropped.toLocaleString()} ${older} kept.`
+  );
 }

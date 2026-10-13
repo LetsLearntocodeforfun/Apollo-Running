@@ -25,7 +25,10 @@ let downloaded: { name: string; blob: Blob | null }[];
 beforeEach(() => {
   downloaded = [];
   let lastBlob: Blob | null = null;
-  createObjectURL = vi.fn((blob: Blob) => { lastBlob = blob; return 'blob:test'; });
+  createObjectURL = vi.fn((blob: Blob) => {
+    lastBlob = blob;
+    return 'blob:test';
+  });
   Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true, writable: true });
   Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true, writable: true });
   clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {

@@ -60,7 +60,13 @@ function keyLabel(key: string): string {
 function formatBackupTime(iso: string): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return 'Unknown date';
-  return new Date(t).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return new Date(t).toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 const TRIGGER_LABELS: Record<BackupRecord['trigger'], string> = {
@@ -72,11 +78,16 @@ const TRIGGER_LABELS: Record<BackupRecord['trigger'], string> = {
 /** One sentence (plus skipped keys) for a restore/import outcome. */
 function describeOutcome(outcome: ActionOutcome, action: 'restore' | 'import'): string {
   const fallback = outcome.ok
-    ? (action === 'restore' ? 'Backup restored.' : 'Data imported.')
-    : (action === 'restore' ? 'The backup could not be restored.' : 'The file could not be imported.');
-  const skipped = outcome.skippedKeys.length > 0
-    ? ` Not ${action === 'restore' ? 'restored' : 'imported'}: ${outcome.skippedKeys.join(', ')}.`
-    : '';
+    ? action === 'restore'
+      ? 'Backup restored.'
+      : 'Data imported.'
+    : action === 'restore'
+      ? 'The backup could not be restored.'
+      : 'The file could not be imported.';
+  const skipped =
+    outcome.skippedKeys.length > 0
+      ? ` Not ${action === 'restore' ? 'restored' : 'imported'}: ${outcome.skippedKeys.join(', ')}.`
+      : '';
   const reloadNote = outcome.ok ? ' Reload Apollo to see the changes.' : '';
   return `${outcome.message ?? fallback}${skipped}${reloadNote}`;
 }
@@ -147,25 +158,29 @@ export default function DataTab() {
 
   useEffect(() => {
     let cancelled = false;
-    void Promise.all([estimateStorageUsage(), isDesktop ? Promise.resolve(null) : isStoragePersisted()])
-      .then(([estimate, isPersisted]) => {
+    void Promise.all([estimateStorageUsage(), isDesktop ? Promise.resolve(null) : isStoragePersisted()]).then(
+      ([estimate, isPersisted]) => {
         if (cancelled) return;
         setUsage(estimate);
         setPersisted(isPersisted);
-      });
-    return () => { cancelled = true; };
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
   }, [isDesktop]);
 
   const dataBytes = usage ? usage.keys.reduce((sum, k) => sum + k.chars * 2, 0) : 0;
   const largestKeys = usage ? usage.keys.slice(0, 8) : [];
 
-  const badge: BackupBadge = backupHealth.backupCount === 0 && backupHealth.status !== 'critical'
-    ? { label: 'No backup yet', tone: 'neutral' } // U2: neutral for a new user, not a red "At risk"
-    : backupHealth.status === 'healthy'
-      ? { label: 'Protected', tone: 'success' }
-      : backupHealth.status === 'warning'
-        ? { label: 'Needs attention', tone: 'warning' }
-        : { label: 'At risk', tone: 'error' };
+  const badge: BackupBadge =
+    backupHealth.backupCount === 0 && backupHealth.status !== 'critical'
+      ? { label: 'No backup yet', tone: 'neutral' } // U2: neutral for a new user, not a red "At risk"
+      : backupHealth.status === 'healthy'
+        ? { label: 'Protected', tone: 'success' }
+        : backupHealth.status === 'warning'
+          ? { label: 'Needs attention', tone: 'warning' }
+          : { label: 'At risk', tone: 'error' };
 
   const updateBackupConfig = (patch: Partial<BackupConfig>, message: string) => {
     setBackupConfig(patch);
@@ -201,7 +216,8 @@ export default function DataTab() {
 
   const handleDownloadBackup = async (record: BackupRecord) => {
     setNeedsReload(false);
-    if (await downloadBackup(record.id)) backupStatus.success(`Downloaded the backup from ${formatBackupTime(record.createdAt)}.`);
+    if (await downloadBackup(record.id))
+      backupStatus.success(`Downloaded the backup from ${formatBackupTime(record.createdAt)}.`);
     else backupStatus.error('That backup is no longer on this device.');
   };
 
@@ -277,8 +293,8 @@ export default function DataTab() {
       <div className="card settings-card settings-card--teal">
         <h2 className="card-title settings-card-title">Your data stays on this device</h2>
         <p className="settings-lead">
-          Apollo has no account, no server and no analytics. Your training data is stored only in this app on this device.
-          It contacts the services listed below only after you connect them.
+          Apollo has no account, no server and no analytics. Your training data is stored only in this app on this
+          device. It contacts the services listed below only after you connect them.
         </p>
         <h3 className="settings-subheading">Storage</h3>
         {usage === null ? (
@@ -286,7 +302,9 @@ export default function DataTab() {
         ) : (
           <>
             <p className="settings-strong">
-              {usage.keys.length === 0 ? 'No training data stored yet.' : `About ${formatSize(dataBytes)} of training data on this device.`}
+              {usage.keys.length === 0
+                ? 'No training data stored yet.'
+                : `About ${formatSize(dataBytes)} of training data on this device.`}
             </p>
             {usage.usageBytes !== null && (
               <p className="settings-hint">
@@ -312,7 +330,13 @@ export default function DataTab() {
         )}
         {!isDesktop && persisted === false && (
           <div className="settings-actions">
-            <button type="button" className="btn btn-secondary" onClick={() => { void handleRequestPersist(); }}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                void handleRequestPersist();
+              }}
+            >
               Ask the browser to keep Apollo&apos;s data
             </button>
           </div>
@@ -369,16 +393,20 @@ export default function DataTab() {
             <input
               type="checkbox"
               checked={backupConfig.autoBackupEnabled}
-              onChange={(e) => updateBackupConfig(
-                { autoBackupEnabled: e.target.checked },
-                `Automatic backups turned ${e.target.checked ? 'on' : 'off'}.`,
-              )}
+              onChange={(e) =>
+                updateBackupConfig(
+                  { autoBackupEnabled: e.target.checked },
+                  `Automatic backups turned ${e.target.checked ? 'on' : 'off'}.`,
+                )
+              }
             />
             <span>Automatic backups</span>
           </label>
           {backupConfig.autoBackupEnabled && (
             <span className="settings-inline-field">
-              <label htmlFor="settings-backup-interval" className="settings-label">Every</label>
+              <label htmlFor="settings-backup-interval" className="settings-label">
+                Every
+              </label>
               <select
                 id="settings-backup-interval"
                 value={backupConfig.intervalHours}
@@ -401,14 +429,29 @@ export default function DataTab() {
           )}
         </div>
         <p className="settings-hint">
-          Backups are stored on this device, so they protect against mistakes — not against losing the device. Download a copy to keep one elsewhere.
+          Backups are stored on this device, so they protect against mistakes — not against losing the device. Download
+          a copy to keep one elsewhere.
         </p>
 
         <div className="settings-actions">
-          <button type="button" className="btn btn-primary" disabled={backupBusy} onClick={() => { void handleCreateBackup(); }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={backupBusy}
+            onClick={() => {
+              void handleCreateBackup();
+            }}
+          >
             {backupBusy ? 'Working…' : 'Create backup now'}
           </button>
-          <button type="button" className="btn btn-secondary" disabled={backupBusy} onClick={() => { void handleExport(); }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={backupBusy}
+            onClick={() => {
+              void handleExport();
+            }}
+          >
             Download current data
           </button>
           <label className={`btn btn-secondary settings-file-label${backupBusy ? ' is-disabled' : ''}`}>
@@ -431,7 +474,9 @@ export default function DataTab() {
           {needsReload && (
             <>
               {' '}
-              <button type="button" className="btn btn-secondary settings-inline-button" onClick={reloadApp}>Reload now</button>
+              <button type="button" className="btn btn-secondary settings-inline-button" onClick={reloadApp}>
+                Reload now
+              </button>
             </>
           )}
         </StatusLine>
@@ -448,10 +493,16 @@ export default function DataTab() {
                   <li key={r.id} className="settings-backup-row">
                     <span className="settings-backup-meta">
                       <span className="settings-strong">{when}</span>
-                      <span className="settings-muted">{formatSize(r.sizeBytes)} · {TRIGGER_LABELS[r.trigger] ?? r.trigger}</span>
-                      {r.verified
-                        ? <span className="settings-ok"><span aria-hidden="true">✓ </span>Verified</span>
-                        : <span className="settings-error-text">Not verified</span>}
+                      <span className="settings-muted">
+                        {formatSize(r.sizeBytes)} · {TRIGGER_LABELS[r.trigger] ?? r.trigger}
+                      </span>
+                      {r.verified ? (
+                        <span className="settings-ok">
+                          <span aria-hidden="true">✓ </span>Verified
+                        </span>
+                      ) : (
+                        <span className="settings-error-text">Not verified</span>
+                      )}
                     </span>
                     <span className="settings-actions">
                       <button
@@ -478,9 +529,7 @@ export default function DataTab() {
             </ul>
           </>
         )}
-        <p className="settings-hint">
-          Backups use SHA-256 checksums to detect corruption. Nothing is sent anywhere.
-        </p>
+        <p className="settings-hint">Backups use SHA-256 checksums to detect corruption. Nothing is sent anywhere.</p>
       </div>
 
       {quarantined.length > 0 && (
@@ -488,8 +537,9 @@ export default function DataTab() {
         <div className="card settings-card settings-card--warning" data-testid="quarantine-card">
           <h2 className="card-title settings-card-title">Damaged data set aside</h2>
           <p className="settings-lead">
-            Apollo couldn&apos;t read this data, so it kept the damaged copy here instead of overwriting it. Download it if you
-            want to try recovering it or send it with a bug report, then discard it. It is never included in backups or exports.
+            Apollo couldn&apos;t read this data, so it kept the damaged copy here instead of overwriting it. Download it
+            if you want to try recovering it or send it with a bug report, then discard it. It is never included in
+            backups or exports.
           </p>
           <ul className="settings-backup-list">
             {quarantined.map((q) => {
@@ -499,7 +549,9 @@ export default function DataTab() {
                 <li key={q.key} className="settings-backup-row">
                   <span className="settings-backup-meta">
                     <span className="settings-strong">{label}</span>
-                    <span className="settings-muted">Set aside {when} · {formatSize(q.sizeChars * 2)} · {q.reason}</span>
+                    <span className="settings-muted">
+                      Set aside {when} · {formatSize(q.sizeChars * 2)} · {q.reason}
+                    </span>
                   </span>
                   <span className="settings-actions">
                     <button
@@ -529,8 +581,9 @@ export default function DataTab() {
       <div className="card settings-card settings-card--error settings-danger">
         <h2 className="card-title settings-card-title">Delete all data</h2>
         <p className="settings-lead">
-          Permanently removes your activities, training plan, settings, the backups stored in Apollo and your saved connections
-          from this device. Files you downloaded are not affected. Download a copy first if you might want it later.
+          Permanently removes your activities, training plan, settings, the backups stored in Apollo and your saved
+          connections from this device. Files you downloaded are not affected. Download a copy first if you might want
+          it later.
         </p>
         <div className="settings-actions">
           <button type="button" className="btn ui-btn-danger" onClick={() => setDeleteOpen(true)}>
@@ -542,9 +595,11 @@ export default function DataTab() {
       <ConfirmDialog
         open={pendingImport !== null}
         title="Import data from this file?"
-        message={pendingImport
-          ? `${pendingImport.name} (${formatSize(pendingImport.size)}). Apollo first backs up your current data, then replaces matching data with the file\u2019s contents. API keys and tokens in the file are ignored.`
-          : undefined}
+        message={
+          pendingImport
+            ? `${pendingImport.name} (${formatSize(pendingImport.size)}). Apollo first backs up your current data, then replaces matching data with the file\u2019s contents. API keys and tokens in the file are ignored.`
+            : undefined
+        }
         confirmLabel="Import"
         onConfirm={() => {
           const file = pendingImport;
@@ -557,9 +612,11 @@ export default function DataTab() {
       <ConfirmDialog
         open={pendingRestore !== null}
         title="Restore this backup?"
-        message={pendingRestore
-          ? `Restore the backup from ${formatBackupTime(pendingRestore.createdAt)}? Apollo first backs up your current data, then replaces it with this backup.`
-          : undefined}
+        message={
+          pendingRestore
+            ? `Restore the backup from ${formatBackupTime(pendingRestore.createdAt)}? Apollo first backs up your current data, then replaces it with this backup.`
+            : undefined
+        }
         confirmLabel="Restore"
         onConfirm={() => {
           const record = pendingRestore;
@@ -573,9 +630,11 @@ export default function DataTab() {
         open={pendingDiscard !== null}
         tone="danger"
         title="Discard this damaged copy?"
-        message={pendingDiscard
-          ? `The damaged copy of ${keyLabel(pendingDiscard.originalKey)} set aside ${formatBackupTime(pendingDiscard.quarantinedAt)} will be deleted from this device. Download it first if you might want it. This can't be undone.`
-          : undefined}
+        message={
+          pendingDiscard
+            ? `The damaged copy of ${keyLabel(pendingDiscard.originalKey)} set aside ${formatBackupTime(pendingDiscard.quarantinedAt)} will be deleted from this device. Download it first if you might want it. This can't be undone.`
+            : undefined
+        }
         confirmLabel="Discard"
         onConfirm={() => {
           const entry = pendingDiscard;
@@ -594,7 +653,9 @@ export default function DataTab() {
         title="Delete all Apollo data on this device?"
         message="This permanently deletes your activities, training plan, settings, backups stored in Apollo and saved connections (API keys and tokens). It can't be undone."
         confirmLabel={deleting ? 'Deleting…' : 'Delete everything'}
-        onConfirm={() => { void confirmDeleteAll(); }}
+        onConfirm={() => {
+          void confirmDeleteAll();
+        }}
         onCancel={closeDeleteDialog}
       >
         <div className="settings-field settings-dialog-field">
@@ -615,7 +676,12 @@ export default function DataTab() {
             }}
             className="settings-input"
           />
-          <p id="settings-delete-error" role="status" aria-live="polite" className="settings-status settings-status--error">
+          <p
+            id="settings-delete-error"
+            role="status"
+            aria-live="polite"
+            className="settings-status settings-status--error"
+          >
             {deleteError}
           </p>
         </div>

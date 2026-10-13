@@ -115,15 +115,14 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
     });
   }, [strategy, marathon, unit, contactName, contactPhone, mantras, ctx.raceDate, startInfo, nutritionPlan]);
 
-  const points = useMemo(
-    () => (strategy ? mantraPoints(getStrategyDistanceMi(strategy), unit) : []),
-    [strategy, unit],
-  );
+  const points = useMemo(() => (strategy ? mantraPoints(getStrategyDistanceMi(strategy), unit) : []), [strategy, unit]);
 
   if (!strategy || !card) {
     return (
       <section className="race-week-section" aria-labelledby={titleId}>
-        <h2 id={titleId} className="race-week-title">Race card</h2>
+        <h2 id={titleId} className="race-week-title">
+          Race card
+        </h2>
         <EmptyState icon={<span aria-hidden="true">🗒️</span>} title="Save a race strategy on the Strategy tab first">
           The race card turns your saved pacing plan into a printable sheet with splits, fuel and mantras.
         </EmptyState>
@@ -131,11 +130,13 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
     );
   }
 
-  const edit = <T,>(setter: (v: T) => void) => (v: T) => {
-    setter(v);
-    setDirty(true);
-    setStatus('');
-  };
+  const edit =
+    <T,>(setter: (v: T) => void) =>
+    (v: T) => {
+      setter(v);
+      setDirty(true);
+      setStatus('');
+    };
   const onName = edit(setContactName);
   const onPhone = edit(setContactPhone);
   const onMantra = edit((v: { key: number; text: string }) => setMantras((m) => ({ ...m, [v.key]: v.text })));
@@ -151,9 +152,9 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
   };
 
   const handlePrint = () => {
-    setStatus(printRaceCard(card)
-      ? 'Opening the print dialog…'
-      : 'Printing is not available here — use Download HTML instead.');
+    setStatus(
+      printRaceCard(card) ? 'Opening the print dialog…' : 'Printing is not available here — use Download HTML instead.',
+    );
   };
 
   const handleDownload = () => {
@@ -166,9 +167,12 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
   return (
     <section className="race-week-section" aria-labelledby={titleId}>
       <div className="race-week-header">
-        <h2 id={titleId} className="race-week-title">Race card</h2>
+        <h2 id={titleId} className="race-week-title">
+          Race card
+        </h2>
         <p className="race-week-muted">
-          {card.marathonName} · goal {card.targetFinish} · {card.avgPace}{paceSuffix}
+          {card.marathonName} · goal {card.targetFinish} · {card.avgPace}
+          {paceSuffix}
         </p>
       </div>
 
@@ -240,14 +244,11 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
           <span aria-hidden="true">⬇️</span> Download HTML
         </button>
       </div>
-      <p className="race-week-status" role="status">{status}</p>
+      <p className="race-week-status" role="status">
+        {status}
+      </p>
 
-      <iframe
-        className="race-card-preview"
-        sandbox=""
-        srcDoc={card.htmlContent}
-        title="Race card preview"
-      />
+      <iframe className="race-card-preview" sandbox="" srcDoc={card.htmlContent} title="Race card preview" />
     </section>
   );
 }

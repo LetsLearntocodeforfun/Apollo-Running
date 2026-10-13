@@ -37,7 +37,11 @@ function seed(): void {
 }
 
 function renderPage(embedded: boolean) {
-  return render(<MemoryRouter><Analytics embedded={embedded} /></MemoryRouter>);
+  return render(
+    <MemoryRouter>
+      <Analytics embedded={embedded} />
+    </MemoryRouter>,
+  );
 }
 
 beforeEach(() => {
@@ -70,8 +74,9 @@ describe('Analytics page', () => {
     const { container } = renderPage(false);
     expect(screen.getAllByRole('heading', { level: 1 })).toHaveLength(1);
     expect(container.querySelector('.ff-figure')).not.toBeNull();
-    const periodButtons = Array.from(container.querySelectorAll<HTMLButtonElement>('[role="group"] button[aria-pressed]'))
-      .filter((b) => !b.closest('.ff-figure'));
+    const periodButtons = Array.from(
+      container.querySelectorAll<HTMLButtonElement>('[role="group"] button[aria-pressed]'),
+    ).filter((b) => !b.closest('.ff-figure'));
     expect(periodButtons.length).toBeGreaterThan(1);
     for (const b of periodButtons) {
       fireEvent.click(b);

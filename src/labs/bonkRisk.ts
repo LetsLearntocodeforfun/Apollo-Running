@@ -73,12 +73,12 @@ export interface BonkRiskFactor {
 // ── Weights ───────────────────────────────────────────────────────────────────
 
 const WEIGHTS = {
-  longestRun: 0.20,
+  longestRun: 0.2,
   longRunCount: 0.15,
   consistency: 0.15,
-  paceAggression: 0.20,
+  paceAggression: 0.2,
   fuelingPractice: 0.15,
-  carbLoading: 0.10,
+  carbLoading: 0.1,
   heat: 0.05,
 };
 
@@ -95,42 +95,54 @@ export function assessBonkRisk(input: BonkRiskInput): BonkRiskResult {
   const longestRunScore = scoreLongestRun(input.longestRunMi);
   factors.push(longestRunScore);
   if (longestRunScore.status === 'high') {
-    mitigations.push(`Your longest run is ${input.longestRunMi.toFixed(1)} miles. If possible, complete a 20-mile run before race day. If time is short, do a 18-mile run at marathon effort.`);
+    mitigations.push(
+      `Your longest run is ${input.longestRunMi.toFixed(1)} miles. If possible, complete a 20-mile run before race day. If time is short, do a 18-mile run at marathon effort.`,
+    );
   }
 
   // 2. Number of 18+ mile runs
   const longRunCountScore = scoreLongRunCount(input.runsOver18Mi);
   factors.push(longRunCountScore);
   if (longRunCountScore.status === 'high') {
-    mitigations.push(`You've only completed ${input.runsOver18Mi} runs over 18 miles. Aim for at least 3-4 in your build-up for adequate glycogen depletion adaptation.`);
+    mitigations.push(
+      `You've only completed ${input.runsOver18Mi} runs over 18 miles. Aim for at least 3-4 in your build-up for adequate glycogen depletion adaptation.`,
+    );
   }
 
   // 3. Long run consistency
   const consistencyScore = scoreConsistency(input.longRunsPlanned, input.longRunsCompleted);
   factors.push(consistencyScore);
   if (consistencyScore.status === 'high') {
-    mitigations.push(`You've completed ${input.longRunsCompleted} of ${input.longRunsPlanned} planned long runs. Missing long runs significantly increases bonk risk. Prioritize remaining long runs.`);
+    mitigations.push(
+      `You've completed ${input.longRunsCompleted} of ${input.longRunsPlanned} planned long runs. Missing long runs significantly increases bonk risk. Prioritize remaining long runs.`,
+    );
   }
 
   // 4. Pace aggression
   const paceScore = scorePaceAggression(input.targetRacePaceSec, input.avgLongRunPaceSec, input.experience);
   factors.push(paceScore);
   if (paceScore.status === 'high') {
-    mitigations.push(`Your target race pace is significantly faster than your training long run pace. Consider adjusting your target by 5-10 sec/mile to reduce bonk risk, or ensure aggressive fueling.`);
+    mitigations.push(
+      `Your target race pace is significantly faster than your training long run pace. Consider adjusting your target by 5-10 sec/mile to reduce bonk risk, or ensure aggressive fueling.`,
+    );
   }
 
   // 5. Fueling practice
   const fuelingScore = scoreFuelingPractice(input.practicedFueling, input.fueledLongRuns, input.runsOver18Mi);
   factors.push(fuelingScore);
   if (fuelingScore.status === 'high') {
-    mitigations.push(`Practice your exact race-day nutrition on your remaining long runs. Your gut needs training to absorb carbs at race effort.`);
+    mitigations.push(
+      `Practice your exact race-day nutrition on your remaining long runs. Your gut needs training to absorb carbs at race effort.`,
+    );
   }
 
   // 6. Carb loading
   const carbScore = scoreCarbLoading(input.carbLoading, input.carbLoadingDaysCompleted);
   factors.push(carbScore);
   if (carbScore.status === 'high') {
-    mitigations.push(`Carb loading adds 250+ grams of glycogen — the equivalent of 6+ extra miles of fuel. Follow a 3-day protocol: 8-12g carbs per kg body weight daily.`);
+    mitigations.push(
+      `Carb loading adds 250+ grams of glycogen — the equivalent of 6+ extra miles of fuel. Follow a 3-day protocol: 8-12g carbs per kg body weight daily.`,
+    );
   }
 
   // 7. Heat (if provided)
@@ -138,14 +150,14 @@ export function assessBonkRisk(input: BonkRiskInput): BonkRiskResult {
     const heatScore = scoreHeatRisk(input.raceTempF);
     factors.push(heatScore);
     if (heatScore.status === 'high') {
-      mitigations.push(`Race temperature of ${input.raceTempF}°F increases glycogen burn rate. Increase fueling by 10-15g/hr and take water at every aid station.`);
+      mitigations.push(
+        `Race temperature of ${input.raceTempF}°F increases glycogen burn rate. Increase fueling by 10-15g/hr and take water at every aid station.`,
+      );
     }
   }
 
   // Calculate weighted total
-  const totalScore = Math.round(
-    factors.reduce((sum, f) => sum + f.weightedScore, 0),
-  );
+  const totalScore = Math.round(factors.reduce((sum, f) => sum + f.weightedScore, 0));
 
   // Normalize to 0-100
   const normalizedScore = Math.min(100, Math.max(0, totalScore));
@@ -219,11 +231,7 @@ function scoreConsistency(planned: number, completed: number): BonkRiskFactor {
   };
 }
 
-function scorePaceAggression(
-  racePace: number,
-  trainingPace: number,
-  experience: string,
-): BonkRiskFactor {
+function scorePaceAggression(racePace: number, trainingPace: number, experience: string): BonkRiskFactor {
   // How much faster is race pace vs long run pace?
   const pctFaster = ((trainingPace - racePace) / trainingPace) * 100;
 
@@ -248,11 +256,7 @@ function scorePaceAggression(
   };
 }
 
-function scoreFuelingPractice(
-  practiced: boolean,
-  fueledRuns?: number,
-  totalLongRuns?: number,
-): BonkRiskFactor {
+function scoreFuelingPractice(practiced: boolean, fueledRuns?: number, totalLongRuns?: number): BonkRiskFactor {
   let score: number;
   if (!practiced) {
     score = 85;

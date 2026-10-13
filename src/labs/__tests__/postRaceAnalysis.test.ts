@@ -183,7 +183,9 @@ describe('analyzeRace', () => {
   it('should detect early-mile fast starts in insights', () => {
     const splits = makePositiveSplits(targetPace - 25, 4);
     const report = analyzeRace(strategy, splits, '2026-10-11');
-    const hasFastStart = report.insights.some((i) => i.toLowerCase().includes('first') || i.toLowerCase().includes('fast'));
+    const hasFastStart = report.insights.some(
+      (i) => i.toLowerCase().includes('first') || i.toLowerCase().includes('fast'),
+    );
     expect(hasFastStart).toBe(true);
   });
 });

@@ -19,7 +19,12 @@ interface Props {
 /** "Sun, Oct 11, 2026" for a YYYY-MM-DD key. */
 export function formatRaceDate(dateKey: string | null): string {
   if (!dateKey || !isDateKey(dateKey)) return 'Not set';
-  return parseDateKey(dateKey).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  return parseDateKey(dateKey).toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 /** "7:30 AM" for a 24 h 'HH:mm' string. */
@@ -75,13 +80,19 @@ export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
   return (
     <section className="card rd-myrace" aria-labelledby="rd-myrace-title">
       <div className="rd-myrace-head">
-        <h2 id="rd-myrace-title" className="rd-myrace-title">My race</h2>
-        <p className="rd-countdown" data-testid="rd-countdown">{countdownText(ctx.daysToRace)}</p>
+        <h2 id="rd-myrace-title" className="rd-myrace-title">
+          My race
+        </h2>
+        <p className="rd-countdown" data-testid="rd-countdown">
+          {countdownText(ctx.daysToRace)}
+        </p>
       </div>
 
       <div className="rd-grid">
         <div className="rd-field">
-          <label className="rd-label" htmlFor="rd-race-select">Race</label>
+          <label className="rd-label" htmlFor="rd-race-select">
+            Race
+          </label>
           <select
             id="rd-race-select"
             className="rd-input"
@@ -91,13 +102,23 @@ export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
               if (picked) onChooseRace(picked);
             }}
           >
-            <option value="" disabled>Choose a race…</option>
+            <option value="" disabled>
+              Choose a race…
+            </option>
             <optgroup label="World Marathon Majors">
-              {majors.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+              {majors.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.name}
+                </option>
+              ))}
             </optgroup>
             {customs.length > 0 && (
               <optgroup label="Your races">
-                {customs.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                {customs.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.name}
+                  </option>
+                ))}
               </optgroup>
             )}
           </select>
@@ -118,15 +139,21 @@ export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
             </>
           ) : (
             <>
-              <label className="rd-label" htmlFor="rd-race-date">Race date</label>
+              <label className="rd-label" htmlFor="rd-race-date">
+                Race date
+              </label>
               <input
                 id="rd-race-date"
                 className="rd-input"
                 type="date"
                 value={myRace.date ?? ctx.raceDate ?? ''}
-                onChange={(e) => { if (isDateKey(e.target.value)) setMyRaceDate(e.target.value); }}
+                onChange={(e) => {
+                  if (isDateKey(e.target.value)) setMyRaceDate(e.target.value);
+                }}
               />
-              {state.raceDateSource === 'race' && <p className="rd-hint">The race's next date. Change it if you're running another year.</p>}
+              {state.raceDateSource === 'race' && (
+                <p className="rd-hint">The race's next date. Change it if you're running another year.</p>
+              )}
             </>
           )}
         </div>
@@ -167,19 +194,26 @@ export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
       {raceDateMismatch && race && (
         <div className="rd-notice" role="note">
           <p>
-            <strong>Dates don't match.</strong> Your training plan's race day is {formatRaceDate(raceDateMismatch.planDate)}, but {race.name} is on {formatRaceDate(raceDateMismatch.raceDate)}.
-            {' '}Change the race date in your plan if you're running {race.name}.
+            <strong>Dates don't match.</strong> Your training plan's race day is{' '}
+            {formatRaceDate(raceDateMismatch.planDate)}, but {race.name} is on{' '}
+            {formatRaceDate(raceDateMismatch.raceDate)}. Change the race date in your plan if you're running {race.name}
+            .
           </p>
-          <p><Link to="/plan">Open your training plan</Link></p>
+          <p>
+            <Link to="/plan">Open your training plan</Link>
+          </p>
         </div>
       )}
       {mismatchedStrategy && race && (
         <p className="rd-notice" role="note">
-          Your saved race-day strategy “{mismatchedStrategy.name}” is for {mismatchedStrategy.marathonName}, not {race.name}. Choose a strategy for this race on the Strategy tab.
+          Your saved race-day strategy “{mismatchedStrategy.name}” is for {mismatchedStrategy.marathonName}, not{' '}
+          {race.name}. Choose a strategy for this race on the Strategy tab.
         </p>
       )}
       {raceMissing && (
-        <p className="rd-notice" role="note">The race you picked earlier is no longer available. Choose a race above.</p>
+        <p className="rd-notice" role="note">
+          The race you picked earlier is no longer available. Choose a race above.
+        </p>
       )}
     </section>
   );

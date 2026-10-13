@@ -137,12 +137,49 @@ function makeFormat(unit: DistanceUnit, temperatureUnit: TemperatureUnit): CopyF
 const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> = {
   boston: (f) => ({
     keyWorkouts: [
-      { name: 'Newton Hills Simulation', description: `Find a route with 3-4 consecutive hills in the last third of your long run. Hold marathon effort on the uphills (let the pace slow) and don't brake on the downhills. Simulates ${f.span(16, 21)}, where Heartbreak Hill is the 4th climb.`, weeksOut: '12-16', category: 'hill', priority: 1 },
-      { name: 'Downhill Tempo Segments', description: `On a gentle 2-4 % downhill, run 4-6 × 3-4 min at marathon effort, jogging back up between reps. Quick, light turnover with a slight forward lean and no braking; add a rep every week or two. Prepares your quads for the net drop of more than ${f.elev(400)} over the first ${f.dist(16)}.`, weeksOut: '10-16', category: 'hill', priority: 1 },
-      { name: 'Hilly Long Run', description: `${f.range(18, 20)} on a hilly route, with the last ${f.dist(6)} at marathon pace. Boston's four Newton hills fall in ${f.span(16, 21)}, so put hills late in your long runs.`, weeksOut: '8-14', category: 'long_run', priority: 1 },
-      { name: 'Eccentric Quad Builder', description: 'Controlled downhill strides: 6-10 × 20-30 s on a gentle 2-4 % grade, relaxed and quick (not sprints), walking back up. Pair with eccentric strength work (step-downs, slow-lowering squats). Builds quad tolerance for the downhill pounding.', weeksOut: '14-20', category: 'hill', priority: 2 },
-      { name: 'Negative Split Long Run', description: `${f.range(16, 18)}: the first ${f.dist(10)} conservative, the last ${f.range(6, 8)} at marathon pace. Boston rewards patience — the course runs downhill to Newton, then you need legs for the hills.`, weeksOut: '6-12', category: 'long_run', priority: 2 },
-      { name: 'Boston Dress Rehearsal', description: `${f.range(13, 16)} in race kit at your race start time: the first two-thirds on a gently downhill or rolling route at marathon pace, then 2-3 hills at marathon effort. Practise your race fueling.`, weeksOut: '3-6', category: 'specific', priority: 2 },
+      {
+        name: 'Newton Hills Simulation',
+        description: `Find a route with 3-4 consecutive hills in the last third of your long run. Hold marathon effort on the uphills (let the pace slow) and don't brake on the downhills. Simulates ${f.span(16, 21)}, where Heartbreak Hill is the 4th climb.`,
+        weeksOut: '12-16',
+        category: 'hill',
+        priority: 1,
+      },
+      {
+        name: 'Downhill Tempo Segments',
+        description: `On a gentle 2-4 % downhill, run 4-6 × 3-4 min at marathon effort, jogging back up between reps. Quick, light turnover with a slight forward lean and no braking; add a rep every week or two. Prepares your quads for the net drop of more than ${f.elev(400)} over the first ${f.dist(16)}.`,
+        weeksOut: '10-16',
+        category: 'hill',
+        priority: 1,
+      },
+      {
+        name: 'Hilly Long Run',
+        description: `${f.range(18, 20)} on a hilly route, with the last ${f.dist(6)} at marathon pace. Boston's four Newton hills fall in ${f.span(16, 21)}, so put hills late in your long runs.`,
+        weeksOut: '8-14',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Eccentric Quad Builder',
+        description:
+          'Controlled downhill strides: 6-10 × 20-30 s on a gentle 2-4 % grade, relaxed and quick (not sprints), walking back up. Pair with eccentric strength work (step-downs, slow-lowering squats). Builds quad tolerance for the downhill pounding.',
+        weeksOut: '14-20',
+        category: 'hill',
+        priority: 2,
+      },
+      {
+        name: 'Negative Split Long Run',
+        description: `${f.range(16, 18)}: the first ${f.dist(10)} conservative, the last ${f.range(6, 8)} at marathon pace. Boston rewards patience — the course runs downhill to Newton, then you need legs for the hills.`,
+        weeksOut: '6-12',
+        category: 'long_run',
+        priority: 2,
+      },
+      {
+        name: 'Boston Dress Rehearsal',
+        description: `${f.range(13, 16)} in race kit at your race start time: the first two-thirds on a gently downhill or rolling route at marathon pace, then 2-3 hills at marathon effort. Practise your race fueling.`,
+        weeksOut: '3-6',
+        category: 'specific',
+        priority: 2,
+      },
     ],
     weeklyGuidance: [
       `Include at least one hilly run per week. Boston has about ${f.elev(780)} of climbing.`,
@@ -152,7 +189,7 @@ const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> =
     ],
     taperNotes: [
       'Maintain one short hill session in taper week 1 to keep neuromuscular patterns fresh.',
-      'Don\'t do any downhill training in the final 10 days — quads need full recovery.',
+      "Don't do any downhill training in the final 10 days — quads need full recovery.",
     ],
     raceExecutionTips: [
       `Bank time on the downhill start? NO. The quads you save over the first ${f.dist(16)} decide the last ${f.dist(10)}.`,
@@ -164,12 +201,50 @@ const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> =
 
   nyc: (f) => ({
     keyWorkouts: [
-      { name: 'Bridge Repeat Simulation', description: 'Hill session: 5 × 3-4 min climbs on a 4-6 % grade, using the descent as recovery. Simulates NYC\'s five bridge crossings (Verrazzano-Narrows, Pulaski, Queensboro, Willis Avenue, Madison Avenue). Hold effort, not pace, on the climbs.', weeksOut: '10-16', category: 'hill', priority: 1 },
-      { name: 'Rolling Course Long Run', description: `${f.range(18, 20)} on a rolling route. NYC is never truly flat — constant small grade changes add up, so train your legs for them.`, weeksOut: '8-14', category: 'long_run', priority: 1 },
-      { name: 'Crowded Start Practice', description: `Start a long run in a busy park or a tune-up race and practise patience early: ${f.pick('mile 1', 'the first 1.6 km')} climbs the Verrazzano-Narrows Bridge (the biggest climb of the race) and ${f.pick('mile 2', 'the next 1.6 km')} descends into Brooklyn. Run by effort, not pace.`, weeksOut: '6-10', category: 'mental', priority: 2 },
-      { name: 'Fifth Avenue Tempo', description: `${f.range(6, 8)} at marathon pace on a gradual uphill. Fifth Avenue (${f.span(22, 24)}) climbs gently when your legs are most tired — practise running strong there.`, weeksOut: '8-12', category: 'tempo', priority: 1 },
-      { name: 'Central Park Finish Simulation', description: `Finish a long run with the last ${f.range(3, 4)} over rolling hills. Central Park's small hills come when you're most depleted.`, weeksOut: '6-10', category: 'long_run', priority: 2 },
-      { name: 'Controlled Descent Practice', description: 'Once a week, add 4-6 controlled downhill segments of 1-2 min on a gentle 2-4 % grade to an easy or hill run: quick, light steps, no braking, building volume gradually. The Verrazzano descent and the drop off the Queensboro Bridge onto First Avenue are where quads get hammered and pace runs away.', weeksOut: '6-12', category: 'hill', priority: 2 },
+      {
+        name: 'Bridge Repeat Simulation',
+        description:
+          "Hill session: 5 × 3-4 min climbs on a 4-6 % grade, using the descent as recovery. Simulates NYC's five bridge crossings (Verrazzano-Narrows, Pulaski, Queensboro, Willis Avenue, Madison Avenue). Hold effort, not pace, on the climbs.",
+        weeksOut: '10-16',
+        category: 'hill',
+        priority: 1,
+      },
+      {
+        name: 'Rolling Course Long Run',
+        description: `${f.range(18, 20)} on a rolling route. NYC is never truly flat — constant small grade changes add up, so train your legs for them.`,
+        weeksOut: '8-14',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Crowded Start Practice',
+        description: `Start a long run in a busy park or a tune-up race and practise patience early: ${f.pick('mile 1', 'the first 1.6 km')} climbs the Verrazzano-Narrows Bridge (the biggest climb of the race) and ${f.pick('mile 2', 'the next 1.6 km')} descends into Brooklyn. Run by effort, not pace.`,
+        weeksOut: '6-10',
+        category: 'mental',
+        priority: 2,
+      },
+      {
+        name: 'Fifth Avenue Tempo',
+        description: `${f.range(6, 8)} at marathon pace on a gradual uphill. Fifth Avenue (${f.span(22, 24)}) climbs gently when your legs are most tired — practise running strong there.`,
+        weeksOut: '8-12',
+        category: 'tempo',
+        priority: 1,
+      },
+      {
+        name: 'Central Park Finish Simulation',
+        description: `Finish a long run with the last ${f.range(3, 4)} over rolling hills. Central Park's small hills come when you're most depleted.`,
+        weeksOut: '6-10',
+        category: 'long_run',
+        priority: 2,
+      },
+      {
+        name: 'Controlled Descent Practice',
+        description:
+          'Once a week, add 4-6 controlled downhill segments of 1-2 min on a gentle 2-4 % grade to an easy or hill run: quick, light steps, no braking, building volume gradually. The Verrazzano descent and the drop off the Queensboro Bridge onto First Avenue are where quads get hammered and pace runs away.',
+        weeksOut: '6-12',
+        category: 'hill',
+        priority: 2,
+      },
     ],
     weeklyGuidance: [
       'Train on rolling terrain at least twice per week. NYC has constant elevation changes.',
@@ -192,11 +267,42 @@ const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> =
 
   berlin: (f) => ({
     keyWorkouts: [
-      { name: 'Pace Lock Tempo', description: `${f.range(8, 10)} at exact marathon pace. Practice metronome pacing — Berlin rewards consistency. Vary pace by no more than ${f.secPer(5)}.`, weeksOut: '8-14', category: 'tempo', priority: 1 },
-      { name: 'Flat Long Run at MP', description: `${f.dist(20)} on flat terrain with the final ${f.dist(10)} at marathon pace. Berlin is about sustaining pace — this is your key workout.`, weeksOut: '6-10', category: 'long_run', priority: 1 },
-      { name: 'Pace Discipline Intervals', description: `${f.pick('6 × 1 mi', '6 × 1.5 km')} at marathon pace with a 1 min jog. Each rep within 2-3 seconds of its target time — this is pacing school.`, weeksOut: '10-16', category: 'tempo', priority: 1 },
-      { name: 'Negative Split Practice', description: `${f.dist(16)}: the first half at marathon pace + ${f.secPer(10)}, the second half at marathon pace − ${f.secPer(5)}. Berlin's flat profile rewards negative splitting.`, weeksOut: '6-12', category: 'long_run', priority: 2 },
-      { name: 'Cobbles & Uneven Surfaces', description: 'Berlin is mostly smooth asphalt but has a few short cobbled or uneven stretches. Run part of an easy run each week on cobbles, brick or packed trail so a change of surface doesn\'t break your rhythm.', weeksOut: '4-12', category: 'surface', priority: 3 },
+      {
+        name: 'Pace Lock Tempo',
+        description: `${f.range(8, 10)} at exact marathon pace. Practice metronome pacing — Berlin rewards consistency. Vary pace by no more than ${f.secPer(5)}.`,
+        weeksOut: '8-14',
+        category: 'tempo',
+        priority: 1,
+      },
+      {
+        name: 'Flat Long Run at MP',
+        description: `${f.dist(20)} on flat terrain with the final ${f.dist(10)} at marathon pace. Berlin is about sustaining pace — this is your key workout.`,
+        weeksOut: '6-10',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Pace Discipline Intervals',
+        description: `${f.pick('6 × 1 mi', '6 × 1.5 km')} at marathon pace with a 1 min jog. Each rep within 2-3 seconds of its target time — this is pacing school.`,
+        weeksOut: '10-16',
+        category: 'tempo',
+        priority: 1,
+      },
+      {
+        name: 'Negative Split Practice',
+        description: `${f.dist(16)}: the first half at marathon pace + ${f.secPer(10)}, the second half at marathon pace − ${f.secPer(5)}. Berlin's flat profile rewards negative splitting.`,
+        weeksOut: '6-12',
+        category: 'long_run',
+        priority: 2,
+      },
+      {
+        name: 'Cobbles & Uneven Surfaces',
+        description:
+          "Berlin is mostly smooth asphalt but has a few short cobbled or uneven stretches. Run part of an easy run each week on cobbles, brick or packed trail so a change of surface doesn't break your rhythm.",
+        weeksOut: '4-12',
+        category: 'surface',
+        priority: 3,
+      },
     ],
     weeklyGuidance: [
       'Focus on pace consistency above everything. Berlin is the flattest World Major.',
@@ -218,10 +324,35 @@ const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> =
 
   chicago: (f) => ({
     keyWorkouts: [
-      { name: 'Headwind Tempo', description: `${f.range(6, 8)} at marathon effort into the wind. Chicago's lakefront exposure means wind is a factor — practice holding effort when the pace drops.`, weeksOut: '8-14', category: 'specific', priority: 1 },
-      { name: 'Flat Pace Marathon Long Run', description: `${f.dist(20)} on flat terrain with the last ${f.range(8, 12)} at marathon pace. Chicago is fast and flat — train for exactly that.`, weeksOut: '6-10', category: 'long_run', priority: 1 },
-      { name: 'Drafting Practice', description: 'Run a long run or tempo with a group and practice sitting behind other runners to cut wind drag. This is a real race strategy for Chicago.', weeksOut: '8-14', category: 'specific', priority: 2 },
-      { name: 'Heat Adaptation', description: `October can surprise with ${f.temps(60, 75)}. Do 2-3 long runs in warmer conditions, slow down by ${f.secPer(5, 10)} and practice your hydration.`, weeksOut: '10-16', category: 'specific', priority: 2 },
+      {
+        name: 'Headwind Tempo',
+        description: `${f.range(6, 8)} at marathon effort into the wind. Chicago's lakefront exposure means wind is a factor — practice holding effort when the pace drops.`,
+        weeksOut: '8-14',
+        category: 'specific',
+        priority: 1,
+      },
+      {
+        name: 'Flat Pace Marathon Long Run',
+        description: `${f.dist(20)} on flat terrain with the last ${f.range(8, 12)} at marathon pace. Chicago is fast and flat — train for exactly that.`,
+        weeksOut: '6-10',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Drafting Practice',
+        description:
+          'Run a long run or tempo with a group and practice sitting behind other runners to cut wind drag. This is a real race strategy for Chicago.',
+        weeksOut: '8-14',
+        category: 'specific',
+        priority: 2,
+      },
+      {
+        name: 'Heat Adaptation',
+        description: `October can surprise with ${f.temps(60, 75)}. Do 2-3 long runs in warmer conditions, slow down by ${f.secPer(5, 10)} and practice your hydration.`,
+        weeksOut: '10-16',
+        category: 'specific',
+        priority: 2,
+      },
     ],
     weeklyGuidance: [
       `Train on flat terrain. Chicago has only about ${f.elev(105)} of gain; the one notable rise is Roosevelt Road just before the finish.`,
@@ -244,9 +375,27 @@ const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> =
 
   tokyo: (f) => ({
     keyWorkouts: [
-      { name: 'Flat Speed-Pace Long Run', description: `${f.range(18, 20)} with the last ${f.dist(8)} at marathon pace. Tokyo is fast and flat — train for sustained pace on flat ground.`, weeksOut: '6-12', category: 'long_run', priority: 1 },
-      { name: 'Cool-to-Warm Transition Run', description: `Do some long runs early on cool mornings (around ${f.temps(40)}) and practice adjusting layers and pace as it warms to ${f.temps(50, 55)}. March in Tokyo can start cold and warm up.`, weeksOut: '8-14', category: 'specific', priority: 2 },
-      { name: 'Pace Consistency Tempo', description: `${f.dist(8)} at exact marathon pace. Tokyo rewards even splits on its flat profile.`, weeksOut: '8-14', category: 'tempo', priority: 1 },
+      {
+        name: 'Flat Speed-Pace Long Run',
+        description: `${f.range(18, 20)} with the last ${f.dist(8)} at marathon pace. Tokyo is fast and flat — train for sustained pace on flat ground.`,
+        weeksOut: '6-12',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Cool-to-Warm Transition Run',
+        description: `Do some long runs early on cool mornings (around ${f.temps(40)}) and practice adjusting layers and pace as it warms to ${f.temps(50, 55)}. March in Tokyo can start cold and warm up.`,
+        weeksOut: '8-14',
+        category: 'specific',
+        priority: 2,
+      },
+      {
+        name: 'Pace Consistency Tempo',
+        description: `${f.dist(8)} at exact marathon pace. Tokyo rewards even splits on its flat profile.`,
+        weeksOut: '8-14',
+        category: 'tempo',
+        priority: 1,
+      },
     ],
     weeklyGuidance: [
       'Tokyo is one of the flattest World Majors — train for sustained effort.',
@@ -262,15 +411,33 @@ const MAJOR_RECOMMENDATIONS: Record<WorldMajorId, (f: CopyFormat) => PlanCopy> =
       'Security is thorough — arrive at the start extra early.',
       `The first ${f.pick('5 miles', '8 km')} drop gently from Shinjuku — it's easy to start too fast. Keep the early pace in check.`,
       'Open stretches can be breezy — tuck in behind other runners when they are.',
-      'Crowd support is huge and enthusiastic — enjoy it, but don\'t let it pull you off pace.',
+      "Crowd support is huge and enthusiastic — enjoy it, but don't let it pull you off pace.",
     ],
   }),
 
   london: (f) => ({
     keyWorkouts: [
-      { name: 'Varied Surface Long Run', description: `${f.dist(18)} mixing asphalt, concrete, brick and some cobblestone sections. London has short cobbled stretches (around Greenwich's Cutty Sark and near the Tower of London) — prepare your feet and stride for the surface changes.`, weeksOut: '8-14', category: 'surface', priority: 1 },
-      { name: 'Flat Tempo with Pace Lock', description: `${f.dist(8)} at marathon pace on a flat route. London is predominantly flat — train for pace consistency.`, weeksOut: '8-14', category: 'tempo', priority: 1 },
-      { name: 'Thames Embankment Simulation', description: `${f.dist(6)} at marathon pace along a river or other exposed flat route. The riverside sections can be windy — practice running exposed.`, weeksOut: '6-12', category: 'specific', priority: 2 },
+      {
+        name: 'Varied Surface Long Run',
+        description: `${f.dist(18)} mixing asphalt, concrete, brick and some cobblestone sections. London has short cobbled stretches (around Greenwich's Cutty Sark and near the Tower of London) — prepare your feet and stride for the surface changes.`,
+        weeksOut: '8-14',
+        category: 'surface',
+        priority: 1,
+      },
+      {
+        name: 'Flat Tempo with Pace Lock',
+        description: `${f.dist(8)} at marathon pace on a flat route. London is predominantly flat — train for pace consistency.`,
+        weeksOut: '8-14',
+        category: 'tempo',
+        priority: 1,
+      },
+      {
+        name: 'Thames Embankment Simulation',
+        description: `${f.dist(6)} at marathon pace along a river or other exposed flat route. The riverside sections can be windy — practice running exposed.`,
+        weeksOut: '6-12',
+        category: 'specific',
+        priority: 2,
+      },
     ],
     weeklyGuidance: [
       `London is largely flat. The first ${f.pick('3 miles', '5 km')} from Blackheath and Greenwich are net downhill, so it's easy to start too fast.`,
@@ -464,7 +631,8 @@ function generateGenericPlan(c: CourseFacts, f: CopyFormat): PlanCopy {
   const cls = classifyDistance(c.distanceMi);
   const spec = DISTANCE_SPECS[cls];
   const lrRange = f.range(spec.longRunMi[0], spec.longRunMi[1]);
-  const lr = cls === 'ultra' ? `${spec.longRunTime} on your feet (roughly ${lrRange})` : `${lrRange} (${spec.longRunTime})`;
+  const lr =
+    cls === 'ultra' ? `${spec.longRunTime} on your feet (roughly ${lrRange})` : `${lrRange} (${spec.longRunTime})`;
   const pace = f.range(spec.paceMi[0], spec.paceMi[1]);
 
   const gainPerMi = c.gainFt / c.distanceMi;
@@ -484,8 +652,20 @@ function generateGenericPlan(c: CourseFacts, f: CopyFormat): PlanCopy {
   if (hilly) {
     // Hilly course
     workouts.push(
-      { name: 'Hilly Long Run', description: `${lr} on a route with sustained climbs (aim for about ${f.elev(Math.round((c.gainFt * 0.5) / 50) * 50)} of climbing). Run the uphills by effort and keep the descents relaxed and controlled.`, weeksOut: '8-14', category: 'long_run', priority: 1 },
-      { name: 'Uphill Strength Repeats', description: '8-10 × 60-90 s uphill at about 5K effort, jogging back down. Builds power for the climbs.', weeksOut: '12-20', category: 'hill', priority: 2 },
+      {
+        name: 'Hilly Long Run',
+        description: `${lr} on a route with sustained climbs (aim for about ${f.elev(Math.round((c.gainFt * 0.5) / 50) * 50)} of climbing). Run the uphills by effort and keep the descents relaxed and controlled.`,
+        weeksOut: '8-14',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Uphill Strength Repeats',
+        description: '8-10 × 60-90 s uphill at about 5K effort, jogging back down. Builds power for the climbs.',
+        weeksOut: '12-20',
+        category: 'hill',
+        priority: 2,
+      },
     );
     guidance.push(
       `This is a challenging course with ${f.elev(c.gainFt)} of climbing. Hill training is essential.`,
@@ -493,8 +673,8 @@ function generateGenericPlan(c: CourseFacts, f: CopyFormat): PlanCopy {
       'Strengthen quads, glutes, and calves with hill-specific strength work.',
     );
     tips.push(
-      'Don\'t try to maintain flat-ground pace on uphills — run even effort instead.',
-      'On descents stay relaxed: quick cadence, slight forward lean, no braking — but don\'t race them.',
+      "Don't try to maintain flat-ground pace on uphills — run even effort instead.",
+      "On descents stay relaxed: quick cadence, slight forward lean, no braking — but don't race them.",
     );
   }
 
@@ -502,9 +682,28 @@ function generateGenericPlan(c: CourseFacts, f: CopyFormat): PlanCopy {
     // Net-downhill course: eccentric preparation (L-38)
     const gradePct = (c.netDropFt / (c.distanceMi * FT_PER_MI)) * 100;
     workouts.push(
-      { name: 'Eccentric Downhill Prep', description: `This course drops ${f.elev(c.netDropFt)} net (about ${gradePct.toFixed(1)} % on average)${bigDrop ? ', which hammers unprepared quads' : ''}. Once a week, add controlled downhill running on a gentle 2-4 % grade to an easy run: start with 5-10 min of total downhill and add about 5 min a week, up to 20-30 min. Quick, light steps, slight forward lean, no braking. Some quad soreness after the first sessions is part of the adaptation. None in the final 10 days.`, weeksOut: '8-16', category: 'hill', priority: bigDrop ? 1 : 2 },
-      { name: 'Downhill Long Run Finish', description: `${lr}, with the final third on a long, gentle downhill (2-4 %) at goal effort, so you learn to hold form on tired legs while descending. Build the downhill portion up over several weeks.`, weeksOut: '6-12', category: 'long_run', priority: bigDrop ? 1 : 2 },
-      { name: 'Controlled Downhill Strides', description: '6-8 × 20-30 s strides on a gentle 2-4 % downhill, relaxed and quick (not sprints), walking back up. Teaches quick turnover and light foot strikes.', weeksOut: '10-16', category: 'hill', priority: 2 },
+      {
+        name: 'Eccentric Downhill Prep',
+        description: `This course drops ${f.elev(c.netDropFt)} net (about ${gradePct.toFixed(1)} % on average)${bigDrop ? ', which hammers unprepared quads' : ''}. Once a week, add controlled downhill running on a gentle 2-4 % grade to an easy run: start with 5-10 min of total downhill and add about 5 min a week, up to 20-30 min. Quick, light steps, slight forward lean, no braking. Some quad soreness after the first sessions is part of the adaptation. None in the final 10 days.`,
+        weeksOut: '8-16',
+        category: 'hill',
+        priority: bigDrop ? 1 : 2,
+      },
+      {
+        name: 'Downhill Long Run Finish',
+        description: `${lr}, with the final third on a long, gentle downhill (2-4 %) at goal effort, so you learn to hold form on tired legs while descending. Build the downhill portion up over several weeks.`,
+        weeksOut: '6-12',
+        category: 'long_run',
+        priority: bigDrop ? 1 : 2,
+      },
+      {
+        name: 'Controlled Downhill Strides',
+        description:
+          '6-8 × 20-30 s strides on a gentle 2-4 % downhill, relaxed and quick (not sprints), walking back up. Teaches quick turnover and light foot strikes.',
+        weeksOut: '10-16',
+        category: 'hill',
+        priority: 2,
+      },
     );
     guidance.push(
       'Net-downhill courses load the quads eccentrically (muscles lengthening under load) with every stride. Build downhill volume progressively — a little more each week — rather than all at once.',
@@ -512,22 +711,39 @@ function generateGenericPlan(c: CourseFacts, f: CopyFormat): PlanCopy {
     );
     taperNotes.push('No downhill running in the final 10 days — let your quads recover fully.');
     tips.push(
-      'Start conservatively. The early downhill sections feel easy, but the quad damage shows up late — don\'t bank time.',
-      'Keep your cadence quick and land under your hips; don\'t over-stride or brake on the steepest parts.',
+      "Start conservatively. The early downhill sections feel easy, but the quad damage shows up late — don't bank time.",
+      "Keep your cadence quick and land under your hips; don't over-stride or brake on the steepest parts.",
     );
   } else if (hilly || descents) {
     // Plenty of descending on a hilly / rolling loop
-    workouts.push(
-      { name: 'Controlled Downhill Running', description: 'Once a week, add 4-6 × 1-2 min of controlled downhill running on a gentle 2-4 % grade to a hill or easy run: quick, light steps, no braking. Add volume gradually; none in the final 10 days.', weeksOut: '10-16', category: 'hill', priority: hilly ? 1 : 2 },
-    );
+    workouts.push({
+      name: 'Controlled Downhill Running',
+      description:
+        'Once a week, add 4-6 × 1-2 min of controlled downhill running on a gentle 2-4 % grade to a hill or easy run: quick, light steps, no braking. Add volume gradually; none in the final 10 days.',
+      weeksOut: '10-16',
+      category: 'hill',
+      priority: hilly ? 1 : 2,
+    });
     taperNotes.push('No downhill running in the final 10 days — quads need full recovery.');
   }
 
   if (flat) {
     // Flat course
     workouts.push(
-      { name: 'Pace Consistency Long Run', description: `${lr} at even pace, finishing with ${pace} at goal race pace. On a flat course, pace discipline is everything — keep each ${f.pick('mile', 'kilometre')} within ${f.secPer(5)} of target.`, weeksOut: '6-12', category: 'long_run', priority: 1 },
-      { name: 'Goal-Pace Tempo', description: `${pace} at exact goal race pace. Flat courses reward metronomic pacing.`, weeksOut: '8-14', category: 'tempo', priority: 1 },
+      {
+        name: 'Pace Consistency Long Run',
+        description: `${lr} at even pace, finishing with ${pace} at goal race pace. On a flat course, pace discipline is everything — keep each ${f.pick('mile', 'kilometre')} within ${f.secPer(5)} of target.`,
+        weeksOut: '6-12',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Goal-Pace Tempo',
+        description: `${pace} at exact goal race pace. Flat courses reward metronomic pacing.`,
+        weeksOut: '8-14',
+        category: 'tempo',
+        priority: 1,
+      },
     );
     guidance.push(
       'Flat course — focus on pace consistency and negative splitting.',
@@ -540,24 +756,42 @@ function generateGenericPlan(c: CourseFacts, f: CopyFormat): PlanCopy {
   } else if (!hilly && !downhill) {
     // Moderate course
     workouts.push(
-      { name: 'Mixed Terrain Long Run', description: `${lr} mixing flat and rolling sections. Practice moving between flat running and short hills without surging.`, weeksOut: '8-14', category: 'long_run', priority: 1 },
-      { name: 'Rolling Hill Tempo', description: `${pace} at goal race pace on a route with moderate hills — keep the effort steady while the pace varies.`, weeksOut: '8-12', category: 'tempo', priority: 1 },
+      {
+        name: 'Mixed Terrain Long Run',
+        description: `${lr} mixing flat and rolling sections. Practice moving between flat running and short hills without surging.`,
+        weeksOut: '8-14',
+        category: 'long_run',
+        priority: 1,
+      },
+      {
+        name: 'Rolling Hill Tempo',
+        description: `${pace} at goal race pace on a route with moderate hills — keep the effort steady while the pace varies.`,
+        weeksOut: '8-12',
+        category: 'tempo',
+        priority: 1,
+      },
     );
     guidance.push(
-      'Moderate course difficulty — include some hill training but don\'t overdo it.',
+      "Moderate course difficulty — include some hill training but don't overdo it.",
       'Practice effort-based pacing: keep effort consistent even when pace varies on hills.',
     );
   }
 
   // Distance-specific guidance (L-38)
   if (cls === 'short') {
-    guidance.push('For a race this short, long runs of 60-90 min build the aerobic base; your key sessions are at or near race pace.');
+    guidance.push(
+      'For a race this short, long runs of 60-90 min build the aerobic base; your key sessions are at or near race pace.',
+    );
   } else if (cls === 'half') {
-    guidance.push(`Half-marathon build: long runs of about ${f.range(10, 13)} (90-120 min) are enough; put goal-pace work in the final ${f.range(3, 5)}.`);
+    guidance.push(
+      `Half-marathon build: long runs of about ${f.range(10, 13)} (90-120 min) are enough; put goal-pace work in the final ${f.range(3, 5)}.`,
+    );
   } else if (cls === 'long') {
     guidance.push(`Long runs of ${lrRange} (2-2.5 h) cover this distance — you don't need marathon-length long runs.`);
   } else if (cls === 'ultra') {
-    guidance.push('Beyond the marathon, time on feet matters more than distance: build long runs to 3-5 h, consider back-to-back long days, and practice eating, drinking, and walking or hiking the climbs.');
+    guidance.push(
+      'Beyond the marathon, time on feet matters more than distance: build long runs to 3-5 h, consider back-to-back long days, and practice eating, drinking, and walking or hiking the climbs.',
+    );
   }
 
   // Common

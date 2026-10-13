@@ -15,15 +15,20 @@ export const RUN_TYPES: readonly string[] = ['Run', 'VirtualRun', 'TrailRun'];
 
 /** Cycling types — includes Zwift/indoor rides (VirtualRide). */
 export const RIDE_TYPES: readonly string[] = [
-  'Ride', 'VirtualRide', 'EBikeRide', 'EMountainBikeRide', 'MountainBikeRide',
-  'GravelRide', 'TrackRide', 'Handcycle', 'Velomobile',
+  'Ride',
+  'VirtualRide',
+  'EBikeRide',
+  'EMountainBikeRide',
+  'MountainBikeRide',
+  'GravelRide',
+  'TrackRide',
+  'Handcycle',
+  'Velomobile',
 ];
 
 const SWIM_TYPES: readonly string[] = ['Swim', 'OpenWaterSwim'];
 const WALK_TYPES: readonly string[] = ['Walk', 'Hike'];
-const STRENGTH_TYPES: readonly string[] = [
-  'WeightTraining', 'Crossfit', 'HighIntensityIntervalTraining', 'Workout',
-];
+const STRENGTH_TYPES: readonly string[] = ['WeightTraining', 'Crossfit', 'HighIntensityIntervalTraining', 'Workout'];
 
 function matches(a: SportTyped, list: readonly string[]): boolean {
   return (!!a.type && list.includes(a.type)) || (!!a.sport_type && list.includes(a.sport_type));

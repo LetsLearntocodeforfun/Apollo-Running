@@ -23,7 +23,9 @@ vi.mock('../pages/RaceDay', () => ({ default: () => <h1>Race stub</h1> }));
 vi.mock('../pages/Settings', () => ({ default: () => <h1>Settings stub</h1> }));
 vi.mock('../pages/WelcomeFlow', () => ({
   default: ({ onComplete }: { onComplete: () => void }) => (
-    <button type="button" onClick={onComplete}>Finish welcome</button>
+    <button type="button" onClick={onComplete}>
+      Finish welcome
+    </button>
   ),
 }));
 vi.mock('../services/planCalendarSync', () => ({ syncPlanCalendarIfChanged: vi.fn(() => Promise.resolve()) }));
@@ -53,7 +55,9 @@ describe('navigation', () => {
     renderAt('#/');
     await findHeading('Today stub');
 
-    const items = within(mainNav()).getAllByRole('listitem').map((li) => li.textContent);
+    const items = within(mainNav())
+      .getAllByRole('listitem')
+      .map((li) => li.textContent);
     expect(items).toEqual(['Today', 'Plan', 'Activities', 'Progress', 'Race Day', 'Settings']);
 
     expect(within(mainNav()).getByRole('link', { name: 'Today' }).getAttribute('aria-current')).toBe('page');
@@ -184,7 +188,13 @@ describe('status banners', () => {
 });
 
 describe('update banner (sync review B3/S7)', () => {
-  const base: UpdateState = { status: 'idle', version: '1.0.7', releaseNotes: null, downloadProgress: null, error: null };
+  const base: UpdateState = {
+    status: 'idle',
+    version: '1.0.7',
+    releaseNotes: null,
+    downloadProgress: null,
+    error: null,
+  };
   const opts = (mac: boolean, autoDownload = false) => ({ mac, autoDownload, download: vi.fn(), install: vi.fn() });
 
   it('on macOS offers the download page instead of a download that cannot install', () => {
@@ -246,7 +256,9 @@ describe('ErrorBoundary (inline variant)', () => {
   it('shows a compact card instead of a full-screen takeover, and resets when resetKey changes', () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
     const { rerender } = render(
-      <ErrorBoundary variant="inline" label="Recovery" resetKey="a"><Boom fail /></ErrorBoundary>,
+      <ErrorBoundary variant="inline" label="Recovery" resetKey="a">
+        <Boom fail />
+      </ErrorBoundary>,
     );
     const alert = screen.getByRole('alert');
     expect(alert.textContent).toContain('Recovery couldn’t be shown.');
@@ -254,7 +266,11 @@ describe('ErrorBoundary (inline variant)', () => {
     expect(within(alert).getByRole('button', { name: 'Try again' })).toBeTruthy();
     expect(alert.closest('.welcome-flow')).toBeNull();
 
-    rerender(<ErrorBoundary variant="inline" label="Recovery" resetKey="b"><Boom fail={false} /></ErrorBoundary>);
+    rerender(
+      <ErrorBoundary variant="inline" label="Recovery" resetKey="b">
+        <Boom fail={false} />
+      </ErrorBoundary>,
+    );
     expect(screen.getByText('fine')).toBeTruthy();
     consoleError.mockRestore();
   });

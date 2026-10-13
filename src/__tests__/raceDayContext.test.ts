@@ -5,12 +5,7 @@
  * explicit My Race actions. All pure reads except the actions.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import {
-  RACE_DAY_TABS,
-  buildRaceDayState,
-  defaultTabForDays,
-  isRaceDayTab,
-} from '@/components/race/context';
+import { RACE_DAY_TABS, buildRaceDayState, defaultTabForDays, isRaceDayTab } from '@/components/race/context';
 import { chooseMyRace, setMyRaceDate } from '@/components/race/actions';
 import {
   FALLBACK_MARATHON_GOAL_SEC,
@@ -166,7 +161,12 @@ describe('buildRaceDayState', () => {
   it('scales the profile goal to a half marathon with Riegel', () => {
     updateAthleteProfile({ goalMarathonSec: 4 * 3600 });
     const half = importCustomMarathon({
-      name: 'Harvest Half', city: 'Portland', country: 'USA', date: '2026-11-15', courseType: 'loop', distanceMi: 13.1,
+      name: 'Harvest Half',
+      city: 'Portland',
+      country: 'USA',
+      date: '2026-11-15',
+      courseType: 'loop',
+      distanceMi: 13.1,
     });
     setMyRace({ raceId: half.id });
     const state = buildRaceDayState(TODAY);
@@ -209,7 +209,12 @@ describe('buildRaceDayState', () => {
 describe('My Race actions', () => {
   it('chooseMyRace copies id, start time and zone, and writes the date only without a plan', () => {
     const saved = chooseMyRace(race('chicago'));
-    expect(saved).toMatchObject({ raceId: 'chicago', date: '2026-10-11', startTime: '07:30', timeZone: 'America/Chicago' });
+    expect(saved).toMatchObject({
+      raceId: 'chicago',
+      date: '2026-10-11',
+      startTime: '07:30',
+      timeZone: 'America/Chicago',
+    });
   });
 
   it('chooseMyRace never writes the date while a plan is active', () => {

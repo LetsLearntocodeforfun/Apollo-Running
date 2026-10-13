@@ -5,14 +5,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  metersToMiles,
-  calcPaceMinPerMi,
-} from '@/services/unitPreferences';
-import {
-  formatPaceMinPerMi,
-  isRunActivity,
-} from '@/services/autoSync';
+import { metersToMiles, calcPaceMinPerMi } from '@/services/unitPreferences';
+import { formatPaceMinPerMi, isRunActivity } from '@/services/autoSync';
 import type { StravaActivity } from '@/services/strava';
 
 // ── metersToMiles ─────────────────────────────────────────────────────────────
@@ -82,8 +76,8 @@ describe('calcPaceMinPerMi', () => {
   });
 
   it('should produce faster pace for faster runs at same distance', () => {
-    const fast = calcPaceMinPerMi(5000, 1200);  // 20 min 5K
-    const slow = calcPaceMinPerMi(5000, 1800);  // 30 min 5K
+    const fast = calcPaceMinPerMi(5000, 1200); // 20 min 5K
+    const slow = calcPaceMinPerMi(5000, 1800); // 30 min 5K
     expect(fast).toBeLessThan(slow);
   });
 });

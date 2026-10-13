@@ -71,7 +71,11 @@ function workoutsAroundToday(plan: TrainingPlan, startDate: string) {
     if (d <= pos.dayIndex) past = { weekIndex: pos.weekIndex, dayIndex: d };
     else if (!future) future = { weekIndex: pos.weekIndex, dayIndex: d };
   });
-  return { pos, past: past as { weekIndex: number; dayIndex: number } | null, future: future as { weekIndex: number; dayIndex: number } | null };
+  return {
+    pos,
+    past: past as { weekIndex: number; dayIndex: number } | null,
+    future: future as { weekIndex: number; dayIndex: number } | null,
+  };
 }
 
 beforeEach(() => {
@@ -103,7 +107,9 @@ describe('Training page — B1 switch plan', () => {
 
     const chooser = screen.getByRole('region', { name: 'Switch plan' });
     const otherRadio = () =>
-      within(screen.getByRole('region', { name: 'Switch plan' })).getByRole('radio', { name: new RegExp(`^${escapeRe(other.name)}`) }) as HTMLInputElement;
+      within(screen.getByRole('region', { name: 'Switch plan' })).getByRole('radio', {
+        name: new RegExp(`^${escapeRe(other.name)}`),
+      }) as HTMLInputElement;
     fireEvent.click(otherRadio());
     expect(otherRadio().checked).toBe(true);
 
@@ -123,7 +129,9 @@ describe('Training page — B1 switch plan', () => {
 
     // Confirming swaps the plan (race date is prefilled from the active plan).
     fireEvent.click(otherRadio());
-    fireEvent.click(within(screen.getByRole('region', { name: 'Switch plan' })).getByRole('button', { name: 'Switch plan' }));
+    fireEvent.click(
+      within(screen.getByRole('region', { name: 'Switch plan' })).getByRole('button', { name: 'Switch plan' }),
+    );
     expect(getActivePlan()!.planId).toBe(OTHER_ID);
     expect(header()).toBe(other.name);
     expect(screen.queryByRole('region', { name: 'Switch plan' })).toBeNull();

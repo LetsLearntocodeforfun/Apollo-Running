@@ -3,10 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  simulateGlycogenDepletion,
-  willGlycogenLast,
-} from '@/labs/glycogenModel';
+import { simulateGlycogenDepletion, willGlycogenLast } from '@/labs/glycogenModel';
 
 describe('simulateGlycogenDepletion', () => {
   const baseAthlete = { weightKg: 70, vo2max: 50, sex: 'male' as const };
@@ -35,9 +32,7 @@ describe('simulateGlycogenDepletion', () => {
     });
     expect(loaded.startingGlycogenG).toBeGreaterThan(normal.startingGlycogenG);
     // Compare at mid-race before both hit zero floor
-    expect(loaded.miles[14].glycogenRemainingG).toBeGreaterThan(
-      normal.miles[14].glycogenRemainingG,
-    );
+    expect(loaded.miles[14].glycogenRemainingG).toBeGreaterThan(normal.miles[14].glycogenRemainingG);
   });
 
   it('should deplete glycogen progressively over distance', () => {
@@ -48,9 +43,7 @@ describe('simulateGlycogenDepletion', () => {
     });
     // Each mile should have less or equal glycogen than the previous
     for (let i = 1; i < result.miles.length; i++) {
-      expect(result.miles[i].glycogenRemainingG).toBeLessThanOrEqual(
-        result.miles[i - 1].glycogenRemainingG,
-      );
+      expect(result.miles[i].glycogenRemainingG).toBeLessThanOrEqual(result.miles[i - 1].glycogenRemainingG);
     }
   });
 
@@ -66,9 +59,7 @@ describe('simulateGlycogenDepletion', () => {
       carbLoaded: false,
     });
     // Compare at mid-race before both hit zero floor
-    expect(fast.miles[14].glycogenRemainingG).toBeLessThan(
-      slow.miles[14].glycogenRemainingG,
-    );
+    expect(fast.miles[14].glycogenRemainingG).toBeLessThan(slow.miles[14].glycogenRemainingG);
   });
 
   it('should account for in-race fueling', () => {
@@ -89,9 +80,7 @@ describe('simulateGlycogenDepletion', () => {
       ],
     });
     // Compare at mid-race before both may hit zero floor
-    expect(fueled.miles[19].glycogenRemainingG).toBeGreaterThan(
-      noFuel.miles[19].glycogenRemainingG,
-    );
+    expect(fueled.miles[19].glycogenRemainingG).toBeGreaterThan(noFuel.miles[19].glycogenRemainingG);
   });
 
   it('should detect bonk risk when glycogen runs critically low', () => {

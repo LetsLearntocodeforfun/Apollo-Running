@@ -47,17 +47,24 @@ function kindFromNote(day: PlanDay): PlanWorkoutKind {
 const FIRST_MP_TEMPO_WEEKS = [6, 8, 10, 11, 12, 13];
 
 describe('plan day kinds are unchanged except where intended', () => {
-  it.each(BUILT_IN_PLANS.map((p) => [p.id, p] as const))('%s: labels never change the kind; the note decides', (_id, plan) => {
-    plan.weeks.forEach((w, wi) => w.days.forEach((d, di) => {
-      expect(getWorkoutKind(d), `${plan.id} w${wi + 1}d${di + 1} "${d.label}"`).toBe(kindFromNote(d));
-    }));
-  });
+  it.each(BUILT_IN_PLANS.map((p) => [p.id, p] as const))(
+    '%s: labels never change the kind; the note decides',
+    (_id, plan) => {
+      plan.weeks.forEach((w, wi) =>
+        w.days.forEach((d, di) => {
+          expect(getWorkoutKind(d), `${plan.id} w${wi + 1}d${di + 1} "${d.label}"`).toBe(kindFromNote(d));
+        }),
+      );
+    },
+  );
 
   it('FIRST: Thursday tempos are tempo, except the long tempos at marathon pace', () => {
     const first = getPlanById('first')!;
     first.weeks.slice(0, 15).forEach((w, wi) => {
       const kind = getWorkoutKind(w.days[3]);
-      expect(kind, `w${wi + 1} "${w.days[3].label}"`).toBe(FIRST_MP_TEMPO_WEEKS.includes(wi + 1) ? 'marathon_pace' : 'tempo');
+      expect(kind, `w${wi + 1} "${w.days[3].label}"`).toBe(
+        FIRST_MP_TEMPO_WEEKS.includes(wi + 1) ? 'marathon_pace' : 'tempo',
+      );
     });
   });
 
@@ -83,10 +90,12 @@ describe('plan day kinds are unchanged except where intended', () => {
 });
 
 describe('coach tempo shapes (T-4 follow-up)', () => {
-  const watchOf = (day: PlanDay) => buildPlanWorkouts(
-    { id: 'p', name: 'p', author: 'a', description: '', totalWeeks: 1, weeks: [{ weekNumber: 1, days: [day] }] },
-    START, { from: START, unit: 'mi', paces, vdot: VDOT },
-  )[0];
+  const watchOf = (day: PlanDay) =>
+    buildPlanWorkouts(
+      { id: 'p', name: 'p', author: 'a', description: '', totalWeeks: 1, weeks: [{ weekNumber: 1, days: [day] }] },
+      START,
+      { from: START, unit: 'mi', paces, vdot: VDOT },
+    )[0];
 
   it('Higdon "45 min tempo": build, about 10K pace in the middle, ease back — not cruise reps', () => {
     const adv = getPlanById('hal-higdon-advanced-1')!;
@@ -94,7 +103,9 @@ describe('coach tempo shapes (T-4 follow-up)', () => {
     expect(day.label).toBe('45 min tempo');
     const t = targetForDay(day, VDOT)!;
     expect(t.description).toMatch(/^Hal Higdon tempo/);
-    expect(t.intervals![0].description).toBe('1mi warmup → 18 min building → 15 min near 10K pace → 12 min easing back → 1mi cooldown');
+    expect(t.intervals![0].description).toBe(
+      '1mi warmup → 18 min building → 15 min near 10K pace → 12 min easing back → 1mi cooldown',
+    );
     expect(t.intervals![0].repeats).toBe(1);
     // About 10K pace: faster than T, slower than 5K pace.
     expect(t.targetPaceRange!.maxSecPerMi).toBeLessThan(paces.threshold);
@@ -115,7 +126,9 @@ describe('coach tempo shapes (T-4 follow-up)', () => {
     expect(t.category).toBe('tempo');
     expect(t.intervals![0].repeats).toBe(1);
     expect(t.intervals![0].workDurationMin).toBeLessThanOrEqual(25);
-    expect(t.intervals![0].description).toMatch(/^1mi warmup → 0\.5mi at marathon pace → 3\.5mi at tempo → 1mi cooldown$/);
+    expect(t.intervals![0].description).toMatch(
+      /^1mi warmup → 0\.5mi at marathon pace → 3\.5mi at tempo → 1mi cooldown$/,
+    );
     const watch = watchOf(day);
     expect(watch.description).toContain('Marathon pace\n- 0.5mi');
     expect(watch.description).toContain('Tempo\n- 3.5mi');
@@ -138,7 +151,7 @@ describe('coach tempo shapes (T-4 follow-up)', () => {
       let sec = 0;
       let mi = 0;
       for (const s of segs) {
-        const m = s.mi ?? (s.sec! / s.pace);
+        const m = s.mi ?? s.sec! / s.pace;
         sec += m * s.pace;
         mi += m;
       }
@@ -189,9 +202,12 @@ describe('coach tempo shapes (T-4 follow-up)', () => {
 
   it('cruise intervals only for tempos without a coach shape (custom plans)', () => {
     for (const plan of BUILT_IN_PLANS) {
-      for (const w of plan.weeks) for (const d of w.days) {
-        expect(getWorkoutTargetForDay(d, VDOT)?.description ?? '', `${plan.id} "${d.label}"`).not.toMatch(/^Cruise intervals/);
-      }
+      for (const w of plan.weeks)
+        for (const d of w.days) {
+          expect(getWorkoutTargetForDay(d, VDOT)?.description ?? '', `${plan.id} "${d.label}"`).not.toMatch(
+            /^Cruise intervals/,
+          );
+        }
     }
     const custom: PlanDay = { type: 'run', label: '10 mi tempo', distanceMi: 10, note: 'Tempo' };
     expect(getWorkoutTargetForDay(custom, VDOT)!.description).toMatch(/^Cruise intervals/);
@@ -202,17 +218,38 @@ describe('mpFinish survives overlays and saved custom plans (T-11 follow-up)', (
   beforeEach(() => persistence.clear());
 
   it('saved custom plans without the flag get it on read when the peak week is ≥ 40 mi', () => {
-    const built = createCustomPlanFromScratch({ name: 'Old', totalWeeks: 18, runningDays: 5, currentWeeklyMiles: 35, peakWeeklyMiles: 55 });
+    const built = createCustomPlanFromScratch({
+      name: 'Old',
+      totalWeeks: 18,
+      runningDays: 5,
+      currentWeeklyMiles: 35,
+      peakWeeklyMiles: 55,
+    });
     // Simulate a plan saved before v1.0.7: strip every flag.
-    const legacy: TrainingPlan = { ...built, weeks: built.weeks.map((w) => ({ ...w, days: w.days.map(({ mpFinish: _m, ...d }) => d) })) };
+    const legacy: TrainingPlan = {
+      ...built,
+      weeks: built.weeks.map((w) => ({ ...w, days: w.days.map(({ mpFinish: _m, ...d }) => d) })),
+    };
     setCustomPlan(legacy);
     const read = getCustomPlan()!;
     const longs = read.weeks.flatMap((w) => w.days).filter((d) => d.note === 'Long');
     expect(longs.length).toBeGreaterThan(0);
     expect(longs.every((d) => d.mpFinish === true)).toBe(true);
     // Low-volume plans stay without it.
-    setCustomPlan(createCustomPlanFromScratch({ name: 'Low', totalWeeks: 16, runningDays: 4, currentWeeklyMiles: 15, peakWeeklyMiles: 30 }));
-    expect(getCustomPlan()!.weeks.flatMap((w) => w.days).some((d) => d.mpFinish)).toBe(false);
+    setCustomPlan(
+      createCustomPlanFromScratch({
+        name: 'Low',
+        totalWeeks: 16,
+        runningDays: 4,
+        currentWeeklyMiles: 15,
+        peakWeeklyMiles: 30,
+      }),
+    );
+    expect(
+      getCustomPlan()!
+        .weeks.flatMap((w) => w.days)
+        .some((d) => d.mpFinish),
+    ).toBe(false);
   });
 
   it('adaptive overlays keep mpFinish on the long runs they scale or replace', () => {
@@ -223,10 +260,18 @@ describe('mpFinish survives overlays and saved custom plans (T-11 follow-up)', (
     const wi = 9; // 20 mi long run week
     const longIdx = plan.weeks[wi].days.findIndex((d) => d.note === 'Long');
     expect(plan.weeks[wi].days[longIdx].mpFinish).toBe(true);
-    const res = applyAdaptiveChanges([
-      { weekIndex: wi, mileageMultiplier: 0.9 },
-      { weekIndex: wi + 2, dayOverrides: [{ dayIndex: longIdx, day: { type: 'run', label: '18 mi long run', distanceMi: 18, note: 'Long' } }] },
-    ], 'test');
+    const res = applyAdaptiveChanges(
+      [
+        { weekIndex: wi, mileageMultiplier: 0.9 },
+        {
+          weekIndex: wi + 2,
+          dayOverrides: [
+            { dayIndex: longIdx, day: { type: 'run', label: '18 mi long run', distanceMi: 18, note: 'Long' } },
+          ],
+        },
+      ],
+      'test',
+    );
     expect(res.ok).toBe(true);
     const after = getEffectivePlan()!;
     expect(after.weeks[wi].days[longIdx].mpFinish).toBe(true);

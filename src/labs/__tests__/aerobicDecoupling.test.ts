@@ -21,7 +21,7 @@ function makeSplits(count: number, basePace: number, baseHR: number, hrDrift: nu
   return Array.from({ length: count }, (_, i) => ({
     mile: i + 1,
     paceSec: basePace,
-    avgHR: baseHR + (hrDrift * i / count),
+    avgHR: baseHR + (hrDrift * i) / count,
   }));
 }
 
@@ -133,10 +133,16 @@ describe('getDecouplingTrend', () => {
 describe('getDecouplingCoachingMessage', () => {
   it('should return encouraging message for excellent decoupling', () => {
     const result = {
-      activityId: 1, date: '2025-01-15', distanceMi: 14,
-      hrFirstHalf: 145, hrSecondHalf: 148,
-      paceFirstHalf: 480, paceSecondHalf: 482,
-      decouplingPct: 2.1, rating: 'excellent' as const, splitsUsed: 14,
+      activityId: 1,
+      date: '2025-01-15',
+      distanceMi: 14,
+      hrFirstHalf: 145,
+      hrSecondHalf: 148,
+      paceFirstHalf: 480,
+      paceSecondHalf: 482,
+      decouplingPct: 2.1,
+      rating: 'excellent' as const,
+      splitsUsed: 14,
     };
     const msg = getDecouplingCoachingMessage(result);
     expect(msg).toContain('excellent');
@@ -144,10 +150,16 @@ describe('getDecouplingCoachingMessage', () => {
 
   it('should suggest improvement for poor decoupling', () => {
     const result = {
-      activityId: 1, date: '2025-01-15', distanceMi: 14,
-      hrFirstHalf: 140, hrSecondHalf: 165,
-      paceFirstHalf: 480, paceSecondHalf: 490,
-      decouplingPct: 14.5, rating: 'needs_work' as const, splitsUsed: 14,
+      activityId: 1,
+      date: '2025-01-15',
+      distanceMi: 14,
+      hrFirstHalf: 140,
+      hrSecondHalf: 165,
+      paceFirstHalf: 480,
+      paceSecondHalf: 490,
+      decouplingPct: 14.5,
+      rating: 'needs_work' as const,
+      splitsUsed: 14,
     };
     const msg = getDecouplingCoachingMessage(result);
     expect(msg).toContain('aerobic base');

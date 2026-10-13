@@ -118,7 +118,7 @@ export function computeDailyRecap(dateStr?: string, today: string = todayKey()):
   const plan = getEffectivePlan();
   if (!plan) return null;
 
-  const date = dateStr && isDateKey(dateStr) ? dateStr : dateStr ?? formatDateKey(new Date());
+  const date = dateStr && isDateKey(dateStr) ? dateStr : (dateStr ?? formatDateKey(new Date()));
   const pos = getWeekDayForDate(activePlan.startDate, plan.weeks.length, date);
   if (!pos) return null;
 
@@ -193,9 +193,19 @@ export function computeDailyRecap(dateStr?: string, today: string = todayKey()):
 
   // Coach message
   const coachMessage = buildCoachMessage(
-    grade, plannedDay.type, plannedDay.note ?? '',
-    actualDistanceMi, plannedDistanceMi, actualPaceMinPerMi,
-    weeklyMileage, primaryZone, journalMood, journalEnergy, sleepHours, metPlan, primaryZoneEstimated
+    grade,
+    plannedDay.type,
+    plannedDay.note ?? '',
+    actualDistanceMi,
+    plannedDistanceMi,
+    actualPaceMinPerMi,
+    weeklyMileage,
+    primaryZone,
+    journalMood,
+    journalEnergy,
+    sleepHours,
+    metPlan,
+    primaryZoneEstimated,
   );
 
   // Compliance data (from auto-sync compliance analysis)
@@ -269,20 +279,26 @@ function buildCoachMessage(
       lines.push('Rest day — recovery is when your body gets stronger. Hydrate, stretch, and sleep well tonight.');
       break;
     case 'missed':
-      lines.push('Looks like today\'s workout was missed. No worries — one day doesn\'t define your training.');
+      lines.push("Looks like today's workout was missed. No worries — one day doesn't define your training.");
       lines.push('Try to get back on track tomorrow. Consistency over perfection.');
       break;
     case 'outstanding':
-      lines.push(`Exceptional work! You crushed ${formatMiles(actualMi)} at ${paceStr} — exceeding the ${formatMiles(plannedMi)} target.`);
+      lines.push(
+        `Exceptional work! You crushed ${formatMiles(actualMi)} at ${paceStr} — exceeding the ${formatMiles(plannedMi)} target.`,
+      );
       if (note.toLowerCase() === 'easy') {
-        lines.push('Just watch that you\'re keeping easy days truly easy to avoid overtraining.');
+        lines.push("Just watch that you're keeping easy days truly easy to avoid overtraining.");
       }
       break;
     case 'strong':
-      lines.push(`Strong session! ${formatMiles(actualMi)} at ${paceStr} — right on target with the ${formatMiles(plannedMi)} plan.`);
+      lines.push(
+        `Strong session! ${formatMiles(actualMi)} at ${paceStr} — right on target with the ${formatMiles(plannedMi)} plan.`,
+      );
       break;
     case 'solid':
-      lines.push(`Solid effort with ${formatMiles(actualMi)} at ${paceStr}. A little short of the ${formatMiles(plannedMi)} goal, but every mile counts.`);
+      lines.push(
+        `Solid effort with ${formatMiles(actualMi)} at ${paceStr}. A little short of the ${formatMiles(plannedMi)} goal, but every mile counts.`,
+      );
       break;
   }
 
@@ -299,13 +315,17 @@ function buildCoachMessage(
 
     if (primaryZone) {
       // L-11: say when the zone is an estimate from average HR, not measured time in zone.
-      lines.push(zoneEstimated
-        ? `Estimated heart rate zone (from your average HR): ${primaryZone}.`
-        : `Primary heart rate zone: ${primaryZone}.`);
+      lines.push(
+        zoneEstimated
+          ? `Estimated heart rate zone (from your average HR): ${primaryZone}.`
+          : `Primary heart rate zone: ${primaryZone}.`,
+      );
       if (noteLC === 'easy' && (primaryZone === 'Threshold' || primaryZone === 'VO2 Max')) {
-        lines.push(zoneEstimated
-          ? '⚠️ Your average HR was high for an easy day — try slowing down to keep easy runs truly easy.'
-          : '⚠️ Your HR was high for an easy day — try slowing down to keep easy runs truly easy.');
+        lines.push(
+          zoneEstimated
+            ? '⚠️ Your average HR was high for an easy day — try slowing down to keep easy runs truly easy.'
+            : '⚠️ Your HR was high for an easy day — try slowing down to keep easy runs truly easy.',
+        );
       }
     }
   }
@@ -313,19 +333,23 @@ function buildCoachMessage(
   // Weekly context
   if (weeklyMileage && weeklyMileage.actualMi > 0) {
     const pct = weeklyMileage.plannedMi > 0 ? Math.round((weeklyMileage.actualMi / weeklyMileage.plannedMi) * 100) : 0;
-    lines.push(`Week ${weeklyMileage.weekIndex + 1} progress: ${formatMiles(weeklyMileage.actualMi)}/${formatMiles(weeklyMileage.plannedMi)} (${pct}%).`);
+    lines.push(
+      `Week ${weeklyMileage.weekIndex + 1} progress: ${formatMiles(weeklyMileage.actualMi)}/${formatMiles(weeklyMileage.plannedMi)} (${pct}%).`,
+    );
   }
 
   // Journal- and wellness-aware coaching (only when that data is present)
   if (grade !== 'rest_day' && grade !== 'missed') {
     if (energy !== undefined && energy <= 2 && metPlan) {
-      lines.push(`You rated energy ${ENERGY_LABELS[energy as keyof typeof ENERGY_LABELS]?.split(' ')[0] ?? energy}/5 but still hit your targets — impressive resilience.`);
+      lines.push(
+        `You rated energy ${ENERGY_LABELS[energy as keyof typeof ENERGY_LABELS]?.split(' ')[0] ?? energy}/5 but still hit your targets — impressive resilience.`,
+      );
     }
     if (sleepHours !== undefined && sleepHours < 6) {
       lines.push('Short sleep last night. Prioritize recovery tonight — most adaptation happens while you sleep.');
     }
     if (mood !== undefined && mood <= 2 && metPlan) {
-      lines.push('Tough mental day but you showed up anyway. That\'s what builds championship mindset.');
+      lines.push("Tough mental day but you showed up anyway. That's what builds championship mindset.");
     }
   }
 

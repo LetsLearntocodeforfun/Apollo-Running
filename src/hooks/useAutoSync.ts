@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { runSync } from '../services/autoSync';
 import { syncPlanCalendarIfChanged } from '../services/planCalendarSync';
-import {
-  getLastActivitySyncTime,
-  isActivitySourceConnected,
-  isSyncRunning,
-} from '../services/activitySource';
+import { getLastActivitySyncTime, isActivitySourceConnected, isSyncRunning } from '../services/activitySource';
 import {
   APP_PREFS_CHANGED_EVENT,
   getAppPreferences,

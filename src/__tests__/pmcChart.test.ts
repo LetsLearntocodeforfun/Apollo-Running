@@ -50,18 +50,20 @@ function makeActivities(count: number, startDate: string): StravaActivity[] {
     date.setDate(date.getDate() + i);
     const dateStr = date.toISOString().slice(0, 10);
     const isLongRun = i % 7 === 5; // every Saturday
-    const isRest = i % 7 === 6;    // every Sunday
+    const isRest = i % 7 === 6; // every Sunday
 
     if (isRest) continue;
 
-    activities.push(makeActivity({
-      id: 1000 + i,
-      name: isLongRun ? 'Long Run' : 'Easy Run',
-      distance: isLongRun ? 25000 : 8000 + Math.random() * 3000,
-      moving_time: isLongRun ? 9000 : 2700 + Math.random() * 600,
-      start_date: `${dateStr}T07:00:00Z`,
-      start_date_local: `${dateStr}T07:00:00Z`,
-    }));
+    activities.push(
+      makeActivity({
+        id: 1000 + i,
+        name: isLongRun ? 'Long Run' : 'Easy Run',
+        distance: isLongRun ? 25000 : 8000 + Math.random() * 3000,
+        moving_time: isLongRun ? 9000 : 2700 + Math.random() * 600,
+        start_date: `${dateStr}T07:00:00Z`,
+        start_date_local: `${dateStr}T07:00:00Z`,
+      }),
+    );
   }
 
   return activities;
@@ -109,7 +111,12 @@ describe('classifyTSBZone', () => {
 describe('getZoneColor', () => {
   it('should return a color for each zone', () => {
     const zones: Array<'overreaching' | 'productive' | 'fresh' | 'peak' | 'transition' | 'very_fresh'> = [
-      'overreaching', 'productive', 'fresh', 'peak', 'transition', 'very_fresh',
+      'overreaching',
+      'productive',
+      'fresh',
+      'peak',
+      'transition',
+      'very_fresh',
     ];
     for (const zone of zones) {
       expect(getZoneColor(zone)).toMatch(/^#[0-9A-F]{6}$/i);
@@ -239,9 +246,7 @@ describe('generateAnnotations', () => {
   });
 
   it('should annotate races', () => {
-    const loads = [
-      { date: '2026-03-01', tss: 200, distanceMi: 26.2, type: 'race' as const },
-    ];
+    const loads = [{ date: '2026-03-01', tss: 200, distanceMi: 26.2, type: 'race' as const }];
     const annotations = generateAnnotations(loads);
     expect(annotations.some((a) => a.type === 'race')).toBe(true);
   });
@@ -301,7 +306,10 @@ describe('projectForward', () => {
 
   it('should increase TSB with low training (taper simulation)', () => {
     const heavySnapshot: FitnessFatigueSnapshot = {
-      date: '2026-02-01', ctl: 80, atl: 90, tsb: -10,
+      date: '2026-02-01',
+      ctl: 80,
+      atl: 90,
+      tsb: -10,
     };
     const projection = projectForward(heavySnapshot, 10, 21);
     // After 3 weeks of low TSS, TSB should increase

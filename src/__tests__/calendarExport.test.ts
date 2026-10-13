@@ -263,10 +263,46 @@ describe('generateICS', () => {
 
   it('writes all-day events with VALUE=DATE and an exclusive next-day DTEND (U-03)', () => {
     const events: CalendarEvent[] = [
-      { uid: 'a@x', date: '2026-04-07', summary: 'A', description: 'a', durationMin: 30, weekNumber: 1, dayOfWeek: 1, kind: 'workout' },
-      { uid: 'b@x', date: '2026-12-31', summary: 'B', description: 'b', durationMin: 30, weekNumber: 1, dayOfWeek: 3, kind: 'workout' },
-      { uid: 'c@x', date: '2026-03-08', summary: 'C', description: 'c', durationMin: 30, weekNumber: 1, dayOfWeek: 6, kind: 'workout' },
-      { uid: 'd@x', date: '2028-02-28', summary: 'D', description: 'd', durationMin: 30, weekNumber: 1, dayOfWeek: 0, kind: 'workout' },
+      {
+        uid: 'a@x',
+        date: '2026-04-07',
+        summary: 'A',
+        description: 'a',
+        durationMin: 30,
+        weekNumber: 1,
+        dayOfWeek: 1,
+        kind: 'workout',
+      },
+      {
+        uid: 'b@x',
+        date: '2026-12-31',
+        summary: 'B',
+        description: 'b',
+        durationMin: 30,
+        weekNumber: 1,
+        dayOfWeek: 3,
+        kind: 'workout',
+      },
+      {
+        uid: 'c@x',
+        date: '2026-03-08',
+        summary: 'C',
+        description: 'c',
+        durationMin: 30,
+        weekNumber: 1,
+        dayOfWeek: 6,
+        kind: 'workout',
+      },
+      {
+        uid: 'd@x',
+        date: '2028-02-28',
+        summary: 'D',
+        description: 'd',
+        durationMin: 30,
+        weekNumber: 1,
+        dayOfWeek: 0,
+        kind: 'workout',
+      },
     ];
     const lines = contentLines(generateICS(events, 'Plan', { now: NOW }));
     expect(lines.filter((l) => l.startsWith('DTSTART'))).toEqual([
@@ -309,10 +345,18 @@ describe('generateICS', () => {
   it('escapes TEXT values and normalises line breaks', () => {
     expect(escapeICSText('a,b;c\\d\r\ne\rf\ng')).toBe('a\\,b\\;c\\\\d\\ne\\nf\\ng');
     expect(escapeICSText('bell\u0007')).toBe('bell');
-    const events: CalendarEvent[] = [{
-      uid: 'u@x', date: '2026-04-07', summary: 'Tempo, hard; fast', description: 'Line 1\r\nLine 2',
-      durationMin: 30, weekNumber: 1, dayOfWeek: 1, kind: 'workout',
-    }];
+    const events: CalendarEvent[] = [
+      {
+        uid: 'u@x',
+        date: '2026-04-07',
+        summary: 'Tempo, hard; fast',
+        description: 'Line 1\r\nLine 2',
+        durationMin: 30,
+        weekNumber: 1,
+        dayOfWeek: 1,
+        kind: 'workout',
+      },
+    ];
     const lines = contentLines(generateICS(events, 'My plan, v2; \\ final', { now: NOW }));
     expect(lines).toContain('X-WR-CALNAME:My plan\\, v2\\; \\\\ final');
     expect(lines).toContain('SUMMARY:Tempo\\, hard\\; fast');
@@ -421,7 +465,9 @@ describe('export options', () => {
     const week = plan.weeks[1].days;
     // Find the long run (largest distance) of week 2 and swap it with Monday.
     let longIdx = 0;
-    week.forEach((d, i) => { if ((d.distanceMi ?? 0) > (week[longIdx].distanceMi ?? 0)) longIdx = i; });
+    week.forEach((d, i) => {
+      if ((d.distanceMi ?? 0) > (week[longIdx].distanceMi ?? 0)) longIdx = i;
+    });
     expect(longIdx).not.toBe(0);
     const longDay = week[longIdx];
     [week[0], week[longIdx]] = [week[longIdx], week[0]];
@@ -533,7 +579,9 @@ describe('downloadICS', () => {
     });
     vi.useFakeTimers();
     try {
-      expect(downloadICS({ icsContent: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', fileName: 'Plan_training.ics' })).toBe(true);
+      expect(downloadICS({ icsContent: 'BEGIN:VCALENDAR\r\nEND:VCALENDAR\r\n', fileName: 'Plan_training.ics' })).toBe(
+        true,
+      );
       expect(create).toHaveBeenCalledTimes(1);
       expect(click).toHaveBeenCalledTimes(1);
       expect(revoke).not.toHaveBeenCalled();

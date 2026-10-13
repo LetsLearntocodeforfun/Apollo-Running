@@ -17,12 +17,7 @@
  * - "The wall" typically occurs when glycogen drops below 50-100g
  */
 
-import type {
-  AthleteProfile,
-  GlycogenMileData,
-  GlycogenSimulation,
-  FuelingItem,
-} from '../types/nutrition';
+import type { AthleteProfile, GlycogenMileData, GlycogenSimulation, FuelingItem } from '../types/nutrition';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -150,7 +145,7 @@ export function simulateGlycogenDepletion(input: GlycogenSimulationInput): Glyco
 
   for (let mile = 1; mile <= totalMiles; mile++) {
     // Caloric cost of this mile
-    const mileDistance = mile === totalMiles ? (distanceMi - (totalMiles - 1)) : 1;
+    const mileDistance = mile === totalMiles ? distanceMi - (totalMiles - 1) : 1;
     const calsBurned = KCAL_PER_KG_PER_MI * athlete.weightKg * mileDistance;
     totalCalsBurned += calsBurned;
 
@@ -190,8 +185,13 @@ export function simulateGlycogenDepletion(input: GlycogenSimulationInput): Glyco
 
   // Build summary
   const summary = buildSummary(
-    startingGlycogen, carbLoaded, depletionMile, depletionMileWithFueling,
-    fuelingItems.length > 0, cumulativeCarbs, totalCalsBurned,
+    startingGlycogen,
+    carbLoaded,
+    depletionMile,
+    depletionMileWithFueling,
+    fuelingItems.length > 0,
+    cumulativeCarbs,
+    totalCalsBurned,
   );
 
   return {
@@ -205,9 +205,13 @@ export function simulateGlycogenDepletion(input: GlycogenSimulationInput): Glyco
 }
 
 function buildSummary(
-  startingG: number, carbLoaded: boolean,
-  depletionMile: number | null, depletionWithFueling: number | null,
-  hasFueling: boolean, totalCarbs: number, totalCals: number,
+  startingG: number,
+  carbLoaded: boolean,
+  depletionMile: number | null,
+  depletionWithFueling: number | null,
+  hasFueling: boolean,
+  totalCarbs: number,
+  totalCals: number,
 ): string {
   const parts: string[] = [];
 
@@ -217,9 +221,13 @@ function buildSummary(
   if (depletionMile) {
     parts.push(`Without fueling, glycogen depletion occurs around mile ${depletionMile}.`);
     if (hasFueling && depletionWithFueling) {
-      parts.push(`With your fueling plan (${Math.round(totalCarbs)}g carbs), depletion extends to mile ${depletionWithFueling}.`);
+      parts.push(
+        `With your fueling plan (${Math.round(totalCarbs)}g carbs), depletion extends to mile ${depletionWithFueling}.`,
+      );
     } else if (hasFueling && !depletionWithFueling) {
-      parts.push(`With your fueling plan (${Math.round(totalCarbs)}g carbs), you should have sufficient glycogen to finish.`);
+      parts.push(
+        `With your fueling plan (${Math.round(totalCarbs)}g carbs), you should have sufficient glycogen to finish.`,
+      );
     }
   } else {
     parts.push('Your glycogen stores should be sufficient for the full distance.');

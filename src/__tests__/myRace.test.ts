@@ -45,8 +45,9 @@ describe('myRace', () => {
   it('normalises a legacy year-pinned race id on read', () => {
     expect(sanitizeMyRace({ raceId: 'boston-marathon-2026' }).raceId).toBe('boston');
     expect(sanitizeMyRace({ raceId: 'nyc-marathon-2025' }).raceId).toBe('nyc');
-    expect(sanitizeMyRace({ raceId: 'custom-fall-half-1700000000000-abcde' }).raceId)
-      .toBe('custom-fall-half-1700000000000-abcde');
+    expect(sanitizeMyRace({ raceId: 'custom-fall-half-1700000000000-abcde' }).raceId).toBe(
+      'custom-fall-half-1700000000000-abcde',
+    );
     persistence.setItem(MY_RACE_KEY, JSON.stringify({ raceId: 'london-marathon-2026' }));
     expect(getMyRace().raceId).toBe('london');
   });

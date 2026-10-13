@@ -29,8 +29,9 @@ describe('scanXml', () => {
   }
 
   it('reports lower-cased local names, attributes in any quoting, entities and CDATA', () => {
-    const xml = '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e "v">]><!-- a > comment -->'
-      + '<a:Root B="1" c=\'2\'><b>x &amp; y &#233; &#x41; &unknown;</b><c/><d><![CDATA[<raw> & stuff]]></d></a:Root>';
+    const xml =
+      '<?xml version="1.0"?><!DOCTYPE x [<!ENTITY e "v">]><!-- a > comment -->' +
+      '<a:Root B="1" c=\'2\'><b>x &amp; y &#233; &#x41; &unknown;</b><c/><d><![CDATA[<raw> & stuff]]></d></a:Root>';
     expect(events(xml)).toEqual([
       'open root {"b":"1","c":"2"}',
       'open b {}',
@@ -158,7 +159,15 @@ describe('parseGpx', () => {
     // The point without <time> is skipped.
     expect(a.samples).toEqual([
       { time: Date.UTC(2024, 2, 10, 13, 0, 0), lat: 41.88, lng: -87.63, altitude: 180, heartRate: 120, cadence: 80 },
-      { time: Date.UTC(2024, 2, 10, 13, 0, 5), lat: 41.8801, lng: -87.6299, altitude: 181.5, heartRate: 125, cadence: 82, speed: 2.9 },
+      {
+        time: Date.UTC(2024, 2, 10, 13, 0, 5),
+        lat: 41.8801,
+        lng: -87.6299,
+        altitude: 181.5,
+        heartRate: 125,
+        cadence: 82,
+        speed: 2.9,
+      },
       { time: Date.UTC(2024, 2, 10, 13, 0, 10) + 250, lat: 41.8803, lng: -87.6297, power: 250 },
     ]);
   });
@@ -181,9 +190,10 @@ describe('parseGpx', () => {
   });
 
   it('returns nothing for routes and tracks without timestamps', () => {
-    const route = '<gpx><rte><rtept lat="1" lon="2"><time>2020-01-01T00:00:00Z</time></rtept></rte>'
-      + '<wpt lat="1" lon="2"><time>2020-01-01T00:00:00Z</time></wpt>'
-      + '<trk><trkseg><trkpt lat="1" lon="2"><ele>3</ele></trkpt><trkpt lat="1.1" lon="2"/></trkseg></trk></gpx>';
+    const route =
+      '<gpx><rte><rtept lat="1" lon="2"><time>2020-01-01T00:00:00Z</time></rtept></rte>' +
+      '<wpt lat="1" lon="2"><time>2020-01-01T00:00:00Z</time></wpt>' +
+      '<trk><trkseg><trkpt lat="1" lon="2"><ele>3</ele></trkpt><trkpt lat="1.1" lon="2"/></trkseg></trk></gpx>';
     expect(parseGpx(route)).toEqual([]);
     expect(parseGpx('not xml at all')).toEqual([]);
   });
@@ -213,9 +223,10 @@ describe('parseGpx', () => {
   });
 
   it('leaves the type empty when nothing names the sport', () => {
-    const gpx = '<gpx><trk><name>Route 2020-01-01 7:30am</name><trkseg>'
-      + '<trkpt lat="1" lon="1"><time>2020-01-01T07:30:00Z</time></trkpt>'
-      + '<trkpt lat="1" lon="1.001"><time>2020-01-01T07:31:00Z</time></trkpt></trkseg></trk></gpx>';
+    const gpx =
+      '<gpx><trk><name>Route 2020-01-01 7:30am</name><trkseg>' +
+      '<trkpt lat="1" lon="1"><time>2020-01-01T07:30:00Z</time></trkpt>' +
+      '<trkpt lat="1" lon="1.001"><time>2020-01-01T07:31:00Z</time></trkpt></trkseg></trk></gpx>';
     expect(parseGpx(gpx)[0].type).toBe('');
   });
 });
@@ -291,8 +302,14 @@ describe('parseTcx', () => {
 
     expect(a.samples).toHaveLength(4);
     expect(a.samples[0]).toEqual({
-      time: Date.UTC(2024, 4, 1, 11, 0, 0), lat: 51.5, lng: -0.12, altitude: 10, distance: 0,
-      heartRate: 130, speed: 3.2, cadence: 85,
+      time: Date.UTC(2024, 4, 1, 11, 0, 0),
+      lat: 51.5,
+      lng: -0.12,
+      altitude: 10,
+      distance: 0,
+      heartRate: 130,
+      speed: 3.2,
+      cadence: 85,
     });
     expect(a.samples[2]).toEqual({ time: Date.UTC(2024, 4, 1, 11, 6, 0), distance: 1000, heartRate: 150, cadence: 90 });
 
@@ -351,9 +368,22 @@ describe('parseTcx', () => {
     const list = parseTcx(tcx);
     expect(list.map((a) => a.type)).toEqual(['Ride', 'Run', 'Workout']);
     expect(list[0].samples).toEqual([]);
-    expect(list[0].totals).toEqual({ movingSec: 3600, distance: 30000, avgCadence: 90, avgPower: 200, elapsedSec: 3600 });
+    expect(list[0].totals).toEqual({
+      movingSec: 3600,
+      distance: 30000,
+      avgCadence: 90,
+      avgPower: 200,
+      elapsedSec: 3600,
+    });
     expect(list[0].laps).toEqual([
-      { startTime: Date.UTC(2024, 5, 1, 7, 0, 0), elapsedSec: 3600, movingSec: 3600, distance: 30000, avgSpeed: 30000 / 3600, avgCadence: 90 },
+      {
+        startTime: Date.UTC(2024, 5, 1, 7, 0, 0),
+        elapsedSec: 3600,
+        movingSec: 3600,
+        distance: 30000,
+        avgSpeed: 30000 / 3600,
+        avgCadence: 90,
+      },
     ]);
     expect(list[1].startTime).toBe(Date.UTC(2024, 5, 1, 8, 2, 0));
     expect(list[1].totals).toMatchObject({ movingSec: 1800, distance: 5000, elapsedSec: 1800 });
@@ -362,7 +392,9 @@ describe('parseTcx', () => {
   });
 
   it('returns nothing for course-only files and non-TCX text', () => {
-    expect(parseTcx('<TrainingCenterDatabase><Courses><Course><Name>x</Name></Course></Courses></TrainingCenterDatabase>')).toEqual([]);
+    expect(
+      parseTcx('<TrainingCenterDatabase><Courses><Course><Name>x</Name></Course></Courses></TrainingCenterDatabase>'),
+    ).toEqual([]);
     expect(parseTcx('')).toEqual([]);
   });
 });

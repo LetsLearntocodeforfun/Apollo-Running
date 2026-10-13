@@ -48,7 +48,7 @@ describe('coalesced writes (S1, V9)', () => {
     expect(localStorage.getItem('apollo_k')).toBe('b');
   });
 
-  it("back-to-back writes across ticks never land the older value last", async () => {
+  it('back-to-back writes across ticks never land the older value last', async () => {
     const svc = await freshService();
     svc.setItem('apollo_k', 'a');
     await Promise.resolve(); // flush microtask for 'a' runs, its put is in flight

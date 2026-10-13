@@ -244,10 +244,16 @@ describe('Correlation Analysis', () => {
   it('detects sleep-performance correlation', () => {
     // 5 good sleep days + 5 poor sleep days
     const entries = makeEntries(10, [
-      { sleepHours: 8 }, { sleepHours: 7.5 }, { sleepHours: 7 },
-      { sleepHours: 8 }, { sleepHours: 7 },
-      { sleepHours: 5 }, { sleepHours: 5.5 }, { sleepHours: 6 },
-      { sleepHours: 5 }, { sleepHours: 6 },
+      { sleepHours: 8 },
+      { sleepHours: 7.5 },
+      { sleepHours: 7 },
+      { sleepHours: 8 },
+      { sleepHours: 7 },
+      { sleepHours: 5 },
+      { sleepHours: 5.5 },
+      { sleepHours: 6 },
+      { sleepHours: 5 },
+      { sleepHours: 6 },
     ]);
     const perfData = entries.map((e, i) => ({
       date: e.date,
@@ -262,10 +268,16 @@ describe('Correlation Analysis', () => {
 
   it('detects energy-performance correlation', () => {
     const entries = makeEntries(10, [
-      { energy: 5 as EnergyRating }, { energy: 4 as EnergyRating }, { energy: 5 as EnergyRating },
-      { energy: 4 as EnergyRating }, { energy: 5 as EnergyRating },
-      { energy: 1 as EnergyRating }, { energy: 2 as EnergyRating }, { energy: 1 as EnergyRating },
-      { energy: 2 as EnergyRating }, { energy: 1 as EnergyRating },
+      { energy: 5 as EnergyRating },
+      { energy: 4 as EnergyRating },
+      { energy: 5 as EnergyRating },
+      { energy: 4 as EnergyRating },
+      { energy: 5 as EnergyRating },
+      { energy: 1 as EnergyRating },
+      { energy: 2 as EnergyRating },
+      { energy: 1 as EnergyRating },
+      { energy: 2 as EnergyRating },
+      { energy: 1 as EnergyRating },
     ]);
     const perfData = entries.map((e, i) => ({
       date: e.date,
@@ -279,7 +291,10 @@ describe('Correlation Analysis', () => {
   });
 
   it('detects positive mood streak', () => {
-    const entries = makeEntries(7, Array.from({ length: 7 }, () => ({ mood: 5 as MoodRating })));
+    const entries = makeEntries(
+      7,
+      Array.from({ length: 7 }, () => ({ mood: 5 as MoodRating })),
+    );
     const insights = discoverCorrelations(entries);
     const moodInsight = insights.find((i) => i.type === 'mood_streak');
     expect(moodInsight).toBeDefined();
@@ -287,7 +302,10 @@ describe('Correlation Analysis', () => {
   });
 
   it('detects negative mood streak', () => {
-    const entries = makeEntries(7, Array.from({ length: 7 }, () => ({ mood: 1 as MoodRating })));
+    const entries = makeEntries(
+      7,
+      Array.from({ length: 7 }, () => ({ mood: 1 as MoodRating })),
+    );
     const insights = discoverCorrelations(entries);
     const moodInsight = insights.find((i) => i.type === 'mood_streak');
     expect(moodInsight).toBeDefined();

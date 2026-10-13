@@ -16,18 +16,15 @@ import { PlanSourceNote } from './PlanSourceNote';
 import { previewStartPlan, startPlan } from '../../services/planProgress';
 import type { ActivePlan, StartPlanInput, StartPlanPreview } from '../../services/planProgress';
 import { ConfirmDialog } from '../ui';
-import {
-  RaceDatePlanSetup,
-  initialPlanSetupValue,
-  planSetupError,
-  planSetupToStartInput,
-} from './RaceDatePlanSetup';
+import { RaceDatePlanSetup, initialPlanSetupValue, planSetupError, planSetupToStartInput } from './RaceDatePlanSetup';
 import type { PlanSetupValue } from './RaceDatePlanSetup';
 import './plan.css';
 
 /** True when starting would clear stored progress of that plan (ask first). */
 export function startNeedsConfirm(preview: StartPlanPreview): boolean {
-  return preview.isNewInstance && (preview.clears.completions > 0 || preview.clears.overlay || preview.clears.syncMeta > 0);
+  return (
+    preview.isNewInstance && (preview.clears.completions > 0 || preview.clears.overlay || preview.clears.syncMeta > 0)
+  );
 }
 
 /** "3 completed days, your moves and skips, 2 activity matches". */
@@ -79,7 +76,7 @@ export function PlanChooser({
 
   const custom = getPlanById(CUSTOM_PLAN_ID);
   const plans: TrainingPlan[] = custom ? [...BUILT_IN_PLANS, custom] : BUILT_IN_PLANS;
-  const pendingPlan = pendingPlanId ? getPlanById(pendingPlanId) ?? null : null;
+  const pendingPlan = pendingPlanId ? (getPlanById(pendingPlanId) ?? null) : null;
   const Heading = headingLevel === 3 ? 'h3' : 'h2';
   const titleId = `plan-chooser-${uid}`;
 
@@ -105,7 +102,8 @@ export function PlanChooser({
     else commit(input);
   };
 
-  const startLabel = mode === 'start' ? 'Start plan' : pendingPlanId && pendingPlanId === activePlanId ? 'Re-place plan' : 'Switch plan';
+  const startLabel =
+    mode === 'start' ? 'Start plan' : pendingPlanId && pendingPlanId === activePlanId ? 'Re-place plan' : 'Switch plan';
 
   return (
     <section className="card" aria-labelledby={titleId}>
@@ -184,7 +182,9 @@ export function PlanChooser({
         open={!!confirm}
         tone="danger"
         title="Restart this plan?"
-        message={confirm ? `Progress for this plan will be cleared: ${describeClears(confirm.preview.clears)}.` : undefined}
+        message={
+          confirm ? `Progress for this plan will be cleared: ${describeClears(confirm.preview.clears)}.` : undefined
+        }
         confirmLabel="Restart plan"
         cancelLabel="Keep my progress"
         onConfirm={() => confirm && commit(confirm.input)}

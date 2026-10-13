@@ -126,11 +126,7 @@ describe('Glycogen Model — Edge Cases', () => {
   });
 
   it('willGlycogenLast returns consistent results', () => {
-    const result = willGlycogenLast(
-      { weightKg: 70, sex: 'male', vo2max: 50 },
-      480,
-      false,
-    );
+    const result = willGlycogenLast({ weightKg: 70, sex: 'male', vo2max: 50 }, 480, false);
     expect(typeof result.lasts).toBe('boolean');
     expect(typeof result.message).toBe('string');
     expect(result.message.length).toBeGreaterThan(0);
@@ -144,7 +140,8 @@ describe('Hydration Calculator — Edge Cases', () => {
     const result = calculateSweatRate(
       { weightKg: 70, sex: 'male', vo2max: 50 },
       { tempF: 0, humidityPct: 20 },
-      480, 210,
+      480,
+      210,
     );
     expect(result.adjustedSweatRateMlHr).toBeGreaterThan(0);
     expect(isFinite(result.adjustedSweatRateMlHr)).toBe(true);
@@ -154,7 +151,8 @@ describe('Hydration Calculator — Edge Cases', () => {
     const result = calculateSweatRate(
       { weightKg: 70, sex: 'male', vo2max: 50 },
       { tempF: 120, humidityPct: 90 },
-      480, 210,
+      480,
+      210,
     );
     expect(result.adjustedSweatRateMlHr).toBeGreaterThan(800);
     expect(result.recommendedIntakeMlHr).toBeLessThanOrEqual(1000);
@@ -164,7 +162,8 @@ describe('Hydration Calculator — Edge Cases', () => {
     const result = calculateSweatRate(
       { weightKg: 70, sex: 'male', vo2max: 50 },
       { tempF: 55, humidityPct: 0 },
-      480, 210,
+      480,
+      210,
     );
     expect(result.adjustedSweatRateMlHr).toBeGreaterThan(0);
   });
@@ -173,7 +172,8 @@ describe('Hydration Calculator — Edge Cases', () => {
     const result = calculateSweatRate(
       { weightKg: 70, sex: 'male', vo2max: 50 },
       { tempF: 80, humidityPct: 100 },
-      480, 210,
+      480,
+      210,
     );
     expect(result.adjustedSweatRateMlHr).toBeGreaterThan(0);
     expect(isFinite(result.recommendedIntakeMlHr)).toBe(true);
@@ -183,7 +183,8 @@ describe('Hydration Calculator — Edge Cases', () => {
     const result = calculateSweatRate(
       { weightKg: 60, sex: 'male', vo2max: 75 },
       { tempF: 60, humidityPct: 50 },
-      240, 120,
+      240,
+      120,
     );
     expect(result.adjustedSweatRateMlHr).toBeGreaterThan(0);
   });
@@ -192,7 +193,8 @@ describe('Hydration Calculator — Edge Cases', () => {
     const result = calculateSweatRate(
       { weightKg: 90, sex: 'female', vo2max: 30 },
       { tempF: 70, humidityPct: 60 },
-      900, 360,
+      900,
+      360,
     );
     expect(result.adjustedSweatRateMlHr).toBeGreaterThan(0);
   });
@@ -214,7 +216,10 @@ describe('Hydration Calculator — Edge Cases', () => {
 
 describe('What-If Simulator — Edge Cases', () => {
   const mkScenario = (type: WhatIfType, value: number): WhatIfScenario => ({
-    type, label: `Test ${type}`, description: `Edge case test for ${type}`, value,
+    type,
+    label: `Test ${type}`,
+    description: `Edge case test for ${type}`,
+    value,
   });
 
   it('handles zero weight change', () => {
@@ -280,7 +285,9 @@ describe('Fatigue Resistance — Edge Cases', () => {
   });
 
   it('handles decreasing splits (progressive run)', () => {
-    const splits = Array(20).fill(0).map((_, i) => 600 - i * 5);
+    const splits = Array(20)
+      .fill(0)
+      .map((_, i) => 600 - i * 5);
     const result = calculateFRI(splits, 20, 'e4', '2025-01-01');
     expect(result).not.toBeNull();
     expect(result!.fri).toBeLessThan(100);
@@ -288,8 +295,7 @@ describe('Fatigue Resistance — Edge Cases', () => {
 
   it('handles all anomalous splits (returns null)', () => {
     // All splits wildly different — filtering might leave too few
-    const splits = [100, 900, 200, 800, 150, 850, 120, 780, 180, 820,
-      130, 870, 160, 830, 140, 860, 170, 810, 190, 790];
+    const splits = [100, 900, 200, 800, 150, 850, 120, 780, 180, 820, 130, 870, 160, 830, 140, 860, 170, 810, 190, 790];
     const result = calculateFRI(splits, 20, 'e5', '2025-01-01');
     // May return null or a result depending on filtering
     if (result) {
@@ -325,10 +331,12 @@ describe('Pacing Decay — Edge Cases', () => {
   });
 
   it('handles perfectly constant splits (zero decay)', () => {
-    const runs = Array(3).fill(0).map((_, i) => ({
-      date: `2025-0${i + 1}-01`,
-      splits: Array(20).fill(480),
-    }));
+    const runs = Array(3)
+      .fill(0)
+      .map((_, i) => ({
+        date: `2025-0${i + 1}-01`,
+        splits: Array(20).fill(480),
+      }));
     const model = fitDecayModel(runs);
     expect(model).not.toBeNull();
     expect(Math.abs(model!.decayRatePerMi)).toBeLessThan(0.005);
@@ -403,7 +411,9 @@ describe('Race Equivalence — Edge Cases', () => {
 
   it('handles high altitude (10000 ft)', () => {
     const result = normalizeToIdeal(10800, {
-      tempF: 55, humidityPct: 40, altitudeFt: 10000,
+      tempF: 55,
+      humidityPct: 40,
+      altitudeFt: 10000,
     });
     expect(result.adjustedTimeSec).toBeLessThan(10800);
     const pctImprovement = ((10800 - result.adjustedTimeSec) / 10800) * 100;
@@ -436,42 +446,60 @@ describe('Race Equivalence — Edge Cases', () => {
 
 describe('Aerobic Decoupling — Edge Cases', () => {
   it('handles exactly 6 splits (minimum)', () => {
-    const splits = Array(6).fill(0).map((_, i) => ({
-      mile: i + 1, paceSec: 480, avgHR: 150,
-    }));
+    const splits = Array(6)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: 150,
+      }));
     const result = calculateDecoupling(splits, 8, 1, '2025-01-01');
     expect(result).not.toBeNull();
   });
 
   it('handles fewer than 6 splits (returns null)', () => {
-    const splits = Array(4).fill(0).map((_, i) => ({
-      mile: i + 1, paceSec: 480, avgHR: 150,
-    }));
+    const splits = Array(4)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: 150,
+      }));
     expect(calculateDecoupling(splits, 4, 2, '2025-01-01')).toBeNull();
   });
 
   it('handles all low HR readings (returns null — all filtered)', () => {
-    const splits = Array(10).fill(0).map((_, i) => ({
-      mile: i + 1, paceSec: 480, avgHR: 60, // all below 90
-    }));
+    const splits = Array(10)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: 60, // all below 90
+      }));
     expect(calculateDecoupling(splits, 10, 3, '2025-01-01')).toBeNull();
   });
 
   it('handles extremely high HR (200+ bpm)', () => {
-    const splits = Array(10).fill(0).map((_, i) => ({
-      mile: i + 1, paceSec: 480, avgHR: 190 + i, // 190-199
-    }));
+    const splits = Array(10)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: 190 + i, // 190-199
+      }));
     const result = calculateDecoupling(splits, 10, 4, '2025-01-01');
     expect(result).not.toBeNull();
     expect(isFinite(result!.decouplingPct)).toBe(true);
   });
 
   it('handles one anomalous pace split', () => {
-    const splits = Array(10).fill(0).map((_, i) => ({
-      mile: i + 1,
-      paceSec: i === 5 ? 900 : 480, // one walk
-      avgHR: 150,
-    }));
+    const splits = Array(10)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: i === 5 ? 900 : 480, // one walk
+        avgHR: 150,
+      }));
     const result = calculateDecoupling(splits, 10, 5, '2025-01-01');
     if (result) {
       expect(isFinite(result.decouplingPct)).toBe(true);
@@ -569,11 +597,18 @@ describe('Bonk Risk — Edge Cases', () => {
 
   it('all factors produce scores in [0, 100]', () => {
     const result = assessBonkRisk({
-      longestRunMi: 22, runsOver18Mi: 5, longRunsPlanned: 6, longRunsCompleted: 6,
-      targetRacePaceSec: 480, avgLongRunPaceSec: 510,
-      practicedFueling: true, fueledLongRuns: 5,
-      carbLoading: true, carbLoadingDaysCompleted: 3,
-      experience: 'advanced', raceTempF: 55,
+      longestRunMi: 22,
+      runsOver18Mi: 5,
+      longRunsPlanned: 6,
+      longRunsCompleted: 6,
+      targetRacePaceSec: 480,
+      avgLongRunPaceSec: 510,
+      practicedFueling: true,
+      fueledLongRuns: 5,
+      carbLoading: true,
+      carbLoadingDaysCompleted: 3,
+      experience: 'advanced',
+      raceTempF: 55,
     });
     for (const f of result.factors) {
       expect(f.score).toBeGreaterThanOrEqual(0);
@@ -591,9 +626,13 @@ describe('Bonk Risk — Edge Cases', () => {
     for (const c of cases) {
       const result = assessBonkRisk({
         ...c,
-        longRunsPlanned: 6, longRunsCompleted: 3,
-        targetRacePaceSec: 480, avgLongRunPaceSec: 540,
-        practicedFueling: false, carbLoading: false, experience: 'beginner',
+        longRunsPlanned: 6,
+        longRunsCompleted: 3,
+        targetRacePaceSec: 480,
+        avgLongRunPaceSec: 540,
+        practicedFueling: false,
+        carbLoading: false,
+        experience: 'beginner',
       });
       expect(result.summary.length).toBeGreaterThan(0);
     }
@@ -614,8 +653,10 @@ describe('Cross-Service Integration — Extreme Athlete Profiles', () => {
     expect(hydration.adjustedSweatRateMlHr).toBeGreaterThan(0);
 
     const fueling = generateFuelingPlan({
-      athlete, paceSecPerMi: pace,
-      experience: 'advanced', gutTrained: true,
+      athlete,
+      paceSecPerMi: pace,
+      experience: 'advanced',
+      gutTrained: true,
       preferredProducts: ['gel'],
     });
     expect(fueling.targetCarbRateGHr).toBeGreaterThan(0);
@@ -632,9 +673,15 @@ describe('Cross-Service Integration — Extreme Athlete Profiles', () => {
     expect(hydration.adjustedSweatRateMlHr).toBeGreaterThan(0);
 
     const risk = assessBonkRisk({
-      longestRunMi: 16, runsOver18Mi: 1, longRunsPlanned: 8, longRunsCompleted: 5,
-      targetRacePaceSec: pace, avgLongRunPaceSec: pace + 30,
-      practicedFueling: true, carbLoading: false, experience: 'beginner',
+      longestRunMi: 16,
+      runsOver18Mi: 1,
+      longRunsPlanned: 8,
+      longRunsCompleted: 5,
+      targetRacePaceSec: pace,
+      avgLongRunPaceSec: pace + 30,
+      practicedFueling: true,
+      carbLoading: false,
+      experience: 'beginner',
     });
     expect(risk.score).toBeGreaterThanOrEqual(0);
     expect(risk.score).toBeLessThanOrEqual(100);

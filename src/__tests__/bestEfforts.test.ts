@@ -35,7 +35,12 @@ function run(id: number, day: number, distance: number, elapsed: number, extra: 
 
 function splits(parts: [number, number][]): ActivitySplit[] {
   return parts.map(([distance, sec], i) => ({
-    distance, elapsed_time: sec, moving_time: sec, average_speed: distance / sec, elevation_difference: 0, split: i + 1,
+    distance,
+    elapsed_time: sec,
+    moving_time: sec,
+    average_speed: distance / sec,
+    elevation_difference: 0,
+    split: i + 1,
   }));
 }
 
@@ -75,13 +80,24 @@ describe('best efforts (B1)', () => {
     const virtual = run(7, 7, 5000, 950, { type: 'VirtualRun', sport_type: 'VirtualRun' });
     const pr = detectPersonalRecords([outdoor, treadmill, virtual]).find((p) => p.label === '5K')!;
     expect(pr.activityId).toBe(5);
-    expect(detectPersonalRecordsFromEfforts([outdoor, treadmill], { includeIndoor: true })
-      .find((p) => p.key === '5k')!.activity.id).toBe(6);
+    expect(
+      detectPersonalRecordsFromEfforts([outdoor, treadmill], { includeIndoor: true }).find((p) => p.key === '5k')!
+        .activity.id,
+    ).toBe(6);
   });
 
   it('interpolates the partial last split', () => {
     // Five 5:00 km, then a fast last 100 m in 20 s: the best 5K ends at the finish and starts 100 m in.
-    const efforts = bestEffortsFromSplits(splits([[1000, 300], [1000, 300], [1000, 300], [1000, 300], [1000, 300], [100, 20]]));
+    const efforts = bestEffortsFromSplits(
+      splits([
+        [1000, 300],
+        [1000, 300],
+        [1000, 300],
+        [1000, 300],
+        [1000, 300],
+        [100, 20],
+      ]),
+    );
     const fiveK = efforts.find((e) => e.key === '5k')!;
     expect(fiveK.elapsedSec).toBeCloseTo(1490, 6); // 1520 − 30 s for the first 100 m
     expect(fiveK.startM).toBeCloseTo(100, 6);
@@ -98,7 +114,8 @@ describe('best efforts (B1)', () => {
   it('finds the fastest window in distance/time samples', () => {
     // 3 m/s for 2000 s, then 4 m/s for 500 s: the best 1K takes 250 s.
     const samples: { timeSec: number; distanceM: number }[] = [];
-    for (let s = 0; s <= 2500; s += 5) samples.push({ timeSec: s, distanceM: s <= 2000 ? s * 3 : 6000 + (s - 2000) * 4 });
+    for (let s = 0; s <= 2500; s += 5)
+      samples.push({ timeSec: s, distanceM: s <= 2000 ? s * 3 : 6000 + (s - 2000) * 4 });
     const oneK = bestEffortsFromSamples(samples).find((e) => e.key === '1k')!;
     expect(oneK.source).toBe('stream');
     expect(oneK.elapsedSec).toBeCloseTo(250, 6);

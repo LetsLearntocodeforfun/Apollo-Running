@@ -145,7 +145,11 @@ export function importCustomMarathon(input: CustomMarathonInput): MarathonRace {
   if (problem) throw new RangeError(problem);
 
   const distanceMi = input.distanceMi ?? 26.2;
-  const slug = input.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'race';
+  const slug =
+    input.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'race';
   const id = `custom-${slug}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   const gain = input.elevationGainFt ?? 200;
   const loss = input.elevationLossFt ?? gain;
@@ -167,7 +171,9 @@ export function importCustomMarathon(input: CustomMarathonInput): MarathonRace {
     website: safeWebsite(input.website),
     isWorldMajor: false,
     year,
-    courseDescription: input.notes ?? `Custom race: ${input.name} in ${input.city}, ${input.country}. Elevation profile: flat (no course file).`,
+    courseDescription:
+      input.notes ??
+      `Custom race: ${input.name} in ${input.city}, ${input.country}. Elevation profile: flat (no course file).`,
     tips: [],
     ...(input.startTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(input.startTime) ? { startTime: input.startTime } : {}),
     ...(input.timeZone ? { timeZone: input.timeZone } : {}),
@@ -234,7 +240,11 @@ export function getStrategyById(id: string): RaceStrategy | undefined {
 /** Explicit, idempotent upsert by id (RS-5). */
 export function saveStrategy(strategy: RaceStrategy): void {
   const strategies = getSavedStrategies();
-  const normalized = { ...strategy, marathonId: normalizeMarathonId(strategy.marathonId), updatedAt: new Date().toISOString() };
+  const normalized = {
+    ...strategy,
+    marathonId: normalizeMarathonId(strategy.marathonId),
+    updatedAt: new Date().toISOString(),
+  };
   const idx = strategies.findIndex((s) => s.id === strategy.id);
   if (idx >= 0) strategies[idx] = normalized;
   else strategies.push(normalized);
@@ -275,7 +285,9 @@ export function migrateStrategyRaceIds(): number {
         changed++;
       }
     }
-  } catch { /* ignore corrupt data */ }
+  } catch {
+    /* ignore corrupt data */
+  }
   return changed;
 }
 
@@ -317,13 +329,23 @@ const MAX_SPLIT_MAGNITUDE_PCT = 5;
  * negative → −magnitude, positive → +magnitude, even → 0, effort-based → null
  * (halves follow the course; no half target).
  */
-export function plannedSplitPct(pacing: PacingStrategy, magnitudePct: number = DEFAULT_SPLIT_MAGNITUDE_PCT): number | null {
-  const m = Math.min(MAX_SPLIT_MAGNITUDE_PCT, Math.max(0, Number.isFinite(magnitudePct) ? magnitudePct : DEFAULT_SPLIT_MAGNITUDE_PCT));
+export function plannedSplitPct(
+  pacing: PacingStrategy,
+  magnitudePct: number = DEFAULT_SPLIT_MAGNITUDE_PCT,
+): number | null {
+  const m = Math.min(
+    MAX_SPLIT_MAGNITUDE_PCT,
+    Math.max(0, Number.isFinite(magnitudePct) ? magnitudePct : DEFAULT_SPLIT_MAGNITUDE_PCT),
+  );
   switch (pacing) {
-    case 'negative-split': return -m;
-    case 'positive-split': return m;
-    case 'even-split': return 0;
-    default: return null;
+    case 'negative-split':
+      return -m;
+    case 'positive-split':
+      return m;
+    case 'even-split':
+      return 0;
+    default:
+      return null;
   }
 }
 
@@ -371,7 +393,7 @@ function paceShape(pacing: PacingStrategy, splitPct: number | null, p: number): 
   if (splitPct === null || splitPct === 0) return 1;
   // A linear ramp of total size 2·s gives raw halves ≈ the target ratio, so
   // the two half-scalings below stay close and the pace is continuous.
-  return 1 + (2 * splitPct / 100) * (p - 0.5);
+  return 1 + ((2 * splitPct) / 100) * (p - 0.5);
 }
 
 /**
@@ -384,7 +406,7 @@ export function buildRaceStrategy(
   targetTimeSec: number,
   pacingStrategy: PacingStrategy,
   name?: string,
-  options: BuildStrategyOptions = {}
+  options: BuildStrategyOptions = {},
 ): RaceStrategy | null {
   const marathon = getMarathon(marathonId);
   if (!marathon) return null;
@@ -430,9 +452,7 @@ export function buildRaceStrategy(
 
   // Halves at distance / 2 (RS-1): exact target when one was set, else interpolated.
   const half = totalMiles / 2;
-  const firstHalfExact = splitPct !== null
-    ? T / (2 + splitPct / 100)
-    : interpolateCumulative(ends, cumulative, half);
+  const firstHalfExact = splitPct !== null ? T / (2 + splitPct / 100) : interpolateCumulative(ends, cumulative, half);
   const firstHalfSec = Math.round(firstHalfExact);
   const secondHalfSec = Math.round(T) - firstHalfSec;
 
@@ -488,7 +508,7 @@ function normalizePaces(
   lengths: number[],
   T: number,
   half: number,
-  splitPct: number | null
+  splitPct: number | null,
 ): number[] {
   const plain = () => {
     const rawTotal = raw.reduce((sum, p, i) => sum + p * lengths[i], 0);
@@ -553,16 +573,21 @@ export function courseElevationFtAt(race: Pick<MarathonRace, 'course'>, distance
  * Build contextual notes for a mile based on elevation and landmarks.
  * @param elevChangeFtPerMi elevation change normalised to one mile
  */
-function buildMileNotes(elevChangeFtPerMi: number, split: CourseSplit | undefined, isFirst: boolean, isLast: boolean): string {
+function buildMileNotes(
+  elevChangeFtPerMi: number,
+  split: CourseSplit | undefined,
+  isFirst: boolean,
+  isLast: boolean,
+): string {
   const parts: string[] = [];
 
-  if (isFirst) parts.push('Start controlled — don\'t go out too fast');
+  if (isFirst) parts.push("Start controlled — don't go out too fast");
   if (isLast) parts.push('Give everything you have left');
 
   if (elevChangeFtPerMi > 60) parts.push('Steep uphill — ease back on pace, keep effort steady');
   else if (elevChangeFtPerMi > 30) parts.push('Uphill — shorten stride, maintain effort');
   else if (elevChangeFtPerMi < -60) parts.push('Steep downhill — protect your quads');
-  else if (elevChangeFtPerMi < -30) parts.push('Downhill — don\'t overstride, controlled descent');
+  else if (elevChangeFtPerMi < -30) parts.push("Downhill — don't overstride, controlled descent");
 
   if (split?.landmarks?.length) {
     parts.push(split.landmarks.join(', '));
@@ -583,7 +608,7 @@ function buildNutritionPlan(
   marathon: MarathonRace,
   milePaces: MilePacePlan[],
   finishSec: number,
-  options: BuildStrategyOptions
+  options: BuildStrategyOptions,
 ): NutritionPlan[] {
   return nutritionPlanFor(getRaceDistanceMi(marathon), milePaces, finishSec, marathon.aidStations, options);
 }
@@ -607,17 +632,20 @@ function nutritionPlanFor(
   let gelNo = 0;
   return fuel.items.map((item) => ({
     mile: Math.round(item.distanceMi * 10) / 10,
-    item: item.kind === 'pre-race'
-      ? `Pre-race gel (${item.carbsG} g carbs) + a few sips of water`
-      : `Energy gel ${++gelNo} (${item.carbsG} g carbs)`,
-    notes: item.kind === 'pre-race'
-      ? '15 min before the start'
-      : item.note ? `${item.note} — take water with it` : 'Carry your own; take water with it if available',
+    item:
+      item.kind === 'pre-race'
+        ? `Pre-race gel (${item.carbsG} g carbs) + a few sips of water`
+        : `Energy gel ${++gelNo} (${item.carbsG} g carbs)`,
+    notes:
+      item.kind === 'pre-race'
+        ? '15 min before the start'
+        : item.note
+          ? `${item.note} — take water with it`
+          : 'Carry your own; take water with it if available',
     timeSec: item.timeSec,
     carbsG: item.carbsG,
   }));
 }
-
 
 /**
  * v1.0.7 (R-3): the strategy's gel plan computed NOW from its saved pacing
@@ -774,9 +802,8 @@ export function formatDurationSec(sec: number, opts: { signed?: boolean } = {}):
   const h = Math.floor(total / 3600);
   const m = Math.floor((total % 3600) / 60);
   const s = total % 60;
-  const body = h > 0
-    ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-    : `${m}:${String(s).padStart(2, '0')}`;
+  const body =
+    h > 0 ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
   if (!opts.signed) return sec < 0 && total > 0 ? `−${body}` : body;
   if (total === 0) return body;
   return `${sec > 0 ? '+' : '−'}${body}`;
@@ -816,7 +843,7 @@ export interface UnitSplit {
  * cumulative times, so they agree exactly with the mile plan and the finish.
  */
 export function buildUnitSplits(milePaces: MilePacePlan[], unit: 'mi' | 'km', distanceMi?: number): UnitSplit[] {
-  const totalMi = distanceMi ?? (milePaces[milePaces.length - 1]?.mile ?? 0);
+  const totalMi = distanceMi ?? milePaces[milePaces.length - 1]?.mile ?? 0;
   if (totalMi <= 0) return [];
   const step = unit === 'km' ? 1 / KM_PER_MI : 1;
   const totalUnits = totalMi / step;

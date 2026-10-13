@@ -68,7 +68,17 @@ function report(p: ImportProgress): void {
 }
 
 function result(patch: Partial<ImportResult> = {}): ImportResult {
-  return { filesRead: 1, activitiesFound: 1, added: 1, updated: 0, dropped: 0, skipped: [], errors: [], cancelled: false, ...patch };
+  return {
+    filesRead: 1,
+    activitiesFound: 1,
+    added: 1,
+    updated: 0,
+    dropped: 0,
+    skipped: [],
+    errors: [],
+    cancelled: false,
+    ...patch,
+  };
 }
 
 function progress(filesDone: number): ImportProgress {
@@ -85,10 +95,12 @@ beforeEach(() => {
   calls = [];
   runs = [];
   importMock.mockReset();
-  importMock.mockImplementation((files: readonly ImportFile[], opts: ImportOptions) =>
-    new Promise<ImportResult>((resolve) => {
-      calls.push({ files, opts, resolve });
-    }));
+  importMock.mockImplementation(
+    (files: readonly ImportFile[], opts: ImportOptions) =>
+      new Promise<ImportResult>((resolve) => {
+        calls.push({ files, opts, resolve });
+      }),
+  );
 });
 
 afterEach(async () => {
@@ -118,7 +130,10 @@ describe('file import job', () => {
     calls[0].resolve(outcome);
     expect(await run).toBe(outcome);
     expect(getFileImportJob()).toEqual({ ...IDLE, result: outcome });
-    expect(seen).toEqual([{ ...IDLE, running: true }, { ...IDLE, result: outcome }]);
+    expect(seen).toEqual([
+      { ...IDLE, running: true },
+      { ...IDLE, result: outcome },
+    ]);
     expect(seen[1]).toBe(getFileImportJob()); // subscribers get the current state object
 
     dismissFileImportResult();
@@ -216,7 +231,10 @@ describe('file import job', () => {
       errors: [{ name: 'Import', message: 'Out of memory' }],
       cancelled: false,
     });
-    expect(getFileImportJob()).toMatchObject({ running: false, result: { errors: [{ name: 'Import', message: 'Out of memory' }] } });
+    expect(getFileImportJob()).toMatchObject({
+      running: false,
+      result: { errors: [{ name: 'Import', message: 'Out of memory' }] },
+    });
 
     importMock.mockImplementationOnce(() => Promise.reject('storage unavailable')); // not even an Error
     expect((await start([RUN_GPX]))?.errors).toEqual([{ name: 'Import', message: 'The import stopped unexpectedly.' }]);
@@ -248,39 +266,49 @@ describe('file import job', () => {
 describe('describeImportResult', () => {
   it('leads with what changed', () => {
     expect(describeImportResult(result({ added: 1 }))).toBe('Added 1 activity.');
-    expect(describeImportResult(result({ filesRead: 1250, activitiesFound: 1250, added: 1204, updated: 3 })))
-      .toBe(`Added ${(1204).toLocaleString()} activities and updated 3 you already had.`);
-    expect(describeImportResult(result({ activitiesFound: 2, added: 0, updated: 2 })))
-      .toBe('Updated 2 activities you already had.');
+    expect(describeImportResult(result({ filesRead: 1250, activitiesFound: 1250, added: 1204, updated: 3 }))).toBe(
+      `Added ${(1204).toLocaleString()} activities and updated 3 you already had.`,
+    );
+    expect(describeImportResult(result({ activitiesFound: 2, added: 0, updated: 2 }))).toBe(
+      'Updated 2 activities you already had.',
+    );
     expect(describeImportResult(result({ added: 0, updated: 1 }))).toBe('Updated 1 activity you already had.');
-    expect(describeImportResult(result({ activitiesFound: 5, added: 2, cancelled: true })))
-      .toBe('Added 2 activities. Import cancelled: everything read before that was saved.');
+    expect(describeImportResult(result({ activitiesFound: 5, added: 2, cancelled: true }))).toBe(
+      'Added 2 activities. Import cancelled: everything read before that was saved.',
+    );
   });
 
   it('explains an import that changed nothing', () => {
     expect(describeImportResult(result({ added: 0 }))).toBe('That activity was already in Apollo: nothing new to add.');
-    expect(describeImportResult(result({ filesRead: 12, activitiesFound: 12, added: 0 })))
-      .toBe('All 12 activities were already in Apollo: nothing new to add.');
+    expect(describeImportResult(result({ filesRead: 12, activitiesFound: 12, added: 0 }))).toBe(
+      'All 12 activities were already in Apollo: nothing new to add.',
+    );
     const nothing = { filesRead: 0, activitiesFound: 0, added: 0 };
     expect(describeImportResult(result({ ...nothing, cancelled: true }))).toBe('Import cancelled.');
-    expect(describeImportResult(result({ ...nothing, errors: [{ name: 'run.gpx', message: 'Not a GPX file.' }] })))
-      .toBe('No activities could be imported from those files.');
-    expect(describeImportResult(result({ ...nothing, skipped: [{ name: 'photo.jpg', reason: 'Not an activity file.' }] })))
-      .toBe('No activities could be imported from those files.');
+    expect(
+      describeImportResult(result({ ...nothing, errors: [{ name: 'run.gpx', message: 'Not a GPX file.' }] })),
+    ).toBe('No activities could be imported from those files.');
+    expect(
+      describeImportResult(result({ ...nothing, skipped: [{ name: 'photo.jpg', reason: 'Not an activity file.' }] })),
+    ).toBe('No activities could be imported from those files.');
     expect(describeImportResult(result(nothing))).toBe('No activities found in those files.');
   });
 
   it('adds how many older activities the store had no room for', () => {
     // B16: races and PR holders are never trimmed, so the copy no longer says "most recent".
     const kept = `Apollo keeps up to ${MAX_STORED_ACTIVITIES.toLocaleString()} activities (races and personal records always stay)`;
-    expect(describeImportResult(result({ activitiesFound: 3, added: 3, dropped: 1 })))
-      .toBe(`Added 3 activities. ${kept}, so 1 older one wasn't kept.`);
-    expect(describeImportResult(result({ filesRead: 1300, activitiesFound: 1300, added: 1300, dropped: 1204 })))
-      .toBe(`Added ${(1300).toLocaleString()} activities. ${kept}, so ${(1204).toLocaleString()} older ones weren't kept.`);
-    expect(describeImportResult(result({ activitiesFound: 4, added: 0, updated: 4, dropped: 2 })))
-      .toBe(`Updated 4 activities you already had. ${kept}, so 2 older ones weren't kept.`);
-    expect(describeImportResult(result({ activitiesFound: 5, added: 2, dropped: 2, cancelled: true })))
-      .toBe(`Added 2 activities. Import cancelled: everything read before that was saved. ${kept}, so 2 older ones weren't kept.`);
+    expect(describeImportResult(result({ activitiesFound: 3, added: 3, dropped: 1 }))).toBe(
+      `Added 3 activities. ${kept}, so 1 older one wasn't kept.`,
+    );
+    expect(describeImportResult(result({ filesRead: 1300, activitiesFound: 1300, added: 1300, dropped: 1204 }))).toBe(
+      `Added ${(1300).toLocaleString()} activities. ${kept}, so ${(1204).toLocaleString()} older ones weren't kept.`,
+    );
+    expect(describeImportResult(result({ activitiesFound: 4, added: 0, updated: 4, dropped: 2 }))).toBe(
+      `Updated 4 activities you already had. ${kept}, so 2 older ones weren't kept.`,
+    );
+    expect(describeImportResult(result({ activitiesFound: 5, added: 2, dropped: 2, cancelled: true }))).toBe(
+      `Added 2 activities. Import cancelled: everything read before that was saved. ${kept}, so 2 older ones weren't kept.`,
+    );
   });
 });
 
@@ -332,7 +360,7 @@ function fileItem(file: File): DataTransferItem {
     type: file.type,
     getAsFile: () => (dropping ? file : null),
     webkitGetAsEntry: () =>
-      (dropping ? { isFile: true, isDirectory: false, name: file.name, fullPath: `/${file.name}` } : null),
+      dropping ? { isFile: true, isDirectory: false, name: file.name, fullPath: `/${file.name}` } : null,
   } as unknown as DataTransferItem;
 }
 
@@ -347,7 +375,12 @@ function folderItem(entry: FileSystemEntry): DataTransferItem {
 }
 
 /** Dragged text, which can come along with files. */
-const TEXT_ITEM = { kind: 'string', type: 'text/plain', getAsFile: () => null, webkitGetAsEntry: () => null } as unknown as DataTransferItem;
+const TEXT_ITEM = {
+  kind: 'string',
+  type: 'text/plain',
+  getAsFile: () => null,
+  webkitGetAsEntry: () => null,
+} as unknown as DataTransferItem;
 
 /**
  * Drop `items` (or `files`, for a browser without `items`) and collect the
@@ -383,7 +416,11 @@ describe('filesFromDataTransfer', () => {
 
   it('works without file system entries, and without DataTransfer items', async () => {
     const fit = new File(['fit'], 'run.fit');
-    const noEntries = { kind: 'file', type: '', getAsFile: () => (dropping ? fit : null) } as unknown as DataTransferItem;
+    const noEntries = {
+      kind: 'file',
+      type: '',
+      getAsFile: () => (dropping ? fit : null),
+    } as unknown as DataTransferItem;
     expect(names(await drop([noEntries]))).toEqual(['run.fit']);
     expect(names(await drop(undefined, [fit]))).toEqual(['run.fit']);
     expect(names(await drop([], [fit]))).toEqual(['run.fit']);
@@ -408,17 +445,25 @@ describe('filesFromDataTransfer', () => {
     const after = new File(['<tcx/>'], 'after.tcx');
 
     expect(names(await drop([fileItem(before), folderItem(strava), fileItem(after)]))).toEqual([
-      'before.gpx', 'activities.csv', '1001.gpx', '1002.tcx.gz', '1003.fit.gz', 'older.zip', 'after.tcx',
+      'before.gpx',
+      'activities.csv',
+      '1001.gpx',
+      '1002.tcx.gz',
+      '1003.fit.gz',
+      'older.zip',
+      'after.tcx',
     ]);
   });
 
   it('skips folders and files it cannot read', async () => {
-    const runs = folderEntry('/runs', [[
-      fileEntry('/runs/a.gpx'),
-      fileEntry('/runs/locked.gpx', false),
-      folderEntry('/runs/private', null),
-      fileEntry('/runs/b.gpx'),
-    ]]);
+    const runs = folderEntry('/runs', [
+      [
+        fileEntry('/runs/a.gpx'),
+        fileEntry('/runs/locked.gpx', false),
+        folderEntry('/runs/private', null),
+        fileEntry('/runs/b.gpx'),
+      ],
+    ]);
     expect(names(await drop([folderItem(runs), folderItem(folderEntry('/gone', null))]))).toEqual(['a.gpx', 'b.gpx']);
   });
 });

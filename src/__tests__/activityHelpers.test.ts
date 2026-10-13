@@ -13,13 +13,7 @@ import {
   formatSportType,
   getSportLabel,
 } from '@/services/activity/sports';
-import {
-  encodePolyline,
-  decimate,
-  cleanLatLngs,
-  deriveSplits,
-  type StreamSample,
-} from '@/services/activity/streams';
+import { encodePolyline, decimate, cleanLatLngs, deriveSplits, type StreamSample } from '@/services/activity/streams';
 import { decodePolyline } from '@/services/routeService';
 
 // ── Sports ────────────────────────────────────────────────────────────────────
@@ -69,12 +63,20 @@ describe('sport classification', () => {
 
 describe('encodePolyline', () => {
   it('matches the reference Google polyline example', () => {
-    const points: [number, number][] = [[38.5, -120.2], [40.7, -120.95], [43.252, -126.453]];
+    const points: [number, number][] = [
+      [38.5, -120.2],
+      [40.7, -120.95],
+      [43.252, -126.453],
+    ];
     expect(encodePolyline(points)).toBe('_p~iF~ps|U_ulLnnqC_mqNvxq`@');
   });
 
   it('round-trips through routeService.decodePolyline', () => {
-    const points: [number, number][] = [[51.50722, -0.1275], [51.5081, -0.12901], [51.50925, -0.13215]];
+    const points: [number, number][] = [
+      [51.50722, -0.1275],
+      [51.5081, -0.12901],
+      [51.50925, -0.13215],
+    ];
     const decoded = decodePolyline(encodePolyline(points));
     expect(decoded).toHaveLength(3);
     decoded.forEach((p, i) => {
@@ -108,7 +110,10 @@ describe('decimate', () => {
 describe('cleanLatLngs', () => {
   it('drops nulls, out-of-range values and 0,0 GPS-lock artifacts', () => {
     const raw = [[45.1, -122.6], null, [0, 0], [95, 10], [45.2, 'x'], [45.3, -122.7], [45.4]];
-    expect(cleanLatLngs(raw)).toEqual([[45.1, -122.6], [45.3, -122.7]]);
+    expect(cleanLatLngs(raw)).toEqual([
+      [45.1, -122.6],
+      [45.3, -122.7],
+    ]);
   });
 
   it('returns [] for non-array input', () => {
@@ -156,8 +161,8 @@ describe('deriveSplits', () => {
       { t: 0, d: 0 },
       { t: 50, d: 200 },
       { t: 100, d: 400 },
-      { t: 160, d: 400 },   // standing still for a minute
-      { t: 400, d: 400 },   // watch paused (gap > 60 s)
+      { t: 160, d: 400 }, // standing still for a minute
+      { t: 400, d: 400 }, // watch paused (gap > 60 s)
       { t: 450, d: 600 },
       { t: 500, d: 800 },
       { t: 550, d: 1000 },
@@ -175,7 +180,13 @@ describe('deriveSplits', () => {
   });
 
   it('handles samples that cross several boundaries at once', () => {
-    const splits = deriveSplits([{ t: 0, d: 0 }, { t: 30, d: 3000 }], 1000);
+    const splits = deriveSplits(
+      [
+        { t: 0, d: 0 },
+        { t: 30, d: 3000 },
+      ],
+      1000,
+    );
     expect(splits).toHaveLength(3);
     splits.forEach((s) => expect(s.elapsed_time).toBe(10));
   });

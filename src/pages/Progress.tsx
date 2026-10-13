@@ -49,10 +49,12 @@ function FitnessPanel() {
   }, [version]);
   return (
     <section className="card" aria-labelledby="progress-fitness-title">
-      <h2 id="progress-fitness-title" className="card-title">Fitness &amp; Form</h2>
+      <h2 id="progress-fitness-title" className="card-title">
+        Fitness &amp; Form
+      </h2>
       <p className="progress-intro">
-        Fitness is your long-term training load, fatigue the load of the last week, and form the
-        difference between them. Aim to reach race day with positive form.
+        Fitness is your long-term training load, fatigue the load of the last week, and form the difference between
+        them. Aim to reach race day with positive form.
       </p>
       <FitnessFormChart raceDate={raceDate} />
     </section>
@@ -61,11 +63,16 @@ function FitnessPanel() {
 
 function ActivePanel({ tab }: { tab: ProgressTab }) {
   switch (tab) {
-    case 'fitness': return <FitnessPanel />;
-    case 'trends': return <AnalyticsView embedded />;
-    case 'heart-rate': return <HeartRatePanel />;
-    case 'recaps': return <RecapsPanel />;
-    default: return <OverviewPanel />;
+    case 'fitness':
+      return <FitnessPanel />;
+    case 'trends':
+      return <AnalyticsView embedded />;
+    case 'heart-rate':
+      return <HeartRatePanel />;
+    case 'recaps':
+      return <RecapsPanel />;
+    default:
+      return <OverviewPanel />;
   }
 }
 
@@ -93,9 +100,7 @@ export default function Progress() {
       <h1 className="page-title">Progress</h1>
 
       {showConnect && (
-        <ConnectDataSourceCTA
-          description="Connect a data source or import activity files to see fitness, trends, heart-rate zones and recaps. A race prediction only needs a recent race in Settings › Athlete Profile."
-        />
+        <ConnectDataSourceCTA description="Connect a data source or import activity files to see fitness, trends, heart-rate zones and recaps. A race prediction only needs a recent race in Settings › Athlete Profile." />
       )}
 
       <Tabs label="Progress sections" tabs={TABS} value={tab} onChange={selectTab} idPrefix={ID_PREFIX} />

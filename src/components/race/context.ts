@@ -63,7 +63,7 @@ export interface RaceDayState {
 /** Resolve the hub state for `today` (local date key). */
 export function buildRaceDayState(today: string = todayKey()): RaceDayState {
   const myRace = getMyRace();
-  const race = myRace.raceId ? getMarathon(myRace.raceId) ?? null : null;
+  const race = myRace.raceId ? (getMarathon(myRace.raceId) ?? null) : null;
   const hasActivePlan = getActivePlan() !== null;
 
   const journeyDate = getRaceDate(); // plan race date → My Race date → null
@@ -74,11 +74,12 @@ export function buildRaceDayState(today: string = todayKey()): RaceDayState {
     raceDate = raceEditionDate;
     raceDateSource = 'race';
   }
-  const raceDateMismatch = hasActivePlan && journeyDate && raceEditionDate && journeyDate !== raceEditionDate
-    ? { planDate: journeyDate, raceDate: raceEditionDate }
-    : null;
+  const raceDateMismatch =
+    hasActivePlan && journeyDate && raceEditionDate && journeyDate !== raceEditionDate
+      ? { planDate: journeyDate, raceDate: raceEditionDate }
+      : null;
 
-  let strategy = myRace.activeStrategyId ? getStrategyById(myRace.activeStrategyId) ?? null : null;
+  let strategy = myRace.activeStrategyId ? (getStrategyById(myRace.activeStrategyId) ?? null) : null;
   let mismatchedStrategy: RaceStrategy | null = null;
   if (strategy && race && normalizeMarathonId(strategy.marathonId) !== normalizeMarathonId(race.id)) {
     mismatchedStrategy = strategy;
@@ -98,7 +99,8 @@ export function buildRaceDayState(today: string = todayKey()): RaceDayState {
     }
   }
 
-  const startTime = myRace.startTime ?? (race?.startTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(race.startTime) ? race.startTime : null);
+  const startTime =
+    myRace.startTime ?? (race?.startTime && /^([01]\d|2[0-3]):[0-5]\d$/.test(race.startTime) ? race.startTime : null);
   const timeZone = myRace.timeZone ?? race?.timeZone ?? null;
 
   return {

@@ -149,12 +149,32 @@ const CUSTOM_PLAN_STORAGE_KEY = 'apollo_custom_marathon_plan';
 
 /** Canonical workout kind of a plan day (v1.0.6). */
 export type PlanWorkoutKind =
-  | 'easy' | 'recovery' | 'long' | 'medium_long' | 'tempo' | 'marathon_pace'
-  | 'strength' | 'speed' | 'race' | 'marathon' | 'cross' | 'rest';
+  | 'easy'
+  | 'recovery'
+  | 'long'
+  | 'medium_long'
+  | 'tempo'
+  | 'marathon_pace'
+  | 'strength'
+  | 'speed'
+  | 'race'
+  | 'marathon'
+  | 'cross'
+  | 'rest';
 
 /** The note values plans use (the canonical workout taxonomy). */
 export const PLAN_NOTE_TAXONOMY = [
-  'Easy', 'Long', 'Tempo', 'Speed', 'Strength', 'Medium Long', 'Marathon Pace', 'Recovery', 'Race', 'Rest', 'Cross',
+  'Easy',
+  'Long',
+  'Tempo',
+  'Speed',
+  'Strength',
+  'Medium Long',
+  'Marathon Pace',
+  'Recovery',
+  'Race',
+  'Rest',
+  'Cross',
 ] as const;
 
 /**
@@ -190,7 +210,12 @@ const LONG = (n: number): PlanDay => ({ type: 'run', label: `${n} mi long run`, 
 /** v1.0.7 (T-11): a long run of an experienced plan; 18+ mi may finish at marathon pace. */
 const LONG_MP = (n: number): PlanDay => ({ ...LONG(n), mpFinish: true });
 /** Higdon "pace" day: the whole run at goal marathon pace. */
-const PACE = (n: number): PlanDay => ({ type: 'run', label: `${n} mi marathon pace`, distanceMi: n, note: 'Marathon Pace' });
+const PACE = (n: number): PlanDay => ({
+  type: 'run',
+  label: `${n} mi marathon pace`,
+  distanceMi: n,
+  note: 'Marathon Pace',
+});
 const EASY = (n: number, label = `${n} mi easy`): PlanDay => ({ type: 'run', label, distanceMi: n, note: 'Easy' });
 const RECOVERY = (n: number): PlanDay => ({ type: 'run', label: `${n} mi recovery`, distanceMi: n, note: 'Recovery' });
 /** A structured session; `distanceMi` includes warm-up and cool-down. */
@@ -237,11 +262,24 @@ function writeStorage(key: string, value: unknown | null): void {
 /** Hal Higdon Novice 1 — 18 weeks, 4 run days + cross. Long run builds to 20 mi, stepback every 3rd week. */
 function buildHalHigdonNovice1(): TrainingPlan {
   const weekData: WeekRow[] = [
-    [3, 3, 3, 6], [3, 3, 3, 7], [3, 4, 3, 5], [3, 4, 3, 9],
-    [3, 5, 3, 10], [3, 5, 3, 7], [3, 6, 3, 12], [3, 6, 3, 0],
-    [3, 7, 4, 10], [3, 7, 4, 15], [4, 8, 4, 16], [4, 8, 5, 12],
-    [4, 9, 5, 18], [5, 9, 5, 14], [5, 10, 5, 20], [5, 8, 4, 12],
-    [4, 6, 3, 8], [3, 4, 2, 0],
+    [3, 3, 3, 6],
+    [3, 3, 3, 7],
+    [3, 4, 3, 5],
+    [3, 4, 3, 9],
+    [3, 5, 3, 10],
+    [3, 5, 3, 7],
+    [3, 6, 3, 12],
+    [3, 6, 3, 0],
+    [3, 7, 4, 10],
+    [3, 7, 4, 15],
+    [4, 8, 4, 16],
+    [4, 8, 5, 12],
+    [4, 9, 5, 18],
+    [5, 9, 5, 14],
+    [5, 10, 5, 20],
+    [5, 8, 4, 12],
+    [4, 6, 3, 8],
+    [3, 4, 2, 0],
   ];
   const weeks: PlanWeek[] = weekData.map(([tue, wed, thu, sat], i) => ({
     weekNumber: i + 1,
@@ -259,7 +297,8 @@ function buildHalHigdonNovice1(): TrainingPlan {
     id: 'hal-higdon-novice-1',
     name: 'Novice 1',
     author: 'Hal Higdon',
-    description: 'Based on Hal Higdon’s Novice 1, the most popular first-marathon plan. 4 run days, cross-training, long runs to 20 miles. Stepback weeks every third week.',
+    description:
+      'Based on Hal Higdon’s Novice 1, the most popular first-marathon plan. 4 run days, cross-training, long runs to 20 miles. Stepback weeks every third week.',
     totalWeeks: 18,
     weeks,
     halfMarathonWeek: 7,
@@ -283,14 +322,16 @@ function buildHansonsBeginner(): TrainingPlan {
   const long = [5, 6, 6, 8, 8, 10, 10, 12, 10, 15, 12, 16, 12, 16, 12, 16, 8];
   const weeks: PlanWeek[] = long.map((sun, w) => {
     const e = easy[w];
-    const tue = w < 5
-      ? EASY(baseTue[w])
-      : w < 10
-        ? SESSION(6, `${speed[w - 5]} speed`, 'Speed')
-        : SESSION(9, `${strength[w - 10]} strength`, 'Strength');
-    const thu = w < 5
-      ? EASY(baseThu[w])
-      : SESSION(tempoMp[w - 5] + 2, `${tempoMp[w - 5]} mi tempo at marathon pace`, 'Marathon Pace');
+    const tue =
+      w < 5
+        ? EASY(baseTue[w])
+        : w < 10
+          ? SESSION(6, `${speed[w - 5]} speed`, 'Speed')
+          : SESSION(9, `${strength[w - 10]} strength`, 'Strength');
+    const thu =
+      w < 5
+        ? EASY(baseThu[w])
+        : SESSION(tempoMp[w - 5] + 2, `${tempoMp[w - 5]} mi tempo at marathon pace`, 'Marathon Pace');
     return { weekNumber: w + 1, days: [EASY(e), tue, REST, thu, EASY(e), EASY(e), LONG(sun)] };
   });
   // Race week: short easy runs, one short marathon-pace tune-up, no long tempo.
@@ -308,9 +349,10 @@ function buildHansonsBeginner(): TrainingPlan {
   });
   return {
     id: 'hansons-beginner',
-    name: "Beginner (Just Finish)",
+    name: 'Beginner (Just Finish)',
     author: 'Hansons',
-    description: 'Based on the Hansons Marathon Method beginner program. Six days of running with Wednesday off, and the long run caps at 16 miles. Speed work comes first, then strength, plus a Thursday tempo at goal marathon pace. It builds cumulative fatigue and ends with a ~10-day taper.',
+    description:
+      'Based on the Hansons Marathon Method beginner program. Six days of running with Wednesday off, and the long run caps at 16 miles. Speed work comes first, then strength, plus a Thursday tempo at goal marathon pace. It builds cumulative fatigue and ends with a ~10-day taper.',
     totalWeeks: 18,
     weeks,
   };
@@ -319,11 +361,24 @@ function buildHansonsBeginner(): TrainingPlan {
 /** Hal Higdon Novice 2 — 18 weeks, 4 run days + cross, Wednesday marathon-pace runs. */
 function buildHalHigdonNovice2(): TrainingPlan {
   const weekData: WeekRow[] = [
-    [3, 5, 3, 8], [3, 5, 3, 9], [3, 5, 3, 6], [3, 6, 3, 11],
-    [3, 6, 3, 12], [3, 6, 3, 9], [4, 7, 4, 14], [4, 7, 4, 15],
-    [4, 7, 4, 0], [4, 8, 4, 17], [5, 8, 5, 18], [5, 8, 5, 13],
-    [5, 5, 5, 19], [5, 8, 5, 12], [5, 5, 5, 20], [5, 4, 5, 12],
-    [4, 3, 4, 8], [3, 2, 0, 2],
+    [3, 5, 3, 8],
+    [3, 5, 3, 9],
+    [3, 5, 3, 6],
+    [3, 6, 3, 11],
+    [3, 6, 3, 12],
+    [3, 6, 3, 9],
+    [4, 7, 4, 14],
+    [4, 7, 4, 15],
+    [4, 7, 4, 0],
+    [4, 8, 4, 17],
+    [5, 8, 5, 18],
+    [5, 8, 5, 13],
+    [5, 5, 5, 19],
+    [5, 8, 5, 12],
+    [5, 5, 5, 20],
+    [5, 4, 5, 12],
+    [4, 3, 4, 8],
+    [3, 2, 0, 2],
   ];
   /** Weeks (0-based) whose Wednesday run is at marathon pace. */
   const paceWeeks = new Set([0, 2, 3, 5, 6, 8, 9, 11, 12, 14, 15]);
@@ -343,7 +398,8 @@ function buildHalHigdonNovice2(): TrainingPlan {
     id: 'hal-higdon-novice-2',
     name: 'Novice 2',
     author: 'Hal Higdon',
-    description: 'Based on Hal Higdon’s Novice 2, a step up from Novice 1. Wednesday marathon-pace runs, slightly higher midweek mileage and long runs to 20 miles. Ideal if you have run a few races.',
+    description:
+      'Based on Hal Higdon’s Novice 2, a step up from Novice 1. Wednesday marathon-pace runs, slightly higher midweek mileage and long runs to 20 miles. Ideal if you have run a few races.',
     totalWeeks: 18,
     weeks,
     halfMarathonWeek: 8,
@@ -354,11 +410,24 @@ function buildHalHigdonNovice2(): TrainingPlan {
 function buildHalHigdonIntermediate1(): TrainingPlan {
   // [tue, wed, thu, sat, sun] miles; Monday cross, Friday rest.
   const weekData: FiveDayRow[] = [
-    [3, 5, 3, 5, 8], [3, 5, 3, 5, 9], [3, 5, 3, 5, 6], [3, 6, 3, 6, 11],
-    [3, 6, 3, 6, 12], [3, 5, 3, 6, 9], [4, 7, 4, 7, 14], [4, 7, 4, 7, 15],
-    [4, 5, 4, 0, 0], [4, 8, 4, 8, 17], [5, 8, 5, 8, 18], [5, 5, 5, 8, 13],
-    [5, 8, 5, 5, 20], [5, 5, 5, 8, 12], [5, 8, 5, 5, 20], [5, 6, 5, 4, 12],
-    [4, 5, 4, 3, 8], [3, 4, 0, 2, 0],
+    [3, 5, 3, 5, 8],
+    [3, 5, 3, 5, 9],
+    [3, 5, 3, 5, 6],
+    [3, 6, 3, 6, 11],
+    [3, 6, 3, 6, 12],
+    [3, 5, 3, 6, 9],
+    [4, 7, 4, 7, 14],
+    [4, 7, 4, 7, 15],
+    [4, 5, 4, 0, 0],
+    [4, 8, 4, 8, 17],
+    [5, 8, 5, 8, 18],
+    [5, 5, 5, 8, 13],
+    [5, 8, 5, 5, 20],
+    [5, 5, 5, 8, 12],
+    [5, 8, 5, 5, 20],
+    [5, 6, 5, 4, 12],
+    [4, 5, 4, 3, 8],
+    [3, 4, 0, 2, 0],
   ];
   /** Weeks (0-based) whose Saturday run is at marathon pace. */
   const paceWeeks = new Set([0, 2, 3, 5, 6, 9, 11, 12, 14, 15]);
@@ -378,7 +447,8 @@ function buildHalHigdonIntermediate1(): TrainingPlan {
     id: 'hal-higdon-intermediate-1',
     name: 'Intermediate 1',
     author: 'Hal Higdon',
-    description: 'Based on Hal Higdon’s Intermediate 1, for runners with a base. Five run days, with a marathon-pace run on Saturday before the Sunday long run. Long runs reach 20 miles three times, and mileage peaks in the mid-40s.',
+    description:
+      'Based on Hal Higdon’s Intermediate 1, for runners with a base. Five run days, with a marathon-pace run on Saturday before the Sunday long run. Long runs reach 20 miles three times, and mileage peaks in the mid-40s.',
     totalWeeks: 18,
     weeks,
     halfMarathonWeek: 8,
@@ -390,7 +460,8 @@ type HigdonQuality = ['hill' | '800' | 'tempo', number];
 
 /** Higdon quality session as a plan day; the distance includes warm-up and cool-down. */
 function higdonQuality([kind, n]: HigdonQuality): PlanDay {
-  if (kind === 'tempo') return { ...SESSION(roundHalf(2 + n / 8), `${n} min tempo`, 'Tempo'), tempoShape: 'progressive' };
+  if (kind === 'tempo')
+    return { ...SESSION(roundHalf(2 + n / 8), `${n} min tempo`, 'Tempo'), tempoShape: 'progressive' };
   if (kind === '800') return SESSION(roundHalf(3 + 0.75 * n), `${n} × 800 m`, 'Speed');
   return SESSION(roundHalf(3 + 0.5 * n), `${n} × hill repeats`, 'Speed');
 }
@@ -399,23 +470,74 @@ function higdonQuality([kind, n]: HigdonQuality): PlanDay {
 function buildHalHigdonAdvanced1(): TrainingPlan {
   // [mon, tue, wed, sat, sun] miles + the Thursday session; Friday rest.
   const weekData: [FiveDayRow, HigdonQuality][] = [
-    [[3, 5, 3, 5, 10], ['hill', 3]],
-    [[3, 5, 3, 5, 11], ['tempo', 30]],
-    [[3, 6, 3, 6, 8], ['800', 4]],
-    [[3, 6, 3, 6, 13], ['hill', 4]],
-    [[3, 7, 3, 7, 14], ['tempo', 35]],
-    [[3, 7, 3, 7, 10], ['800', 5]],
-    [[3, 8, 4, 8, 16], ['hill', 5]],
-    [[3, 8, 4, 8, 17], ['tempo', 40]],
-    [[3, 9, 4, 0, 0], ['800', 6]],
-    [[3, 9, 4, 9, 19], ['hill', 6]],
-    [[4, 10, 5, 10, 20], ['tempo', 45]],
-    [[4, 6, 5, 6, 12], ['800', 7]],
-    [[4, 10, 5, 10, 20], ['hill', 7]],
-    [[5, 6, 5, 6, 12], ['tempo', 45]],
-    [[5, 10, 5, 10, 20], ['800', 8]],
-    [[5, 8, 5, 4, 12], ['hill', 6]],
-    [[4, 6, 4, 4, 8], ['tempo', 30]],
+    [
+      [3, 5, 3, 5, 10],
+      ['hill', 3],
+    ],
+    [
+      [3, 5, 3, 5, 11],
+      ['tempo', 30],
+    ],
+    [
+      [3, 6, 3, 6, 8],
+      ['800', 4],
+    ],
+    [
+      [3, 6, 3, 6, 13],
+      ['hill', 4],
+    ],
+    [
+      [3, 7, 3, 7, 14],
+      ['tempo', 35],
+    ],
+    [
+      [3, 7, 3, 7, 10],
+      ['800', 5],
+    ],
+    [
+      [3, 8, 4, 8, 16],
+      ['hill', 5],
+    ],
+    [
+      [3, 8, 4, 8, 17],
+      ['tempo', 40],
+    ],
+    [
+      [3, 9, 4, 0, 0],
+      ['800', 6],
+    ],
+    [
+      [3, 9, 4, 9, 19],
+      ['hill', 6],
+    ],
+    [
+      [4, 10, 5, 10, 20],
+      ['tempo', 45],
+    ],
+    [
+      [4, 6, 5, 6, 12],
+      ['800', 7],
+    ],
+    [
+      [4, 10, 5, 10, 20],
+      ['hill', 7],
+    ],
+    [
+      [5, 6, 5, 6, 12],
+      ['tempo', 45],
+    ],
+    [
+      [5, 10, 5, 10, 20],
+      ['800', 8],
+    ],
+    [
+      [5, 8, 5, 4, 12],
+      ['hill', 6],
+    ],
+    [
+      [4, 6, 4, 4, 8],
+      ['tempo', 30],
+    ],
   ];
   /** Weeks (0-based) whose Saturday run is at marathon pace. */
   const paceWeeks = new Set([0, 2, 3, 5, 6, 9, 11, 12, 14, 15]);
@@ -440,7 +562,8 @@ function buildHalHigdonAdvanced1(): TrainingPlan {
     id: 'hal-higdon-advanced-1',
     name: 'Advanced 1',
     author: 'Hal Higdon',
-    description: 'Based on Hal Higdon’s Advanced 1, for experienced marathoners aiming for a PR. Six run days, with Thursday hills, tempo or 800s and Saturday marathon-pace runs. Long runs reach 20 miles and mileage peaks in the mid-50s.',
+    description:
+      'Based on Hal Higdon’s Advanced 1, for experienced marathoners aiming for a PR. Six run days, with Thursday hills, tempo or 800s and Saturday marathon-pace runs. Long runs reach 20 miles and mileage peaks in the mid-50s.',
     totalWeeks: 18,
     weeks,
     halfMarathonWeek: 8,
@@ -495,7 +618,8 @@ function buildPfitzinger1855(): TrainingPlan {
     id: 'pfitzinger-18-55',
     name: '18/55',
     author: 'Pete Pfitzinger',
-    description: 'Based on Pete Pfitzinger’s 18/55 (representative structure), a performance plan peaking around 55 miles/week. Medium-long runs, marathon-pace workouts, long runs to 20 miles and a 3-week taper.',
+    description:
+      'Based on Pete Pfitzinger’s 18/55 (representative structure), a performance plan peaking around 55 miles/week. Medium-long runs, marathon-pace workouts, long runs to 20 miles and a 3-week taper.',
     totalWeeks: 18,
     weeks,
     halfMarathonWeek: 8,
@@ -539,7 +663,8 @@ function buildNikeRunClubMarathon(): TrainingPlan {
     id: 'nike-run-club-marathon',
     name: 'Marathon Plan',
     author: 'Nike Run Club',
-    description: 'Based on the Nike Run Club marathon plan (representative structure), a popular digital-first plan. Guided speed sessions, recovery runs and long runs that build to 20 miles.',
+    description:
+      'Based on the Nike Run Club marathon plan (representative structure), a popular digital-first plan. Guided speed sessions, recovery runs and long runs that build to 20 miles.',
     totalWeeks: 18,
     weeks,
   };
@@ -585,15 +710,7 @@ function buildFirst(): TrainingPlan {
   ];
   const weeks: PlanWeek[] = rows.map(([reps, repMiles, tempo, long], i) => ({
     weekNumber: i + 1,
-    days: [
-      REST,
-      SESSION(repMiles, `${reps} intervals`, 'Speed'),
-      CROSS,
-      firstTempo(tempo),
-      CROSS,
-      REST,
-      LONG(long),
-    ],
+    days: [REST, SESSION(repMiles, `${reps} intervals`, 'Speed'), CROSS, firstTempo(tempo), CROSS, REST, LONG(long)],
   }));
   weeks.push({
     weekNumber: 16,
@@ -611,7 +728,8 @@ function buildFirst(): TrainingPlan {
     id: 'first',
     name: 'Run Less, Run Faster',
     author: 'FIRST',
-    description: 'Based on FIRST’s Run Less, Run Faster 16-week marathon program. Three quality runs per week (intervals, tempo, long) plus two cross-training days. Lower running volume, higher intensity.',
+    description:
+      'Based on FIRST’s Run Less, Run Faster 16-week marathon program. Three quality runs per week (intervals, tempo, long) plus two cross-training days. Lower running volume, higher intensity.',
     totalWeeks: 16,
     weeks,
   };
@@ -631,11 +749,20 @@ function higdonAttribution(planName: string, slug: string): PlanAttribution {
   return {
     coach: 'Hal Higdon',
     fidelity: 'published-schedule',
-    note: `Same weekly structure and distances as Hal Higdon’s free ${planName} schedule. Apollo adds VDOT pace targets, ` +
+    note:
+      `Same weekly structure and distances as Hal Higdon’s free ${planName} schedule. Apollo adds VDOT pace targets, ` +
       'race-date placement and tracking. Hal Higdon’s page has his own advice for every workout.',
     sources: [
-      { label: `Hal Higdon’s ${planName} schedule (free)`, url: `https://www.halhigdon.com/training-programs/marathon-training/${slug}/`, kind: 'free-plan' },
-      { label: 'All of Hal Higdon’s marathon plans', url: 'https://www.halhigdon.com/training/marathon-training/', kind: 'website' },
+      {
+        label: `Hal Higdon’s ${planName} schedule (free)`,
+        url: `https://www.halhigdon.com/training-programs/marathon-training/${slug}/`,
+        kind: 'free-plan',
+      },
+      {
+        label: 'All of Hal Higdon’s marathon plans',
+        url: 'https://www.halhigdon.com/training/marathon-training/',
+        kind: 'website',
+      },
     ],
   };
 }
@@ -649,43 +776,51 @@ HAL_HIGDON_ADVANCED_1.attribution = higdonAttribution('Advanced 1', 'advanced-1-
 HANSONS_BEGINNER.attribution = {
   coach: 'Hansons',
   fidelity: 'method',
-  note: 'Built from the Hansons Marathon Method’s published principles: six run days, speed then strength sessions, ' +
+  note:
+    'Built from the Hansons Marathon Method’s published principles: six run days, speed then strength sessions, ' +
     'Thursday marathon-pace tempos, a 16-mile long-run cap and cumulative fatigue. It isn’t a copy of the book’s tables; ' +
     'the book and Luke Humphrey Running (the method’s co-author) have the full program.',
   sources: [
-    { label: 'Luke Humphrey Running: Hansons Marathon Method plans', url: 'https://lukehumphreyrunning.com/', kind: 'website' },
+    {
+      label: 'Luke Humphrey Running: Hansons Marathon Method plans',
+      url: 'https://lukehumphreyrunning.com/',
+      kind: 'website',
+    },
   ],
 };
 PFITZINGER_18_55.attribution = {
   coach: 'Pete Pfitzinger',
   fidelity: 'representative',
-  note: 'A simplified plan in the spirit of the 18-week, 55-mile schedule in Advanced Marathoning: medium-long runs, ' +
+  note:
+    'A simplified plan in the spirit of the 18-week, 55-mile schedule in Advanced Marathoning: medium-long runs, ' +
     'marathon-pace runs, long runs to 20 miles and a 3-week taper. It doesn’t yet include the book’s lactate-threshold ' +
     'and VO₂max sessions or tune-up races. A more faithful rebuild is planned. For the real schedule, use the book.',
   sources: [
-    { label: 'Advanced Marathoning by Pete Pfitzinger & Scott Douglas (Human Kinetics)', url: 'https://us.humankinetics.com/products/advanced-marathoning-4th-edition', kind: 'book' },
+    {
+      label: 'Advanced Marathoning by Pete Pfitzinger & Scott Douglas (Human Kinetics)',
+      url: 'https://us.humankinetics.com/products/advanced-marathoning-4th-edition',
+      kind: 'book',
+    },
   ],
 };
 NIKE_RUN_CLUB.attribution = {
   coach: 'Nike Run Club',
   fidelity: 'representative',
-  note: 'A representative 18-week structure in the style of Nike Run Club’s free guided marathon program: speed, ' +
+  note:
+    'A representative 18-week structure in the style of Nike Run Club’s free guided marathon program: speed, ' +
     'recovery, tempo and long runs building to 20 miles. For Nike’s own guided runs and coaching, use the free ' +
     'Nike Run Club app.',
-  sources: [
-    { label: 'Nike Run Club app (free)', url: 'https://www.nike.com/nrc-app', kind: 'app' },
-  ],
+  sources: [{ label: 'Nike Run Club app (free)', url: 'https://www.nike.com/nrc-app', kind: 'app' }],
 };
 FIRST.attribution = {
   coach: 'FIRST',
   fidelity: 'method',
-  note: 'Three key runs a week (intervals, tempo, long) plus two cross-training days, as in the Run Less, Run Faster ' +
+  note:
+    'Three key runs a week (intervals, tempo, long) plus two cross-training days, as in the Run Less, Run Faster ' +
     'program from the Furman Institute of Running and Scientific Training. Tempos follow FIRST’s short, mid and long ' +
     'tempo intensities (from the 5K pace your VDOT predicts; long tempos at marathon pace). Other pace targets come ' +
     'from Apollo’s VDOT paces, not FIRST’s own pace tables; the book and FIRST’s site have the full program.',
-  sources: [
-    { label: 'FIRST at Furman University', url: 'https://www.furman.edu/first/', kind: 'website' },
-  ],
+  sources: [{ label: 'FIRST at Furman University', url: 'https://www.furman.edu/first/', kind: 'website' }],
 };
 
 export const BUILT_IN_PLANS: TrainingPlan[] = [
@@ -852,7 +987,8 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     if (longestSoFar != null) {
       // The first long run stays ≤ 10% above the recent longest; later ones grow ≤ ~10% (min +1 mi).
       const growthCap = w === 0 ? longestSoFar * 1.1 : Math.max(longestSoFar * 1.1, longestSoFar + 1);
-      if (limits.recentLongestMi != null && growthCap < longCap && roundHalf(longRaw) > floorHalf(growthCap)) growthLimited = true;
+      if (limits.recentLongestMi != null && growthCap < longCap && roundHalf(longRaw) > floorHalf(growthCap))
+        growthLimited = true;
       longCap = Math.min(longCap, growthCap);
     }
     const longMiles = Math.max(2, Math.min(roundHalf(longRaw), floorHalf(longCap)));
@@ -894,9 +1030,17 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     weeks.push({ weekNumber: w + 1, days });
   }
 
-  const peakLong = Math.max(0, ...weeks.map((wk) => Math.max(0, ...wk.days.filter((d) => d.note === 'Long').map((d) => d.distanceMi ?? 0))));
+  const peakLong = Math.max(
+    0,
+    ...weeks.map((wk) => Math.max(0, ...wk.days.filter((d) => d.note === 'Long').map((d) => d.distanceMi ?? 0))),
+  );
   const buildNotices = customPlanNotices({
-    baseMiles, peakMiles, buildWeeks: lastBuildWeek, peakLong, limits, growthLimited,
+    baseMiles,
+    peakMiles,
+    buildWeeks: lastBuildWeek,
+    peakLong,
+    limits,
+    growthLimited,
   });
 
   return withCustomMpFinish({
@@ -928,7 +1072,9 @@ export function withCustomMpFinish(plan: TrainingPlan): TrainingPlan {
     ...plan,
     weeks: plan.weeks.map((w) => ({
       ...w,
-      days: w.days.map((d) => (d && d.type === 'run' && d.note === 'Long' && d.mpFinish === undefined ? { ...d, mpFinish: true } : d)),
+      days: w.days.map((d) =>
+        d && d.type === 'run' && d.note === 'Long' && d.mpFinish === undefined ? { ...d, mpFinish: true } : d,
+      ),
     })),
   };
 }
@@ -959,7 +1105,8 @@ export function customLongRunLimits(
   runDayCount: number,
 ): CustomLongRunLimits {
   const share = runDayCount <= 4 ? 0.35 : 0.3;
-  const pace = input.easyPaceSecPerMi && input.easyPaceSecPerMi > 240 ? input.easyPaceSecPerMi : DEFAULT_EASY_PACE_SEC_PER_MI;
+  const pace =
+    input.easyPaceSecPerMi && input.easyPaceSecPerMi > 240 ? input.easyPaceSecPerMi : DEFAULT_EASY_PACE_SEC_PER_MI;
   const timeCapMi = floorHalf((CUSTOM_LONG_RUN_MAX_HOURS * 3600) / pace);
   const longest = input.longestRecentRunMi;
   return { share, timeCapMi, recentLongestMi: longest != null && longest > 0 ? longest : null };
@@ -1030,22 +1177,27 @@ export function describeCustomPlanNotice(
   distance: (miles: number) => string = (mi) => `${mi} mi`,
 ): string {
   if (n.kind === 'long-run-cap') {
-    const why = n.reason === 'growth'
-      ? `long runs grow about 10% at a time from your longest recent run (${distance(n.recentLongestMi ?? 0)}) and stay within ${n.sharePct}% of the week`
-      : n.reason === 'time'
-        ? `long runs stay under about ${CUSTOM_LONG_RUN_MAX_HOURS} hours at your easy pace`
-        : `a safe long run is at most about ${n.sharePct}% of the week`;
-    return `Long runs top out at ${distance(n.peakLongMi)} because ${why}. Most marathon plans build to ` +
+    const why =
+      n.reason === 'growth'
+        ? `long runs grow about 10% at a time from your longest recent run (${distance(n.recentLongestMi ?? 0)}) and stay within ${n.sharePct}% of the week`
+        : n.reason === 'time'
+          ? `long runs stay under about ${CUSTOM_LONG_RUN_MAX_HOURS} hours at your easy pace`
+          : `a safe long run is at most about ${n.sharePct}% of the week`;
+    return (
+      `Long runs top out at ${distance(n.peakLongMi)} because ${why}. Most marathon plans build to ` +
       `${distance(16)}–${distance(20)}. For a longer build, raise your peak toward ~${distance(n.neededPeakWeeklyMi)} a week, ` +
-      'add weeks, or pick a later race.';
+      'add weeks, or pick a later race.'
+    );
   }
-  return `Going from ${distance(n.baseWeeklyMi)} to ${distance(n.peakWeeklyMi)} a week in ${n.buildWeeks} build weeks is more than ` +
-    `~10% a week. Add about ${n.extraWeeks} week${n.extraWeeks === 1 ? '' : 's'} or lower the peak.`;
+  return (
+    `Going from ${distance(n.baseWeeklyMi)} to ${distance(n.peakWeeklyMi)} a week in ${n.buildWeeks} build weeks is more than ` +
+    `~10% a week. Add about ${n.extraWeeks} week${n.extraWeeks === 1 ? '' : 's'} or lower the peak.`
+  );
 }
 
 /** Training miles of a plan week (race days excluded). */
 function weekTrainingMiles(week: PlanWeek): number {
-  return week.days.reduce((sum, d) => sum + (d.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+  return week.days.reduce((sum, d) => sum + (d.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
 }
 
 /**
@@ -1060,20 +1212,38 @@ export function suggestPlansForRunner(weeklyMiles: number, runningDays: number):
   const plans = BUILT_IN_PLANS;
   const scored = plans.map((plan): PlanRecommendation => {
     const entryWeeks = plan.weeks.slice(0, 3);
-    const entry = roundToTenth(entryWeeks.reduce((s, w) => s + weekTrainingMiles(w), 0) / Math.max(1, entryWeeks.length));
+    const entry = roundToTenth(
+      entryWeeks.reduce((s, w) => s + weekTrainingMiles(w), 0) / Math.max(1, entryWeeks.length),
+    );
     const peak = roundToTenth(Math.max(...plan.weeks.map(weekTrainingMiles)));
     const avgRunsPerWeek = roundToTenth(
-      plan.weeks.reduce((sum, week) => sum + week.days.filter((d) => d.type === 'run' || d.type === 'race' || d.type === 'marathon').length, 0) / plan.totalWeeks,
+      plan.weeks.reduce(
+        (sum, week) =>
+          sum + week.days.filter((d) => d.type === 'run' || d.type === 'race' || d.type === 'marathon').length,
+        0,
+      ) / plan.totalWeeks,
     );
     const gap = entry - miles;
     const entryScore = Math.max(0, 50 - (gap > 0 ? gap * 2.5 : -gap * 1.2));
     const daysScore = Math.max(0, 35 - Math.abs(avgRunsPerWeek - days) * 8);
     const rampPenalty = miles > 0 && peak > miles * 3 ? Math.min(15, (peak / miles - 3) * 5) : 0;
     const planBias =
-      plan.id === 'pfitzinger-18-55' ? (miles >= 35 && days >= 5 ? 20 : -5)
-        : plan.id === 'hal-higdon-novice-1' ? (miles <= 25 ? 16 : 0)
-          : plan.id === 'hal-higdon-novice-2' ? (miles >= 20 && miles <= 35 ? 12 : 0)
-            : plan.id === 'first' ? (days <= 4 ? 12 : 0)
+      plan.id === 'pfitzinger-18-55'
+        ? miles >= 35 && days >= 5
+          ? 20
+          : -5
+        : plan.id === 'hal-higdon-novice-1'
+          ? miles <= 25
+            ? 16
+            : 0
+          : plan.id === 'hal-higdon-novice-2'
+            ? miles >= 20 && miles <= 35
+              ? 12
+              : 0
+            : plan.id === 'first'
+              ? days <= 4
+                ? 12
+                : 0
               : 0;
     const score = roundToTenth(entryScore + daysScore + planBias - rampPenalty);
     return {
@@ -1131,6 +1301,10 @@ export function getPlanOverview(plan: TrainingPlan): PlanWeekSummary[] {
         if (mi > longRunMiles) longRunMiles = mi;
       }
     }
-    return { weekNumber: week.weekNumber, totalMiles: Math.round(totalMiles * 10) / 10, longRunMiles: longRunMiles || 0 };
+    return {
+      weekNumber: week.weekNumber,
+      totalMiles: Math.round(totalMiles * 10) / 10,
+      longRunMiles: longRunMiles || 0,
+    };
   });
 }

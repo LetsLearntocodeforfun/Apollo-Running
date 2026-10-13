@@ -42,7 +42,9 @@ beforeEach(() => {
     return 'blob:test';
   };
   (URL as unknown as { revokeObjectURL: (u: string) => void }).revokeObjectURL = () => {};
-  HTMLAnchorElement.prototype.click = function click() { /* no navigation in tests */ };
+  HTMLAnchorElement.prototype.click = function click() {
+    /* no navigation in tests */
+  };
 });
 
 afterEach(() => {
@@ -51,9 +53,16 @@ afterEach(() => {
 });
 
 function seedStore(count: number, extra = ''): string {
-  const raw = JSON.stringify(Array.from({ length: count }, (_, i) => ({
-    id: i + 1, name: `Run "${i}"`, type: 'Run', distance: 10000, start_date: '2026-01-01T07:00:00Z', note: extra,
-  })));
+  const raw = JSON.stringify(
+    Array.from({ length: count }, (_, i) => ({
+      id: i + 1,
+      name: `Run "${i}"`,
+      type: 'Run',
+      distance: 10000,
+      start_date: '2026-01-01T07:00:00Z',
+      note: extra,
+    })),
+  );
   persistence.setItem(STORE_KEY, raw);
   return raw;
 }
@@ -150,16 +159,29 @@ describe('legacy (≤ 1.0.5) backup compaction migration', () => {
     const legacyJson = JSON.stringify(nested);
     const id = 'backup_1767225600000_abcd';
     persistence.setItem(`apollo_backup_data_${id}`, legacyJson);
-    persistence.setItem('apollo_backup_registry', JSON.stringify([{
-      id, createdAt: '2026-01-01T00:00:00.000Z', checksum: sha256Hex(legacyJson), keyCount: 5,
-      sizeBytes: legacyJson.length, trigger: 'auto', verified: true,
-    }]));
+    persistence.setItem(
+      'apollo_backup_registry',
+      JSON.stringify([
+        {
+          id,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          checksum: sha256Hex(legacyJson),
+          keyCount: 5,
+          sizeBytes: legacyJson.length,
+          trigger: 'auto',
+          verified: true,
+        },
+      ]),
+    );
     // An orphaned payload (registry overwritten by the 1.0.5 restore bug) and a corrupt one.
     const orphanId = 'backup_1767312000000_efgh';
-    persistence.setItem(`apollo_backup_data_${orphanId}`, JSON.stringify({
-      metadata: { exportDate: '2026-01-02T00:00:00.000Z', appName: 'Apollo Running', version: '1.0.5', keyCount: 1 },
-      data: { apollo_settings: '{"theme":"light"}' },
-    }));
+    persistence.setItem(
+      `apollo_backup_data_${orphanId}`,
+      JSON.stringify({
+        metadata: { exportDate: '2026-01-02T00:00:00.000Z', appName: 'Apollo Running', version: '1.0.5', keyCount: 1 },
+        data: { apollo_settings: '{"theme":"light"}' },
+      }),
+    );
     persistence.setItem('apollo_backup_data_backup_1767398400000_bad1', '{"metadata": {"trunc');
 
     const result = await compactLegacyBackups();
@@ -225,7 +247,10 @@ describe('export → import round trip (V2, V3, U5)', () => {
       },
     };
     const checksum = sha256Hex(JSON.stringify(backupData, null, 2));
-    const file = new File([JSON.stringify({ ...backupData, metadata: { ...backupData.metadata, checksum } }, null, 2)], 'old.json');
+    const file = new File(
+      [JSON.stringify({ ...backupData, metadata: { ...backupData.metadata, checksum } }, null, 2)],
+      'old.json',
+    );
     const result = await importFromFile(file);
     expect(result.success).toBe(true);
     expect(result.importedKeys.sort()).toEqual(['apollo_distance_unit', 'apollo_plan']);
@@ -246,28 +271,44 @@ describe('export → import round trip (V2, V3, U5)', () => {
   });
 
   it('imports a > 1 MB activity store instead of silently dropping it', async () => {
-    const big = JSON.stringify(Array.from({ length: 4000 }, (_, i) => ({
-      id: i, name: 'Morning Run', type: 'Run', distance: 10000, polyline: 'x'.repeat(300),
-    })));
+    const big = JSON.stringify(
+      Array.from({ length: 4000 }, (_, i) => ({
+        id: i,
+        name: 'Morning Run',
+        type: 'Run',
+        distance: 10000,
+        polyline: 'x'.repeat(300),
+      })),
+    );
     expect(big.length).toBeGreaterThan(1024 * 1024);
-    const file = new File([JSON.stringify({
-      metadata: { appName: 'Apollo Running', keyCount: 2 },
-      data: { [STORE_KEY]: big, apollo_small: '1' },
-    })], 'b.json');
+    const file = new File(
+      [
+        JSON.stringify({
+          metadata: { appName: 'Apollo Running', keyCount: 2 },
+          data: { [STORE_KEY]: big, apollo_small: '1' },
+        }),
+      ],
+      'b.json',
+    );
     const result = await importFromFile(file);
     expect(result.success).toBe(true);
     expect(persistence.getItem(STORE_KEY)).toBe(big);
   });
 
   it('reports skipped keys and success:false when a value is invalid', async () => {
-    const file = new File([JSON.stringify({
-      metadata: { appName: 'Apollo Running', keyCount: 3 },
-      data: {
-        apollo_good: JSON.stringify({ ok: true }),
-        apollo_broken: '{"truncated": ',
-        [STORE_KEY]: JSON.stringify({ not: 'an array' }),
-      },
-    })], 'partial.json');
+    const file = new File(
+      [
+        JSON.stringify({
+          metadata: { appName: 'Apollo Running', keyCount: 3 },
+          data: {
+            apollo_good: JSON.stringify({ ok: true }),
+            apollo_broken: '{"truncated": ',
+            [STORE_KEY]: JSON.stringify({ not: 'an array' }),
+          },
+        }),
+      ],
+      'partial.json',
+    );
     const result = await importFromFile(file);
     expect(result.success).toBe(false);
     expect(result.importedKeys).toEqual(['apollo_good']);
@@ -290,7 +331,10 @@ describe('export → import round trip (V2, V3, U5)', () => {
 
   it('refuses to import while storage is degraded', async () => {
     markStorageDegraded('test');
-    const file = new File([JSON.stringify({ metadata: { appName: 'Apollo Running', keyCount: 1 }, data: { apollo_x: '1' } })], 'x.json');
+    const file = new File(
+      [JSON.stringify({ metadata: { appName: 'Apollo Running', keyCount: 1 }, data: { apollo_x: '1' } })],
+      'x.json',
+    );
     const result = await importFromFile(file);
     expect(result.success).toBe(false);
     expect(persistence.getItem('apollo_x')).toBeNull();

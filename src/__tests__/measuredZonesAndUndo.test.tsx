@@ -17,13 +17,16 @@ import {
   upsertActivityHR,
 } from '@/services/heartRate';
 import { generateDailyRecap } from '@/services/dailyRecap';
-import { setActivePlan, setDayCompleted, setSyncMeta, formatDateKey, getDateForDay, startPlan } from '@/services/planProgress';
-import { scaleWeek } from '@/services/planOverlay';
 import {
-  applyRecommendation,
-  undoRecommendationWithReason,
-  UNDO_BLOCKED_MESSAGE,
-} from '@/services/adaptiveTraining';
+  setActivePlan,
+  setDayCompleted,
+  setSyncMeta,
+  formatDateKey,
+  getDateForDay,
+  startPlan,
+} from '@/services/planProgress';
+import { scaleWeek } from '@/services/planOverlay';
+import { applyRecommendation, undoRecommendationWithReason, UNDO_BLOCKED_MESSAGE } from '@/services/adaptiveTraining';
 import AdaptiveRecommendations from '@/components/AdaptiveRecommendations';
 import { getPlanById } from '@/data/plans';
 
@@ -53,20 +56,39 @@ describe('measured time in zone (L-11)', () => {
   it('fetching an intervals.icu run detail stores measured zones from its HR stream', async () => {
     setHRProfile({ maxHR: 200, restingHR: 50, source: 'manual', updatedAt: '' });
     const time = Array.from({ length: 501 }, (_, i) => i * 5); // 0..2500 s
-    vi.stubGlobal('fetch', vi.fn(async (input: string | URL) => {
-      const url = new URL(String(input));
-      if (url.pathname.endsWith('/streams.json')) {
-        return jsonResponse([
-          { type: 'time', data: time },
-          { type: 'distance', data: time.map((t) => t * 4) },
-          // First half at 150 bpm (Z3: 140-160), second half at 170 (Z4: 160-180).
-          { type: 'heartrate', data: time.map((t) => (t < 1250 ? 150 : 170)) },
-        ]);
-      }
-      if (url.pathname.endsWith('/map')) return jsonResponse(null);
-      return jsonResponse({ id: 'i7', type: 'Run', start_date_local: '2026-10-06T07:00:00', distance: 10000, moving_time: 2500, average_heartrate: 160 });
-    }));
-    const base = { ...mapIntervalsActivity({ id: 'i7', type: 'Run', start_date_local: '2026-10-06T07:00:00', distance: 10000, moving_time: 2500 })!, id: 777 };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string | URL) => {
+        const url = new URL(String(input));
+        if (url.pathname.endsWith('/streams.json')) {
+          return jsonResponse([
+            { type: 'time', data: time },
+            { type: 'distance', data: time.map((t) => t * 4) },
+            // First half at 150 bpm (Z3: 140-160), second half at 170 (Z4: 160-180).
+            { type: 'heartrate', data: time.map((t) => (t < 1250 ? 150 : 170)) },
+          ]);
+        }
+        if (url.pathname.endsWith('/map')) return jsonResponse(null);
+        return jsonResponse({
+          id: 'i7',
+          type: 'Run',
+          start_date_local: '2026-10-06T07:00:00',
+          distance: 10000,
+          moving_time: 2500,
+          average_heartrate: 160,
+        });
+      }),
+    );
+    const base = {
+      ...mapIntervalsActivity({
+        id: 'i7',
+        type: 'Run',
+        start_date_local: '2026-10-06T07:00:00',
+        distance: 10000,
+        moving_time: 2500,
+      })!,
+      id: 777,
+    };
     await getIntervalsActivityDetail(base, CREDS);
 
     const rec = getHRHistory().find((h) => h.activityId === 777)!;
@@ -78,9 +100,22 @@ describe('measured time in zone (L-11)', () => {
 
   it('a later sync rebuild passes the measured zones through (autoSync path)', () => {
     setHRProfile({ maxHR: 200, restingHR: 50, source: 'manual', updatedAt: '' });
-    recordMeasuredTimeInZones(5, '2026-10-06', [{ t: 0, hr: 125 }, { t: 30, hr: 125 }, { t: 60, hr: 125 }]);
+    recordMeasuredTimeInZones(5, '2026-10-06', [
+      { t: 0, hr: 125 },
+      { t: 30, hr: 125 },
+      { t: 60, hr: 125 },
+    ]);
     // autoSync calls buildHRDataFromActivity(..., getMeasuredTimeInZones(activity.id)).
-    const rebuilt = buildHRDataFromActivity(5, '2026-10-06', 150, 170, 3600, undefined, 'intervals', getMeasuredTimeInZones(5))!;
+    const rebuilt = buildHRDataFromActivity(
+      5,
+      '2026-10-06',
+      150,
+      170,
+      3600,
+      undefined,
+      'intervals',
+      getMeasuredTimeInZones(5),
+    )!;
     expect(rebuilt.zoneSource).toBe('measured');
     expect(rebuilt.timeInZones).toEqual([0, 60, 0, 0, 0]);
     expect(getMeasuredTimeInZones(6)).toBeNull();
@@ -98,8 +133,12 @@ describe('daily recap labels estimated zones (L-11)', () => {
         const day = plan.weeks[w].days[d];
         if (day.type !== 'run' || !(day.distanceMi && day.distanceMi > 0)) continue;
         setSyncMeta(PLAN_ID, w, d, {
-          activityId: 1, actualDistanceMi: day.distanceMi, actualPaceMinPerMi: 10,
-          movingTimeSec: day.distanceMi * 600, feedback: '', syncedAt: new Date().toISOString(),
+          activityId: 1,
+          actualDistanceMi: day.distanceMi,
+          actualPaceMinPerMi: 10,
+          movingTimeSec: day.distanceMi * 600,
+          feedback: '',
+          syncedAt: new Date().toISOString(),
         });
         setDayCompleted(PLAN_ID, w, d, true);
         return formatDateKey(getDateForDay(START, w, d));
@@ -132,17 +171,41 @@ describe('daily recap labels estimated zones (L-11)', () => {
 
 describe('refused adaptive undo explains itself (T-2)', () => {
   function seedRec(): void {
-    persistence.setItem('apollo_adaptive_recommendations', JSON.stringify([{
-      id: 'rec-u', scenario: 'behind_schedule', type: 'reduce', priority: 'high', status: 'active',
-      title: 't', message: 'm', reasoning: 'r', dismissible: true, createdAt: new Date().toISOString(),
-      options: [{
-        key: 'reduce', label: 'Reduce', description: '', impact: '', actionType: 'apply_modification',
-        actionPayload: {
-          id: '', description: 'Reduced mileage 20%', modificationType: 'mileage_reduction',
-          weekAdjustments: [{ weekIndex: 4, mileageMultiplier: 0.8 }], appliedAt: '', undone: false, originalSnapshot: [],
+    persistence.setItem(
+      'apollo_adaptive_recommendations',
+      JSON.stringify([
+        {
+          id: 'rec-u',
+          scenario: 'behind_schedule',
+          type: 'reduce',
+          priority: 'high',
+          status: 'active',
+          title: 't',
+          message: 'm',
+          reasoning: 'r',
+          dismissible: true,
+          createdAt: new Date().toISOString(),
+          options: [
+            {
+              key: 'reduce',
+              label: 'Reduce',
+              description: '',
+              impact: '',
+              actionType: 'apply_modification',
+              actionPayload: {
+                id: '',
+                description: 'Reduced mileage 20%',
+                modificationType: 'mileage_reduction',
+                weekAdjustments: [{ weekIndex: 4, mileageMultiplier: 0.8 }],
+                appliedAt: '',
+                undone: false,
+                originalSnapshot: [],
+              },
+            },
+          ],
         },
-      }],
-    }]));
+      ]),
+    );
   }
 
   it('returns the blocked message when a later change edited the same days', () => {
@@ -161,7 +224,9 @@ describe('refused adaptive undo explains itself (T-2)', () => {
     applyRecommendation('rec-u', 'reduce');
     scaleWeek(4, 0.9);
     render(<AdaptiveRecommendations />);
-    act(() => { fireEvent.click(screen.getByRole('button', { name: 'Undo' })); });
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: 'Undo' }));
+    });
     expect(screen.getByRole('alert').textContent).toMatch(/Can.t undo: a later change edited the same days/);
   });
 });

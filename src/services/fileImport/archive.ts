@@ -199,8 +199,14 @@ function parseCentralEntry(b: Uint8Array, o: number, shift: number): ZipEntry {
     if (id === EXTRA_ZIP64) {
       // Only the fields whose 32-bit header value is saturated are present, in this order.
       let q = body;
-      if (size === 0xffffffff && q + 8 <= bodyEnd) { size = u64(extra, q); q += 8; }
-      if (compressedSize === 0xffffffff && q + 8 <= bodyEnd) { compressedSize = u64(extra, q); q += 8; }
+      if (size === 0xffffffff && q + 8 <= bodyEnd) {
+        size = u64(extra, q);
+        q += 8;
+      }
+      if (compressedSize === 0xffffffff && q + 8 <= bodyEnd) {
+        compressedSize = u64(extra, q);
+        q += 8;
+      }
       if (offset === 0xffffffff && q + 8 <= bodyEnd) offset = u64(extra, q);
     } else if (id === EXTRA_UNICODE_PATH && len >= 5 && extra[body] === 1) {
       // Info-ZIP Unicode Path: valid only while the stored name is unchanged (CRC matches).
@@ -284,7 +290,9 @@ export class ZipArchive {
       }
     }
     if (disk !== 0 || cdDisk !== 0) {
-      throw new FileImportError('Split ZIP archives (.z01, .z02…) are not supported. Please import the archive as a single .zip file.');
+      throw new FileImportError(
+        'Split ZIP archives (.z01, .z02…) are not supported. Please import the archive as a single .zip file.',
+      );
     }
 
     let shift = recordPos - (cdOffset + cdSize);
@@ -343,7 +351,9 @@ export class ZipArchive {
     if (entry.isDirectory) return new Uint8Array(0);
     if (entry.encrypted) throw new FileImportError('Password-protected ZIP entries are not supported.');
     if (entry.method !== ZIP_STORED && entry.method !== ZIP_DEFLATED) {
-      throw new FileImportError(`Unsupported ZIP compression method (${entry.method}). Re-create the archive with standard ZIP compression.`);
+      throw new FileImportError(
+        `Unsupported ZIP compression method (${entry.method}). Re-create the archive with standard ZIP compression.`,
+      );
     }
     if (entry.size > maxBytes) throw new FileImportError('The file is too large to import.');
     const start = await this.dataStart(entry);
@@ -355,7 +365,9 @@ export class ZipArchive {
       data = entry.method === ZIP_STORED ? raw : await inflateRaw(raw, entry.size, entry.size);
     } catch (err) {
       if (err instanceof OutputLimitError) {
-        throw new FileImportError('The file is corrupt inside the ZIP archive (it holds more data than its header declares).');
+        throw new FileImportError(
+          'The file is corrupt inside the ZIP archive (it holds more data than its header declares).',
+        );
       }
       throw err;
     }
@@ -380,8 +392,12 @@ export class ZipArchive {
 
 /** True when `data` starts like a ZIP archive (local header or empty-archive end record). */
 export function isZip(data: Uint8Array): boolean {
-  return data.length >= 4 && data[0] === 0x50 && data[1] === 0x4b
-    && ((data[2] === 3 && data[3] === 4) || (data[2] === 5 && data[3] === 6));
+  return (
+    data.length >= 4 &&
+    data[0] === 0x50 &&
+    data[1] === 0x4b &&
+    ((data[2] === 3 && data[3] === 4) || (data[2] === 5 && data[3] === 6))
+  );
 }
 
 // ── Archive metadata: CSV ─────────────────────────────────────────────────────
@@ -577,11 +593,12 @@ export function parseGarminSummaries(json: unknown): GarminActivitySummary[] {
       if (Math.abs(offset) <= 14 * 3600) utcOffsetSec = offset;
     }
     const activityType = o.activityType;
-    const typeKey = typeof activityType === 'string'
-      ? nonEmpty(activityType)
-      : activityType && typeof activityType === 'object'
-        ? nonEmpty((activityType as Record<string, unknown>).typeKey)
-        : undefined;
+    const typeKey =
+      typeof activityType === 'string'
+        ? nonEmpty(activityType)
+        : activityType && typeof activityType === 'object'
+          ? nonEmpty((activityType as Record<string, unknown>).typeKey)
+          : undefined;
     out.push({
       start,
       name: nonEmpty(o.name) ?? nonEmpty(o.activityName),

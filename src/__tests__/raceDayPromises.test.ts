@@ -105,7 +105,12 @@ describe('one race-breakfast rule (R-4)', () => {
     expect(RACE_BREAKFAST_FOODS).not.toMatch(/low-fibre[^.]*oatmeal/i);
     expect(RACE_BREAKFAST_FOODS).toMatch(/Oatmeal has more fibre/);
     const timeline = generateRaceDayTimeline({
-      raceStartTime: '07:30', travelMinutes: 30, mealPreference: 'full', weightKg: 70, projectedFinishSec: 4 * 3600, raceName: 'T',
+      raceStartTime: '07:30',
+      travelMinutes: 30,
+      mealPreference: 'full',
+      weightKg: 70,
+      projectedFinishSec: 4 * 3600,
+      raceName: 'T',
     });
     const breakfast = timeline.events.find((e) => e.title === 'Breakfast')!.description;
     expect(breakfast).not.toMatch(/low-fibre[^.]*oatmeal/i);

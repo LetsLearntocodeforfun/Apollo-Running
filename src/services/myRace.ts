@@ -126,7 +126,9 @@ export function setMyRace(patch: Partial<MyRace>): MyRace {
   persistence.setItem(MY_RACE_KEY, JSON.stringify(clean));
   try {
     window.dispatchEvent(new CustomEvent(MY_RACE_CHANGED_EVENT, { detail: clean }));
-  } catch { /* non-browser context */ }
+  } catch {
+    /* non-browser context */
+  }
   return clean;
 }
 
@@ -135,7 +137,9 @@ export function clearMyRace(): void {
   persistence.removeItem(MY_RACE_KEY);
   try {
     window.dispatchEvent(new CustomEvent(MY_RACE_CHANGED_EVENT, { detail: {} }));
-  } catch { /* non-browser context */ }
+  } catch {
+    /* non-browser context */
+  }
 }
 
 /** Subscribe to My Race changes. Returns an unsubscribe function. */
@@ -160,6 +164,8 @@ export function migrateMyRaceId(): boolean {
       persistence.setItem(MY_RACE_KEY, JSON.stringify(clean));
       return true;
     }
-  } catch { /* ignore corrupt data */ }
+  } catch {
+    /* ignore corrupt data */
+  }
   return false;
 }

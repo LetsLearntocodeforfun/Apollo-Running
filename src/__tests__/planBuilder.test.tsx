@@ -28,7 +28,10 @@ function expectAllControlsLabelled() {
   const controls = Array.from(document.body.querySelectorAll<HTMLInputElement | HTMLSelectElement>('input, select'));
   expect(controls.length).toBeGreaterThan(0);
   for (const control of controls) {
-    const fromLabels = Array.from(control.labels ?? []).map(l => l.textContent?.trim() ?? '').join(' ').trim();
+    const fromLabels = Array.from(control.labels ?? [])
+      .map((l) => l.textContent?.trim() ?? '')
+      .join(' ')
+      .trim();
     const name = control.getAttribute('aria-label') || fromLabels;
     expect(name, `unlabelled control: ${control.outerHTML}`).toBeTruthy();
   }
@@ -94,7 +97,7 @@ describe('PlanBuilder', () => {
     const group = screen.getByRole('group', { name: 'Long run day' });
     const radios = within(group).getAllByRole('radio') as HTMLInputElement[];
     expect(radios).toHaveLength(7);
-    expect(radios.filter(r => r.checked)).toHaveLength(1);
+    expect(radios.filter((r) => r.checked)).toHaveLength(1);
 
     const sunday = within(group).getByRole('radio', { name: 'Sunday' }) as HTMLInputElement;
     const saturday = within(group).getByRole('radio', { name: 'Saturday' }) as HTMLInputElement;
@@ -102,7 +105,7 @@ describe('PlanBuilder', () => {
     fireEvent.click(saturday);
     expect(saturday.checked).toBe(true);
     expect(sunday.checked).toBe(false);
-    expect(radios.filter(r => r.checked)).toHaveLength(1);
+    expect(radios.filter((r) => r.checked)).toHaveLength(1);
 
     // Saturday is now the long run (no select); Sunday took Saturday's previous workout (rest).
     expect(screen.queryByLabelText('Sat workout')).toBeNull();
@@ -116,8 +119,8 @@ describe('PlanBuilder', () => {
     goToPreview();
     fireEvent.click(button(/Accept This Plan/));
     const plan = onComplete.mock.calls[0][0];
-    plan.weeks.slice(0, -1).forEach(week => {
-      expect(week.days.filter(d => d.note === 'Long').length).toBe(1);
+    plan.weeks.slice(0, -1).forEach((week) => {
+      expect(week.days.filter((d) => d.note === 'Long').length).toBe(1);
       expect(week.days[5].note).toBe('Long');
     });
     // V11 (T2a): the race is always the plan's last day; the Saturday long-run slot becomes a race-week shakeout.
@@ -129,7 +132,13 @@ describe('PlanBuilder', () => {
   it('labels every input and select on each step', () => {
     renderBuilder();
     expectAllControlsLabelled();
-    for (const label of ['Plan Name', 'Plan Length', 'Running Days per Week', 'Current Weekly Distance', 'Peak Weekly Distance']) {
+    for (const label of [
+      'Plan Name',
+      'Plan Length',
+      'Running Days per Week',
+      'Current Weekly Distance',
+      'Peak Weekly Distance',
+    ]) {
       expect(screen.getByLabelText(label)).toBeTruthy();
     }
 
@@ -173,7 +182,7 @@ describe('PlanBuilder', () => {
 
     const bars = screen.getAllByRole('button', { name: /^Week \d+:/ });
     expect(bars).toHaveLength(18);
-    bars.forEach(bar => expect(bar.tagName).toBe('BUTTON'));
+    bars.forEach((bar) => expect(bar.tagName).toBe('BUTTON'));
     expect(bars[0].getAttribute('aria-label')).toMatch(/^Week 1: \d+\.\d mi, Base Building$/);
     expect(bars[0].className).toContain('pb-phase--base');
     expect(bars[16].getAttribute('aria-label')).toMatch(/Taper/);
@@ -235,21 +244,23 @@ describe('PlanBuilder', () => {
     goToPreview();
     expect(screen.getByText(/64→71 km\/week/)).toBeTruthy();
     const bars = screen.getAllByRole('button', { name: /^Week \d+:/ });
-    bars.forEach(bar => expect(bar.getAttribute('aria-label')).toMatch(/ km, /));
+    bars.forEach((bar) => expect(bar.getAttribute('aria-label')).toMatch(/ km, /));
     fireEvent.click(bars[5]);
     expect(document.body.textContent).toMatch(/\d+\.\d km/);
     noMiles();
 
     fireEvent.click(button(/Accept This Plan/));
     const plan = onComplete.mock.calls[0][0];
-    const weeklyMiles = plan.weeks.slice(0, -1).map(w => w.days.reduce((sum, d) => sum + (d.distanceMi ?? 0), 0));
+    const weeklyMiles = plan.weeks.slice(0, -1).map((w) => w.days.reduce((sum, d) => sum + (d.distanceMi ?? 0), 0));
     expect(Math.max(...weeklyMiles)).toBeLessThanOrEqual(71 / 1.60934 + 0.2);
     // V10 (T2a): 3-week taper at ~80/60/40 % of peak — the 60 % week before race week is below the floor by design.
     expect(Math.min(...weeklyMiles.slice(0, -1))).toBeGreaterThan(30);
   });
 
   it('keeps the onCancel / onComplete contract', () => {
-    const { onCancel, onComplete } = renderBuilder({ initialConfig: { name: 'Spring Build', totalWeeks: 12, runningDays: 5 } });
+    const { onCancel, onComplete } = renderBuilder({
+      initialConfig: { name: 'Spring Build', totalWeeks: 12, runningDays: 5 },
+    });
     fireEvent.click(button(/^Cancel$/));
     expect(onCancel).toHaveBeenCalledTimes(1);
 
@@ -261,6 +272,6 @@ describe('PlanBuilder', () => {
     const plan = onComplete.mock.calls[0][0];
     expect(plan.name).toBe('Spring Build');
     expect(plan.totalWeeks).toBe(12);
-    expect(plan.weeks[0].days.filter(d => d.type === 'run')).toHaveLength(5);
+    expect(plan.weeks[0].days.filter((d) => d.type === 'run')).toHaveLength(5);
   });
 });

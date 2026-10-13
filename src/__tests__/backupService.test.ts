@@ -245,11 +245,9 @@ describe('importFromFile', () => {
   });
 
   it('rejects files from a different app', async () => {
-    const file = new File(
-      [JSON.stringify({ metadata: { appName: 'Other App' }, data: {} })],
-      'other.json',
-      { type: 'application/json' },
-    );
+    const file = new File([JSON.stringify({ metadata: { appName: 'Other App' }, data: {} })], 'other.json', {
+      type: 'application/json',
+    });
     const result = await importFromFile(file);
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/not from Apollo/i);

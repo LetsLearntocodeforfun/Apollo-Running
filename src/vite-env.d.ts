@@ -24,7 +24,11 @@ declare global {
     strava: {
       getAuthUrl: (clientId: string) => Promise<string>;
       exchangeCode: (p: { clientId: string; clientSecret: string; code: string }) => Promise<StravaTokenResponse>;
-      refreshToken: (p: { clientId: string; clientSecret: string; refreshToken: string }) => Promise<StravaTokenResponse>;
+      refreshToken: (p: {
+        clientId: string;
+        clientSecret: string;
+        refreshToken: string;
+      }) => Promise<StravaTokenResponse>;
     };
     oauth: { startServer: () => Promise<{ code: string; scope?: string }> };
     garmin: {

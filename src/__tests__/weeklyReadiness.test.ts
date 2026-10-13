@@ -53,9 +53,9 @@ describe('letterGrade', () => {
   });
 
   it('should handle boundary values exactly', () => {
-    expect(letterGrade(94.9)).toBe('A');   // Not quite A+
+    expect(letterGrade(94.9)).toBe('A'); // Not quite A+
     expect(letterGrade(95.0)).toBe('A+');
-    expect(letterGrade(87.9)).toBe('B+');  // Not quite A
+    expect(letterGrade(87.9)).toBe('B+'); // Not quite A
     expect(letterGrade(88.0)).toBe('A');
   });
 
@@ -65,9 +65,7 @@ describe('letterGrade', () => {
 
     const scores = [50, 60, 68, 75, 82, 88, 95];
     for (let i = 1; i < scores.length; i++) {
-      expect(gradeOrder(letterGrade(scores[i]))).toBeGreaterThanOrEqual(
-        gradeOrder(letterGrade(scores[i - 1])),
-      );
+      expect(gradeOrder(letterGrade(scores[i]))).toBeGreaterThanOrEqual(gradeOrder(letterGrade(scores[i - 1])));
     }
   });
 });

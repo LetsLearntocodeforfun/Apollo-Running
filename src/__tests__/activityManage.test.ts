@@ -101,7 +101,7 @@ describe('delete with tombstones', () => {
     expect(getAllStoredActivities()).toHaveLength(0);
   });
 
-  it('nor by a re-import of the same file or another source\'s copy', () => {
+  it("nor by a re-import of the same file or another source's copy", () => {
     const fileRun = run(5, '2026-10-01T06:00:00Z', 12000, 3600, { source: 'file', source_id: 'file:1759298400' });
     storeActivities([fileRun]);
     deleteActivity(5);
@@ -132,10 +132,17 @@ describe('delete with tombstones', () => {
 describe('duplicate candidates', () => {
   it('detects a Garmin virtual run and its Zwift copy from the same source', () => {
     const garmin = run(1, '2026-10-03T18:00:00Z', 8000, 2700, {
-      type: 'VirtualRun', sport_type: 'VirtualRun', origin: 'GARMIN_CONNECT', average_heartrate: 150, trainer: true,
+      type: 'VirtualRun',
+      sport_type: 'VirtualRun',
+      origin: 'GARMIN_CONNECT',
+      average_heartrate: 150,
+      trainer: true,
     });
     const zwift = run(2, '2026-10-03T18:01:10Z', 8150, 2690, {
-      type: 'Run', sport_type: 'VirtualRun', origin: 'ZWIFT', trainer: true,
+      type: 'Run',
+      sport_type: 'VirtualRun',
+      origin: 'ZWIFT',
+      trainer: true,
     });
     const ride = run(3, '2026-10-03T18:00:30Z', 8100, 2700, { type: 'Ride', sport_type: 'Ride' });
     const pairs = findDuplicateCandidates([garmin, zwift, ride]);

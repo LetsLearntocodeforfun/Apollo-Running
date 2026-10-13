@@ -71,9 +71,7 @@ export interface TombstoneSet {
 /** Build a matcher from explicit lists (pure; used by tests and by {@link loadTombstones}). */
 export function createTombstoneSet(keys: Iterable<string>, prints: TombstonePrint[] = []): TombstoneSet {
   const keySet = new Set(keys);
-  const sortedPrints = prints
-    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.d))
-    .sort((a, b) => a.t - b.t);
+  const sortedPrints = prints.filter((p) => Number.isFinite(p.t) && Number.isFinite(p.d)).sort((a, b) => a.t - b.t);
   return {
     size: keySet.size,
     hasKey: (a) => keySet.size > 0 && keySet.has(activitySourceKey(a)),
@@ -82,9 +80,11 @@ export function createTombstoneSet(keys: Iterable<string>, prints: TombstonePrin
       const t = startEpochSec(a);
       if (!Number.isFinite(t)) return false;
       const d = a.distance || 0;
-      return sortedPrints.some((p) =>
-        Math.abs(p.t - t) <= PRINT_START_TOLERANCE_SEC
-        && Math.abs(p.d - d) <= Math.max(PRINT_DISTANCE_MIN_M, PRINT_DISTANCE_RATIO * Math.max(p.d, d)));
+      return sortedPrints.some(
+        (p) =>
+          Math.abs(p.t - t) <= PRINT_START_TOLERANCE_SEC &&
+          Math.abs(p.d - d) <= Math.max(PRINT_DISTANCE_MIN_M, PRINT_DISTANCE_RATIO * Math.max(p.d, d)),
+      );
     },
   };
 }
@@ -112,7 +112,9 @@ export function isTombstoned(source: string, sourceId: string): boolean {
 }
 
 /** Remember deleted records so syncs and re-imports skip them (idempotent). */
-export function addTombstones(activities: Array<Identified & Pick<Activity, 'start_date' | 'start_date_local' | 'distance'>>): void {
+export function addTombstones(
+  activities: Array<Identified & Pick<Activity, 'start_date' | 'start_date_local' | 'distance'>>,
+): void {
   if (activities.length === 0) return;
   const keys = new Set(getTombstoneKeys());
   const prints = readJsonArray<TombstonePrint>(TOMBSTONE_PRINTS_KEY);

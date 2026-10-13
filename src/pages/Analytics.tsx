@@ -1,9 +1,19 @@
 import { useState, useEffect, useMemo, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  BarChart, Bar, LineChart, Line,
-  XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  Legend, Cell, ScatterChart, Scatter,
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+  Cell,
+  ScatterChart,
+  Scatter,
 } from 'recharts';
 import {
   getActivities,
@@ -13,15 +23,32 @@ import {
   onActivitiesUpdated,
   type Activity,
 } from '../services/activitySource';
-import { isRunActivity, getSportCategoryColor, getSportCategoryLabel, SPORT_CATEGORIES, type SportCategory } from '../services/activity/sports';
-import { summarizeBySport, weeklySportVolume, formatHoursMinutes, type WeeklySportVolume } from '../services/crossTraining';
+import {
+  isRunActivity,
+  getSportCategoryColor,
+  getSportCategoryLabel,
+  SPORT_CATEGORIES,
+  type SportCategory,
+} from '../services/activity/sports';
+import {
+  summarizeBySport,
+  weeklySportVolume,
+  formatHoursMinutes,
+  type WeeklySportVolume,
+} from '../services/crossTraining';
 import { getHRProfile } from '../services/heartRate';
 import {
-  calculateSummaryStats, calculateWeeklyMileage,
+  calculateSummaryStats,
+  calculateWeeklyMileage,
   calculatePaceProgression,
-  detectPersonalRecords, calculateConsistency, calculateStreaks,
-  calculateHREfficiency, weekOverWeek, formatWeekCompareValue,
-  type ConsistencyDay, type HREfficiencyPoint,
+  detectPersonalRecords,
+  calculateConsistency,
+  calculateStreaks,
+  calculateHREfficiency,
+  weekOverWeek,
+  formatWeekCompareValue,
+  type ConsistencyDay,
+  type HREfficiencyPoint,
 } from '../services/analyticsService';
 import LoadingScreen from '../components/LoadingScreen';
 import ConnectDataSourceCTA from '../components/ConnectDataSourceCTA';
@@ -54,11 +81,16 @@ const PERIODS: { id: TimePeriod; label: string }[] = [
 /** Calendar days in the period, today included. "All" starts at the earliest stored activity (B9). */
 function periodDays(period: TimePeriod, earliestKey: string | null, today: string): number {
   switch (period) {
-    case '7d': return 7;
-    case '30d': return 30;
-    case '90d': return 90;
-    case '6mo': return 182;
-    case 'all': return earliestKey ? Math.max(7, daysBetween(earliestKey, today) + 1) : 7;
+    case '7d':
+      return 7;
+    case '30d':
+      return 30;
+    case '90d':
+      return 90;
+    case '6mo':
+      return 182;
+    case 'all':
+      return earliestKey ? Math.max(7, daysBetween(earliestKey, today) + 1) : 7;
   }
 }
 
@@ -144,18 +176,33 @@ type SeriesKind = 'pace' | 'distance' | 'hours' | 'count';
 
 function formatSeriesValue(kind: SeriesKind | undefined, v: number): string {
   switch (kind) {
-    case 'pace': return `${fmtPace(v)} ${paceUnitLabel()}`;
-    case 'distance': return `${v.toFixed(1)} ${unitLabel()}`;
-    case 'hours': return `${v.toFixed(1)} h`;
-    case 'count': return String(Math.round(v));
-    default: return v.toFixed(1);
+    case 'pace':
+      return `${fmtPace(v)} ${paceUnitLabel()}`;
+    case 'distance':
+      return `${v.toFixed(1)} ${unitLabel()}`;
+    case 'hours':
+      return `${v.toFixed(1)} h`;
+    case 'count':
+      return String(Math.round(v));
+    default:
+      return v.toFixed(1);
   }
 }
 
 // ─── Stat Card ───────────────────────────────────────────────
 
-function StatCard({ label, value, sub, delta, deltaLabel, deltaGood, unit }: {
-  label: string; value: string; sub?: string;
+function StatCard({
+  label,
+  value,
+  sub,
+  delta,
+  deltaLabel,
+  deltaGood,
+  unit,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
   /** Percentage change vs the previous period. */
   delta?: number | null;
   /** Pre-formatted change (e.g. pace "−0:12 /km"); shown instead of `delta`. */
@@ -167,20 +214,41 @@ function StatCard({ label, value, sub, delta, deltaLabel, deltaGood, unit }: {
   const showPct = !deltaLabel && delta != null && Math.round(delta) !== 0;
   const good = deltaLabel ? !!deltaGood : (delta ?? 0) > 0;
   return (
-    <div style={{
-      flex: '1 1 160px', background: 'var(--bg)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-md)', padding: '1.1rem 1.2rem',
-    }}>
-      <div style={{
-        fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase',
-        letterSpacing: '0.07em', fontFamily: 'var(--font-display)', fontWeight: 500,
-        marginBottom: '0.4rem',
-      }}>{label}</div>
-      <div style={{
-        fontSize: '1.6rem', fontWeight: 700, color: 'var(--apollo-gold)',
-        fontFamily: 'var(--font-display)', lineHeight: 1.1,
-      }}>
-        {value}{unit && <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>{unit}</span>}
+    <div
+      style={{
+        flex: '1 1 160px',
+        background: 'var(--bg)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '1.1rem 1.2rem',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '0.7rem',
+          color: 'var(--text-muted)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.07em',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 500,
+          marginBottom: '0.4rem',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: '1.6rem',
+          fontWeight: 700,
+          color: 'var(--apollo-gold)',
+          fontFamily: 'var(--font-display)',
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+        {unit && (
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginLeft: '0.25rem' }}>{unit}</span>
+        )}
       </div>
       {(deltaLabel || showPct) && (
         <div style={{ fontSize: '0.75rem', marginTop: '0.3rem', fontWeight: 600, color: good ? SUCCESS : ORANGE }}>
@@ -196,17 +264,27 @@ function StatCard({ label, value, sub, delta, deltaLabel, deltaGood, unit }: {
 
 // ─── Chart Card Wrapper ──────────────────────────────────────
 
-function ChartCard({ title, subtitle, summary, children, height = 280 }: {
-  title: string; subtitle?: string;
+function ChartCard({
+  title,
+  subtitle,
+  summary,
+  children,
+  height = 280,
+}: {
+  title: string;
+  subtitle?: string;
   /** Text alternative for the chart (screen readers). */
   summary: string;
-  children: ReactNode; height?: number;
+  children: ReactNode;
+  height?: number;
 }) {
   return (
     <figure className="card" style={{ padding: '1.25rem 1.5rem', margin: 0 }}>
       <div style={{ marginBottom: '1rem' }}>
         <h2 style={{ margin: 0, fontSize: 'var(--text-md)', color: 'var(--text)' }}>{title}</h2>
-        {subtitle && <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{subtitle}</p>}
+        {subtitle && (
+          <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'var(--text-muted)' }}>{subtitle}</p>
+        )}
       </div>
       <div style={{ width: '100%', height }} aria-hidden="true">
         {children}
@@ -218,19 +296,39 @@ function ChartCard({ title, subtitle, summary, children, height = 280 }: {
 
 // ─── Custom Tooltip ──────────────────────────────────────────
 
-interface TooltipEntry { name: string; value: number; color: string; dataKey?: unknown }
+interface TooltipEntry {
+  name: string;
+  value: number;
+  color: string;
+  dataKey?: unknown;
+}
 
-function CustomTooltip({ active, payload, label, kinds, defaultKind }: {
-  active?: boolean; payload?: TooltipEntry[]; label?: string;
-  kinds?: Record<string, SeriesKind>; defaultKind?: SeriesKind;
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  kinds,
+  defaultKind,
+}: {
+  active?: boolean;
+  payload?: TooltipEntry[];
+  label?: string;
+  kinds?: Record<string, SeriesKind>;
+  defaultKind?: SeriesKind;
 }) {
   if (!active || !payload || payload.length === 0) return null;
   return (
-    <div style={{
-      background: 'var(--apollo-navy-light)', border: '1px solid var(--border)',
-      borderRadius: 'var(--radius-sm)', padding: '0.6rem 0.8rem',
-      fontSize: '0.78rem', color: 'var(--text)', boxShadow: 'var(--shadow-md)',
-    }}>
+    <div
+      style={{
+        background: 'var(--apollo-navy-light)',
+        border: '1px solid var(--border)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '0.6rem 0.8rem',
+        fontSize: '0.78rem',
+        color: 'var(--text)',
+        boxShadow: 'var(--shadow-md)',
+      }}
+    >
       <div style={{ fontWeight: 600, marginBottom: '0.3rem', color: 'var(--text-secondary)' }}>{label}</div>
       {payload.map((p, i) => {
         const kind = (typeof p.dataKey === 'string' ? kinds?.[p.dataKey] : undefined) ?? defaultKind;
@@ -238,7 +336,9 @@ function CustomTooltip({ active, payload, label, kinds, defaultKind }: {
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.15rem' }}>
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
             <span style={{ color: 'var(--text-muted)' }}>{p.name}:</span>
-            <span style={{ fontWeight: 600 }}>{typeof p.value === 'number' ? formatSeriesValue(kind, p.value) : p.value}</span>
+            <span style={{ fontWeight: 600 }}>
+              {typeof p.value === 'number' ? formatSeriesValue(kind, p.value) : p.value}
+            </span>
           </div>
         );
       })}
@@ -251,7 +351,7 @@ function CustomTooltip({ active, payload, label, kinds, defaultKind }: {
 function ConsistencyHeatmap({ data }: { data: ConsistencyDay[] }) {
   if (data.length === 0) return null;
 
-  const maxMiles = Math.max(...data.map(d => d.miles), 1);
+  const maxMiles = Math.max(...data.map((d) => d.miles), 1);
   const weeks: ConsistencyDay[][] = [];
   let currentWeek: ConsistencyDay[] = [];
 
@@ -281,10 +381,20 @@ function ConsistencyHeatmap({ data }: { data: ConsistencyDay[] }) {
     <div style={{ display: 'flex', gap: '0.15rem' }} aria-hidden="true">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', marginRight: '0.3rem' }}>
         {dayLabels.map((l, i) => (
-          <div key={i} style={{
-            width: 14, height: 14, fontSize: '0.6rem', color: 'var(--text-muted)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-          }}>{l}</div>
+          <div
+            key={i}
+            style={{
+              width: 14,
+              height: 14,
+              fontSize: '0.6rem',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {l}
+          </div>
         ))}
       </div>
       {weeks.map((week, wi) => (
@@ -292,9 +402,7 @@ function ConsistencyHeatmap({ data }: { data: ConsistencyDay[] }) {
           {week.map((day, di) => {
             if (day.miles < 0) return <div key={di} style={{ width: 14, height: 14 }} />;
             const intensity = day.miles > 0 ? Math.min(day.miles / maxMiles, 1) : 0;
-            const bg = intensity === 0
-              ? 'rgba(255,255,255,0.04)'
-              : `rgba(212, 165, 55, ${0.15 + intensity * 0.65})`;
+            const bg = intensity === 0 ? 'rgba(255,255,255,0.04)' : `rgba(212, 165, 55, ${0.15 + intensity * 0.65})`;
             return (
               <div
                 key={di}
@@ -391,15 +499,21 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
       }
     })();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [connected, available]);
 
   // Any source added/updated activities (sync, file import, hide/delete) → recompute
-  useEffect(() => onActivitiesUpdated(() => {
-    setAvailable(true);
-    setSyncError(null);
-    setAllActivities(getStoredActivities());
-  }), []);
+  useEffect(
+    () =>
+      onActivitiesUpdated(() => {
+        setAvailable(true);
+        setSyncError(null);
+        setAllActivities(getStoredActivities());
+      }),
+    [],
+  );
 
   const today = todayKey();
   const earliest = useMemo(() => earliestActivityKey(allActivities), [allActivities]);
@@ -419,9 +533,14 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
         <EmptyState
           icon="📊"
           title="No training data yet"
-          action={<Link className="btn btn-primary" to="/settings?tab=connections">Connect a data source</Link>}
+          action={
+            <Link className="btn btn-primary" to="/settings?tab=connections">
+              Connect a data source
+            </Link>
+          }
         >
-          Connect Strava or intervals.icu, or import activity files, to see weekly distance, pace trends, personal records and more.
+          Connect Strava or intervals.icu, or import activity files, to see weekly distance, pace trends, personal
+          records and more.
         </EmptyState>
       );
     }
@@ -439,7 +558,11 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
 
   if (loading && allActivities.length === 0) {
     if (embedded) {
-      return <p role="status" style={{ color: 'var(--text-muted)' }}>Analyzing your training data…</p>;
+      return (
+        <p role="status" style={{ color: 'var(--text-muted)' }}>
+          Analyzing your training data…
+        </p>
+      );
     }
     return <LoadingScreen message="Analyzing your training data…" />;
   }
@@ -456,12 +579,18 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
           aria-pressed={period === id}
           onClick={() => setPeriod(id)}
           style={{
-            minHeight: 32, padding: '0.4rem 0.75rem', borderRadius: 'var(--radius-sm)',
+            minHeight: 32,
+            padding: '0.4rem 0.75rem',
+            borderRadius: 'var(--radius-sm)',
             border: period === id ? '1px solid var(--apollo-gold)' : '1px solid var(--border)',
             background: period === id ? 'var(--apollo-gold-dim)' : 'var(--bg-elevated)',
             color: period === id ? 'var(--apollo-gold)' : 'var(--text-secondary)',
-            fontSize: '0.78rem', fontFamily: 'var(--font-display)', fontWeight: 600,
-            cursor: 'pointer', textTransform: 'uppercase', letterSpacing: '0.03em',
+            fontSize: '0.78rem',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '0.03em',
           }}
         >
           {label}
@@ -473,13 +602,28 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       {/* ── Header / toolbar ── */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
         <div>
           {!embedded && (
-            <h1 style={{
-              fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)',
-              fontWeight: 700, margin: 0, color: 'var(--text)',
-            }}>Analytics</h1>
+            <h1
+              style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 'var(--text-2xl)',
+                fontWeight: 700,
+                margin: 0,
+                color: 'var(--text)',
+              }}
+            >
+              Analytics
+            </h1>
           )}
           {!connected && (
             <p style={{ color: 'var(--text-muted)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
@@ -497,13 +641,21 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
         <>
           {/* ── Summary Stats ── */}
           <section aria-label="Period summary" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <StatCard label={`Total ${getDistanceUnit() === 'km' ? 'Kilometers' : 'Miles'}`} value={fmtMiles(view.stats.totalMiles)} delta={view.stats.milesDelta} />
+            <StatCard
+              label={`Total ${getDistanceUnit() === 'km' ? 'Kilometers' : 'Miles'}`}
+              value={fmtMiles(view.stats.totalMiles)}
+              delta={view.stats.milesDelta}
+            />
             <StatCard label="Total Time" value={formatDuration(view.stats.totalTime)} delta={view.stats.timeDelta} />
             <StatCard
               label="Avg Pace"
               value={fmtPace(view.stats.avgPace)}
               unit={paceUnitLabel()}
-              deltaLabel={view.stats.paceDelta != null && Math.abs(view.stats.paceDelta) >= 1 / 120 ? fmtPaceDelta(view.stats.paceDelta) : null}
+              deltaLabel={
+                view.stats.paceDelta != null && Math.abs(view.stats.paceDelta) >= 1 / 120
+                  ? fmtPaceDelta(view.stats.paceDelta)
+                  : null
+              }
               deltaGood={(view.stats.paceDelta ?? 0) < 0}
             />
             <StatCard label="Runs" value={String(view.stats.runCount)} />
@@ -514,18 +666,42 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
           {/* ── Week-over-Week ── */}
           {view.wow.length > 0 && (
             <section className="card" style={{ padding: '1rem 1.25rem' }}>
-              <h2 style={{ fontSize: '0.75rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)', margin: '0 0 0.75rem' }}>
+              <h2
+                style={{
+                  fontSize: '0.75rem',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  color: 'var(--text-muted)',
+                  margin: '0 0 0.75rem',
+                }}
+              >
                 This Week vs Last Week
               </h2>
               <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-                {view.wow.map(w => (
+                {view.wow.map((w) => (
                   <div key={w.label} style={{ flex: '1 1 100px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--text)' }}>
+                    <div
+                      style={{
+                        fontSize: '1.1rem',
+                        fontWeight: 700,
+                        fontFamily: 'var(--font-display)',
+                        color: 'var(--text)',
+                      }}
+                    >
                       {formatWeekCompareValue(w.kind, w.current)}
                     </div>
                     <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{w.label}</div>
                     {w.delta !== 0 && (
-                      <div style={{ fontSize: '0.7rem', fontWeight: 600, marginTop: '0.15rem', color: w.delta > 0 ? SUCCESS : ORANGE }}>
+                      <div
+                        style={{
+                          fontSize: '0.7rem',
+                          fontWeight: 600,
+                          marginTop: '0.15rem',
+                          color: w.delta > 0 ? SUCCESS : ORANGE,
+                        }}
+                      >
                         <span aria-hidden="true">{w.delta > 0 ? '↑' : '↓'}</span>
                         <span className="sr-only">{w.delta > 0 ? 'up' : 'down'} </span>
                         {Math.abs(w.delta)}% vs {formatWeekCompareValue(w.kind, w.previous)}
@@ -538,194 +714,290 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
           )}
 
           {/* ── Weekly Distance Chart (display units, B4) ── */}
-          {view.weeklyMileage.length > 1 && (() => {
-            const pts = view.weeklyMileage;
-            const current = pts[pts.length - 1];
-            const prior = pts.slice(0, -1);
-            const avg = prior.reduce((s, p) => s + p.distance, 0) / prior.length;
-            const peak = pts.reduce((m, p) => (p.distance > m.distance ? p : m), pts[0]);
-            const u = unitLabel();
-            return (
-              <ChartCard
-                title="Weekly Distance"
-                subtitle={`Last ${pts.length} weeks (${u}), Monday to Sunday`}
-                summary={`This week so far: ${current.distance.toFixed(1)} ${u}. Average of the previous ${prior.length} weeks: ${avg.toFixed(1)} ${u}. Biggest week: ${peak.distance.toFixed(1)} ${u}, week of ${peak.weekLabel}.`}
-              >
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={pts} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                    <XAxis dataKey="weekLabel" tick={AXIS} />
-                    <YAxis tick={AXIS} />
-                    <Tooltip content={<CustomTooltip kinds={{ distance: 'distance' }} />} />
-                    <Bar dataKey="distance" name={`Distance (${u})`} radius={[4, 4, 0, 0]}>
-                      {pts.map((_, index) => (
-                        <Cell key={index} fill={index === pts.length - 1 ? GOLD_LIGHT : GOLD} fillOpacity={0.85} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </ChartCard>
-            );
-          })()}
+          {view.weeklyMileage.length > 1 &&
+            (() => {
+              const pts = view.weeklyMileage;
+              const current = pts[pts.length - 1];
+              const prior = pts.slice(0, -1);
+              const avg = prior.reduce((s, p) => s + p.distance, 0) / prior.length;
+              const peak = pts.reduce((m, p) => (p.distance > m.distance ? p : m), pts[0]);
+              const u = unitLabel();
+              return (
+                <ChartCard
+                  title="Weekly Distance"
+                  subtitle={`Last ${pts.length} weeks (${u}), Monday to Sunday`}
+                  summary={`This week so far: ${current.distance.toFixed(1)} ${u}. Average of the previous ${prior.length} weeks: ${avg.toFixed(1)} ${u}. Biggest week: ${peak.distance.toFixed(1)} ${u}, week of ${peak.weekLabel}.`}
+                >
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={pts} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                      <XAxis dataKey="weekLabel" tick={AXIS} />
+                      <YAxis tick={AXIS} />
+                      <Tooltip content={<CustomTooltip kinds={{ distance: 'distance' }} />} />
+                      <Bar dataKey="distance" name={`Distance (${u})`} radius={[4, 4, 0, 0]}>
+                        {pts.map((_, index) => (
+                          <Cell key={index} fill={index === pts.length - 1 ? GOLD_LIGHT : GOLD} fillOpacity={0.85} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </ChartCard>
+              );
+            })()}
 
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '1.25rem' }}>
             {/* Pace Progression (distance-weighted, B5) */}
-            {view.paceProgression.length > 1 && (() => {
-              const pts = view.paceProgression;
-              const first = pts[0];
-              const last = pts[pts.length - 1];
-              return (
-                <ChartCard
-                  title="Pace Progression"
-                  subtitle={`Average pace per week (min${paceUnitLabel()}), weighted by distance`}
-                  summary={`Average pace went from ${fmtPace(first.avgPace)} to ${fmtPace(last.avgPace)} ${paceUnitLabel()} between the weeks of ${first.weekLabel} and ${last.weekLabel}.`}
-                  height={240}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={pts} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                      <XAxis dataKey="weekLabel" tick={AXIS} />
-                      <YAxis tick={AXIS} tickFormatter={(v: number) => fmtPace(v)} reversed domain={['auto', 'auto']} />
-                      <Tooltip content={<CustomTooltip kinds={{ avgPace: 'pace', fastestPace: 'pace' }} />} />
-                      <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#B8B2A8' }} />
-                      <Line type="monotone" dataKey="avgPace" name="Avg Pace" stroke={GOLD} strokeWidth={2} dot={{ r: 3, fill: GOLD }} />
-                      <Line type="monotone" dataKey="fastestPace" name="Fastest Run" stroke={TEAL} strokeWidth={1.5} dot={{ r: 2, fill: TEAL }} strokeDasharray="4 4" />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              );
-            })()}
+            {view.paceProgression.length > 1 &&
+              (() => {
+                const pts = view.paceProgression;
+                const first = pts[0];
+                const last = pts[pts.length - 1];
+                return (
+                  <ChartCard
+                    title="Pace Progression"
+                    subtitle={`Average pace per week (min${paceUnitLabel()}), weighted by distance`}
+                    summary={`Average pace went from ${fmtPace(first.avgPace)} to ${fmtPace(last.avgPace)} ${paceUnitLabel()} between the weeks of ${first.weekLabel} and ${last.weekLabel}.`}
+                    height={240}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={pts} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis dataKey="weekLabel" tick={AXIS} />
+                        <YAxis
+                          tick={AXIS}
+                          tickFormatter={(v: number) => fmtPace(v)}
+                          reversed
+                          domain={['auto', 'auto']}
+                        />
+                        <Tooltip content={<CustomTooltip kinds={{ avgPace: 'pace', fastestPace: 'pace' }} />} />
+                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#B8B2A8' }} />
+                        <Line
+                          type="monotone"
+                          dataKey="avgPace"
+                          name="Avg Pace"
+                          stroke={GOLD}
+                          strokeWidth={2}
+                          dot={{ r: 3, fill: GOLD }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="fastestPace"
+                          name="Fastest Run"
+                          stroke={TEAL}
+                          strokeWidth={1.5}
+                          dot={{ r: 2, fill: TEAL }}
+                          strokeDasharray="4 4"
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                );
+              })()}
 
             {/* HR Efficiency Scatter (outdoor runs only) */}
-            {view.hrEfficiency.length > 3 && (() => {
-              const pts = view.hrEfficiency;
-              return (
-                <ChartCard
-                  title="Heart Rate Efficiency"
-                  subtitle="Pace vs heart rate for outdoor runs — faster pace at the same HR means improving fitness"
-                  summary={`${pts.length} outdoor runs with heart rate between ${formatShortDate(pts[0].date)} and ${formatShortDate(pts[pts.length - 1].date)}. The five most recent runs are highlighted.`}
-                  height={240}
-                >
-                  <ResponsiveContainer width="100%" height="100%">
-                    <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                      <XAxis
-                        type="number" dataKey="avgHR" name="Avg HR" tick={AXIS}
-                        label={{ value: 'Avg HR (bpm)', position: 'insideBottom', offset: -2, style: { fill: '#8A8478', fontSize: 10 } }}
-                      />
-                      <YAxis
-                        type="number" dataKey="pace" name="Pace" tick={AXIS}
-                        tickFormatter={(v: number) => fmtPace(v)}
-                        reversed
-                        label={{ value: `Pace (min${paceUnitLabel()})`, angle: -90, position: 'insideLeft', offset: 15, style: { fill: '#8A8478', fontSize: 10 } }}
-                      />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload || !payload.length) return null;
-                          const d = payload[0]?.payload as HREfficiencyPoint;
-                          return (
-                            <div style={{
-                              background: 'var(--apollo-navy-light)', border: '1px solid var(--border)',
-                              borderRadius: 'var(--radius-sm)', padding: '0.5rem 0.7rem',
-                              fontSize: '0.78rem', color: 'var(--text)',
-                            }}>
-                              <div style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{d.activityName}</div>
-                              <div>{formatShortDate(d.date)} · {fmtPace(d.pace)} {paceUnitLabel()} · {d.avgHR} bpm</div>
-                            </div>
-                          );
-                        }}
-                      />
-                      <Scatter data={pts} fill={GOLD} fillOpacity={0.7}>
-                        {pts.map((_, i) => (
-                          <Cell key={i} fill={i >= pts.length - 5 ? GOLD_LIGHT : GOLD} fillOpacity={i >= pts.length - 5 ? 1 : 0.5} />
-                        ))}
-                      </Scatter>
-                    </ScatterChart>
-                  </ResponsiveContainer>
-                </ChartCard>
-              );
-            })()}
+            {view.hrEfficiency.length > 3 &&
+              (() => {
+                const pts = view.hrEfficiency;
+                return (
+                  <ChartCard
+                    title="Heart Rate Efficiency"
+                    subtitle="Pace vs heart rate for outdoor runs — faster pace at the same HR means improving fitness"
+                    summary={`${pts.length} outdoor runs with heart rate between ${formatShortDate(pts[0].date)} and ${formatShortDate(pts[pts.length - 1].date)}. The five most recent runs are highlighted.`}
+                    height={240}
+                  >
+                    <ResponsiveContainer width="100%" height="100%">
+                      <ScatterChart margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                        <XAxis
+                          type="number"
+                          dataKey="avgHR"
+                          name="Avg HR"
+                          tick={AXIS}
+                          label={{
+                            value: 'Avg HR (bpm)',
+                            position: 'insideBottom',
+                            offset: -2,
+                            style: { fill: '#8A8478', fontSize: 10 },
+                          }}
+                        />
+                        <YAxis
+                          type="number"
+                          dataKey="pace"
+                          name="Pace"
+                          tick={AXIS}
+                          tickFormatter={(v: number) => fmtPace(v)}
+                          reversed
+                          label={{
+                            value: `Pace (min${paceUnitLabel()})`,
+                            angle: -90,
+                            position: 'insideLeft',
+                            offset: 15,
+                            style: { fill: '#8A8478', fontSize: 10 },
+                          }}
+                        />
+                        <Tooltip
+                          content={({ active, payload }) => {
+                            if (!active || !payload || !payload.length) return null;
+                            const d = payload[0]?.payload as HREfficiencyPoint;
+                            return (
+                              <div
+                                style={{
+                                  background: 'var(--apollo-navy-light)',
+                                  border: '1px solid var(--border)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  padding: '0.5rem 0.7rem',
+                                  fontSize: '0.78rem',
+                                  color: 'var(--text)',
+                                }}
+                              >
+                                <div style={{ fontWeight: 600, marginBottom: '0.2rem' }}>{d.activityName}</div>
+                                <div>
+                                  {formatShortDate(d.date)} · {fmtPace(d.pace)} {paceUnitLabel()} · {d.avgHR} bpm
+                                </div>
+                              </div>
+                            );
+                          }}
+                        />
+                        <Scatter data={pts} fill={GOLD} fillOpacity={0.7}>
+                          {pts.map((_, i) => (
+                            <Cell
+                              key={i}
+                              fill={i >= pts.length - 5 ? GOLD_LIGHT : GOLD}
+                              fillOpacity={i >= pts.length - 5 ? 1 : 0.5}
+                            />
+                          ))}
+                        </Scatter>
+                      </ScatterChart>
+                    </ResponsiveContainer>
+                  </ChartCard>
+                );
+              })()}
           </div>
 
           {/* ── Cross-Training (selected period) ── */}
-          {view.crossSummary.length > 0 && (() => {
-            const volume = view.sportVolume;
-            const volumeCategories = SPORT_CATEGORIES.filter(c => volume.some(w => w.hours[c] > 0));
-            const thisWeekHours = volume.length > 0
-              ? volumeCategories.reduce((s, c) => s + (volume[volume.length - 1].hours[c] ?? 0), 0)
-              : 0;
-            return (
-              <>
-                <section className="card" style={{ padding: '1.25rem 1.5rem' }}>
-                  <h2 style={{ margin: '0 0 1rem', fontSize: 'var(--text-md)' }}>
-                    <span style={{ color: 'var(--apollo-teal)' }}>Cross-Training</span>
-                  </h2>
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    {view.crossSummary.map(s => (
-                      <div key={s.category} style={{
-                        flex: '1 1 160px', background: 'var(--bg)', border: '1px solid var(--border)',
-                        borderLeft: `3px solid ${getSportCategoryColor(s.category)}`,
-                        borderRadius: 'var(--radius-md)', padding: '0.9rem 1.1rem',
-                      }}>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.07em', fontFamily: 'var(--font-display)', fontWeight: 500, marginBottom: '0.35rem' }}>
-                          <span aria-hidden="true">{s.icon}</span> {s.label}
+          {view.crossSummary.length > 0 &&
+            (() => {
+              const volume = view.sportVolume;
+              const volumeCategories = SPORT_CATEGORIES.filter((c) => volume.some((w) => w.hours[c] > 0));
+              const thisWeekHours =
+                volume.length > 0
+                  ? volumeCategories.reduce((s, c) => s + (volume[volume.length - 1].hours[c] ?? 0), 0)
+                  : 0;
+              return (
+                <>
+                  <section className="card" style={{ padding: '1.25rem 1.5rem' }}>
+                    <h2 style={{ margin: '0 0 1rem', fontSize: 'var(--text-md)' }}>
+                      <span style={{ color: 'var(--apollo-teal)' }}>Cross-Training</span>
+                    </h2>
+                    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                      {view.crossSummary.map((s) => (
+                        <div
+                          key={s.category}
+                          style={{
+                            flex: '1 1 160px',
+                            background: 'var(--bg)',
+                            border: '1px solid var(--border)',
+                            borderLeft: `3px solid ${getSportCategoryColor(s.category)}`,
+                            borderRadius: 'var(--radius-md)',
+                            padding: '0.9rem 1.1rem',
+                          }}
+                        >
+                          <div
+                            style={{
+                              fontSize: '0.7rem',
+                              color: 'var(--text-muted)',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.07em',
+                              fontFamily: 'var(--font-display)',
+                              fontWeight: 500,
+                              marginBottom: '0.35rem',
+                            }}
+                          >
+                            <span aria-hidden="true">{s.icon}</span> {s.label}
+                          </div>
+                          <div
+                            style={{
+                              fontSize: '1.4rem',
+                              fontWeight: 700,
+                              color: 'var(--text)',
+                              fontFamily: 'var(--font-display)',
+                              lineHeight: 1.1,
+                            }}
+                          >
+                            {formatHoursMinutes(s.movingTimeSec)}
+                          </div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
+                            {[
+                              `${s.count} session${s.count === 1 ? '' : 's'}`,
+                              s.distanceMeters > 0 ? formatDistanceShort(s.distanceMeters) : null,
+                              s.trainingLoad > 0 ? `Load ${Math.round(s.trainingLoad)}` : null,
+                            ]
+                              .filter(Boolean)
+                              .join(' · ')}
+                          </div>
                         </div>
-                        <div style={{ fontSize: '1.4rem', fontWeight: 700, color: 'var(--text)', fontFamily: 'var(--font-display)', lineHeight: 1.1 }}>
-                          {formatHoursMinutes(s.movingTimeSec)}
-                        </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '0.3rem' }}>
-                          {[
-                            `${s.count} session${s.count === 1 ? '' : 's'}`,
-                            s.distanceMeters > 0 ? formatDistanceShort(s.distanceMeters) : null,
-                            s.trainingLoad > 0 ? `Load ${Math.round(s.trainingLoad)}` : null,
-                          ].filter(Boolean).join(' · ')}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-                {volume.length > 1 && volumeCategories.length > 0 && (
-                  <ChartCard
-                    title="Weekly Hours by Sport"
-                    subtitle={`Hours per week, last ${volume.length} weeks`}
-                    summary={`Hours per week by sport (${volumeCategories.map(getSportCategoryLabel).join(', ')}) for the last ${volume.length} weeks. This week so far: ${thisWeekHours.toFixed(1)} hours.`}
-                    height={260}
-                  >
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={volume} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-                        <XAxis dataKey="weekLabel" tick={AXIS} />
-                        <YAxis tick={AXIS} />
-                        <Tooltip content={<CustomTooltip defaultKind="hours" />} />
-                        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#B8B2A8' }} />
-                        {volumeCategories.map(c => (
-                          <Bar
-                            key={c}
-                            dataKey={(w: WeeklySportVolume) => w.hours[c]}
-                            name={getSportCategoryLabel(c)}
-                            stackId="hours"
-                            fill={sportChartColor(c)}
-                            fillOpacity={0.85}
-                          />
-                        ))}
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartCard>
-                )}
-              </>
-            );
-          })()}
+                      ))}
+                    </div>
+                  </section>
+                  {volume.length > 1 && volumeCategories.length > 0 && (
+                    <ChartCard
+                      title="Weekly Hours by Sport"
+                      subtitle={`Hours per week, last ${volume.length} weeks`}
+                      summary={`Hours per week by sport (${volumeCategories.map(getSportCategoryLabel).join(', ')}) for the last ${volume.length} weeks. This week so far: ${thisWeekHours.toFixed(1)} hours.`}
+                      height={260}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={volume} margin={{ top: 5, right: 10, bottom: 5, left: -10 }}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
+                          <XAxis dataKey="weekLabel" tick={AXIS} />
+                          <YAxis tick={AXIS} />
+                          <Tooltip content={<CustomTooltip defaultKind="hours" />} />
+                          <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, color: '#B8B2A8' }} />
+                          {volumeCategories.map((c) => (
+                            <Bar
+                              key={c}
+                              dataKey={(w: WeeklySportVolume) => w.hours[c]}
+                              name={getSportCategoryLabel(c)}
+                              stackId="hours"
+                              fill={sportChartColor(c)}
+                              fillOpacity={0.85}
+                            />
+                          ))}
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </ChartCard>
+                  )}
+                </>
+              );
+            })()}
 
           {/* ── Consistency + Personal Records ── */}
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, gap: '1.25rem' }}>
             {view.consistency.length > 7 && (
               <section className="card" style={{ padding: '1.25rem 1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  <h2 style={{ margin: 0, fontSize: 'var(--text-md)' }}>Consistency{view.heatmapCapped ? ' (last 12 months)' : ''}</h2>
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '1rem',
+                    flexWrap: 'wrap',
+                    gap: '0.5rem',
+                  }}
+                >
+                  <h2 style={{ margin: 0, fontSize: 'var(--text-md)' }}>
+                    Consistency{view.heatmapCapped ? ' (last 12 months)' : ''}
+                  </h2>
                   <div style={{ display: 'flex', gap: '1rem', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-                    <span><strong style={{ color: 'var(--apollo-gold)' }}>{view.streaks.current}</strong> day streak</span>
-                    <span><strong style={{ color: 'var(--text)' }}>{view.streaks.longest}</strong> longest</span>
-                    <span><strong style={{ color: 'var(--text)' }}>{view.streaks.runsPerWeek}</strong> runs/wk</span>
+                    <span>
+                      <strong style={{ color: 'var(--apollo-gold)' }}>{view.streaks.current}</strong> day streak
+                    </span>
+                    <span>
+                      <strong style={{ color: 'var(--text)' }}>{view.streaks.longest}</strong> longest
+                    </span>
+                    <span>
+                      <strong style={{ color: 'var(--text)' }}>{view.streaks.runsPerWeek}</strong> runs/wk
+                    </span>
                   </div>
                 </div>
                 <div style={{ overflowX: 'auto', paddingBottom: '0.25rem' }}>
@@ -734,13 +1006,27 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
                 <p className="sr-only">
                   {`Ran on ${view.consistency.filter((d) => d.runCount > 0).length} of the last ${view.consistency.length} days.`}
                 </p>
-                <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.75rem', fontSize: '0.68rem', color: 'var(--text-muted)' }} aria-hidden="true">
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    marginTop: '0.75rem',
+                    fontSize: '0.68rem',
+                    color: 'var(--text-muted)',
+                  }}
+                  aria-hidden="true"
+                >
                   <span>Less</span>
                   {[0, 0.2, 0.4, 0.6, 0.8].map((v, i) => (
-                    <span key={i} style={{
-                      width: 12, height: 12, borderRadius: 2,
-                      background: v === 0 ? 'rgba(255,255,255,0.04)' : `rgba(212,165,55,${0.15 + v * 0.65})`,
-                    }} />
+                    <span
+                      key={i}
+                      style={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: 2,
+                        background: v === 0 ? 'rgba(255,255,255,0.04)' : `rgba(212,165,55,${0.15 + v * 0.65})`,
+                      }}
+                    />
                   ))}
                   <span>More</span>
                 </div>
@@ -752,18 +1038,45 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
                 <h2 style={{ margin: '0 0 1rem', fontSize: 'var(--text-md)' }}>
                   <span style={{ color: 'var(--apollo-gold)' }}>Personal Records</span>
                 </h2>
-                <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', listStyle: 'none', margin: 0, padding: 0 }}>
+                <ul
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem',
+                    listStyle: 'none',
+                    margin: 0,
+                    padding: 0,
+                  }}
+                >
                   {personalRecords.map((pr) => (
-                    <li key={`${pr.category}-${pr.label}`} style={{
-                      display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      padding: '0.65rem 0.85rem', borderRadius: 'var(--radius-sm)',
-                      background: 'var(--bg)', border: '1px solid var(--border)',
-                    }}>
+                    <li
+                      key={`${pr.category}-${pr.label}`}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '0.65rem 0.85rem',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--bg)',
+                        border: '1px solid var(--border)',
+                      }}
+                    >
                       <div>
-                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>{pr.label}</div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>{pr.activityName} · {formatShortDate(pr.date)}</div>
+                        <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--text-sm)' }}>
+                          {pr.label}
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                          {pr.activityName} · {formatShortDate(pr.date)}
+                        </div>
                       </div>
-                      <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--apollo-gold)' }}>
+                      <div
+                        style={{
+                          fontFamily: 'var(--font-display)',
+                          fontWeight: 700,
+                          fontSize: '1.1rem',
+                          color: 'var(--apollo-gold)',
+                        }}
+                      >
                         {pr.value}
                       </div>
                     </li>
@@ -781,29 +1094,65 @@ export default function Analytics({ embedded = false }: AnalyticsProps) {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                      {['Date', 'Name', 'Distance', 'Time', 'Pace', 'HR', 'Elev'].map(h => (
-                        <th key={h} scope="col" style={{
-                          textAlign: 'left', padding: '0.5rem 0.6rem',
-                          fontSize: 'var(--text-xs)', textTransform: 'uppercase',
-                          letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500,
-                        }}>{h}</th>
+                      {['Date', 'Name', 'Distance', 'Time', 'Pace', 'HR', 'Elev'].map((h) => (
+                        <th
+                          key={h}
+                          scope="col"
+                          style={{
+                            textAlign: 'left',
+                            padding: '0.5rem 0.6rem',
+                            fontSize: 'var(--text-xs)',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.06em',
+                            color: 'var(--text-muted)',
+                            fontWeight: 500,
+                          }}
+                        >
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {recentRuns.map(a => {
+                    {recentRuns.map((a) => {
                       const mi = a.distance / 1609.344;
-                      const paceMinPerMi = a.distance > 0 && a.moving_time > 0 ? (a.moving_time / 60) / mi : 0;
+                      const paceMinPerMi = a.distance > 0 && a.moving_time > 0 ? a.moving_time / 60 / mi : 0;
                       return (
                         <tr key={`${a.source ?? 'strava'}-${a.id}`} style={{ borderBottom: '1px solid var(--border)' }}>
                           <td style={{ padding: '0.6rem', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>
                             {formatShortDate(activityKey(a))}
                           </td>
-                          <td style={{ padding: '0.6rem', fontFamily: 'var(--font-display)', fontWeight: 500 }}>{a.name}</td>
-                          <td style={{ padding: '0.6rem', color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{formatDistanceShort(a.distance)}</td>
-                          <td style={{ padding: '0.6rem', color: 'var(--text-secondary)' }}>{formatDuration(a.moving_time)}</td>
-                          <td style={{ padding: '0.6rem', color: 'var(--text-secondary)', fontFamily: 'var(--font-display)' }}>{fmtPace(paceMinPerMi)} {paceUnitLabel()}</td>
-                          <td style={{ padding: '0.6rem', color: a.average_heartrate ? 'var(--color-error)' : 'var(--text-muted)' }}>
+                          <td style={{ padding: '0.6rem', fontFamily: 'var(--font-display)', fontWeight: 500 }}>
+                            {a.name}
+                          </td>
+                          <td
+                            style={{
+                              padding: '0.6rem',
+                              color: 'var(--apollo-gold)',
+                              fontWeight: 600,
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          >
+                            {formatDistanceShort(a.distance)}
+                          </td>
+                          <td style={{ padding: '0.6rem', color: 'var(--text-secondary)' }}>
+                            {formatDuration(a.moving_time)}
+                          </td>
+                          <td
+                            style={{
+                              padding: '0.6rem',
+                              color: 'var(--text-secondary)',
+                              fontFamily: 'var(--font-display)',
+                            }}
+                          >
+                            {fmtPace(paceMinPerMi)} {paceUnitLabel()}
+                          </td>
+                          <td
+                            style={{
+                              padding: '0.6rem',
+                              color: a.average_heartrate ? 'var(--color-error)' : 'var(--text-muted)',
+                            }}
+                          >
                             {a.average_heartrate ? `${Math.round(a.average_heartrate)}` : '—'}
                           </td>
                           <td style={{ padding: '0.6rem', color: 'var(--apollo-teal)' }}>

@@ -22,7 +22,9 @@ function connectWithCode(code: string): Promise<void> {
         athlete: tokens.athlete,
       });
       // Import history + match the plan in the background; failures are recorded in sync state.
-      runSync().catch(() => { /* recorded as the source's last sync error */ });
+      runSync().catch(() => {
+        /* recorded as the source's last sync error */
+      });
     });
     codeExchanges.set(code, pending);
   }
@@ -56,7 +58,9 @@ export default function AuthStravaCallback() {
       .catch((e) => {
         if (!cancelled) setError(e instanceof Error ? e.message : 'Connection failed.');
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [searchParams, navigate]);
 
   if (error) {
@@ -65,11 +69,22 @@ export default function AuthStravaCallback() {
         <div className="welcome-card">
           <h1 className="welcome-title">Strava connection failed</h1>
           <p style={{ color: 'var(--text-muted)', marginBottom: '1rem' }}>{error}</p>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-            Strava API access may require a paid plan. You can connect <strong>intervals.icu</strong> in Settings instead —
-            it&apos;s free and syncs from Garmin, Zwift, Wahoo, COROS and more.
+          <p
+            style={{
+              color: 'var(--text-secondary)',
+              marginBottom: '1rem',
+              fontSize: 'var(--text-sm)',
+              lineHeight: 1.5,
+            }}
+          >
+            Strava API access may require a paid plan. You can connect <strong>intervals.icu</strong> in Settings
+            instead — it&apos;s free and syncs from Garmin, Zwift, Wahoo, COROS and more.
           </p>
-          <button type="button" className="btn btn-primary" onClick={() => navigate('/settings?tab=connections', { replace: true })}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => navigate('/settings?tab=connections', { replace: true })}
+          >
             Back to Settings
           </button>
         </div>
@@ -81,7 +96,9 @@ export default function AuthStravaCallback() {
     <div className="welcome-flow">
       <div className="welcome-card">
         <h1 className="welcome-title">Connecting to Strava…</h1>
-        <p style={{ color: 'var(--text-muted)' }}>Please wait — your activities will start syncing in the background.</p>
+        <p style={{ color: 'var(--text-muted)' }}>
+          Please wait — your activities will start syncing in the background.
+        </p>
       </div>
     </div>
   );

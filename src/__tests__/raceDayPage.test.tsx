@@ -23,7 +23,15 @@ function renderAt(url: string) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
-        <Route path="/race" element={<><RaceDay /><LocationProbe /></>} />
+        <Route
+          path="/race"
+          element={
+            <>
+              <RaceDay />
+              <LocationProbe />
+            </>
+          }
+        />
         <Route path="/plan" element={<p>Plan page</p>} />
         <Route path="/settings" element={<p>Settings page</p>} />
       </Routes>
@@ -175,7 +183,12 @@ describe('RaceDay page — seeded data', () => {
     renderAt('/race');
     fireEvent.change(screen.getByLabelText('Race'), { target: { value: 'chicago' } });
     const saved = getMyRace();
-    expect(saved).toMatchObject({ raceId: 'chicago', date: '2026-10-11', startTime: '07:30', timeZone: 'America/Chicago' });
+    expect(saved).toMatchObject({
+      raceId: 'chicago',
+      date: '2026-10-11',
+      startTime: '07:30',
+      timeZone: 'America/Chicago',
+    });
     expect(screen.getByTestId('rd-countdown').textContent).toBe('3 days to go');
     expect((screen.getByLabelText('Race date') as HTMLInputElement).value).toBe('2026-10-11');
   });

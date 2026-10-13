@@ -50,7 +50,9 @@ function refresh(fileName) {
   } catch (err) {
     // Without a matching blockmap electron-updater simply downloads the whole
     // installer, so a stale one must not be published.
-    console.warn(`::warning::Could not regenerate ${fileName}.blockmap (${err.message}); removing it — updates will download the full installer.`);
+    console.warn(
+      `::warning::Could not regenerate ${fileName}.blockmap (${err.message}); removing it — updates will download the full installer.`,
+    );
     rmSync(`${file}.blockmap`, { force: true });
     const buf = readFileSync(file);
     return { sha512: createHash('sha512').update(buf).digest('base64'), size: statSync(file).size };

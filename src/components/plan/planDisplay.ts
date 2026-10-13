@@ -84,7 +84,10 @@ export function computePlanProgress(plan: TrainingPlan, isCompleted: IsDayComple
 export function formatLongDate(dateKey: string): string {
   if (!isDateKey(dateKey)) return dateKey;
   return parseDateKey(dateKey).toLocaleDateString(undefined, {
-    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
   });
 }
 

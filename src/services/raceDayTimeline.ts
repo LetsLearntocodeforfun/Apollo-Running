@@ -15,12 +15,7 @@
 
 import type { MilePacePlan } from '../types/raceStrategy';
 import { KM_PER_MI, formatDurationSec, timeAtDistance } from './raceStrategy';
-import {
-  RACE_BREAKFAST_FOODS,
-  RACE_BREAKFAST_G_PER_KG,
-  raceBreakfastCarbsG,
-  raceBreakfastGPerKg,
-} from './carbLoading';
+import { RACE_BREAKFAST_FOODS, RACE_BREAKFAST_G_PER_KG, raceBreakfastCarbsG, raceBreakfastGPerKg } from './carbLoading';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -282,10 +277,7 @@ export function generateRaceDayTimeline(input: RaceDayInput): RaceDayTimeline {
 // ── Pre-race: morning ─────────────────────────────────────────────────────────
 
 /** Alarm, fluids, breakfast (finished ≥ 15 min before leaving), leave. Returns leave minutes-before. */
-function addMorning(
-  b: Builder,
-  o: { lead: number; travel: number; meal: MealPreference; weightKg?: number },
-): number {
+function addMorning(b: Builder, o: { lead: number; travel: number; meal: MealPreference; weightKg?: number }): number {
   const leaveMB = o.lead + o.travel;
   const breakfastMB = Math.max(
     BREAKFAST_IDEAL_MIN_BEFORE,
@@ -294,40 +286,76 @@ function addMorning(
   const alarmMB = Math.max(breakfastMB + WAKE_TO_BREAKFAST_MIN, leaveMB + MIN_WAKE_TO_LEAVE_MIN);
   const finishEatingBy = formatClock(b.startMin - breakfastMB + BREAKFAST_DURATION_MIN);
 
-  pushAt(b, -alarmMB, 'pre-race', 'wake', 'Alarm — wake up',
-    'Bathroom, race kit on, bib pinned (lay everything out the night before).');
+  pushAt(
+    b,
+    -alarmMB,
+    'pre-race',
+    'wake',
+    'Alarm — wake up',
+    'Bathroom, race kit on, bib pinned (lay everything out the night before).',
+  );
   pushAt(b, -(alarmMB - 5), 'pre-race', 'nutrition', 'Drink fluids', fluidsCopy(o.weightKg));
-  pushAt(b, -breakfastMB, 'pre-race', 'nutrition', 'Breakfast', breakfastCopy(o.meal, o.weightKg, finishEatingBy, breakfastMB));
+  pushAt(
+    b,
+    -breakfastMB,
+    'pre-race',
+    'nutrition',
+    'Breakfast',
+    breakfastCopy(o.meal, o.weightKg, finishEatingBy, breakfastMB),
+  );
   if (breakfastMB > BREAKFAST_SNACK_THRESHOLD_MIN) {
     const used = new Set(b.events.map((e) => e.minutesBeforeStart).concat([leaveMB, o.lead]));
     const snackMB = pickFreeMinute([90, 100, 80, 110, 70, 120], used);
-    pushAt(b, -snackMB, 'pre-race', 'nutrition', 'Carb snack',
-      'Breakfast is more than 4 h before the gun: eat a 30–60g carb snack (banana, bar or sports drink) about 1–2 h before the start — on the way is fine.');
+    pushAt(
+      b,
+      -snackMB,
+      'pre-race',
+      'nutrition',
+      'Carb snack',
+      'Breakfast is more than 4 h before the gun: eat a 30–60g carb snack (banana, bar or sports drink) about 1–2 h before the start — on the way is fine.',
+    );
   }
-  pushAt(b, -leaveMB, 'pre-race', 'logistics', 'Leave for the start',
-    `${o.travel} min to the start area, arriving ${o.lead} min before the gun. Bib, timing chip, gels, phone and a throwaway layer.`);
+  pushAt(
+    b,
+    -leaveMB,
+    'pre-race',
+    'logistics',
+    'Leave for the start',
+    `${o.travel} min to the start area, arriving ${o.lead} min before the gun. Bib, timing chip, gels, phone and a throwaway layer.`,
+  );
   return leaveMB;
 }
 
-function breakfastCopy(meal: MealPreference, weightKg: number | undefined, finishBy: string, minutesBefore: number): string {
+function breakfastCopy(
+  meal: MealPreference,
+  weightKg: number | undefined,
+  finishBy: string,
+  minutesBefore: number,
+): string {
   // v1.0.7 (R-4): shared rule (1–4 g/kg, ≤ ~1 g/kg per hour before; mass capped at 90 kg)
   // and shared food copy — oatmeal is no longer called low-fibre.
   const gPerKg = raceBreakfastGPerKg(meal, minutesBefore);
   const carbs = weightKg
     ? `~${raceBreakfastCarbsG(weightKg, meal, minutesBefore)}g carbs (${gPerKg} g/kg)`
     : `about ${gPerKg} g of carbs per kg of body weight (add your weight in your profile to see grams)`;
-  return `${MEAL_LABEL[meal]} breakfast: ${carbs}. Finish eating by ${finishBy}, at least 15 min before you leave. ` +
-    RACE_BREAKFAST_FOODS;
+  return (
+    `${MEAL_LABEL[meal]} breakfast: ${carbs}. Finish eating by ${finishBy}, at least 15 min before you leave. ` +
+    RACE_BREAKFAST_FOODS
+  );
 }
 
 function fluidsCopy(weightKg: number | undefined): string {
   if (!weightKg) {
-    return 'Drink about 5–7 mL per kg of body weight (2.3–3.2 mL per lb) of water or sports drink over the next 30–60 min — ideally ≥ 4 h before the start. ' +
-      'If your urine is still dark about 2 h before the gun, add 3–5 mL/kg. Add your weight in your profile to see exact amounts.';
+    return (
+      'Drink about 5–7 mL per kg of body weight (2.3–3.2 mL per lb) of water or sports drink over the next 30–60 min — ideally ≥ 4 h before the start. ' +
+      'If your urine is still dark about 2 h before the gun, add 3–5 mL/kg. Add your weight in your profile to see exact amounts.'
+    );
   }
   const [lo, hi, topLo, topHi] = [5, 7, 3, 5].map((mlPerKg) => roundTo(weightKg * mlPerKg, 10));
-  return `Drink ${lo}–${hi} mL (${toOz(lo)}–${toOz(hi)} oz) of water or sports drink over the next 30–60 min (5–7 mL/kg, ideally ≥ 4 h before the start). ` +
-    `If your urine is still dark about 2 h before the gun, add ${topLo}–${topHi} mL (${toOz(topLo)}–${toOz(topHi)} oz). Sips only after that.`;
+  return (
+    `Drink ${lo}–${hi} mL (${toOz(lo)}–${toOz(hi)} oz) of water or sports drink over the next 30–60 min (5–7 mL/kg, ideally ≥ 4 h before the start). ` +
+    `If your urine is still dark about 2 h before the gun, add ${topLo}–${topHi} mL (${toOz(topLo)}–${toOz(topHi)} oz). Sips only after that.`
+  );
 }
 
 // ── Pre-race: start area ──────────────────────────────────────────────────────
@@ -354,17 +382,24 @@ function addStartArea(
   const hasCorrals = !fieldKnown || (o.fieldSize as number) >= MEDIUM_FIELD;
   const bagCloseMB = bigField ? 60 : 45;
 
-  pushAt(b, -o.lead, 'pre-race', 'logistics', 'Arrive at the start area',
+  pushAt(
+    b,
+    -o.lead,
+    'pre-race',
+    'logistics',
+    'Arrive at the start area',
     bigField
       ? 'Allow time for security and the walk to the start village — big races take a while to get through.'
-      : 'Find bag check, the porta-potties and your start corral before you need them.');
+      : 'Find bag check, the porta-potties and your start corral before you need them.',
+  );
 
   const steps: StartAreaStep[] = [
     { key: 'bag', desired: Math.min(o.lead - 10, bagCloseMB + 15), min: 3 },
     { key: 'potty', desired: PORTA_POTTY_MIN, min: 3 },
   ];
   if (hasCorrals) steps.push({ key: 'corral', desired: CORRAL_ENTRY_MIN, min: 3 });
-  if (o.includeWarmup) steps.push({ key: 'warmup', desired: WARMUP_START_MIN, min: WARMUP_END_MIN + MIN_WARMUP_DURATION_MIN });
+  if (o.includeWarmup)
+    steps.push({ key: 'warmup', desired: WARMUP_START_MIN, min: WARMUP_END_MIN + MIN_WARMUP_DURATION_MIN });
   if (!hasCorrals) steps.push({ key: 'lineup', desired: LINE_UP_MIN, min: 2 });
 
   let prev = o.lead;
@@ -372,7 +407,9 @@ function addStartArea(
     const mb = Math.min(step.desired, prev - START_AREA_STEP_GAP_MIN);
     if (mb < step.min) {
       if (step.key === 'warmup') {
-        b.warnings.push(`Not enough time for a warm-up with a ${o.lead}-min arrival — arrive earlier, or use the first mile as your warm-up.`);
+        b.warnings.push(
+          `Not enough time for a warm-up with a ${o.lead}-min arrival — arrive earlier, or use the first mile as your warm-up.`,
+        );
       } else {
         b.warnings.push(`A ${o.lead}-min arrival leaves too little time at the start area — arrive earlier.`);
       }
@@ -392,27 +429,59 @@ function addStartAreaStep(
   switch (key) {
     case 'bag':
       if (mb < o.bagCloseMB) {
-        b.warnings.push(`Bag check usually closes about ${o.bagCloseMB} min before the gun — with a ${o.lead}-min arrival you may miss it. Arrive earlier or skip the bag.`);
+        b.warnings.push(
+          `Bag check usually closes about ${o.bagCloseMB} min before the gun — with a ${o.lead}-min arrival you may miss it. Arrive earlier or skip the bag.`,
+        );
       }
-      pushAt(b, -mb, 'pre-race', 'logistics', 'Drop your gear bag',
-        `Bag check usually closes about ${o.bagCloseMB} min before the gun (${formatClock(b.startMin - o.bagCloseMB)}). Keep gels, phone/watch and a throwaway layer.`);
+      pushAt(
+        b,
+        -mb,
+        'pre-race',
+        'logistics',
+        'Drop your gear bag',
+        `Bag check usually closes about ${o.bagCloseMB} min before the gun (${formatClock(b.startMin - o.bagCloseMB)}). Keep gels, phone/watch and a throwaway layer.`,
+      );
       return;
     case 'potty':
-      pushAt(b, -mb, 'pre-race', 'logistics', 'Porta-potty stop',
-        'Queues at big races take 15–20 min, so join one now. Small sips only from here.');
+      pushAt(
+        b,
+        -mb,
+        'pre-race',
+        'logistics',
+        'Porta-potty stop',
+        'Queues at big races take 15–20 min, so join one now. Small sips only from here.',
+      );
       return;
     case 'corral':
-      pushAt(b, -mb, 'pre-race', 'race', 'Enter your corral',
-        `Corrals usually close about ${CORRAL_CLOSE_MIN} min before the gun (${formatClock(b.startMin - CORRAL_CLOSE_MIN)}). Line up with your pace group; stay warm in throwaway layers.`);
+      pushAt(
+        b,
+        -mb,
+        'pre-race',
+        'race',
+        'Enter your corral',
+        `Corrals usually close about ${CORRAL_CLOSE_MIN} min before the gun (${formatClock(b.startMin - CORRAL_CLOSE_MIN)}). Line up with your pace group; stay warm in throwaway layers.`,
+      );
       return;
     case 'warmup':
-      pushAt(b, -mb, 'pre-race', 'warmup', 'Warmup: easy jog + drills',
+      pushAt(
+        b,
+        -mb,
+        'pre-race',
+        'warmup',
+        'Warmup: easy jog + drills',
         `${mb - WARMUP_END_MIN} min: easy jog or brisk walk, leg swings and drills, then 3–4 relaxed strides — finish about ${WARMUP_END_MIN} min before the gun. ` +
-        'In a packed corral, do the drills in place. Optional: many marathoners use the first mile as the warm-up.');
+          'In a packed corral, do the drills in place. Optional: many marathoners use the first mile as the warm-up.',
+      );
       return;
     case 'lineup':
-      pushAt(b, -mb, 'pre-race', 'race', 'Line up at the start',
-        'Seed yourself by goal pace — not too close to the front.');
+      pushAt(
+        b,
+        -mb,
+        'pre-race',
+        'race',
+        'Line up at the start',
+        'Seed yourself by goal pace — not too close to the front.',
+      );
       return;
   }
 }
@@ -420,10 +489,13 @@ function addStartAreaStep(
 /** Pre-race fuel items (timeSec < 0) or, when `fuelItems` is omitted, a default gel at −15 min. */
 function addPreRaceFuel(b: Builder, fuelItems: TimelineFuelItem[] | undefined): void {
   const used = new Set(b.events.map((e) => e.minutesBeforeStart));
-  const defaultGel: TimelineFuelItem = { timeSec: -DEFAULT_PRE_RACE_GEL_MIN * 60, distanceMi: 0, label: 'Pre-race gel' };
-  const items = fuelItems === undefined
-    ? [defaultGel]
-    : fuelItems.filter((f) => Number.isFinite(f.timeSec) && f.timeSec < 0);
+  const defaultGel: TimelineFuelItem = {
+    timeSec: -DEFAULT_PRE_RACE_GEL_MIN * 60,
+    distanceMi: 0,
+    label: 'Pre-race gel',
+  };
+  const items =
+    fuelItems === undefined ? [defaultGel] : fuelItems.filter((f) => Number.isFinite(f.timeSec) && f.timeSec < 0);
   for (const item of items) {
     const mb = pickFreeMinute([Math.max(1, Math.round(-item.timeSec / 60))], used);
     used.add(mb);
@@ -437,8 +509,14 @@ function addPreRaceFuel(b: Builder, fuelItems: TimelineFuelItem[] | undefined): 
 
 function addGun(b: Builder, wave: string | undefined): void {
   const waveText = wave?.trim() ? ` Your start: ${wave.trim()}.` : '';
-  pushSec(b, 0, 'race', 'race', 'Gun time — race start',
-    `Start controlled: the first mile should feel easy — don't chase the crowd.${waveText}`);
+  pushSec(
+    b,
+    0,
+    'race',
+    'race',
+    'Gun time — race start',
+    `Start controlled: the first mile should feel easy — don't chase the crowd.${waveText}`,
+  );
 }
 
 function resolveDistance(distanceMi: number | undefined, milePaces: MilePacePlan[] | undefined): number {
@@ -461,7 +539,11 @@ function makeElapsedAt(
   return (mi) => (finishSec / distanceMi) * Math.min(mi, distanceMi);
 }
 
-interface Milestone { mi: number; title: string; tip: string }
+interface Milestone {
+  mi: number;
+  title: string;
+  tip: string;
+}
 
 /** 5K, 10K, halfway and — for a marathon only — 20 mi / 30K with the wall-zone copy. */
 function addMilestones(b: Builder, distanceMi: number, elapsedAt: (mi: number) => number): void {
@@ -479,14 +561,22 @@ function addMilestones(b: Builder, distanceMi: number, elapsedAt: (mi: number) =
     });
   }
   if (isMarathon) {
-    list.push(b.unit === 'km'
-      ? { mi: 30 / KM_PER_MI, title: '30K', tip: wallZoneTip('12 km') }
-      : { mi: 20, title: '20 mi', tip: wallZoneTip('10K') });
+    list.push(
+      b.unit === 'km'
+        ? { mi: 30 / KM_PER_MI, title: '30K', tip: wallZoneTip('12 km') }
+        : { mi: 20, title: '20 mi', tip: wallZoneTip('10K') },
+    );
   }
   for (const m of list.filter((x) => x.mi < distanceMi - 0.05).sort((x, y) => x.mi - y.mi)) {
     const elapsed = elapsedAt(m.mi);
-    pushSec(b, elapsed, 'race', 'milestone', m.title,
-      `Projected ${formatDurationSec(elapsed)} at ${formatDistance(m.mi, b.unit)}. ${m.tip}`);
+    pushSec(
+      b,
+      elapsed,
+      'race',
+      'milestone',
+      m.title,
+      `Projected ${formatDurationSec(elapsed)} at ${formatDistance(m.mi, b.unit)}. ${m.tip}`,
+    );
   }
 }
 
@@ -499,23 +589,42 @@ function addInRaceFuel(b: Builder, fuelItems: TimelineFuelItem[] | undefined, fi
   for (const item of fuelItems ?? []) {
     if (!Number.isFinite(item.timeSec) || item.timeSec < 0 || item.timeSec > finishSec) continue;
     const carbs = isPositive(item.carbsG) ? ` (${Math.round(item.carbsG)}g carbs)` : '';
-    const where = Number.isFinite(item.distanceMi) && item.distanceMi > 0
-      ? `, around ${formatDistance(item.distanceMi, b.unit)}`
-      : '';
+    const where =
+      Number.isFinite(item.distanceMi) && item.distanceMi > 0
+        ? `, around ${formatDistance(item.distanceMi, b.unit)}`
+        : '';
     const note = item.note?.trim() ? ` ${item.note.trim()}.` : ' Take it with water at the nearest aid station.';
-    pushSec(b, item.timeSec, 'race', 'fueling', `${item.label}${carbs}`,
-      `${formatDurationSec(item.timeSec)} into the race${where}.${note}`);
+    pushSec(
+      b,
+      item.timeSec,
+      'race',
+      'fueling',
+      `${item.label}${carbs}`,
+      `${formatDurationSec(item.timeSec)} into the race${where}.${note}`,
+    );
   }
 }
 
 function addFinishAndRecovery(b: Builder, finishSec: number, weightKg: number | undefined): void {
-  pushSec(b, finishSec, 'race', 'milestone', 'Projected finish',
-    `Projected time ${formatDurationSec(finishSec)}. Keep walking through the finish area.`);
+  pushSec(
+    b,
+    finishSec,
+    'race',
+    'milestone',
+    'Projected finish',
+    `Projected time ${formatDurationSec(finishSec)}. Keep walking through the finish area.`,
+  );
   const carbs = weightKg
     ? `~${roundTo(weightKg, 5)}–${roundTo(weightKg * 1.2, 5)}g carbs (1–1.2 g/kg)`
     : 'carbs (about 1–1.2 g per kg of body weight)';
-  pushSec(b, finishSec + RECOVERY_AFTER_FINISH_MIN * 60, 'post-race', 'nutrition', 'Recovery: refuel and rehydrate',
-    `Keep walking. Within 30–60 min: fluids with electrolytes, ${carbs} and 20–25g protein. Warm layers on — you'll cool quickly.`);
+  pushSec(
+    b,
+    finishSec + RECOVERY_AFTER_FINISH_MIN * 60,
+    'post-race',
+    'nutrition',
+    'Recovery: refuel and rehydrate',
+    `Keep walking. Within 30–60 min: fluids with electrolytes, ${carbs} and 20–25g protein. Warm layers on — you'll cool quickly.`,
+  );
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -546,11 +655,25 @@ function pickFreeMinute(candidates: number[], used: Set<number>): number {
 }
 
 /** Push an event at a whole-minute offset (negative = before the gun). */
-function pushAt(b: Builder, offsetMin: number, phase: TimelinePhase, category: TimelineCategory, title: string, description: string): void {
+function pushAt(
+  b: Builder,
+  offsetMin: number,
+  phase: TimelinePhase,
+  category: TimelineCategory,
+  title: string,
+  description: string,
+): void {
   pushSec(b, offsetMin * 60, phase, category, title, description);
 }
 
-function pushSec(b: Builder, offsetSec: number, phase: TimelinePhase, category: TimelineCategory, title: string, description: string): void {
+function pushSec(
+  b: Builder,
+  offsetSec: number,
+  phase: TimelinePhase,
+  category: TimelineCategory,
+  title: string,
+  description: string,
+): void {
   const offsetMin = Math.round(offsetSec / 60);
   const clockMinutes = b.startMin + offsetMin;
   b.events.push({
@@ -586,8 +709,9 @@ function buildTextExport(t: {
   warnings: string[];
 }): string {
   const lines = [`RACE DAY TIMELINE — ${t.raceName}`];
-  const meta = [t.raceDate ? `Race date: ${t.raceDate}` : '', t.wave?.trim() ? `Start: ${t.wave.trim()}` : '']
-    .filter(Boolean);
+  const meta = [t.raceDate ? `Race date: ${t.raceDate}` : '', t.wave?.trim() ? `Start: ${t.wave.trim()}` : ''].filter(
+    Boolean,
+  );
   if (meta.length) lines.push(meta.join(' · '));
   lines.push(t.tzLabel ? `Times are race-local (${t.tzLabel})` : 'Times are race-local');
   lines.push('═'.repeat(40), '');

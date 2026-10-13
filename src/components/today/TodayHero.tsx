@@ -36,19 +36,24 @@ function HeroBody({ journey, today, startDate, workout }: TodayHeroProps) {
           <p className="today-eyebrow">Plan countdown</p>
           <h2 className="today-hero-title">Your plan starts {formatWeekdayDate(start)}</h2>
           <p className="today-text">
-            Week 1 begins {relativeDaysText(today, start)}. Until then, keep running easy a few times a week to build your base.
+            Week 1 begins {relativeDaysText(today, start)}. Until then, keep running easy a few times a week to build
+            your base.
           </p>
           <div className="today-actions">
-            <Link to="/plan" className="btn btn-secondary">View your plan</Link>
+            <Link to="/plan" className="btn btn-secondary">
+              View your plan
+            </Link>
           </div>
         </div>
       );
     }
     case 'training':
     case 'taper':
-      return workout
-        ? <TodayWorkout {...workout} headingLevel={2} taper={journey.phase === 'taper'} />
-        : <NothingToday />;
+      return workout ? (
+        <TodayWorkout {...workout} headingLevel={2} taper={journey.phase === 'taper'} />
+      ) : (
+        <NothingToday />
+      );
     case 'race-week':
       return (
         <>
@@ -59,7 +64,9 @@ function HeroBody({ journey, today, startDate, workout }: TodayHeroProps) {
             </h2>
             <p className="today-text">Keep runs short and easy, sleep well, hydrate and get your race-day kit ready.</p>
             <div className="today-actions">
-              <Link to="/race?tab=race-week" className="btn btn-primary">Race week checklist</Link>
+              <Link to="/race?tab=race-week" className="btn btn-primary">
+                Race week checklist
+              </Link>
             </div>
           </div>
           {workout && <TodayWorkout {...workout} headingLevel={3} />}
@@ -72,7 +79,9 @@ function HeroBody({ journey, today, startDate, workout }: TodayHeroProps) {
           <h2 className="today-hero-title">Race day!</h2>
           <p className="today-text">Start conservatively, fuel early and trust your training. You’ve got this.</p>
           <div className="today-actions">
-            <Link to="/race?tab=race-morning" className="btn btn-primary">Race morning plan</Link>
+            <Link to="/race?tab=race-morning" className="btn btn-primary">
+              Race morning plan
+            </Link>
           </div>
         </div>
       );
@@ -82,11 +91,16 @@ function HeroBody({ journey, today, startDate, workout }: TodayHeroProps) {
           <p className="today-eyebrow">Recovery</p>
           <h2 className="today-hero-title">Recover well</h2>
           <p className="today-text">
-            Congratulations on your race! Take the next one to two weeks easy: walk, rest, and only jog gently when your legs feel fresh.
+            Congratulations on your race! Take the next one to two weeks easy: walk, rest, and only jog gently when your
+            legs feel fresh.
           </p>
           <div className="today-actions">
-            <Link to="/race" className="btn btn-secondary">Review your race</Link>
-            <Link to="/plan" className="today-link">Pick your next plan</Link>
+            <Link to="/race" className="btn btn-secondary">
+              Review your race
+            </Link>
+            <Link to="/plan" className="today-link">
+              Pick your next plan
+            </Link>
           </div>
         </div>
       );
@@ -95,9 +109,13 @@ function HeroBody({ journey, today, startDate, workout }: TodayHeroProps) {
         <div className="today-hero-banner">
           <p className="today-eyebrow">Off-season</p>
           <h2 className="today-hero-title">Between training blocks</h2>
-          <p className="today-text">Enjoy relaxed running and cross-training. When you’re ready, pick a new race and plan.</p>
+          <p className="today-text">
+            Enjoy relaxed running and cross-training. When you’re ready, pick a new race and plan.
+          </p>
           <div className="today-actions">
-            <Link to="/plan" className="btn btn-primary">Pick your next plan</Link>
+            <Link to="/plan" className="btn btn-primary">
+              Pick your next plan
+            </Link>
           </div>
         </div>
       );
@@ -107,9 +125,14 @@ function HeroBody({ journey, today, startDate, workout }: TodayHeroProps) {
         <EmptyState
           icon="🏁"
           title="No training plan yet"
-          action={<Link to="/plan" className="btn btn-primary">Pick a training plan</Link>}
+          action={
+            <Link to="/plan" className="btn btn-primary">
+              Pick a training plan
+            </Link>
+          }
         >
-          Choose a plan from Hal Higdon, Hansons, Pfitzinger and more, set your race date, and Apollo schedules every run.
+          Choose a plan from Hal Higdon, Hansons, Pfitzinger and more, set your race date, and Apollo schedules every
+          run.
         </EmptyState>
       );
   }
@@ -119,7 +142,9 @@ function NothingToday() {
   return (
     <div className="today-hero-banner">
       <h2 className="today-hero-title">Nothing scheduled today</h2>
-      <p className="today-text">Your plan has no session for today. <Link to="/plan">Open your plan</Link></p>
+      <p className="today-text">
+        Your plan has no session for today. <Link to="/plan">Open your plan</Link>
+      </p>
     </div>
   );
 }

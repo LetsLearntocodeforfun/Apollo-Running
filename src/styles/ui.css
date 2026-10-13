@@ -28,7 +28,10 @@
   font-size: var(--text-sm);
   font-weight: var(--weight-semibold);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease;
 }
 
 .ui-tab:hover:not(:disabled) {
@@ -103,13 +106,13 @@
 }
 
 .ui-btn-danger {
-  background: #C0392B;
+  background: #c0392b;
   color: #fff;
-  border: 1px solid #E74C3C;
+  border: 1px solid #e74c3c;
 }
 
 .ui-btn-danger:hover {
-  background: #A93226;
+  background: #a93226;
 }
 
 /* ── Empty state ────────────────────────────────────────── */

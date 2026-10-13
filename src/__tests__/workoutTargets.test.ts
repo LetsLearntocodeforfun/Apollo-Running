@@ -176,7 +176,7 @@ describe('getWorkoutTarget', () => {
   describe("plan's own structure (v1.0.7)", () => {
     const paces = calculateTrainingPaces(VDOT_45)!;
 
-    it('T-10: parses the plan\'s reps', () => {
+    it("T-10: parses the plan's reps", () => {
       expect(parsePlanReps('8 × 400 m intervals')).toEqual({ repeats: 8, meters: 400, repLabel: '400m', hill: false });
       expect(parsePlanReps('5 × 1 km intervals')).toMatchObject({ repeats: 5, meters: 1000, repLabel: '1 km' });
       expect(parsePlanReps('6 × 1 mi strength')).toMatchObject({ repeats: 6, meters: 1609 });
@@ -185,7 +185,7 @@ describe('getWorkoutTarget', () => {
       expect(parsePlanReps('5 mi speed workout')).toBeNull();
     });
 
-    it('T-10: speed targets keep the plan\'s reps instead of 800 m', () => {
+    it("T-10: speed targets keep the plan's reps instead of 800 m", () => {
       const t = getWorkoutTarget('Speed', VDOT_45, 6, { label: '3 × 1600 m intervals' })!;
       expect(t.intervals![0].repeats).toBe(3);
       expect(t.intervals![0].description).toContain('3×1600m');
@@ -197,7 +197,9 @@ describe('getWorkoutTarget', () => {
       expect(fourHundreds.intervals![0].repeats).toBe(12);
       expect(fourHundreds.targetPaceRange).toEqual(t.targetPaceRange);
       // No reps in the description → Apollo's default 800s.
-      expect(getWorkoutTarget('Speed', VDOT_45, 6, { label: '6 mi speed' })!.intervals![0].description).toContain('800m');
+      expect(getWorkoutTarget('Speed', VDOT_45, 6, { label: '6 mi speed' })!.intervals![0].description).toContain(
+        '800m',
+      );
       expect(getSpeedStructure({ label: '6 × hill repeats' }, 6, paces)).toMatchObject({ repeats: 6, repMeters: null });
     });
 
@@ -242,7 +244,7 @@ describe('getWorkoutTarget', () => {
       }
     });
 
-    it('T-17: marathon-pace targets keep the plan\'s MP miles', () => {
+    it("T-17: marathon-pace targets keep the plan's MP miles", () => {
       expect(parseMarathonPaceMiles({ label: '8 mi tempo at marathon pace', distanceMi: 10 })).toBe(8);
       expect(parseMarathonPaceMiles({ label: '5 mi with 3 at marathon pace', distanceMi: 5 })).toBe(3);
       expect(parseMarathonPaceMiles({ label: '8 mi marathon pace', distanceMi: 8 })).toBeNull();

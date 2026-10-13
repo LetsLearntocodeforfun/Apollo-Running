@@ -22,34 +22,27 @@ contextBridge.exposeInMainWorld('electronAPI', {
     set: (key: string, value: string): Promise<{ success: boolean; encrypted?: boolean; error?: string }> =>
       ipcRenderer.invoke('secure-storage:set', key, value),
     /** Retrieve and decrypt a stored value */
-    get: (key: string): Promise<string | null> =>
-      ipcRenderer.invoke('secure-storage:get', key),
+    get: (key: string): Promise<string | null> => ipcRenderer.invoke('secure-storage:get', key),
     /** Remove a stored value */
     remove: (key: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('secure-storage:remove', key),
     /** Check if OS-level encryption is available */
-    isAvailable: (): Promise<boolean> =>
-      ipcRenderer.invoke('secure-storage:is-available'),
+    isAvailable: (): Promise<boolean> => ipcRenderer.invoke('secure-storage:is-available'),
   },
   updater: {
     /** Get current update state */
-    getState: (): Promise<UpdateState> =>
-      ipcRenderer.invoke('updater:get-state'),
+    getState: (): Promise<UpdateState> => ipcRenderer.invoke('updater:get-state'),
     /** Manually check for updates */
-    check: (): Promise<UpdateState> =>
-      ipcRenderer.invoke('updater:check'),
+    check: (): Promise<UpdateState> => ipcRenderer.invoke('updater:check'),
     /** Download an available update */
-    download: (): Promise<UpdateState> =>
-      ipcRenderer.invoke('updater:download'),
+    download: (): Promise<UpdateState> => ipcRenderer.invoke('updater:download'),
     /** Install downloaded update and restart */
-    install: (): Promise<UpdateState> =>
-      ipcRenderer.invoke('updater:install'),
+    install: (): Promise<UpdateState> => ipcRenderer.invoke('updater:install'),
     /** Send auto-update preferences to main process */
     configure: (prefs: { autoCheck: boolean; autoDownload: boolean }): Promise<UpdateState> =>
       ipcRenderer.invoke('updater:configure', prefs),
     /** Open the GitHub releases page in the browser (manual updates on macOS). */
-    openDownloadPage: (): Promise<boolean> =>
-      ipcRenderer.invoke('updater:open-download-page'),
+    openDownloadPage: (): Promise<boolean> => ipcRenderer.invoke('updater:open-download-page'),
     /** Listen for update state changes from the main process */
     onStateChanged: (callback: (state: UpdateState) => void): (() => void) => {
       const handler = (_event: unknown, state: UpdateState) => callback(state);
@@ -66,7 +59,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
       const handler = () => {
         Promise.resolve()
           .then(flush)
-          .catch(() => { /* never block closing */ })
+          .catch(() => {
+            /* never block closing */
+          })
           .finally(() => ipcRenderer.send('lifecycle:flush-done'));
       };
       ipcRenderer.on('lifecycle:flush-request', handler);

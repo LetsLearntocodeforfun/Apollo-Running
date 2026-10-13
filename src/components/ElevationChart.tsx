@@ -36,15 +36,26 @@ function niceStep(range: number): number {
  * Course elevation profile (SVG, no dependencies). Unit-aware axes, an
  * optional highlighted segment (RS-13) and a text summary for screen readers.
  */
-export default function ElevationChart({ points, totalDistanceMi, highlight, highlightMile, unit, height = 180 }: Props) {
+export default function ElevationChart({
+  points,
+  totalDistanceMi,
+  highlight,
+  highlightMile,
+  unit,
+  height = 180,
+}: Props) {
   const gradientId = `elev-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   if (points.length < 2) {
-    return <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', padding: '1rem', margin: 0 }}>No elevation data available.</p>;
+    return (
+      <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', padding: '1rem', margin: 0 }}>
+        No elevation data available.
+      </p>
+    );
   }
 
   const u: DistanceUnit = unit ?? getDistanceUnit();
   const lastMi = points[points.length - 1].distanceMi;
-  const total = Number.isFinite(totalDistanceMi) && totalDistanceMi > 0 ? totalDistanceMi : (lastMi > 0 ? lastMi : 1);
+  const total = Number.isFinite(totalDistanceMi) && totalDistanceMi > 0 ? totalDistanceMi : lastMi > 0 ? lastMi : 1;
   const toElev = (ft: number) => (u === 'km' ? ft / FT_PER_M : ft);
   const elevSuffix = u === 'km' ? ' m' : ' ft';
   const distUnits = u === 'km' ? total * KM_PER_MI : total;
@@ -61,11 +72,15 @@ export default function ElevationChart({ points, totalDistanceMi, highlight, hig
   const elevPad = elevRange * 0.1;
 
   const scaleX = (mi: number) => padding.left + (Math.min(Math.max(mi, 0), total) / total) * chartW;
-  const scaleY = (elev: number) => padding.top + chartH - ((elev - minElev + elevPad) / (elevRange + 2 * elevPad)) * chartH;
+  const scaleY = (elev: number) =>
+    padding.top + chartH - ((elev - minElev + elevPad) / (elevRange + 2 * elevPad)) * chartH;
 
   const pathPoints = points.map((p) => `${scaleX(p.distanceMi)},${scaleY(toElev(p.elevationFt))}`);
   const baseY = scaleY(minElev - elevPad);
-  const areaPath = `M${pathPoints[0]} ${pathPoints.slice(1).map((p) => `L${p}`).join(' ')} L${scaleX(lastMi)},${baseY} L${scaleX(points[0].distanceMi)},${baseY} Z`;
+  const areaPath = `M${pathPoints[0]} ${pathPoints
+    .slice(1)
+    .map((p) => `L${p}`)
+    .join(' ')} L${scaleX(lastMi)},${baseY} L${scaleX(points[0].distanceMi)},${baseY} Z`;
   const linePath = `M${pathPoints.join(' L')}`;
 
   const landmarks = points.filter((p) => p.landmark);
@@ -79,8 +94,8 @@ export default function ElevationChart({ points, totalDistanceMi, highlight, hig
   for (let d = 0; d <= distUnits + 1e-9; d += distStep) distMarkers.push(d);
   const unitToMi = (d: number) => (u === 'km' ? d / KM_PER_MI : d);
 
-  const band: ElevationHighlight | undefined = highlight
-    ?? (highlightMile != null ? { fromMi: Math.max(0, highlightMile - 1), toMi: highlightMile } : undefined);
+  const band: ElevationHighlight | undefined =
+    highlight ?? (highlightMile != null ? { fromMi: Math.max(0, highlightMile - 1), toMi: highlightMile } : undefined);
 
   const hiIdx = elevations.indexOf(maxElev);
   const loIdx = elevations.indexOf(minElev);
@@ -97,13 +112,24 @@ export default function ElevationChart({ points, totalDistanceMi, highlight, hig
       {gridElevs.map((e) => (
         <g key={`grid-${e}`}>
           <line
-            x1={padding.left} y1={scaleY(e)}
-            x2={width - padding.right} y2={scaleY(e)}
-            stroke="var(--border)" strokeWidth={0.5} strokeDasharray="3,3"
+            x1={padding.left}
+            y1={scaleY(e)}
+            x2={width - padding.right}
+            y2={scaleY(e)}
+            stroke="var(--border)"
+            strokeWidth={0.5}
+            strokeDasharray="3,3"
           />
-          <text x={padding.left - 5} y={scaleY(e) + 3} textAnchor="end"
-            fill="var(--text-muted)" fontSize={9} fontFamily="var(--font-mono)">
-            {e}{elevSuffix}
+          <text
+            x={padding.left - 5}
+            y={scaleY(e) + 3}
+            textAnchor="end"
+            fill="var(--text-muted)"
+            fontSize={9}
+            fontFamily="var(--font-mono)"
+          >
+            {e}
+            {elevSuffix}
           </text>
         </g>
       ))}
@@ -111,28 +137,46 @@ export default function ElevationChart({ points, totalDistanceMi, highlight, hig
       {distMarkers.map((d) => (
         <g key={`dist-${d}`}>
           <line
-            x1={scaleX(unitToMi(d))} y1={padding.top}
-            x2={scaleX(unitToMi(d))} y2={height - padding.bottom}
-            stroke="var(--border-subtle)" strokeWidth={0.5}
+            x1={scaleX(unitToMi(d))}
+            y1={padding.top}
+            x2={scaleX(unitToMi(d))}
+            y2={height - padding.bottom}
+            stroke="var(--border-subtle)"
+            strokeWidth={0.5}
           />
-          <text x={scaleX(unitToMi(d))} y={height - padding.bottom + 15} textAnchor="middle"
-            fill="var(--text-muted)" fontSize={9} fontFamily="var(--font-mono)">
+          <text
+            x={scaleX(unitToMi(d))}
+            y={height - padding.bottom + 15}
+            textAnchor="middle"
+            fill="var(--text-muted)"
+            fontSize={9}
+            fontFamily="var(--font-mono)"
+          >
             {d}
           </text>
         </g>
       ))}
 
-      <text x={width / 2} y={height - 5} textAnchor="middle"
-        fill="var(--text-muted)" fontSize={10} fontFamily="var(--font-display)">
+      <text
+        x={width / 2}
+        y={height - 5}
+        textAnchor="middle"
+        fill="var(--text-muted)"
+        fontSize={10}
+        fontFamily="var(--font-display)"
+      >
         {u === 'km' ? 'Distance (km)' : 'Distance (miles)'}
       </text>
 
       {band && band.toMi > band.fromMi && (
         <rect
           data-testid="elevation-highlight"
-          x={scaleX(band.fromMi)} y={padding.top}
-          width={Math.max(2, scaleX(band.toMi) - scaleX(band.fromMi))} height={chartH}
-          fill="var(--apollo-gold)" opacity={0.18}
+          x={scaleX(band.fromMi)}
+          y={padding.top}
+          width={Math.max(2, scaleX(band.toMi) - scaleX(band.fromMi))}
+          height={chartH}
+          fill="var(--apollo-gold)"
+          opacity={0.18}
         />
       )}
 
@@ -148,14 +192,22 @@ export default function ElevationChart({ points, totalDistanceMi, highlight, hig
       {landmarks.map((p, i) => (
         <g key={`lm-${i}`}>
           <circle
-            cx={scaleX(p.distanceMi)} cy={scaleY(toElev(p.elevationFt))}
-            r={3} fill="var(--apollo-gold)" stroke="var(--bg-card)" strokeWidth={1.5}
+            cx={scaleX(p.distanceMi)}
+            cy={scaleY(toElev(p.elevationFt))}
+            r={3}
+            fill="var(--apollo-gold)"
+            stroke="var(--bg-card)"
+            strokeWidth={1.5}
           />
           {i % 2 === 0 && (
             <text
-              x={scaleX(p.distanceMi)} y={scaleY(toElev(p.elevationFt)) - 8}
-              textAnchor="middle" fill="var(--text-secondary)" fontSize={7.5}
-              fontFamily="var(--font-display)" fontWeight={600}
+              x={scaleX(p.distanceMi)}
+              y={scaleY(toElev(p.elevationFt)) - 8}
+              textAnchor="middle"
+              fill="var(--text-secondary)"
+              fontSize={7.5}
+              fontFamily="var(--font-display)"
+              fontWeight={600}
             >
               {(p.landmark?.length ?? 0) > 25 ? `${p.landmark?.slice(0, 22)}…` : p.landmark}
             </text>

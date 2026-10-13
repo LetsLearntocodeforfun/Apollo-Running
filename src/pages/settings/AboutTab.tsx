@@ -44,9 +44,14 @@ function UpdatesCard({ updater }: { updater: Updater }) {
 
   useEffect(() => {
     let cancelled = false;
-    updater.getState()
-      .then((state) => { if (!cancelled) setUpdateState(state); })
-      .catch(() => { /* the state arrives with the next change event */ });
+    updater
+      .getState()
+      .then((state) => {
+        if (!cancelled) setUpdateState(state);
+      })
+      .catch(() => {
+        /* the state arrives with the next change event */
+      });
     const unsubscribe = updater.onStateChanged((state) => {
       if (cancelled) return;
       setUpdateState(state);
@@ -61,7 +66,8 @@ function UpdatesCard({ updater }: { updater: Updater }) {
   /** Persist the update preferences and reconfigure the main process right away. */
   const applyUpdatePrefs = (patch: { autoCheckUpdates?: boolean; autoDownloadUpdates?: boolean }, message: string) => {
     const next = updateAppPrefs(patch);
-    updater.configure({ autoCheck: next.autoCheckUpdates, autoDownload: next.autoDownloadUpdates })
+    updater
+      .configure({ autoCheck: next.autoCheckUpdates, autoDownload: next.autoDownloadUpdates })
       .then(() => prefsStatus.success(message))
       .catch(() => prefsStatus.error('Saved, but the updater could not apply it until Apollo restarts.'));
   };
@@ -96,9 +102,10 @@ function UpdatesCard({ updater }: { updater: Updater }) {
     }
   };
 
-  const progress = updateState?.status === 'downloading' && updateState.downloadProgress != null
-    ? Math.max(0, Math.min(100, Math.round(updateState.downloadProgress)))
-    : null;
+  const progress =
+    updateState?.status === 'downloading' && updateState.downloadProgress != null
+      ? Math.max(0, Math.min(100, Math.round(updateState.downloadProgress)))
+      : null;
 
   return (
     <div className="card settings-card settings-card--teal">
@@ -107,8 +114,8 @@ function UpdatesCard({ updater }: { updater: Updater }) {
         <span className="settings-badge settings-badge--success">Recommended</span>
       </h2>
       <p className="settings-lead">
-        Apollo checks GitHub for new releases only if you turn on automatic checks or press Check for updates.
-        Updates are never forced — you decide when to install.
+        Apollo checks GitHub for new releases only if you turn on automatic checks or press Check for updates. Updates
+        are never forced — you decide when to install.
       </p>
       <label className="settings-check">
         <input
@@ -132,7 +139,10 @@ function UpdatesCard({ updater }: { updater: Updater }) {
             checked={appPrefs.autoDownloadUpdates}
             onChange={(e) => {
               const checked = e.target.checked;
-              applyUpdatePrefs({ autoDownloadUpdates: checked }, `Automatic downloads turned ${checked ? 'on' : 'off'}.`);
+              applyUpdatePrefs(
+                { autoDownloadUpdates: checked },
+                `Automatic downloads turned ${checked ? 'on' : 'off'}.`,
+              );
             }}
           />
           <span>Download updates automatically</span>
@@ -141,16 +151,35 @@ function UpdatesCard({ updater }: { updater: Updater }) {
       <StatusLine status={prefsStatus.status} />
 
       <div className="settings-actions">
-        <button type="button" className="btn btn-secondary" disabled={checking} onClick={() => { void handleCheck(); }}>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          disabled={checking}
+          onClick={() => {
+            void handleCheck();
+          }}
+        >
           {checking ? 'Checking…' : 'Check for updates'}
         </button>
         {updateState?.status === 'available' && (
-          <button type="button" className="btn btn-primary" onClick={() => { void handleDownload(); }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              void handleDownload();
+            }}
+          >
             Download {updateState.version ? `v${updateState.version}` : 'update'}
           </button>
         )}
         {updateState?.status === 'downloaded' && (
-          <button type="button" className="btn btn-primary" onClick={() => { void handleInstall(); }}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() => {
+              void handleInstall();
+            }}
+          >
             Restart &amp; Install
           </button>
         )}
@@ -158,7 +187,9 @@ function UpdatesCard({ updater }: { updater: Updater }) {
       {progress !== null && (
         <div className="settings-progress">
           <progress id="settings-update-progress" max={100} value={progress} aria-label="Update download progress" />
-          <span className="settings-muted" aria-hidden="true">{progress}%</span>
+          <span className="settings-muted" aria-hidden="true">
+            {progress}%
+          </span>
         </div>
       )}
       <StatusLine status={actionStatus.status ?? describeUpdateState(updateState)} />
@@ -167,7 +198,7 @@ function UpdatesCard({ updater }: { updater: Updater }) {
 }
 
 export default function AboutTab() {
-  const updater = typeof window !== 'undefined' ? window.electronAPI?.updater ?? null : null;
+  const updater = typeof window !== 'undefined' ? (window.electronAPI?.updater ?? null) : null;
   const isDesktop = typeof window !== 'undefined' && !!window.electronAPI;
 
   return (
@@ -193,11 +224,12 @@ export default function AboutTab() {
           <div className="card settings-card">
             <h2 className="card-title settings-card-title">Web version</h2>
             <p className="settings-lead">
-              You&apos;re using Apollo in a web browser. New versions arrive when you reload the page — there&apos;s nothing to install.
+              You&apos;re using Apollo in a web browser. New versions arrive when you reload the page — there&apos;s
+              nothing to install.
             </p>
             <p className="settings-hint">
-              Your data is kept in this browser only. Clearing this site&apos;s data deletes it, so keep a downloaded copy from{' '}
-              <Link to={settingsTabPath('data')}>Data &amp; Privacy</Link>.
+              Your data is kept in this browser only. Clearing this site&apos;s data deletes it, so keep a downloaded
+              copy from <Link to={settingsTabPath('data')}>Data &amp; Privacy</Link>.
             </p>
           </div>
         )
@@ -214,7 +246,9 @@ export default function AboutTab() {
               {plan.attribution?.sources.map((s) => (
                 <span key={s.url}>
                   {' · '}
-                  <a href={s.url} target="_blank" rel="noopener noreferrer">{s.label}</a>
+                  <a href={s.url} target="_blank" rel="noopener noreferrer">
+                    {s.label}
+                  </a>
                 </span>
               ))}
             </li>

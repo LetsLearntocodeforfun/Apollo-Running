@@ -30,7 +30,13 @@ import { connectIntervals } from '../services/activitySource';
 import { runSync, type AutoSyncReport } from '../services/autoSync';
 import { getAppPreferences, setAppPreferences } from '../services/appPreferences';
 import { getAthleteProfile, updateAthleteProfile } from '../services/athleteProfile';
-import { getStravaCredentials, getStravaTokens, setIntervalsCredentials, setStravaCredentials, setStravaTokens } from '../services/storage';
+import {
+  getStravaCredentials,
+  getStravaTokens,
+  setIntervalsCredentials,
+  setStravaCredentials,
+  setStravaTokens,
+} from '../services/storage';
 import { getNeedsReconnect, setNeedsReconnect } from '../services/connectionHealth';
 import { APP_VERSION } from '../version';
 import { addDays, todayKey } from '../utils/localDate';
@@ -51,8 +57,14 @@ function renderSettings(entry: string) {
 
 const syncReport: AutoSyncReport = {
   summary: {
-    sources: ['intervals'], fetched: 3, added: 3, updated: 0, full: true, errors: [],
-    startedAt: '2026-01-01T00:00:00.000Z', finishedAt: '2026-01-01T00:00:01.000Z',
+    sources: ['intervals'],
+    fetched: 3,
+    added: 3,
+    updated: 0,
+    full: true,
+    errors: [],
+    startedAt: '2026-01-01T00:00:00.000Z',
+    finishedAt: '2026-01-01T00:00:01.000Z',
   },
   results: [],
 };
@@ -62,7 +74,9 @@ type ConnectedAthlete = Awaited<ReturnType<typeof connectIntervals>>;
 beforeEach(() => {
   vi.mocked(reloadApp).mockReset();
   vi.mocked(deleteAllLocalData).mockReset().mockResolvedValue(undefined);
-  vi.mocked(connectIntervals).mockReset().mockResolvedValue({ firstname: 'Ana', lastname: 'Runner' } as ConnectedAthlete);
+  vi.mocked(connectIntervals)
+    .mockReset()
+    .mockResolvedValue({ firstname: 'Ana', lastname: 'Runner' } as ConnectedAthlete);
   vi.mocked(runSync).mockReset().mockResolvedValue(syncReport);
 });
 
@@ -259,7 +273,9 @@ describe('Connections', () => {
 
   it('web: Strava tokens saved earlier can still be disconnected', async () => {
     await setStravaTokens({
-      access_token: 'a', refresh_token: 'r', expires_at: 2_000_000_000,
+      access_token: 'a',
+      refresh_token: 'r',
+      expires_at: 2_000_000_000,
       athlete: { id: 1, firstname: 'Ana', lastname: 'Runner' },
     });
     setNeedsReconnect('strava', 'Strava rejected the token (401).');

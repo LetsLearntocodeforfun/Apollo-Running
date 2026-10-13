@@ -40,7 +40,11 @@ export function ConfirmDialog({
     if (!dlg) return;
     if (open && !dlg.open) {
       if (typeof dlg.showModal === 'function') {
-        try { dlg.showModal(); } catch { dlg.setAttribute('open', ''); }
+        try {
+          dlg.showModal();
+        } catch {
+          dlg.setAttribute('open', '');
+        }
       } else {
         dlg.setAttribute('open', '');
       }
@@ -60,10 +64,19 @@ export function ConfirmDialog({
       className="ui-dialog"
       aria-labelledby={titleId}
       aria-describedby={message ? descId : undefined}
-      onCancel={(e) => { e.preventDefault(); onCancel(); }}
+      onCancel={(e) => {
+        e.preventDefault();
+        onCancel();
+      }}
     >
-      <h2 id={titleId} className="ui-dialog-title">{title}</h2>
-      {message && <div id={descId} className="ui-dialog-body">{message}</div>}
+      <h2 id={titleId} className="ui-dialog-title">
+        {title}
+      </h2>
+      {message && (
+        <div id={descId} className="ui-dialog-body">
+          {message}
+        </div>
+      )}
       {children}
       <div className="ui-dialog-actions">
         <button ref={cancelRef} type="button" className="btn btn-secondary" onClick={onCancel}>

@@ -41,11 +41,17 @@ function emit(): void {
   // Deferred: quarantining can happen while a component renders (store reads).
   queueMicrotask(() => {
     for (const listener of [...listeners]) {
-      try { listener(); } catch { /* a listener must not break storage */ }
+      try {
+        listener();
+      } catch {
+        /* a listener must not break storage */
+      }
     }
     try {
       if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(QUARANTINE_CHANGED_EVENT));
-    } catch { /* no DOM */ }
+    } catch {
+      /* no DOM */
+    }
   });
 }
 
@@ -54,7 +60,9 @@ function readIndex(): QuarantineEntry[] {
     const raw = persistence.getItem(QUARANTINE_INDEX_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
     return Array.isArray(parsed)
-      ? parsed.filter((e): e is QuarantineEntry => !!e && typeof e === 'object' && typeof (e as QuarantineEntry).key === 'string')
+      ? parsed.filter(
+          (e): e is QuarantineEntry => !!e && typeof e === 'object' && typeof (e as QuarantineEntry).key === 'string',
+        )
       : [];
   } catch {
     return [];
@@ -122,5 +130,7 @@ export function discardQuarantined(key: string): void {
 /** Subscribe to quarantine changes. Returns an unsubscribe function. */
 export function onQuarantineChange(listener: () => void): () => void {
   listeners.add(listener);
-  return () => { listeners.delete(listener); };
+  return () => {
+    listeners.delete(listener);
+  };
 }

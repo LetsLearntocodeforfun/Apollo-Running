@@ -28,8 +28,8 @@ function makeActivity(overrides: Partial<StravaActivity> & { id: number }): Stra
     name: 'Morning Run',
     type: 'Run',
     sport_type: 'Run',
-    distance: 8000,      // ~5 mi
-    moving_time: 2700,   // 45 min
+    distance: 8000, // ~5 mi
+    moving_time: 2700, // 45 min
     elapsed_time: 2800,
     start_date: '2026-01-15T07:00:00Z',
     start_date_local: '2026-01-15T07:00:00Z',
@@ -55,18 +55,20 @@ function makeEasyRunSeries(count: number, startDate: string, baseEconomy: number
     // speed = distance / (time / 60)
     // So: speed = economy * HR / 100
     const hr = 140;
-    const speed = targetEconomy * hr / 100;  // m/min
+    const speed = (targetEconomy * hr) / 100; // m/min
     const distance = 8000; // 5 mi in meters
     const movingTime = (distance / speed) * 60; // seconds
 
-    activities.push(makeActivity({
-      id: 1000 + i,
-      distance,
-      moving_time: Math.round(movingTime),
-      average_heartrate: hr,
-      start_date: `${dateStr}T07:00:00Z`,
-      start_date_local: `${dateStr}T07:00:00Z`,
-    }));
+    activities.push(
+      makeActivity({
+        id: 1000 + i,
+        distance,
+        moving_time: Math.round(movingTime),
+        average_heartrate: hr,
+        start_date: `${dateStr}T07:00:00Z`,
+        start_date_local: `${dateStr}T07:00:00Z`,
+      }),
+    );
   }
 
   return activities;
@@ -140,18 +142,12 @@ describe('activitiesToEconomyPoints', () => {
   });
 
   it('should filter out non-run activities', () => {
-    const activities = [
-      makeActivity({ id: 1, type: 'Ride', sport_type: 'Ride' }),
-      makeActivity({ id: 2 }),
-    ];
+    const activities = [makeActivity({ id: 1, type: 'Ride', sport_type: 'Ride' }), makeActivity({ id: 2 })];
     expect(activitiesToEconomyPoints(activities)).toHaveLength(1);
   });
 
   it('should filter out activities without HR', () => {
-    const activities = [
-      makeActivity({ id: 1, average_heartrate: undefined }),
-      makeActivity({ id: 2 }),
-    ];
+    const activities = [makeActivity({ id: 1, average_heartrate: undefined }), makeActivity({ id: 2 })];
     expect(activitiesToEconomyPoints(activities)).toHaveLength(1);
   });
 
@@ -164,10 +160,7 @@ describe('activitiesToEconomyPoints', () => {
   });
 
   it('should filter out low HR readings (sensor glitch)', () => {
-    const activities = [
-      makeActivity({ id: 1, average_heartrate: 50 }),
-      makeActivity({ id: 2 }),
-    ];
+    const activities = [makeActivity({ id: 1, average_heartrate: 50 }), makeActivity({ id: 2 })];
     expect(activitiesToEconomyPoints(activities)).toHaveLength(1);
   });
 
@@ -210,13 +203,15 @@ describe('calculateEconomyTrend', () => {
       date.setDate(date.getDate() + i * 2);
       const dateStr = date.toISOString().slice(0, 10);
       // Faster over time (less moving_time) at same HR = improving economy
-      activities.push(makeActivity({
-        id: 1000 + i,
-        distance: 8000,
-        moving_time: 2800 - i * 15, // getting faster
-        average_heartrate: 140,
-        start_date_local: `${dateStr}T07:00:00Z`,
-      }));
+      activities.push(
+        makeActivity({
+          id: 1000 + i,
+          distance: 8000,
+          moving_time: 2800 - i * 15, // getting faster
+          average_heartrate: 140,
+          start_date_local: `${dateStr}T07:00:00Z`,
+        }),
+      );
     }
     const points = activitiesToEconomyPoints(activities);
     const trend = calculateEconomyTrend(points);
@@ -231,13 +226,15 @@ describe('calculateEconomyTrend', () => {
       const date = new Date('2026-01-01');
       date.setDate(date.getDate() + i * 2);
       const dateStr = date.toISOString().slice(0, 10);
-      activities.push(makeActivity({
-        id: 1000 + i,
-        distance: 8000,
-        moving_time: 2400 + i * 20, // getting slower
-        average_heartrate: 140,
-        start_date_local: `${dateStr}T07:00:00Z`,
-      }));
+      activities.push(
+        makeActivity({
+          id: 1000 + i,
+          distance: 8000,
+          moving_time: 2400 + i * 20, // getting slower
+          average_heartrate: 140,
+          start_date_local: `${dateStr}T07:00:00Z`,
+        }),
+      );
     }
     const points = activitiesToEconomyPoints(activities);
     const trend = calculateEconomyTrend(points);
@@ -274,13 +271,15 @@ describe('detectDeclineWeeks', () => {
         const date = new Date('2026-01-01');
         date.setDate(date.getDate() + week * 7 + day);
         const dateStr = date.toISOString().slice(0, 10);
-        activities.push(makeActivity({
-          id: week * 100 + day,
-          distance: 8000,
-          moving_time: 2400 + week * 120, // each week slower
-          average_heartrate: 140,
-          start_date_local: `${dateStr}T07:00:00Z`,
-        }));
+        activities.push(
+          makeActivity({
+            id: week * 100 + day,
+            distance: 8000,
+            moving_time: 2400 + week * 120, // each week slower
+            average_heartrate: 140,
+            start_date_local: `${dateStr}T07:00:00Z`,
+          }),
+        );
       }
     }
     const points = activitiesToEconomyPoints(activities);
@@ -295,13 +294,15 @@ describe('detectDeclineWeeks', () => {
         const date = new Date('2026-01-01');
         date.setDate(date.getDate() + week * 7 + day);
         const dateStr = date.toISOString().slice(0, 10);
-        activities.push(makeActivity({
-          id: week * 100 + day,
-          distance: 8000,
-          moving_time: 2800 - week * 100, // each week faster
-          average_heartrate: 140,
-          start_date_local: `${dateStr}T07:00:00Z`,
-        }));
+        activities.push(
+          makeActivity({
+            id: week * 100 + day,
+            distance: 8000,
+            moving_time: 2800 - week * 100, // each week faster
+            average_heartrate: 140,
+            start_date_local: `${dateStr}T07:00:00Z`,
+          }),
+        );
       }
     }
     const points = activitiesToEconomyPoints(activities);

@@ -17,8 +17,8 @@ import { calculateFitnessFatigue, estimateTSS, generateTaperPlan } from '@/servi
 
 describe('Carb Loading — Edge Cases', () => {
   it('handles very light runner (40kg)', () => {
-    expect(getDailyCarbTarget(40, 3)).toBe(320);  // 8 × 40
-    expect(getDailyCarbTarget(40, 1)).toBe(400);  // 10 × 40 (v1.0.6 default, N-14)
+    expect(getDailyCarbTarget(40, 3)).toBe(320); // 8 × 40
+    expect(getDailyCarbTarget(40, 1)).toBe(400); // 10 × 40 (v1.0.6 default, N-14)
   });
 
   it('handles very heavy runner (130kg)', () => {
@@ -174,9 +174,7 @@ describe('Taper Optimizer — Edge Cases', () => {
   });
 
   it('handles single day of training', () => {
-    const snapshots = calculateFitnessFatigue([
-      { date: '2025-01-01', tss: 50, distanceMi: 6, type: 'easy' },
-    ]);
+    const snapshots = calculateFitnessFatigue([{ date: '2025-01-01', tss: 50, distanceMi: 6, type: 'easy' }]);
     expect(snapshots.length).toBe(1);
     expect(snapshots[0].ctl).toBeGreaterThan(0);
     expect(snapshots[0].atl).toBeGreaterThan(0);

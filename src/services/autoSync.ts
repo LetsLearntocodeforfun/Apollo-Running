@@ -49,7 +49,13 @@ import { generateCurrentWeekReadiness } from './weeklyReadiness';
 import { generateDailyRecap } from './dailyRecap';
 import { analyzeTrainingProgress, expireStaleRecommendations } from './adaptiveTraining';
 import { processActivityEffort } from './effortService';
-import { formatMiles, formatPaceFromMinPerMi, metersToMiles, calcPaceMinPerMi, formatDistanceShort } from './unitPreferences';
+import {
+  formatMiles,
+  formatPaceFromMinPerMi,
+  metersToMiles,
+  calcPaceMinPerMi,
+  formatDistanceShort,
+} from './unitPreferences';
 import { analyzeCompliance, saveComplianceResult } from './complianceAnalysis';
 import { noteForKind } from './workoutTargets';
 import { estimateActivityLoad, formatHoursMinutes } from './crossTraining';
@@ -125,7 +131,9 @@ function readWeekActuals(): WeekActualsStore | null {
   try {
     const raw = persistence.getItem(WEEK_ACTUALS_KEY);
     const parsed = raw ? (JSON.parse(raw) as WeekActualsStore) : null;
-    return parsed && typeof parsed.instanceId === 'string' && parsed.weeks && typeof parsed.weeks === 'object' ? parsed : null;
+    return parsed && typeof parsed.instanceId === 'string' && parsed.weeks && typeof parsed.weeks === 'object'
+      ? parsed
+      : null;
   } catch {
     return null;
   }
@@ -152,9 +160,7 @@ function getActualWeeklyMileage(planId: string, weekIndex: number): number {
     }
   }
   const allMeta = getAllSyncMeta(planId);
-  return allMeta
-    .filter((m) => m.weekIndex === weekIndex)
-    .reduce((sum, m) => sum + m.meta.actualDistanceMi, 0);
+  return allMeta.filter((m) => m.weekIndex === weekIndex).reduce((sum, m) => sum + m.meta.actualDistanceMi, 0);
 }
 
 /** Build weekly mileage analysis */
@@ -191,7 +197,7 @@ function generateFeedback(
   _activity: Activity,
   actualMi: number,
   paceMinPerMi: number,
-  weeklyMileage: WeeklyMileage
+  weeklyMileage: WeeklyMileage,
 ): string {
   const plannedMi = plannedDay.distanceMi ?? 0;
   const distDiff = actualMi - plannedMi;
@@ -205,9 +211,13 @@ function generateFeedback(
     if (Math.abs(distPct) <= 5) {
       lines.push(`Great job! ${formatMiles(actualMi)} at ${paceStr} — nailed the ${formatMiles(plannedMi)} target!`);
     } else if (distDiff > 0) {
-      lines.push(`Nice work! ${formatMiles(actualMi)} at ${paceStr} — ${formatMiles(distDiff)} extra over the ${formatMiles(plannedMi)} plan.`);
+      lines.push(
+        `Nice work! ${formatMiles(actualMi)} at ${paceStr} — ${formatMiles(distDiff)} extra over the ${formatMiles(plannedMi)} plan.`,
+      );
     } else {
-      lines.push(`Solid effort! ${formatMiles(actualMi)} at ${paceStr} — just ${formatMiles(Math.abs(distDiff))} short of the ${formatMiles(plannedMi)} goal.`);
+      lines.push(
+        `Solid effort! ${formatMiles(actualMi)} at ${paceStr} — just ${formatMiles(Math.abs(distDiff))} short of the ${formatMiles(plannedMi)} goal.`,
+      );
     }
   } else {
     lines.push(`Logged ${formatMiles(actualMi)} at ${paceStr}. Keep it up!`);
@@ -239,9 +249,11 @@ function generateCrossTrainingFeedback(activity: Activity, load: number): string
   const dist = activity.distance > 0 ? ` · ${formatDistanceShort(activity.distance)}` : '';
   const watts = activity.average_watts ? ` · ${Math.round(activity.average_watts)} W avg` : '';
   const lines = [`Cross-training logged: ${getSportLabel(activity)} for ${duration}${dist}${watts}.`];
-  lines.push(load > 90
-    ? 'That was a big session — keep cross-training mostly aerobic so your legs stay fresh for key runs.'
-    : 'Nice low-impact aerobic work that builds fitness without the pounding.');
+  lines.push(
+    load > 90
+      ? 'That was a big session — keep cross-training mostly aerobic so your legs stay fresh for key runs.'
+      : 'Nice low-impact aerobic work that builds fitness without the pounding.',
+  );
   return lines.join(' ');
 }
 
@@ -350,7 +362,8 @@ export function matchActivitiesToPlan(
   const slots: Slot[] = [];
   plan.weeks.forEach((week, weekIndex) => {
     let longestPlanned = 0;
-    for (const d of week.days) if (d && (d.type === 'run') && (d.distanceMi ?? 0) > longestPlanned) longestPlanned = d.distanceMi ?? 0;
+    for (const d of week.days)
+      if (d && d.type === 'run' && (d.distanceMi ?? 0) > longestPlanned) longestPlanned = d.distanceMi ?? 0;
     week.days.slice(0, 7).forEach((day, dayIndex) => {
       if (!day || day.type === 'rest') return;
       const kind = day.type === 'cross' ? 'cross' : 'run';
@@ -362,7 +375,10 @@ export function matchActivitiesToPlan(
         day,
         kind,
         plannedMi,
-        isLong: kind === 'run' && day.type === 'run' && (getWorkoutKind(day) === 'long' || (plannedMi > 0 && plannedMi === longestPlanned && plannedMi >= 10)),
+        isLong:
+          kind === 'run' &&
+          day.type === 'run' &&
+          (getWorkoutKind(day) === 'long' || (plannedMi > 0 && plannedMi === longestPlanned && plannedMi >= 10)),
         isRace: day.type === 'race' || day.type === 'marathon',
       });
     });
@@ -410,11 +426,14 @@ export function syncPlanWithActivities(activities: Activity[], today: string = t
   // Weekly totals first so feedback reflects every run of the week.
   const weeks: Record<string, number> = {};
   for (const [w, mi] of Object.entries(weekRunMiles)) weeks[w] = Math.round(mi * 100) / 100;
-  persistence.setItem(WEEK_ACTUALS_KEY, JSON.stringify({
-    instanceId: makePlanInstanceId(activePlan.planId, activePlan.startDate),
-    weeks,
-    updatedAt: new Date().toISOString(),
-  } satisfies WeekActualsStore));
+  persistence.setItem(
+    WEEK_ACTUALS_KEY,
+    JSON.stringify({
+      instanceId: makePlanInstanceId(activePlan.planId, activePlan.startDate),
+      weeks,
+      updatedAt: new Date().toISOString(),
+    } satisfies WeekActualsStore),
+  );
 
   // Drop stale auto-matches.
   const matchedKey = new Set(matches.map((m) => `${m.weekIndex}:${m.dayIndex}:${m.activity.id}`));
@@ -526,13 +545,13 @@ export function syncPlanWithActivities(activities: Activity[], today: string = t
             complianceFeedback += ' ' + compliance.coachingSuggestion;
           }
         }
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
 
     // Update meta with feedback (original + compliance)
-    meta.feedback = complianceFeedback
-      ? feedback + ' ' + complianceFeedback
-      : feedback;
+    meta.feedback = complianceFeedback ? feedback + ' ' + complianceFeedback : feedback;
     setSyncMeta(planId, weekIndex, dayIndex, meta);
 
     results.push({
@@ -574,19 +593,46 @@ function runPostSyncAnalysis(activities: Activity[], hasPlan: boolean): void {
           getMeasuredTimeInZones(activity.id),
         );
         if (hrData) upsertActivityHR(hrData);
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
     // Process route effort recognitions
-    try { processActivityEffort(activity); } catch { /* non-critical */ }
+    try {
+      processActivityEffort(activity);
+    } catch {
+      /* non-critical */
+    }
   }
 
   if (!hasPlan) return;
   // Update race prediction, adherence, readiness, daily recap, and adaptive recommendations
-  try { calculateRacePrediction(); } catch { /* non-critical */ }
-  try { calculateTrainingAdherence(); } catch { /* non-critical */ }
-  try { generateCurrentWeekReadiness(); } catch { /* non-critical */ }
-  try { generateDailyRecap(); } catch { /* non-critical */ }
-  try { expireStaleRecommendations(); analyzeTrainingProgress(); } catch { /* non-critical */ }
+  try {
+    calculateRacePrediction();
+  } catch {
+    /* non-critical */
+  }
+  try {
+    calculateTrainingAdherence();
+  } catch {
+    /* non-critical */
+  }
+  try {
+    generateCurrentWeekReadiness();
+  } catch {
+    /* non-critical */
+  }
+  try {
+    generateDailyRecap();
+  } catch {
+    /* non-critical */
+  }
+  try {
+    expireStaleRecommendations();
+    analyzeTrainingProgress();
+  } catch {
+    /* non-critical */
+  }
 }
 
 const planRefreshListeners = new Set<(results: SyncResult[]) => void>();
@@ -621,7 +667,11 @@ export function refreshPlanFromStoredActivities(): SyncResult[] {
   setLastSyncTime(new Date().toISOString());
   runPostSyncAnalysis(activities, !!getActivePlan());
   for (const listener of planRefreshListeners) {
-    try { listener(results); } catch { /* listener errors must not break sync */ }
+    try {
+      listener(results);
+    } catch {
+      /* listener errors must not break sync */
+    }
   }
   // Paces may have changed (new race prediction): keep the watch calendar current.
   // No-op unless auto-update is on; cheap when nothing changed; never throws.

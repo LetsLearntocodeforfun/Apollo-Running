@@ -121,7 +121,9 @@ export class TabCoordinator {
         this.setState({ role: 'promoted', otherTabOpened: false });
         return this.holdLock();
       })
-      .catch(() => { /* ignore — the warning simply stays up */ });
+      .catch(() => {
+        /* ignore — the warning simply stays up */
+      });
   }
 
   /** A promise that keeps the lock until the tab closes or stop() runs. */
@@ -162,7 +164,9 @@ export class TabCoordinator {
   private post(message: Message): void {
     try {
       this.channel?.postMessage(message);
-    } catch { /* channel closed */ }
+    } catch {
+      /* channel closed */
+    }
   }
 
   private setState(next: TabState): void {

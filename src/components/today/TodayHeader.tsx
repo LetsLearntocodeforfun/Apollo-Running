@@ -26,11 +26,17 @@ export default function TodayHeader({ journey, today, greeting, sourceName, conn
   return (
     <header className="today-header">
       <div className="today-header-main">
-        <h1 className="today-title" tabIndex={-1}>Today</h1>
+        <h1 className="today-title" tabIndex={-1}>
+          Today
+        </h1>
         <p className="today-journey">
           {parts.map((part, i) => (
             <Fragment key={part}>
-              {i > 0 && <span className="today-journey-sep" aria-hidden="true">·</span>}
+              {i > 0 && (
+                <span className="today-journey-sep" aria-hidden="true">
+                  ·
+                </span>
+              )}
               <span className={part === countdown ? 'today-journey-countdown' : undefined}>{part}</span>
             </Fragment>
           ))}
@@ -40,7 +46,11 @@ export default function TodayHeader({ journey, today, greeting, sourceName, conn
       <Link
         to="/settings"
         className={`today-source${connected ? ' today-source--connected' : ''}`}
-        aria-label={connected ? `Activities sync from ${sourceName}. Open Settings` : 'No data source connected. Open Settings to connect one'}
+        aria-label={
+          connected
+            ? `Activities sync from ${sourceName}. Open Settings`
+            : 'No data source connected. Open Settings to connect one'
+        }
       >
         <span aria-hidden="true">{connected ? '●' : '○'}</span>
         {sourceText}

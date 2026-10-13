@@ -238,13 +238,27 @@
   background: var(--text-muted);
 }
 
-.rm-event--wake::before { background: var(--apollo-cream); }
-.rm-event--nutrition::before { background: var(--color-success); }
-.rm-event--logistics::before { background: var(--apollo-teal); }
-.rm-event--warmup::before { background: var(--apollo-orange); }
-.rm-event--race::before { background: var(--apollo-gold); }
-.rm-event--fueling::before { background: var(--apollo-orange-light); }
-.rm-event--milestone::before { background: var(--apollo-gold-light); }
+.rm-event--wake::before {
+  background: var(--apollo-cream);
+}
+.rm-event--nutrition::before {
+  background: var(--color-success);
+}
+.rm-event--logistics::before {
+  background: var(--apollo-teal);
+}
+.rm-event--warmup::before {
+  background: var(--apollo-orange);
+}
+.rm-event--race::before {
+  background: var(--apollo-gold);
+}
+.rm-event--fueling::before {
+  background: var(--apollo-orange-light);
+}
+.rm-event--milestone::before {
+  background: var(--apollo-gold-light);
+}
 
 .rm-time {
   padding-top: 2px;

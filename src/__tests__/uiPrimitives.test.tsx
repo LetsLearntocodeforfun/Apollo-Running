@@ -12,9 +12,15 @@ function TabsHarness() {
         idPrefix="t"
         value={tab}
         onChange={setTab}
-        tabs={[{ id: 'a', label: 'Alpha' }, { id: 'b', label: 'Beta', badge: 3 }, { id: 'c', label: 'Gamma' }]}
+        tabs={[
+          { id: 'a', label: 'Alpha' },
+          { id: 'b', label: 'Beta', badge: 3 },
+          { id: 'c', label: 'Gamma' },
+        ]}
       />
-      <TabPanel idPrefix="t" id={tab}>Panel {tab}</TabPanel>
+      <TabPanel idPrefix="t" id={tab}>
+        Panel {tab}
+      </TabPanel>
     </>
   );
 }
@@ -44,8 +50,15 @@ describe('ui primitives', () => {
     );
     expect(screen.queryByText('Delete?')).toBeNull();
     rerender(
-      <ConfirmDialog open title="Delete?" message="This cannot be undone." tone="danger"
-        confirmLabel="Delete" onConfirm={onConfirm} onCancel={onCancel} />,
+      <ConfirmDialog
+        open
+        title="Delete?"
+        message="This cannot be undone."
+        tone="danger"
+        confirmLabel="Delete"
+        onConfirm={onConfirm}
+        onCancel={onCancel}
+      />,
     );
     expect(screen.getByText('Delete?')).toBeTruthy();
     fireEvent.click(screen.getByText('Delete'));
@@ -55,7 +68,11 @@ describe('ui primitives', () => {
   });
 
   it('EmptyState renders title, body and action', () => {
-    render(<EmptyState title="No runs yet" action={<button>Import</button>}>Connect a source.</EmptyState>);
+    render(
+      <EmptyState title="No runs yet" action={<button>Import</button>}>
+        Connect a source.
+      </EmptyState>,
+    );
     expect(screen.getByText('No runs yet')).toBeTruthy();
     expect(screen.getByText('Connect a source.')).toBeTruthy();
     expect(screen.getByText('Import')).toBeTruthy();

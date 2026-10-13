@@ -426,7 +426,14 @@
   right: 0;
   height: 2px;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
-  background: linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--apollo-gold-dark),
+    var(--apollo-gold),
+    var(--apollo-gold-dark),
+    transparent
+  );
 }
 
 @keyframes calDetailSlide {

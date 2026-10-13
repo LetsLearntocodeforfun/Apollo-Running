@@ -94,11 +94,7 @@ const ROLLING_WINDOW_DAYS = 30;
  * Economy = (speed in m/min) / HR × 100
  * Higher values = more speed per heartbeat = more efficient.
  */
-export function calculateEconomyIndex(
-  distanceMeters: number,
-  movingTimeSec: number,
-  avgHR: number,
-): number {
+export function calculateEconomyIndex(distanceMeters: number, movingTimeSec: number, avgHR: number): number {
   if (movingTimeSec <= 0 || avgHR <= 0) return 0;
   const speedMPerMin = distanceMeters / (movingTimeSec / 60);
   return (speedMPerMin / avgHR) * 100;
@@ -107,11 +103,7 @@ export function calculateEconomyIndex(
 /**
  * Classify a run as easy/long/tempo based on pace relative to HR zones.
  */
-export function classifyRunType(
-  distanceMi: number,
-  _paceMinPerMi: number,
-  avgHR: number,
-): EconomyDataPoint['runType'] {
+export function classifyRunType(distanceMi: number, _paceMinPerMi: number, avgHR: number): EconomyDataPoint['runType'] {
   const profile = getHRProfile();
   const hrPct = (avgHR / profile.maxHR) * 100;
 
@@ -186,9 +178,7 @@ export function calculateEconomyTrend(
     cutoffDate.setDate(cutoffDate.getDate() - windowDays);
     const cutoffStr = cutoffDate.toISOString().slice(0, 10);
 
-    const windowPoints = sorted.filter(
-      (p, j) => j <= i && p.date >= cutoffStr,
-    );
+    const windowPoints = sorted.filter((p, j) => j <= i && p.date >= cutoffStr);
 
     const rollingAvg = windowPoints.reduce((s, p) => s + p.economyIndex, 0) / windowPoints.length;
 
@@ -273,9 +263,13 @@ function generateInsights(result: Omit<EconomyResult, 'insights'>): string[] {
   if (result.easyRunTrend) {
     const trend = result.easyRunTrend;
     if (trend.trend === 'improving') {
-      insights.push(`Your running economy improved ${trend.improvementPct.toFixed(1)}% — you're producing more speed for less cardiac effort.`);
+      insights.push(
+        `Your running economy improved ${trend.improvementPct.toFixed(1)}% — you're producing more speed for less cardiac effort.`,
+      );
     } else if (trend.trend === 'declining') {
-      insights.push(`Your running economy declined ${Math.abs(trend.improvementPct).toFixed(1)}% recently. Consider more recovery or reducing training intensity.`);
+      insights.push(
+        `Your running economy declined ${Math.abs(trend.improvementPct).toFixed(1)}% recently. Consider more recovery or reducing training intensity.`,
+      );
     } else {
       insights.push('Your running economy is stable. Consistent training is maintaining your aerobic efficiency.');
     }
@@ -285,14 +279,20 @@ function generateInsights(result: Omit<EconomyResult, 'insights'>): string[] {
     if (result.pctFromPB <= 3) {
       insights.push(`You're within ${result.pctFromPB.toFixed(1)}% of your peak economy — excellent form.`);
     } else if (result.pctFromPB <= 8) {
-      insights.push(`You're ${result.pctFromPB.toFixed(1)}% below your peak economy. Steady easy-paced volume should close this gap.`);
+      insights.push(
+        `You're ${result.pctFromPB.toFixed(1)}% below your peak economy. Steady easy-paced volume should close this gap.`,
+      );
     } else {
-      insights.push(`You're ${result.pctFromPB.toFixed(1)}% below your peak economy. This may reflect a base-building phase or return from a break.`);
+      insights.push(
+        `You're ${result.pctFromPB.toFixed(1)}% below your peak economy. This may reflect a base-building phase or return from a break.`,
+      );
     }
   }
 
   if (result.declineWeeks >= 2) {
-    insights.push(`⚠ Economy has declined for ${result.declineWeeks} consecutive weeks — an early overtraining signal. Prioritize recovery and easy running.`);
+    insights.push(
+      `⚠ Economy has declined for ${result.declineWeeks} consecutive weeks — an early overtraining signal. Prioritize recovery and easy running.`,
+    );
   }
 
   if (result.dataPoints.length < 10) {
@@ -321,21 +321,23 @@ export function analyzeRunningEconomy(activities: StravaActivity[]): EconomyResu
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const recentStr = sevenDaysAgo.toISOString().slice(0, 10);
   const recentPoints = easyRuns.filter((p) => p.date >= recentStr);
-  const currentEconomy = recentPoints.length > 0
-    ? Math.round((recentPoints.reduce((s, p) => s + p.economyIndex, 0) / recentPoints.length) * 100) / 100
-    : null;
+  const currentEconomy =
+    recentPoints.length > 0
+      ? Math.round((recentPoints.reduce((s, p) => s + p.economyIndex, 0) / recentPoints.length) * 100) / 100
+      : null;
 
   // Personal best
   let personalBest: EconomyResult['personalBest'] = null;
   if (easyRuns.length > 0) {
-    const best = easyRuns.reduce((prev, curr) => curr.economyIndex > prev.economyIndex ? curr : prev);
+    const best = easyRuns.reduce((prev, curr) => (curr.economyIndex > prev.economyIndex ? curr : prev));
     personalBest = { value: best.economyIndex, date: best.date };
   }
 
   // Comparison to PB
-  const pctFromPB = currentEconomy && personalBest && personalBest.value > 0
-    ? Math.round(((personalBest.value - currentEconomy) / personalBest.value) * 1000) / 10
-    : null;
+  const pctFromPB =
+    currentEconomy && personalBest && personalBest.value > 0
+      ? Math.round(((personalBest.value - currentEconomy) / personalBest.value) * 1000) / 10
+      : null;
 
   // Decline detection
   const declineWeeks = detectDeclineWeeks(easyRuns);
@@ -359,10 +361,13 @@ export function analyzeRunningEconomy(activities: StravaActivity[]): EconomyResu
 // ── Persistence ───────────────────────────────────────────────────────────────
 
 export function cacheEconomy(result: EconomyResult): void {
-  persistence.setItem(ECONOMY_KEY, JSON.stringify({
-    ...result,
-    cachedAt: new Date().toISOString(),
-  }));
+  persistence.setItem(
+    ECONOMY_KEY,
+    JSON.stringify({
+      ...result,
+      cachedAt: new Date().toISOString(),
+    }),
+  );
 }
 
 export function getCachedEconomy(): EconomyResult | null {

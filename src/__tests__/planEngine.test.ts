@@ -139,7 +139,14 @@ describe('race-date-first placement (V4)', () => {
 });
 
 describe('plan instances (V18)', () => {
-  const meta = { activityId: 1, actualDistanceMi: 3, actualPaceMinPerMi: 9, movingTimeSec: 1600, feedback: '', syncedAt: '2026-01-01T00:00:00Z' };
+  const meta = {
+    activityId: 1,
+    actualDistanceMi: 3,
+    actualPaceMinPerMi: 9,
+    movingTimeSec: 1600,
+    feedback: '',
+    syncedAt: '2026-01-01T00:00:00Z',
+  };
 
   it('a new instance clears that plan’s completions, sync meta and overlay', () => {
     startPlan({ planId: NOVICE1, raceDate: '2026-04-19' }, '2025-12-01');
@@ -221,7 +228,14 @@ describe('plan overlay (V7)', () => {
     expect(getEffectiveDay({ weekIndex: 3, dayIndex: 1 })).toEqual(base.weeks[3].days[1]);
     expect(scaleWeek(4, 0.5).ok).toBe(true);
     expect(getEffectiveDay({ weekIndex: 4, dayIndex: 5 })?.distanceMi).toBe(5);
-    expect(applyDayOverride({ weekIndex: 5, dayIndex: 1 }, { type: 'run', label: '2 mi easy', distanceMi: 2, note: 'Easy' }, 'adaptive', 'Lighter day').ok).toBe(true);
+    expect(
+      applyDayOverride(
+        { weekIndex: 5, dayIndex: 1 },
+        { type: 'run', label: '2 mi easy', distanceMi: 2, note: 'Easy' },
+        'adaptive',
+        'Lighter day',
+      ).ok,
+    ).toBe(true);
     expect(getOverlayLog().map((e) => e.kind)).toEqual(['skip', 'convert', 'restore', 'week-scale', 'adaptive']);
     // Undo everything, newest first.
     for (let i = 0; i < 5; i++) expect(undoLastChange().ok).toBe(true);
@@ -283,7 +297,14 @@ describe('journey (getRaceDate / getJourneyState)', () => {
     startPlan({ planId: NOVICE1, raceDate: '2026-04-19' }, '2025-12-01');
     expect(getJourneyState('2025-12-10').phase).toBe('pre-plan');
     const training = getJourneyState('2026-01-07');
-    expect(training).toMatchObject({ phase: 'training', planId: NOVICE1, weekIndex: 3, dayIndex: 2, totalWeeks: 18, raceDate: '2026-04-19' });
+    expect(training).toMatchObject({
+      phase: 'training',
+      planId: NOVICE1,
+      weekIndex: 3,
+      dayIndex: 2,
+      totalWeeks: 18,
+      raceDate: '2026-04-19',
+    });
     expect(training.trainingPhase).not.toBeNull();
     expect(getJourneyState('2026-03-29').phase).toBe('taper'); // 21 days out
     expect(getJourneyState('2026-04-12').phase).toBe('race-week'); // 7 days out

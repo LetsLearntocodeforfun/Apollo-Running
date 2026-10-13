@@ -1,7 +1,17 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import {
-  ComposedChart, Area, Line, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceArea, ReferenceLine,
+  ComposedChart,
+  Area,
+  Line,
+  Bar,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceArea,
+  ReferenceLine,
 } from 'recharts';
 import { onActivitiesUpdated } from '../../services/activitySource';
 import { onPlanOverlayChanged } from '../../services/planOverlay';
@@ -65,12 +75,17 @@ export function fitnessTakeaway(data: FitnessFormData): string {
   if (data.raceDate && data.daysToRace !== null && data.daysToRace > 0) {
     if (data.raceDayTsb !== null) {
       const [lo, hi] = RACE_WINDOW_TSB;
-      const verdict = data.raceDayTsb >= lo && data.raceDayTsb <= hi
-        ? 'inside the race window'
-        : data.raceDayTsb < lo ? 'below the race window' : 'above the race window';
+      const verdict =
+        data.raceDayTsb >= lo && data.raceDayTsb <= hi
+          ? 'inside the race window'
+          : data.raceDayTsb < lo
+            ? 'below the race window'
+            : 'above the race window';
       const basis = data.pmc.projectionSource === 'plan' ? 'following your plan' : 'at your recent load';
       // L-2: race-morning form, i.e. before the race's own load.
-      parts.push(`Race-morning form projects to ${formatTsb(data.raceDayTsb)}, ${verdict} (+${lo} to +${hi}) ${basis}.`);
+      parts.push(
+        `Race-morning form projects to ${formatTsb(data.raceDayTsb)}, ${verdict} (+${lo} to +${hi}) ${basis}.`,
+      );
     } else {
       parts.push(`Race in ${data.daysToRace} days.`);
     }
@@ -79,8 +94,16 @@ export function fitnessTakeaway(data: FitnessFormData): string {
   return parts.join(' ');
 }
 
-interface TooltipEntry { dataKey?: string | number; value?: number | string; payload?: ChartRow }
-interface FormTooltipProps { active?: boolean; label?: string | number; payload?: TooltipEntry[] }
+interface TooltipEntry {
+  dataKey?: string | number;
+  value?: number | string;
+  payload?: ChartRow;
+}
+interface FormTooltipProps {
+  active?: boolean;
+  label?: string | number;
+  payload?: TooltipEntry[];
+}
 
 function FormTooltip({ active, label, payload }: FormTooltipProps) {
   if (!active || !payload || payload.length === 0) return null;
@@ -90,11 +113,19 @@ function FormTooltip({ active, label, payload }: FormTooltipProps) {
   const tsb = projected ? row.pTsb : row.tsb;
   return (
     <div className="ff-tooltip">
-      <div className="ff-tooltip-date">{shortDate(String(label ?? row.date))}{projected ? ' · projected' : ''}</div>
+      <div className="ff-tooltip-date">
+        {shortDate(String(label ?? row.date))}
+        {projected ? ' · projected' : ''}
+      </div>
       {!projected && row.ctl !== undefined && <div>Fitness (CTL): {Math.round(row.ctl)}</div>}
       {!projected && row.atl !== undefined && <div>Fatigue (ATL): {Math.round(row.atl)}</div>}
       {projected && row.pCtl !== undefined && <div>Fitness (CTL): {Math.round(row.pCtl)}</div>}
-      {tsb !== undefined && <div>Form (TSB): {formatTsb(tsb)}{row.zone ? ` · ${getZoneLabel(row.zone)}` : ''}</div>}
+      {tsb !== undefined && (
+        <div>
+          Form (TSB): {formatTsb(tsb)}
+          {row.zone ? ` · ${getZoneLabel(row.zone)}` : ''}
+        </div>
+      )}
       {row.raceMorning !== undefined && <div>Race-morning form: {formatTsb(row.raceMorning)}</div>}
     </div>
   );
@@ -134,7 +165,12 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
       last.pCtl = last.ctl;
       last.pTsb = last.tsb;
     }
-    const proj: ChartRow[] = data.pmc.projection.map((p) => ({ date: p.date, pCtl: p.ctl, pTsb: p.tsb, zone: zoneOf(p.zone) }));
+    const proj: ChartRow[] = data.pmc.projection.map((p) => ({
+      date: p.date,
+      pCtl: p.ctl,
+      pTsb: p.tsb,
+      zone: zoneOf(p.zone),
+    }));
     const out = [...hist, ...proj];
     if (data.raceDate && data.raceDayTsb !== null) {
       const raceRow = out.find((r) => r.date === data.raceDate);
@@ -180,7 +216,12 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
           ))}
         </div>
         <label className="ff-toggle" htmlFor={crossId}>
-          <input id={crossId} type="checkbox" checked={includeCross} onChange={(e) => setIncludeCross(e.target.checked)} />
+          <input
+            id={crossId}
+            type="checkbox"
+            checked={includeCross}
+            onChange={(e) => setIncludeCross(e.target.checked)}
+          />
           Include cross-training
         </label>
         <button
@@ -201,36 +242,107 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
           <ResponsiveContainer width="100%" height={300}>
             <ComposedChart data={rows} margin={{ top: 10, right: 12, bottom: 0, left: -12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.06)" />
-              <XAxis dataKey="date" tickFormatter={shortDate} minTickGap={32} tick={{ fontSize: 11, fill: '#9a9a9a' }} />
+              <XAxis
+                dataKey="date"
+                tickFormatter={shortDate}
+                minTickGap={32}
+                tick={{ fontSize: 11, fill: '#9a9a9a' }}
+              />
               <YAxis tick={{ fontSize: 11, fill: '#9a9a9a' }} />
               <Tooltip content={<FormTooltip />} />
-              <ReferenceArea y1={lo} y2={hi} fill="#FFD700" fillOpacity={0.1} ifOverflow="extendDomain"
-                label={{ value: `Race window +${lo}…+${hi}`, position: 'insideTopLeft', fill: '#c9b458', fontSize: 11 }} />
+              <ReferenceArea
+                y1={lo}
+                y2={hi}
+                fill="#FFD700"
+                fillOpacity={0.1}
+                ifOverflow="extendDomain"
+                label={{ value: `Race window +${lo}…+${hi}`, position: 'insideTopLeft', fill: '#c9b458', fontSize: 11 }}
+              />
               <ReferenceLine y={0} stroke="rgba(255,255,255,0.25)" />
-              <ReferenceLine x={data.today} stroke="rgba(255,255,255,0.35)" strokeDasharray="2 4"
-                label={{ value: 'Today', position: 'insideTopRight', fill: '#9a9a9a', fontSize: 11 }} />
+              <ReferenceLine
+                x={data.today}
+                stroke="rgba(255,255,255,0.35)"
+                strokeDasharray="2 4"
+                label={{ value: 'Today', position: 'insideTopRight', fill: '#9a9a9a', fontSize: 11 }}
+              />
               {raceInView && (
-                <ReferenceLine x={raceInView} stroke="#FFD700" strokeWidth={2}
-                  label={{ value: 'Race day', position: 'insideTopRight', fill: '#FFD700', fontSize: 11 }} />
+                <ReferenceLine
+                  x={raceInView}
+                  stroke="#FFD700"
+                  strokeWidth={2}
+                  label={{ value: 'Race day', position: 'insideTopRight', fill: '#FFD700', fontSize: 11 }}
+                />
               )}
               <Bar dataKey="tsb" name="Form (TSB)" barSize={3} isAnimationActive={false}>
                 {rows.map((r) => (
                   <Cell key={r.date} fill={r.zone ? getZoneColor(r.zone) : '#78909C'} />
                 ))}
               </Bar>
-              <Area type="monotone" dataKey="ctl" name="Fitness (CTL)" stroke="#2EC4B6" fill="#2EC4B6" fillOpacity={0.15} strokeWidth={2} dot={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="atl" name="Fatigue (ATL)" stroke="#E8C05A" strokeWidth={1.5} dot={false} isAnimationActive={false} />
-              <Line type="monotone" dataKey="pCtl" name="Projected fitness" stroke="#2EC4B6" strokeDasharray="6 4" strokeWidth={2} dot={false} isAnimationActive={false} connectNulls />
-              <Line type="monotone" dataKey="pTsb" name="Projected form" stroke="#FFD700" strokeDasharray="6 4" strokeWidth={1.5} dot={false} isAnimationActive={false} connectNulls />
+              <Area
+                type="monotone"
+                dataKey="ctl"
+                name="Fitness (CTL)"
+                stroke="#2EC4B6"
+                fill="#2EC4B6"
+                fillOpacity={0.15}
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="atl"
+                name="Fatigue (ATL)"
+                stroke="#E8C05A"
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={false}
+              />
+              <Line
+                type="monotone"
+                dataKey="pCtl"
+                name="Projected fitness"
+                stroke="#2EC4B6"
+                strokeDasharray="6 4"
+                strokeWidth={2}
+                dot={false}
+                isAnimationActive={false}
+                connectNulls
+              />
+              <Line
+                type="monotone"
+                dataKey="pTsb"
+                name="Projected form"
+                stroke="#FFD700"
+                strokeDasharray="6 4"
+                strokeWidth={1.5}
+                dot={false}
+                isAnimationActive={false}
+                connectNulls
+              />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
       )}
 
       <ul className="ff-legend" aria-label="Legend">
-        <li><span className="ff-swatch ff-swatch--ctl" aria-hidden="true" />Fitness (CTL, 42-day)</li>
-        <li><span className="ff-swatch ff-swatch--atl" aria-hidden="true" />Fatigue (ATL, 7-day)</li>
-        <li><span className="ff-swatch ff-swatch--proj" aria-hidden="true" />Projection{data.pmc.projectionSource === 'plan' ? ' (planned load)' : data.pmc.projectionSource === 'recent-average' ? ' (recent average load)' : ''}</li>
+        <li>
+          <span className="ff-swatch ff-swatch--ctl" aria-hidden="true" />
+          Fitness (CTL, 42-day)
+        </li>
+        <li>
+          <span className="ff-swatch ff-swatch--atl" aria-hidden="true" />
+          Fatigue (ATL, 7-day)
+        </li>
+        <li>
+          <span className="ff-swatch ff-swatch--proj" aria-hidden="true" />
+          Projection
+          {data.pmc.projectionSource === 'plan'
+            ? ' (planned load)'
+            : data.pmc.projectionSource === 'recent-average'
+              ? ' (recent average load)'
+              : ''}
+        </li>
       </ul>
       {!data.formReliable && (
         <p className="ff-note">Form zones appear once there are {FORM_SEED_DAYS} days of history.</p>
@@ -264,7 +376,13 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
                 const tsb = projected ? r.pTsb : r.tsb;
                 return (
                   <tr key={r.date} className={projected ? 'is-projected' : undefined}>
-                    <th scope="row">{shortDate(r.date)}{projected ? ' (projected)' : ''}{r.date === data.raceDate ? ` · race day${r.raceMorning !== undefined ? ` (morning form ${formatTsb(r.raceMorning)})` : ''}` : ''}</th>
+                    <th scope="row">
+                      {shortDate(r.date)}
+                      {projected ? ' (projected)' : ''}
+                      {r.date === data.raceDate
+                        ? ` · race day${r.raceMorning !== undefined ? ` (morning form ${formatTsb(r.raceMorning)})` : ''}`
+                        : ''}
+                    </th>
                     <td>{Math.round((projected ? r.pCtl : r.ctl) ?? 0)}</td>
                     <td>{projected ? '—' : Math.round(r.atl ?? 0)}</td>
                     <td>{tsb !== undefined ? formatTsb(tsb) : '—'}</td>
@@ -277,7 +395,9 @@ export default function FitnessFormChart({ raceDate }: FitnessFormChartProps) {
         </div>
       )}
 
-      <figcaption id={`${tableId}-cap`} className="ff-caption">{takeaway}</figcaption>
+      <figcaption id={`${tableId}-cap`} className="ff-caption">
+        {takeaway}
+      </figcaption>
     </figure>
   );
 }

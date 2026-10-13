@@ -68,9 +68,7 @@ describe('Recommendations Lifecycle', () => {
       title: 'Test Recommendation',
       message: 'Test message',
       reasoning: 'Test reasoning',
-      options: [
-        { key: 'opt1', label: 'Option 1', description: 'Desc', impact: 'Impact', actionType: 'dismiss' },
-      ],
+      options: [{ key: 'opt1', label: 'Option 1', description: 'Desc', impact: 'Impact', actionType: 'dismiss' }],
       dismissible: true,
       createdAt: new Date().toISOString(),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),

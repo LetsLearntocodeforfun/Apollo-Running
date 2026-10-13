@@ -25,7 +25,7 @@ function makeWeek(
   runs: { mi: number; note?: string; type?: 'run' | 'rest' | 'cross' | 'race' | 'marathon' }[],
 ): PlanWeek {
   const days = runs.map((r) => ({
-    type: r.type ?? (r.mi > 0 ? 'run' : 'rest') as PlanWeek['days'][0]['type'],
+    type: r.type ?? ((r.mi > 0 ? 'run' : 'rest') as PlanWeek['days'][0]['type']),
     label: r.note ? `${r.mi} mi ${r.note}` : r.mi > 0 ? `${r.mi} mi run` : 'Rest',
     distanceMi: r.mi > 0 ? r.mi : undefined,
     note: r.note ?? (r.mi > 0 ? 'Easy' : undefined),
@@ -52,26 +52,50 @@ function make18WeekPlan(): TrainingPlan {
     totalWeeks: 18,
     weeks: [
       // Base: weeks 1-6
-      makeWeek(1, [{ mi: 3 }, { mi: 3 }, { mi: 3 }, { mi: 0 }, { mi: 6 }, { mi: 0 }, { mi: 0 }]),     // 15 mi
-      makeWeek(2, [{ mi: 3 }, { mi: 3 }, { mi: 3 }, { mi: 0 }, { mi: 7 }, { mi: 0 }, { mi: 0 }]),     // 16 mi
-      makeWeek(3, [{ mi: 3 }, { mi: 4 }, { mi: 3 }, { mi: 0 }, { mi: 8 }, { mi: 0 }, { mi: 0 }]),     // 18 mi
-      makeWeek(4, [{ mi: 3 }, { mi: 4 }, { mi: 3 }, { mi: 0 }, { mi: 9 }, { mi: 0 }, { mi: 0 }]),     // 19 mi
-      makeWeek(5, [{ mi: 4 }, { mi: 4 }, { mi: 3 }, { mi: 0 }, { mi: 10 }, { mi: 0 }, { mi: 0 }]),    // 21 mi
-      makeWeek(6, [{ mi: 4 }, { mi: 5 }, { mi: 3 }, { mi: 0 }, { mi: 8 }, { mi: 0 }, { mi: 0 }]),     // 20 mi (step-back)
+      makeWeek(1, [{ mi: 3 }, { mi: 3 }, { mi: 3 }, { mi: 0 }, { mi: 6 }, { mi: 0 }, { mi: 0 }]), // 15 mi
+      makeWeek(2, [{ mi: 3 }, { mi: 3 }, { mi: 3 }, { mi: 0 }, { mi: 7 }, { mi: 0 }, { mi: 0 }]), // 16 mi
+      makeWeek(3, [{ mi: 3 }, { mi: 4 }, { mi: 3 }, { mi: 0 }, { mi: 8 }, { mi: 0 }, { mi: 0 }]), // 18 mi
+      makeWeek(4, [{ mi: 3 }, { mi: 4 }, { mi: 3 }, { mi: 0 }, { mi: 9 }, { mi: 0 }, { mi: 0 }]), // 19 mi
+      makeWeek(5, [{ mi: 4 }, { mi: 4 }, { mi: 3 }, { mi: 0 }, { mi: 10 }, { mi: 0 }, { mi: 0 }]), // 21 mi
+      makeWeek(6, [{ mi: 4 }, { mi: 5 }, { mi: 3 }, { mi: 0 }, { mi: 8 }, { mi: 0 }, { mi: 0 }]), // 20 mi (step-back)
       // Build: weeks 7-11
-      makeWeek(7, [{ mi: 4 }, { mi: 5, note: 'Tempo' }, { mi: 4 }, { mi: 0 }, { mi: 12 }, { mi: 0 }, { mi: 0 }]),  // 25 mi
-      makeWeek(8, [{ mi: 4 }, { mi: 6, note: 'Tempo' }, { mi: 4 }, { mi: 0 }, { mi: 14 }, { mi: 0 }, { mi: 0 }]),  // 28 mi
-      makeWeek(9, [{ mi: 5 }, { mi: 6, note: 'Speed' }, { mi: 4 }, { mi: 0 }, { mi: 15 }, { mi: 0 }, { mi: 0 }]),  // 30 mi
+      makeWeek(7, [{ mi: 4 }, { mi: 5, note: 'Tempo' }, { mi: 4 }, { mi: 0 }, { mi: 12 }, { mi: 0 }, { mi: 0 }]), // 25 mi
+      makeWeek(8, [{ mi: 4 }, { mi: 6, note: 'Tempo' }, { mi: 4 }, { mi: 0 }, { mi: 14 }, { mi: 0 }, { mi: 0 }]), // 28 mi
+      makeWeek(9, [{ mi: 5 }, { mi: 6, note: 'Speed' }, { mi: 4 }, { mi: 0 }, { mi: 15 }, { mi: 0 }, { mi: 0 }]), // 30 mi
       makeWeek(10, [{ mi: 5 }, { mi: 7, note: 'Tempo' }, { mi: 5 }, { mi: 0 }, { mi: 13 }, { mi: 0 }, { mi: 0 }]), // 30 mi (step-back)
       makeWeek(11, [{ mi: 5 }, { mi: 7, note: 'Speed' }, { mi: 5 }, { mi: 0 }, { mi: 16 }, { mi: 0 }, { mi: 0 }]), // 33 mi
       // Peak: weeks 12-14
-      makeWeek(12, [{ mi: 5 }, { mi: 8, note: 'Tempo' }, { mi: 5 }, { mi: 0 }, { mi: 18, note: 'Long' }, { mi: 0 }, { mi: 0 }]),  // 36 mi
-      makeWeek(13, [{ mi: 6 }, { mi: 8, note: 'Marathon Pace' }, { mi: 5 }, { mi: 0 }, { mi: 20, note: 'Long' }, { mi: 0 }, { mi: 0 }]), // 39 mi (peak)
-      makeWeek(14, [{ mi: 5 }, { mi: 7, note: 'Speed' }, { mi: 5 }, { mi: 0 }, { mi: 18, note: 'Long' }, { mi: 0 }, { mi: 0 }]),  // 35 mi
+      makeWeek(12, [
+        { mi: 5 },
+        { mi: 8, note: 'Tempo' },
+        { mi: 5 },
+        { mi: 0 },
+        { mi: 18, note: 'Long' },
+        { mi: 0 },
+        { mi: 0 },
+      ]), // 36 mi
+      makeWeek(13, [
+        { mi: 6 },
+        { mi: 8, note: 'Marathon Pace' },
+        { mi: 5 },
+        { mi: 0 },
+        { mi: 20, note: 'Long' },
+        { mi: 0 },
+        { mi: 0 },
+      ]), // 39 mi (peak)
+      makeWeek(14, [
+        { mi: 5 },
+        { mi: 7, note: 'Speed' },
+        { mi: 5 },
+        { mi: 0 },
+        { mi: 18, note: 'Long' },
+        { mi: 0 },
+        { mi: 0 },
+      ]), // 35 mi
       // Taper: weeks 15-17
-      makeWeek(15, [{ mi: 4 }, { mi: 6, note: 'Tempo' }, { mi: 4 }, { mi: 0 }, { mi: 12 }, { mi: 0 }, { mi: 0 }]),  // 26 mi
-      makeWeek(16, [{ mi: 3 }, { mi: 5 }, { mi: 3 }, { mi: 0 }, { mi: 8 }, { mi: 0 }, { mi: 0 }]),    // 19 mi
-      makeWeek(17, [{ mi: 3 }, { mi: 4 }, { mi: 2 }, { mi: 0 }, { mi: 5 }, { mi: 0 }, { mi: 0 }]),    // 14 mi
+      makeWeek(15, [{ mi: 4 }, { mi: 6, note: 'Tempo' }, { mi: 4 }, { mi: 0 }, { mi: 12 }, { mi: 0 }, { mi: 0 }]), // 26 mi
+      makeWeek(16, [{ mi: 3 }, { mi: 5 }, { mi: 3 }, { mi: 0 }, { mi: 8 }, { mi: 0 }, { mi: 0 }]), // 19 mi
+      makeWeek(17, [{ mi: 3 }, { mi: 4 }, { mi: 2 }, { mi: 0 }, { mi: 5 }, { mi: 0 }, { mi: 0 }]), // 14 mi
       // Race: week 18
       makeWeek(18, [{ mi: 2 }, { mi: 3 }, { mi: 0 }, { mi: 0 }, { mi: 0 }, { mi: 26.2, type: 'marathon' }, { mi: 0 }]),
     ],
@@ -177,7 +201,11 @@ describe('detectPhases', () => {
 
   it('should handle a minimal 4-week plan', () => {
     const shortPlan: TrainingPlan = {
-      id: 'short', name: 'Short', author: 'T', description: '', totalWeeks: 4,
+      id: 'short',
+      name: 'Short',
+      author: 'T',
+      description: '',
+      totalWeeks: 4,
       weeks: [
         makeWeek(1, [{ mi: 3 }, { mi: 3 }, { mi: 6 }]),
         makeWeek(2, [{ mi: 4 }, { mi: 4 }, { mi: 8 }]),
@@ -192,7 +220,12 @@ describe('detectPhases', () => {
 
   it('should handle empty plan', () => {
     const emptyPlan: TrainingPlan = {
-      id: 'empty', name: 'Empty', author: 'T', description: '', totalWeeks: 0, weeks: [],
+      id: 'empty',
+      name: 'Empty',
+      author: 'T',
+      description: '',
+      totalWeeks: 0,
+      weeks: [],
     };
     expect(detectPhases(emptyPlan)).toEqual([]);
   });

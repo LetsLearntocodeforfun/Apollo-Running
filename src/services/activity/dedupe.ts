@@ -34,7 +34,7 @@ const SOURCE_PRIORITY: Record<ActivitySource, number> = { intervals: 3, strava: 
 const LEGACY_PRIORITY = 1;
 
 function priority(source: ActivitySource | undefined): number {
-  return source ? SOURCE_PRIORITY[source] ?? LEGACY_PRIORITY : LEGACY_PRIORITY;
+  return source ? (SOURCE_PRIORITY[source] ?? LEGACY_PRIORITY) : LEGACY_PRIORITY;
 }
 
 /** Legacy records without a source were always synced from Strava. */
@@ -83,11 +83,7 @@ function isEmptyValue(v: unknown): boolean {
   return v === undefined || v === null || v === '' || (Array.isArray(v) && v.length === 0);
 }
 
-function mergeMap(
-  existing: Activity['map'],
-  incoming: Activity['map'],
-  incomingWins: boolean,
-): Activity['map'] {
+function mergeMap(existing: Activity['map'], incoming: Activity['map'], incomingWins: boolean): Activity['map'] {
   if (!incoming) return existing;
   const existingPoly = existing?.summary_polyline;
   if (incoming.summary_polyline) {
@@ -157,8 +153,7 @@ export function mergeIntoStore(existing: Activity[], incoming: Activity[], optio
   /** "intervals:i123" / "strava:456" → store ID (merged records keep their original ID). */
   const bySourceKey = new Map<string, number>();
 
-  const sourceKey = (a: Activity): string | null =>
-    a.source && a.source_id ? `${a.source}:${a.source_id}` : null;
+  const sourceKey = (a: Activity): string | null => (a.source && a.source_id ? `${a.source}:${a.source_id}` : null);
 
   const index = (a: Activity) => {
     const key = utcDayKey(startEpochSec(a), a.start_date_local);
@@ -267,7 +262,8 @@ function richness(a: Activity): number {
   let score = priority(a.source);
   if (a.average_heartrate && a.average_heartrate > 0) score += 4;
   if (a.map?.summary_polyline) score += 2;
-  if ((a.splits_metric?.length ?? 0) > 0 || (a.splits_standard?.length ?? 0) > 0 || (a.laps?.length ?? 0) > 0) score += 1;
+  if ((a.splits_metric?.length ?? 0) > 0 || (a.splits_standard?.length ?? 0) > 0 || (a.laps?.length ?? 0) > 0)
+    score += 1;
   return score;
 }
 

@@ -79,7 +79,8 @@ export function sanitizeAthleteProfile(input: unknown): AthleteProfile {
   if (inRange(p.birthYear, LIMITS.birthYear)) out.birthYear = Math.round(p.birthYear);
   const rr = p.recentRace as Record<string, unknown> | undefined;
   if (
-    rr && typeof rr === 'object' &&
+    rr &&
+    typeof rr === 'object' &&
     inRange(rr.distanceM, LIMITS.raceDistanceM) &&
     inRange(rr.timeSec, LIMITS.raceTimeSec) &&
     isDateKey(rr.date)
@@ -101,7 +102,8 @@ export function sanitizeAthleteProfile(input: unknown): AthleteProfile {
     );
   }
   if (typeof p.caffeine === 'boolean') out.caffeine = p.caffeine;
-  if (inRange(p.sweatRateLPerHour, LIMITS.sweatRate)) out.sweatRateLPerHour = Math.round(p.sweatRateLPerHour * 100) / 100;
+  if (inRange(p.sweatRateLPerHour, LIMITS.sweatRate))
+    out.sweatRateLPerHour = Math.round(p.sweatRateLPerHour * 100) / 100;
   if (typeof p.saltySweater === 'boolean') out.saltySweater = p.saltySweater;
   if (p.temperatureUnit === 'F' || p.temperatureUnit === 'C') out.temperatureUnit = p.temperatureUnit;
   if (p.massUnit === 'kg' || p.massUnit === 'lb') out.massUnit = p.massUnit;
@@ -133,7 +135,9 @@ export function updateAthleteProfile(patch: Partial<AthleteProfile>): AthletePro
   persistence.setItem(ATHLETE_PROFILE_KEY, JSON.stringify(clean));
   try {
     window.dispatchEvent(new CustomEvent(ATHLETE_PROFILE_CHANGED_EVENT, { detail: clean }));
-  } catch { /* non-browser context */ }
+  } catch {
+    /* non-browser context */
+  }
   return clean;
 }
 
@@ -141,7 +145,9 @@ export function clearAthleteProfile(): void {
   persistence.removeItem(ATHLETE_PROFILE_KEY);
   try {
     window.dispatchEvent(new CustomEvent(ATHLETE_PROFILE_CHANGED_EVENT, { detail: {} }));
-  } catch { /* non-browser context */ }
+  } catch {
+    /* non-browser context */
+  }
 }
 
 /** Subscribe to profile changes. Returns an unsubscribe function. */

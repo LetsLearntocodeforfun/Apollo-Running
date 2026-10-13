@@ -43,7 +43,10 @@ export function readRecentFitness(today: string = todayKey()): RecentFitness | n
   try {
     const runs = getStoredActivities()
       .filter((a) => isRunActivity(a))
-      .map((a) => ({ date: dateKeyFromLocalIso(a.start_date_local) ?? '', miles: (a.distance || 0) / METERS_PER_MILE }));
+      .map((a) => ({
+        date: dateKeyFromLocalIso(a.start_date_local) ?? '',
+        miles: (a.distance || 0) / METERS_PER_MILE,
+      }));
     return summarizeRecentFitness(runs, today);
   } catch {
     return null;
@@ -77,7 +80,11 @@ export function planSetupError(v: PlanSetupValue, today: string = todayKey()): s
 }
 
 /** `startPlan` input for the value, or null while it's incomplete or invalid. */
-export function planSetupToStartInput(planId: string, v: PlanSetupValue, today: string = todayKey()): StartPlanInput | null {
+export function planSetupToStartInput(
+  planId: string,
+  v: PlanSetupValue,
+  today: string = todayKey(),
+): StartPlanInput | null {
   if (planSetupError(v, today)) return null;
   return v.useStartDate ? { planId, startDate: v.startDate } : { planId, raceDate: v.raceDate };
 }
@@ -145,20 +152,28 @@ function JoinFitnessWarning({
           <li key={issue}>{issue}</li>
         ))}
       </ul>
-      <p className="plan-setup-muted">Big jumps in volume or long-run distance raise injury risk. Some safer options:</p>
+      <p className="plan-setup-muted">
+        Big jumps in volume or long-run distance raise injury risk. Some safer options:
+      </p>
       <ul className="plan-setup-options">
         {check.laterRaceDate && (
           <li>
-            <strong>A later race.</strong> Racing on {formatLongDate(check.laterRaceDate)} lets you join at an easier week.{' '}
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange({ ...value, raceDate: check.laterRaceDate! })}>
+            <strong>A later race.</strong> Racing on {formatLongDate(check.laterRaceDate)} lets you join at an easier
+            week.{' '}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => onChange({ ...value, raceDate: check.laterRaceDate! })}
+            >
               Use {formatLongDate(check.laterRaceDate)}
             </button>
           </li>
         )}
         {check.rampIn && (
           <li>
-            <strong>A ramp-in.</strong> Keep this race, but for the first {weeksLabel(check.rampIn.weeklyMiles.length)} run about{' '}
-            {check.rampIn.weeklyMiles.join(', ')} mi a week, with long runs of at most {check.rampIn.longRunMi.join(', ')} mi. Then follow the plan in full.
+            <strong>A ramp-in.</strong> Keep this race, but for the first {weeksLabel(check.rampIn.weeklyMiles.length)}{' '}
+            run about {check.rampIn.weeklyMiles.join(', ')} mi a week, with long runs of at most{' '}
+            {check.rampIn.longRunMi.join(', ')} mi. Then follow the plan in full.
           </li>
         )}
         {safer.length > 0 ? (
@@ -176,7 +191,9 @@ function JoinFitnessWarning({
               : safer.map((p) => `${p.author} ${p.name}`).join(', ')}
           </li>
         ) : (
-          !check.laterRaceDate && <li>No plan here starts gently enough for this race date. Consider a later race or a shorter goal race.</li>
+          !check.laterRaceDate && (
+            <li>No plan here starts gently enough for this race date. Consider a later race or a shorter goal race.</li>
+          )
         )}
       </ul>
     </section>
@@ -210,7 +227,12 @@ function PlacementPreview({ plan, value, today }: { plan: TrainingPlan; value: P
     );
   }
 
-  if (error) return <p className="plan-setup-muted">{error === 'Choose your race date.' ? 'Pick your race date to see when the plan starts.' : error}</p>;
+  if (error)
+    return (
+      <p className="plan-setup-muted">
+        {error === 'Choose your race date.' ? 'Pick your race date to see when the plan starts.' : error}
+      </p>
+    );
 
   const placement = placePlan(plan, value.raceDate, today);
   return (
@@ -222,7 +244,11 @@ function PlacementPreview({ plan, value, today }: { plan: TrainingPlan; value: P
           </>
         ) : (
           <>
-            You join at <strong>week {placement.joinWeekIndex + 1} of {planWeeks}</strong> ({weeksLabel(placement.weeksAvailable)} to go).
+            You join at{' '}
+            <strong>
+              week {placement.joinWeekIndex + 1} of {planWeeks}
+            </strong>{' '}
+            ({weeksLabel(placement.weeksAvailable)} to go).
           </>
         )}
       </p>

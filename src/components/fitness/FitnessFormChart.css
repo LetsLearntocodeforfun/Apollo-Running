@@ -93,8 +93,13 @@
   flex: none;
 }
 
-.ff-swatch--ctl { background: #2ec4b6; }
-.ff-swatch--atl { background: #e8c05a; height: 0.25em; }
+.ff-swatch--ctl {
+  background: #2ec4b6;
+}
+.ff-swatch--atl {
+  background: #e8c05a;
+  height: 0.25em;
+}
 .ff-swatch--proj {
   background: repeating-linear-gradient(90deg, #2ec4b6 0 5px, transparent 5px 8px);
   height: 0.25em;

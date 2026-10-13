@@ -124,7 +124,11 @@ export class PersistenceService {
    */
   private async hydrateFromIndexedDB(): Promise<void> {
     let usedBefore = false;
-    try { usedBefore = localStorage.getItem(LS_IDB_IN_USE_KEY) === '1'; } catch { /* ignore */ }
+    try {
+      usedBefore = localStorage.getItem(LS_IDB_IN_USE_KEY) === '1';
+    } catch {
+      /* ignore */
+    }
     try {
       const entries = await this.database.kvStore.toArray();
       let restoredCount = 0;
@@ -159,7 +163,11 @@ export class PersistenceService {
       }
       this.saveLocalTimestamps();
       if (this.dirty.size > 0) this.scheduleFlush();
-      try { localStorage.setItem(LS_IDB_IN_USE_KEY, '1'); } catch { /* ignore */ }
+      try {
+        localStorage.setItem(LS_IDB_IN_USE_KEY, '1');
+      } catch {
+        /* ignore */
+      }
 
       if (restoredCount > 0) {
         console.info(`[Apollo] Restored ${restoredCount} entries from IndexedDB`);
@@ -168,9 +176,9 @@ export class PersistenceService {
       if (usedBefore) {
         console.error('[Apollo] IndexedDB failed to load — storage degraded:', err);
         markStorageDegraded(
-          'Apollo couldn\u2019t open its database, so some of your data may not be loaded. '
-          + 'Syncing and saving large data are paused to protect it. Restart Apollo; if this keeps happening, '
-          + 'free up disk space and make sure only one Apollo window is open.',
+          'Apollo couldn\u2019t open its database, so some of your data may not be loaded. ' +
+            'Syncing and saving large data are paused to protect it. Restart Apollo; if this keeps happening, ' +
+            'free up disk space and make sure only one Apollo window is open.',
         );
       } else {
         console.warn('[Apollo] IndexedDB unavailable, using localStorage only:', err);
@@ -208,7 +216,9 @@ export class PersistenceService {
    */
   onWriteHealthChange(listener: () => void): () => void {
     this.writeHealthListeners.add(listener);
-    return () => { this.writeHealthListeners.delete(listener); };
+    return () => {
+      this.writeHealthListeners.delete(listener);
+    };
   }
 
   /** v1.0.7 (PX-03): current write health (a snapshot). */
@@ -218,7 +228,11 @@ export class PersistenceService {
 
   private notifyWriteHealth(): void {
     for (const listener of [...this.writeHealthListeners]) {
-      try { listener(); } catch { /* a listener must not break persistence */ }
+      try {
+        listener();
+      } catch {
+        /* a listener must not break persistence */
+      }
     }
   }
 
@@ -276,7 +290,11 @@ export class PersistenceService {
     if (this._failedWrites.delete(key)) this.notifyWriteHealth();
     if (!this._initialized) this.touchedDuringHydrate.add(key);
     this.track(this.database.kvStore.delete(key).catch(() => {}));
-    try { localStorage.removeItem(key); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
     if (key in this.localTimestamps) {
       delete this.localTimestamps[key];
       this.saveLocalTimestamps();
@@ -318,7 +336,9 @@ export class PersistenceService {
         if (key && (isApolloKey(key) || key === LS_TIMESTAMPS_KEY || key === LS_IDB_IN_USE_KEY)) doomed.push(key);
       }
       for (const key of doomed) localStorage.removeItem(key);
-    } catch { /* localStorage unavailable */ }
+    } catch {
+      /* localStorage unavailable */
+    }
     await Promise.allSettled([...this.pendingWrites]);
     await this.database.kvStore.clear();
   }
@@ -418,7 +438,11 @@ export class PersistenceService {
       localStorage.setItem(key, value);
       this.localTimestamps[key] = updatedAt;
     } catch {
-      try { localStorage.removeItem(key); } catch { /* localStorage unavailable */ }
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        /* localStorage unavailable */
+      }
       delete this.localTimestamps[key];
     }
   }
@@ -426,7 +450,9 @@ export class PersistenceService {
   private saveLocalTimestamps(): void {
     try {
       localStorage.setItem(LS_TIMESTAMPS_KEY, JSON.stringify(this.localTimestamps));
-    } catch { /* quota or unavailable: hydrate then falls back to "localStorage wins" */ }
+    } catch {
+      /* quota or unavailable: hydrate then falls back to "localStorage wins" */
+    }
   }
 }
 

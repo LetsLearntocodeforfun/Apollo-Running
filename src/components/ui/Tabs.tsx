@@ -63,7 +63,9 @@ export function Tabs({ label, tabs, value, onChange, idPrefix, className }: Tabs
         return (
           <button
             key={t.id}
-            ref={(el) => { refs.current[t.id] = el; }}
+            ref={(el) => {
+              refs.current[t.id] = el;
+            }}
             type="button"
             role="tab"
             id={tabId(prefix, t.id)}

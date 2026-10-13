@@ -14,9 +14,7 @@ const GARMIN_CREDENTIALS = 'garmin_credentials';
 const INTERVALS_CREDENTIALS = 'intervals_credentials';
 
 /** Keys that hold sensitive data and should use encrypted storage in Electron */
-const SENSITIVE_KEYS = new Set([
-  STRAVA_KEY, GARMIN_KEY, STRAVA_CREDENTIALS, GARMIN_CREDENTIALS, INTERVALS_CREDENTIALS,
-]);
+const SENSITIVE_KEYS = new Set([STRAVA_KEY, GARMIN_KEY, STRAVA_CREDENTIALS, GARMIN_CREDENTIALS, INTERVALS_CREDENTIALS]);
 
 export interface StravaTokens {
   access_token: string;
@@ -91,7 +89,11 @@ async function migrateToSecureStorage(): Promise<void> {
       if (result.success) {
         secureCache.set(key, plaintext);
         persistence.removeItem(key);
-        try { localStorage.removeItem(key); } catch { /* ignore */ }
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          /* ignore */
+        }
         console.info(`[Apollo] Migrated ${key} to secure storage`);
       } else {
         console.warn(`[Apollo] Failed to migrate ${key} to secure storage: ${result.error ?? 'unknown error'}`);
@@ -120,7 +122,9 @@ export async function initSecureStorage(): Promise<void> {
   // Wait for IndexedDB hydration first (S5): otherwise hydrate could restore a
   // plaintext copy the migration just deleted, and a legacy key stored only in
   // IndexedDB would be missed.
-  await persistence.ready.catch(() => { /* localStorage-only fallback */ });
+  await persistence.ready.catch(() => {
+    /* localStorage-only fallback */
+  });
   await migrateToSecureStorage();
   await loadSecureCredentials();
 }
@@ -156,7 +160,11 @@ function setSecureWriteError(error: string | null): void {
   if (secureWriteError === error) return;
   secureWriteError = error;
   for (const listener of secureWriteListeners) {
-    try { listener(error); } catch { /* listener errors must not break storage */ }
+    try {
+      listener(error);
+    } catch {
+      /* listener errors must not break storage */
+    }
   }
 }
 
@@ -221,7 +229,11 @@ function removeSecure(key: string): void {
   }
   // Always clean up any legacy plaintext copies
   persistence.removeItem(key);
-  try { localStorage.removeItem(key); } catch { /* ignore */ }
+  try {
+    localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -383,7 +395,11 @@ export async function clearAllCredentials(): Promise<string[]> {
       }
     }
     persistence.removeItem(key);
-    try { localStorage.removeItem(key); } catch { /* ignore */ }
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
   }
   return failed;
 }

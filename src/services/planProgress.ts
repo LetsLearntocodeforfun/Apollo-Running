@@ -212,7 +212,7 @@ export function getDateForDay(startDate: string, weekIndex: number, dayIndex: nu
 export function getWeekDayForDate(
   startDate: string,
   totalWeeks: number,
-  date: Date | string
+  date: Date | string,
 ): { weekIndex: number; dayIndex: number } | null {
   const dateKey = typeof date === 'string' ? (dateKeyFromLocalIso(date) ?? null) : toDateKey(date);
   if (!dateKey) return null;
@@ -377,7 +377,7 @@ export function safeLongRunMiles(longest: number): number {
 }
 
 function weekTrainingMilesOf(plan: TrainingPlan, w: number): number {
-  return (plan.weeks[w]?.days ?? []).reduce((s, d) => s + (d?.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+  return (plan.weeks[w]?.days ?? []).reduce((s, d) => s + (d?.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
 }
 
 function weekLongestRunOf(plan: TrainingPlan, w: number): number {
@@ -389,7 +389,9 @@ function joinWeekIssues(plan: TrainingPlan, w: number, fitness: RecentFitness): 
   const weekMiles = Math.round(weekTrainingMilesOf(plan, w) * 10) / 10;
   const long = Math.max(weekLongestRunOf(plan, w), weekLongestRunOf(plan, w + 1));
   if (fitness.weeklyMiles != null && weekMiles > safeWeeklyMiles(fitness.weeklyMiles)) {
-    issues.push(`Week ${w + 1} has ${weekMiles} mi of running; you've averaged about ${fitness.weeklyMiles} mi a week over the last 4 weeks.`);
+    issues.push(
+      `Week ${w + 1} has ${weekMiles} mi of running; you've averaged about ${fitness.weeklyMiles} mi a week over the last 4 weeks.`,
+    );
   }
   if (fitness.longestRunMi != null && long > safeLongRunMiles(fitness.longestRunMi)) {
     issues.push(`It includes a ${long} mi run; your longest run in the last 30 days is ${fitness.longestRunMi} mi.`);
@@ -405,7 +407,11 @@ function joinWeekIssues(plan: TrainingPlan, w: number, fitness: RecentFitness): 
  * earlier, easier week), a ramp-in for the first weeks, or a shorter / gentler plan
  * ({@link saferPlansForRace}). Returns null without fitness data.
  */
-export function checkJoinFitness(plan: TrainingPlan, placement: PlanPlacement, fitness: RecentFitness | null): JoinFitnessCheck | null {
+export function checkJoinFitness(
+  plan: TrainingPlan,
+  placement: PlanPlacement,
+  fitness: RecentFitness | null,
+): JoinFitnessCheck | null {
   if (!fitness || (fitness.weeklyMiles == null && fitness.longestRunMi == null)) return null;
   const w = placement.joinWeekIndex;
   const issues = joinWeekIssues(plan, w, fitness);
@@ -429,8 +435,13 @@ export function checkJoinFitness(plan: TrainingPlan, placement: PlanPlacement, f
     const weeks = Math.min(6, Math.max(1, Math.ceil(Math.log(planWeekMiles / recent) / Math.log(1.1)) - 1));
     const longest = fitness.longestRunMi ?? planLongRunMi;
     rampIn = {
-      weeklyMiles: Array.from({ length: weeks }, (_, i) => Math.round(Math.min(planWeekMiles, recent * Math.pow(1.1, i + 1)))),
-      longRunMi: Array.from({ length: weeks }, (_, i) => Math.round(Math.min(planLongRunMi, safeLongRunMiles(longest) + i) * 2) / 2),
+      weeklyMiles: Array.from({ length: weeks }, (_, i) =>
+        Math.round(Math.min(planWeekMiles, recent * Math.pow(1.1, i + 1))),
+      ),
+      longRunMi: Array.from(
+        { length: weeks },
+        (_, i) => Math.round(Math.min(planLongRunMi, safeLongRunMiles(longest) + i) * 2) / 2,
+      ),
     };
   }
   return { safe: false, joinWeekIndex: w, planWeekMiles, planLongRunMi, issues, laterRaceDate, rampIn };
@@ -452,7 +463,11 @@ export function saferPlansForRace(
     .filter((p) => p.id !== excludeId)
     .map((p) => {
       const placement = placePlan(p, raceDate, today);
-      return { p, check: checkJoinFitness(p, placement, fitness), miles: weekTrainingMilesOf(p, placement.joinWeekIndex) };
+      return {
+        p,
+        check: checkJoinFitness(p, placement, fitness),
+        miles: weekTrainingMilesOf(p, placement.joinWeekIndex),
+      };
     })
     .filter((x) => x.check?.safe)
     .sort((a, b) => a.miles - b.miles)

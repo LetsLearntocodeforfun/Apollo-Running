@@ -3,20 +3,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  simulateWhatIf,
-  getAvailableScenarios,
-  simulateAllScenarios,
-} from '@/labs/whatIfSimulator';
+import { simulateWhatIf, getAvailableScenarios, simulateAllScenarios } from '@/labs/whatIfSimulator';
 import { vdotToMarathonSec } from '@/services/racePrediction';
 
 describe('simulateWhatIf', () => {
   it('should project time change for increasing mileage', () => {
-    const result = simulateWhatIf(
-      { type: 'increase_mileage', label: '', description: '', value: 10 },
-      45,
-      40,
-    );
+    const result = simulateWhatIf({ type: 'increase_mileage', label: '', description: '', value: 10 }, 45, 40);
     expect(result).toBeDefined();
     expect(result.baselineTimeSec).toBeGreaterThan(0);
     expect(result.projectedTimeSec).toBeLessThan(result.baselineTimeSec);
@@ -24,48 +16,28 @@ describe('simulateWhatIf', () => {
   });
 
   it('should project slower time for decreasing mileage', () => {
-    const result = simulateWhatIf(
-      { type: 'decrease_mileage', label: '', description: '', value: 10 },
-      45,
-      40,
-    );
+    const result = simulateWhatIf({ type: 'decrease_mileage', label: '', description: '', value: 10 }, 45, 40);
     expect(result.projectedTimeSec).toBeGreaterThan(result.baselineTimeSec);
     expect(result.deltaSec).toBeGreaterThan(0); // slower
   });
 
   it('should project slower time for skipping training days', () => {
-    const result = simulateWhatIf(
-      { type: 'skip_days', label: '', description: '', value: 14 },
-      45,
-      40,
-    );
+    const result = simulateWhatIf({ type: 'skip_days', label: '', description: '', value: 14 }, 45, 40);
     expect(result.projectedTimeSec).toBeGreaterThan(result.baselineTimeSec);
   });
 
   it('should project faster time for weight loss', () => {
-    const result = simulateWhatIf(
-      { type: 'weight_change', label: '', description: '', value: -5 },
-      45,
-      40,
-    );
+    const result = simulateWhatIf({ type: 'weight_change', label: '', description: '', value: -5 }, 45, 40);
     expect(result.projectedTimeSec).toBeLessThan(result.baselineTimeSec);
   });
 
   it('should project slower time for weight gain', () => {
-    const result = simulateWhatIf(
-      { type: 'weight_change', label: '', description: '', value: 5 },
-      45,
-      40,
-    );
+    const result = simulateWhatIf({ type: 'weight_change', label: '', description: '', value: 5 }, 45, 40);
     expect(result.projectedTimeSec).toBeGreaterThan(result.baselineTimeSec);
   });
 
   it('should include a human-readable explanation', () => {
-    const result = simulateWhatIf(
-      { type: 'increase_mileage', label: '', description: '', value: 10 },
-      45,
-      40,
-    );
+    const result = simulateWhatIf({ type: 'increase_mileage', label: '', description: '', value: 10 }, 45, 40);
     expect(result.explanation).toBeTruthy();
     expect(result.explanation.length).toBeGreaterThan(10);
   });

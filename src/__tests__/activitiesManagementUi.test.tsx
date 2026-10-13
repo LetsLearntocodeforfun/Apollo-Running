@@ -36,7 +36,11 @@ function run(id: number, startIso: string, distance: number, moving: number, ext
 }
 
 function renderPage() {
-  return render(<MemoryRouter><Activities /></MemoryRouter>);
+  return render(
+    <MemoryRouter>
+      <Activities />
+    </MemoryRouter>,
+  );
 }
 
 beforeEach(() => {
@@ -79,7 +83,13 @@ describe('Activities page: activity management (B18)', () => {
     expect(hiddenFilter.getAttribute('aria-pressed')).toBe('true');
     fireEvent.click(await screen.findByText('Run 2'));
     fireEvent.click(await screen.findByRole('button', { name: 'Unhide' }));
-    await waitFor(() => expect(getStoredActivities().map((a) => a.id).sort()).toEqual([1, 2]));
+    await waitFor(() =>
+      expect(
+        getStoredActivities()
+          .map((a) => a.id)
+          .sort(),
+      ).toEqual([1, 2]),
+    );
     expect(await screen.findByText('No hidden activities.')).toBeTruthy();
   });
 

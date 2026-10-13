@@ -67,12 +67,7 @@ export interface FRITrend {
  * @param date Activity date (YYYY-MM-DD)
  * @returns FRI result, or null if run is too short (<16 miles)
  */
-export function calculateFRI(
-  splits: number[],
-  distanceMi: number,
-  activityId: string,
-  date: string,
-): FRIResult | null {
+export function calculateFRI(splits: number[], distanceMi: number, activityId: string, date: string): FRIResult | null {
   // Only analyze long runs (16+ miles)
   if (distanceMi < 16 || splits.length < 10) return null;
 
@@ -95,9 +90,7 @@ export function calculateFRI(
   const fri = Math.round((lastAvg / firstAvg) * 1000) / 10;
 
   // Fade rate: how much pace degrades per mile in the last segment
-  const fadeRate = lastSegment.length >= 2
-    ? calculateFadeRate(lastSegment)
-    : 0;
+  const fadeRate = lastSegment.length >= 2 ? calculateFadeRate(lastSegment) : 0;
 
   const rating = getFRIRating(fri);
   const message = buildFRIMessage(fri, rating, fadeRate, distanceMi);
@@ -129,7 +122,10 @@ function calculateFadeRate(splits: number[]): number {
   if (splits.length < 2) return 0;
   // Linear regression slope of splits vs position
   const n = splits.length;
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXY = 0,
+    sumX2 = 0;
   for (let i = 0; i < n; i++) {
     sumX += i;
     sumY += splits[i];
@@ -156,7 +152,9 @@ function buildFRIMessage(fri: number, rating: FRIRating, fadeRate: number, distM
 
   switch (rating) {
     case 'excellent':
-      parts.push(`FRI ${fri} — outstanding fatigue resistance! You maintained or improved pace through ${distMi.toFixed(0)} miles.`);
+      parts.push(
+        `FRI ${fri} — outstanding fatigue resistance! You maintained or improved pace through ${distMi.toFixed(0)} miles.`,
+      );
       break;
     case 'good':
       parts.push(`FRI ${fri} — solid pacing. Minimal fade in the final miles. Race-ready endurance.`);
@@ -170,7 +168,9 @@ function buildFRIMessage(fri: number, rating: FRIRating, fadeRate: number, distM
       break;
     case 'severe_fade':
       parts.push(`FRI ${fri} — significant fade pattern. This suggests your marathon endurance needs development.`);
-      parts.push('Recommendations: (1) Build aerobic base with more easy volume, (2) Add MP segments in long runs, (3) Practice fueling during long runs.');
+      parts.push(
+        'Recommendations: (1) Build aerobic base with more easy volume, (2) Add MP segments in long runs, (3) Practice fueling during long runs.',
+      );
       break;
   }
 
@@ -229,12 +229,12 @@ export function getFRITrend(count: number = 10): FRITrend {
 
   // Trend: compare first half average to second half average
   const mid = Math.floor(results.length / 2);
-  const firstHalfAvg = results.length >= 4
-    ? results.slice(0, mid).reduce((s, r) => s + r.fri, 0) / mid
-    : results[0].fri;
-  const secondHalfAvg = results.length >= 4
-    ? results.slice(mid).reduce((s, r) => s + r.fri, 0) / (results.length - mid)
-    : results[results.length - 1].fri;
+  const firstHalfAvg =
+    results.length >= 4 ? results.slice(0, mid).reduce((s, r) => s + r.fri, 0) / mid : results[0].fri;
+  const secondHalfAvg =
+    results.length >= 4
+      ? results.slice(mid).reduce((s, r) => s + r.fri, 0) / (results.length - mid)
+      : results[results.length - 1].fri;
 
   const delta = Math.round((secondHalfAvg - firstHalfAvg) * 10) / 10;
   let trendDirection: FRITrend['trendDirection'];

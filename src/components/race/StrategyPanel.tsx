@@ -64,7 +64,7 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
 
   const unit = getDistanceUnit();
   const paceLabel = paceUnitLabel(unit);
-  const localRace = selectedRaceId ? getMarathon(selectedRaceId) ?? null : null;
+  const localRace = selectedRaceId ? (getMarathon(selectedRaceId) ?? null) : null;
   const race = localRace ?? ctx.race;
   const myRaceId = ctx.race?.id ?? null;
   const activeId = getMyRace().activeStrategyId ?? ctx.strategy?.id ?? null;
@@ -107,7 +107,8 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
       const removedStrategyIds = new Set(getStrategiesForMarathon(pending.id).map((s) => s.id));
       removeCustomMarathon(pending.id);
       if (current.raceId === pending.id) setMyRace({ raceId: undefined, activeStrategyId: undefined });
-      else if (current.activeStrategyId && removedStrategyIds.has(current.activeStrategyId)) setMyRace({ activeStrategyId: undefined });
+      else if (current.activeStrategyId && removedStrategyIds.has(current.activeStrategyId))
+        setMyRace({ activeStrategyId: undefined });
       if (selectedRaceId === pending.id) setSelectedRaceId(null);
       changed('Race removed.');
     }
@@ -133,20 +134,36 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
           </button>
         ))}
       </div>
-      <p role="status" className="rs-status">{status}</p>
+      <p role="status" className="rs-status">
+        {status}
+      </p>
 
-      {view === 'build' && (
-        race ? (
+      {view === 'build' &&
+        (race ? (
           <>
             {localRace && onChooseRace && localRace.id !== myRaceId && (
               <div className="rs-callout">
                 <p>You're building a strategy for {localRace.name}, which isn't your race.</p>
                 <div className="rs-actions">
-                  <button type="button" className="btn btn-secondary rs-btn" onClick={() => { onChooseRace(localRace); setSelectedRaceId(null); }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary rs-btn"
+                    onClick={() => {
+                      onChooseRace(localRace);
+                      setSelectedRaceId(null);
+                    }}
+                  >
                     Set as my race
                   </button>
                   {ctx.race && (
-                    <button type="button" className="btn btn-ghost rs-btn" onClick={() => { setSelectedRaceId(null); setInitialStrategyId(null); }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost rs-btn"
+                      onClick={() => {
+                        setSelectedRaceId(null);
+                        setInitialStrategyId(null);
+                      }}
+                    >
                       Back to {ctx.race.name}
                     </button>
                   )}
@@ -167,24 +184,35 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
         ) : (
           <EmptyState
             title="Pick your race"
-            action={(
+            action={
               <div className="rs-actions">
-                <button type="button" className="btn btn-primary rs-btn" onClick={() => setView('browse')}>Browse races</button>
-                <button type="button" className="btn btn-secondary rs-btn" onClick={() => setView('import')}>Import a race</button>
+                <button type="button" className="btn btn-primary rs-btn" onClick={() => setView('browse')}>
+                  Browse races
+                </button>
+                <button type="button" className="btn btn-secondary rs-btn" onClick={() => setView('import')}>
+                  Import a race
+                </button>
               </div>
-            )}
+            }
           >
             Choose one of the World Marathon Majors or add your own race to build a pacing plan.
           </EmptyState>
-        )
-      )}
+        ))}
 
       {view === 'mine' && (
         <section aria-label="My strategies">
           {allStrategies.length === 0 ? (
             <EmptyState
               title="No strategies yet"
-              action={<button type="button" className="btn btn-primary rs-btn" onClick={() => setView(race ? 'build' : 'browse')}>Build a strategy</button>}
+              action={
+                <button
+                  type="button"
+                  className="btn btn-primary rs-btn"
+                  onClick={() => setView(race ? 'build' : 'browse')}
+                >
+                  Build a strategy
+                </button>
+              }
             >
               Build a pacing plan for your race, then save it.
             </EmptyState>
@@ -198,28 +226,43 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
                   <li key={s.id} className={`card rs-strategy-item${isActive ? ' is-active' : ''}`}>
                     <div className="rs-strategy-main">
                       <h3 className="rs-strategy-name">{s.name}</h3>
-                      <p className="rs-muted rs-tight">{s.marathonName} · {pacingLabel(s.pacingStrategy)}</p>
+                      <p className="rs-muted rs-tight">
+                        {s.marathonName} · {pacingLabel(s.pacingStrategy)}
+                      </p>
                       <p className="rs-tight">
                         Target <strong className="rs-gold">{formatDurationSec(s.targetTimeSec)}</strong>
-                        {' · '}Average pace {formatPaceForUnit(s.targetTimeSec / dist, unit)}{paceLabel}
+                        {' · '}Average pace {formatPaceForUnit(s.targetTimeSec / dist, unit)}
+                        {paceLabel}
                       </p>
                       {isActive && <p className="rs-badge rs-badge-gold">Race-day strategy</p>}
                       {!r && <p className="rs-help">This race is no longer available.</p>}
                     </div>
                     <div className="rs-actions">
-                      <button type="button" className="btn btn-secondary rs-btn" disabled={!r}
-                        aria-label={`View ${s.name}`} onClick={() => openBuilder(s.marathonId, s.id)}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary rs-btn"
+                        disabled={!r}
+                        aria-label={`View ${s.name}`}
+                        onClick={() => openBuilder(s.marathonId, s.id)}
+                      >
                         View
                       </button>
                       {!isActive && (
-                        <button type="button" className="btn btn-secondary rs-btn"
-                          aria-label={`Use ${s.name} on race day`} onClick={() => handleSetActive(s.id)}>
+                        <button
+                          type="button"
+                          className="btn btn-secondary rs-btn"
+                          aria-label={`Use ${s.name} on race day`}
+                          onClick={() => handleSetActive(s.id)}
+                        >
                           Use on race day
                         </button>
                       )}
-                      <button type="button" className="btn btn-ghost rs-btn"
+                      <button
+                        type="button"
+                        className="btn btn-ghost rs-btn"
                         aria-label={`Delete ${s.name}`}
-                        onClick={() => setPending({ kind: 'strategy', id: s.id, label: s.name })}>
+                        onClick={() => setPending({ kind: 'strategy', id: s.id, label: s.name })}
+                      >
                         Delete
                       </button>
                     </div>
@@ -231,17 +274,25 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
 
           {customMarathons.length > 0 && (
             <section className="rs-customs" aria-labelledby="rs-customs-title">
-              <h3 id="rs-customs-title" className="rs-eyebrow">Custom races</h3>
+              <h3 id="rs-customs-title" className="rs-eyebrow">
+                Custom races
+              </h3>
               <ul className="rs-strategy-list">
                 {customMarathons.map((m) => (
                   <li key={m.id} className="card rs-strategy-item">
                     <div className="rs-strategy-main">
                       <p className="rs-strong rs-tight">{m.name}</p>
-                      <p className="rs-muted rs-tight">{[m.city, m.country].filter(Boolean).join(', ')} · {m.date}</p>
+                      <p className="rs-muted rs-tight">
+                        {[m.city, m.country].filter(Boolean).join(', ')} · {m.date}
+                      </p>
                     </div>
                     <div className="rs-actions">
-                      <button type="button" className="btn btn-ghost rs-btn" aria-label={`Remove ${m.name}`}
-                        onClick={() => setPending({ kind: 'race', id: m.id, label: m.name })}>
+                      <button
+                        type="button"
+                        className="btn btn-ghost rs-btn"
+                        aria-label={`Remove ${m.name}`}
+                        onClick={() => setPending({ kind: 'race', id: m.id, label: m.name })}
+                      >
                         Remove
                       </button>
                     </div>
@@ -264,17 +315,17 @@ export default function StrategyPanel({ ctx, onChooseRace, onChanged }: Strategy
         />
       )}
 
-      {view === 'import' && (
-        <MarathonImport onImport={handleImport} onCancel={() => setView('build')} />
-      )}
+      {view === 'import' && <MarathonImport onImport={handleImport} onCancel={() => setView('build')} />}
 
       <ConfirmDialog
         open={pending !== null}
         tone="danger"
         title={pending?.kind === 'race' ? 'Remove this race?' : 'Delete this strategy?'}
-        message={pending?.kind === 'race'
-          ? `${pending.label} and every strategy you saved for it will be removed. This can't be undone.`
-          : `${pending?.label ?? 'This strategy'} will be deleted. This can't be undone.`}
+        message={
+          pending?.kind === 'race'
+            ? `${pending.label} and every strategy you saved for it will be removed. This can't be undone.`
+            : `${pending?.label ?? 'This strategy'} will be deleted. This can't be undone.`
+        }
         confirmLabel={pending?.kind === 'race' ? 'Remove race' : 'Delete strategy'}
         onConfirm={confirmDelete}
         onCancel={() => setPending(null)}

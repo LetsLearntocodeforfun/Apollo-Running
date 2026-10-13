@@ -3,11 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import {
-  generateCarbLoadingProtocol,
-  getDailyCarbTarget,
-  getRaceMorningCarbTarget,
-} from '@/services/carbLoading';
+import { generateCarbLoadingProtocol, getDailyCarbTarget, getRaceMorningCarbTarget } from '@/services/carbLoading';
 
 const baseAthlete = { weightKg: 70, vo2max: 50, sex: 'male' as const };
 
@@ -24,9 +20,7 @@ describe('generateCarbLoadingProtocol', () => {
   it('should increase carb targets each day', () => {
     const protocol = generateCarbLoadingProtocol(baseAthlete, '2025-10-15');
     for (let i = 1; i < protocol.days.length; i++) {
-      expect(protocol.days[i].targetCarbsG).toBeGreaterThanOrEqual(
-        protocol.days[i - 1].targetCarbsG,
-      );
+      expect(protocol.days[i].targetCarbsG).toBeGreaterThanOrEqual(protocol.days[i - 1].targetCarbsG);
     }
   });
 
@@ -49,12 +43,8 @@ describe('generateCarbLoadingProtocol', () => {
   });
 
   it('should scale targets by body weight', () => {
-    const light = generateCarbLoadingProtocol(
-      { ...baseAthlete, weightKg: 55 }, '2025-10-15',
-    );
-    const heavy = generateCarbLoadingProtocol(
-      { ...baseAthlete, weightKg: 90 }, '2025-10-15',
-    );
+    const light = generateCarbLoadingProtocol({ ...baseAthlete, weightKg: 55 }, '2025-10-15');
+    const heavy = generateCarbLoadingProtocol({ ...baseAthlete, weightKg: 90 }, '2025-10-15');
     expect(heavy.days[0].targetCarbsG).toBeGreaterThan(light.days[0].targetCarbsG);
   });
 

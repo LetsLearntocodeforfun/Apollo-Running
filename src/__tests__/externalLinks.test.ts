@@ -11,7 +11,9 @@ import { getWorldMajors } from '@/data/worldMajors';
 
 describe('desktop external links', () => {
   it('every World Major official website can be opened', () => {
-    const sites = getWorldMajors('2026-10-09').map((m) => m.website).filter((u): u is string => typeof u === 'string' && u.length > 0);
+    const sites = getWorldMajors('2026-10-09')
+      .map((m) => m.website)
+      .filter((u): u is string => typeof u === 'string' && u.length > 0);
     expect(sites.length).toBeGreaterThanOrEqual(6);
     for (const url of sites) expect(getAllowedExternalUrl(url), url).not.toBeNull();
   });

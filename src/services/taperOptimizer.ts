@@ -69,7 +69,7 @@ export interface TaperWeek {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const CTL_DAYS = 42; // fitness time constant
-const ATL_DAYS = 7;  // fatigue time constant
+const ATL_DAYS = 7; // fatigue time constant
 const CTL_DECAY = 1 - Math.exp(-1 / CTL_DAYS);
 const ATL_DECAY = 1 - Math.exp(-1 / ATL_DAYS);
 
@@ -150,10 +150,7 @@ export function getCurrentFitness(history: DailyTrainingLoad[]): FitnessFatigueS
 /**
  * Generate an optimal taper recommendation based on current fitness.
  */
-export function generateTaperPlan(
-  history: DailyTrainingLoad[],
-  _raceDateStr: string,
-): TaperRecommendation {
+export function generateTaperPlan(history: DailyTrainingLoad[], _raceDateStr: string): TaperRecommendation {
   const snapshots = calculateFitnessFatigue(history);
   const current = snapshots.length > 0 ? snapshots[snapshots.length - 1] : { ctl: 50, atl: 50, tsb: 0, date: '' };
 
@@ -195,11 +192,7 @@ export function generateTaperPlan(
 /**
  * Estimate TSS from a run (simplified model when actual TSS isn't available).
  */
-export function estimateTSS(
-  distanceMi: number,
-  durationMin: number,
-  type: DailyTrainingLoad['type'],
-): number {
+export function estimateTSS(distanceMi: number, durationMin: number, type: DailyTrainingLoad['type']): number {
   // Base: distance × intensity factor
   const intensityFactors: Record<string, number> = {
     rest: 0,
@@ -225,8 +218,8 @@ export function estimateTSS(
 function calculateOptimalTaperLength(ctl: number): number {
   // Higher fitness = longer taper (more fatigue to shed)
   if (ctl >= 100) return 21; // 3 weeks
-  if (ctl >= 70) return 16;  // ~2.5 weeks
-  if (ctl >= 50) return 14;  // 2 weeks
+  if (ctl >= 70) return 16; // ~2.5 weeks
+  if (ctl >= 50) return 14; // 2 weeks
   return 10; // lower fitness, shorter taper
 }
 
@@ -254,7 +247,7 @@ function calculateWeeklyReductions(currentCTL: number, taperDays: number): Taper
       weekNumber: w,
       weeksOut: weeks - w + 1,
       volumePct,
-      tssTarget: Math.round(peakWeeklyTSS * volumePct / 100),
+      tssTarget: Math.round((peakWeeklyTSS * volumePct) / 100),
       guidance,
     });
   }
@@ -304,11 +297,12 @@ function buildTaperSummary(
   weeks: TaperWeek[],
 ): string {
   const weekPcts = weeks.map((w) => `Week ${w.weekNumber}: ${w.volumePct}%`).join(', ');
-  const tsbStatus = projectedTSB >= IDEAL_TSB_MIN && projectedTSB <= IDEAL_TSB_MAX
-    ? 'optimal range'
-    : projectedTSB < IDEAL_TSB_MIN
-      ? 'slightly under-rested — consider extending taper'
-      : 'well-rested';
+  const tsbStatus =
+    projectedTSB >= IDEAL_TSB_MIN && projectedTSB <= IDEAL_TSB_MAX
+      ? 'optimal range'
+      : projectedTSB < IDEAL_TSB_MIN
+        ? 'slightly under-rested — consider extending taper'
+        : 'well-rested';
 
   return `Start your taper ${taperStartDays} days out. Your current fitness (CTL) is ${ctl.toFixed(0)} with form (TSB) at ${currentTSB.toFixed(0)}. Volume reduction: ${weekPcts}. Maintain 2 short intensity sessions per week to preserve neuromuscular sharpness. Projected race day TSB: ${projectedTSB.toFixed(0)} (${tsbStatus}).`;
 }

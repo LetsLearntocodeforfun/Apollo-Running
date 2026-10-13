@@ -64,9 +64,7 @@ describe('localDate', () => {
   });
 
   it('enumerates inclusive day ranges', () => {
-    expect(eachDay('2026-03-07', '2026-03-10')).toEqual([
-      '2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10',
-    ]);
+    expect(eachDay('2026-03-07', '2026-03-10')).toEqual(['2026-03-07', '2026-03-08', '2026-03-09', '2026-03-10']);
     expect(eachDay('2026-03-10', '2026-03-07')).toEqual([]);
     expect(compareDateKeys('2026-03-07', '2026-03-10')).toBeLessThan(0);
   });

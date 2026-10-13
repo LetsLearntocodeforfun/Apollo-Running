@@ -36,7 +36,9 @@ function readAll(): Partial<Record<LiveActivitySource, NeedsReconnectState>> {
   try {
     const raw = persistence.getItem(NEEDS_RECONNECT_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === 'object' ? parsed as Partial<Record<LiveActivitySource, NeedsReconnectState>> : {};
+    return parsed && typeof parsed === 'object'
+      ? (parsed as Partial<Record<LiveActivitySource, NeedsReconnectState>>)
+      : {};
   } catch {
     return {};
   }
@@ -49,13 +51,19 @@ function writeAll(map: Partial<Record<LiveActivitySource, NeedsReconnectState>>)
 
 function emit(change: NeedsReconnectChange): void {
   for (const listener of listeners) {
-    try { listener(change); } catch { /* listener errors must not break sync */ }
+    try {
+      listener(change);
+    } catch {
+      /* listener errors must not break sync */
+    }
   }
   try {
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       window.dispatchEvent(new CustomEvent(NEEDS_RECONNECT_EVENT, { detail: change }));
     }
-  } catch { /* no DOM */ }
+  } catch {
+    /* no DOM */
+  }
 }
 
 /**

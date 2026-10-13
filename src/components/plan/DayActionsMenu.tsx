@@ -55,7 +55,12 @@ export function getDayBadges(plan: TrainingPlan | null): Map<string, DayBadge> {
   let partners: Record<string, unknown> = {};
   try {
     const raw = persistence.getItem(PLAN_OVERLAY_STORAGE_KEY);
-    const store = raw ? (JSON.parse(raw) as Record<string, { dayOverrides?: Record<string, unknown>; swapPartners?: Record<string, unknown> }>) : {};
+    const store = raw
+      ? (JSON.parse(raw) as Record<
+          string,
+          { dayOverrides?: Record<string, unknown>; swapPartners?: Record<string, unknown> }
+        >)
+      : {};
     overrides = store[instanceId]?.dayOverrides ?? {};
     partners = store[instanceId]?.swapPartners ?? {};
   } catch {
@@ -144,13 +149,28 @@ export function DayActionsMenu({ plan, weekIndex, dayIndex, dayLabel, onChanged,
     const title = workoutTitle(day);
     if (editable) {
       if (day.type !== 'rest') {
-        list.push({ id: 'skip', label: 'Skip', run: () => skipWorkout(ref), success: `Skipped ${title.toLowerCase()} on ${dayLabel}.` });
+        list.push({
+          id: 'skip',
+          label: 'Skip',
+          run: () => skipWorkout(ref),
+          success: `Skipped ${title.toLowerCase()} on ${dayLabel}.`,
+        });
       }
       if (day.type === 'run' && (day.distanceMi ?? 0) > 0 && !isEasy(day)) {
-        list.push({ id: 'easy', label: 'Convert to an easy run', run: () => convertWorkout(ref, 'easy'), success: `${dayLabel} is now an easy run.` });
+        list.push({
+          id: 'easy',
+          label: 'Convert to an easy run',
+          run: () => convertWorkout(ref, 'easy'),
+          success: `${dayLabel} is now an easy run.`,
+        });
       }
       if (day.type !== 'rest') {
-        list.push({ id: 'rest', label: 'Convert to a rest day', run: () => convertWorkout(ref, 'rest'), success: `${dayLabel} is now a rest day.` });
+        list.push({
+          id: 'rest',
+          label: 'Convert to a rest day',
+          run: () => convertWorkout(ref, 'rest'),
+          success: `${dayLabel} is now a rest day.`,
+        });
       }
       // Move targets: other days of this week and next week, before race day, not completed.
       for (let w = weekIndex; w <= Math.min(weekIndex + 1, plan.weeks.length - 1); w++) {
@@ -166,7 +186,12 @@ export function DayActionsMenu({ plan, weekIndex, dayIndex, dayLabel, onChanged,
       }
     }
     if (!completed && isDayModified(ref)) {
-      list.push({ id: 'restore', label: 'Restore original', run: () => restoreDay(ref), success: `Restored the planned workout on ${dayLabel}.` });
+      list.push({
+        id: 'restore',
+        label: 'Restore original',
+        run: () => restoreDay(ref),
+        success: `Restored the planned workout on ${dayLabel}.`,
+      });
     }
     const log = getOverlayLog();
     if (log.length > 0) undo = log[log.length - 1].summary;
@@ -265,12 +290,25 @@ export function DayActionsMenu({ plan, weekIndex, dayIndex, dayLabel, onChanged,
           {mode === 'menu' ? (
             <>
               {editable && moveTargets.length > 0 && (
-                <button type="button" role="menuitem" tabIndex={-1} className="day-actions-item" onClick={() => setMode('move')}>
+                <button
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  className="day-actions-item"
+                  onClick={() => setMode('move')}
+                >
                   Move to…
                 </button>
               )}
               {actions.map((a) => (
-                <button key={a.id} type="button" role="menuitem" tabIndex={-1} className="day-actions-item" onClick={() => runAction(a.run, a.success)}>
+                <button
+                  key={a.id}
+                  type="button"
+                  role="menuitem"
+                  tabIndex={-1}
+                  className="day-actions-item"
+                  onClick={() => runAction(a.run, a.success)}
+                >
                   {a.label}
                 </button>
               ))}
@@ -291,7 +329,13 @@ export function DayActionsMenu({ plan, weekIndex, dayIndex, dayLabel, onChanged,
             </>
           ) : (
             <>
-              <button type="button" role="menuitem" tabIndex={-1} className="day-actions-item day-actions-item--back" onClick={() => setMode('menu')}>
+              <button
+                type="button"
+                role="menuitem"
+                tabIndex={-1}
+                className="day-actions-item day-actions-item--back"
+                onClick={() => setMode('menu')}
+              >
                 <span aria-hidden="true">←</span> Back
               </button>
               {moveTargets.map((t) => (

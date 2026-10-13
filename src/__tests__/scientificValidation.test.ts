@@ -51,7 +51,7 @@ describe('Carb Loading Protocol — Scientific Validation', () => {
   it('race morning carb target aligns with ACSM (1-4 g/kg)', () => {
     const target = getRaceMorningCarbTarget(70); // 2.5 g/kg
     expect(target).toBeGreaterThanOrEqual(70 * 1); // min 1 g/kg
-    expect(target).toBeLessThanOrEqual(70 * 4);     // max 4 g/kg
+    expect(target).toBeLessThanOrEqual(70 * 4); // max 4 g/kg
   });
 
   it('3-day protocol total provides enough carbs for glycogen supercompensation', () => {
@@ -63,7 +63,7 @@ describe('Carb Loading Protocol — Scientific Validation', () => {
     const day1 = getDailyCarbTarget(70, 1);
     const total = day3 + day2 + day1;
     expect(total).toBeGreaterThanOrEqual(1500); // minimum for supercompensation
-    expect(total).toBeLessThanOrEqual(3000);     // not excessive
+    expect(total).toBeLessThanOrEqual(3000); // not excessive
   });
 
   it('protocol generates correct number of meals across all days', () => {
@@ -202,8 +202,7 @@ describe('Race Day Timeline — Practical Validation', () => {
   it('events are sorted chronologically', () => {
     const timeline = generateRaceDayTimeline(baseInput);
     for (let i = 0; i < timeline.events.length - 1; i++) {
-      expect(timeline.events[i].minutesBeforeStart)
-        .toBeGreaterThanOrEqual(timeline.events[i + 1].minutesBeforeStart);
+      expect(timeline.events[i].minutesBeforeStart).toBeGreaterThanOrEqual(timeline.events[i + 1].minutesBeforeStart);
     }
   });
 
@@ -279,13 +278,15 @@ describe('Course Training — World Major Specificity', () => {
 
   it('generic plan differentiates hilly vs flat courses', () => {
     const hilly = generateCourseTraining({
-      name: 'Mountain Marathon', city: 'Denver',
+      name: 'Mountain Marathon',
+      city: 'Denver',
       courseType: 'out-and-back',
       course: { totalGainFt: 2000, difficulty: 8 },
       averageConditions: { tempF: 55, humidityPct: 50 },
     } as unknown as CourseInput);
     const flat = generateCourseTraining({
-      name: 'Plains Marathon', city: 'Topeka',
+      name: 'Plains Marathon',
+      city: 'Topeka',
       courseType: 'loop',
       course: { totalGainFt: 100, difficulty: 2 },
       averageConditions: { tempF: 55, humidityPct: 50 },
@@ -306,14 +307,25 @@ describe('Taper Optimizer — Banister Model Validation', () => {
       date.setDate(date.getDate() + d);
       const dayOfWeek = date.getDay();
       let tss: number, dist: number, type: 'easy' | 'tempo' | 'long_run' | 'rest';
-      if (dayOfWeek === 0) { // Sunday long run
-        tss = 120; dist = 18; type = 'long_run';
-      } else if (dayOfWeek === 3) { // Wednesday tempo
-        tss = 80; dist = 8; type = 'tempo';
-      } else if (dayOfWeek === 1) { // Monday rest
-        tss = 0; dist = 0; type = 'rest';
+      if (dayOfWeek === 0) {
+        // Sunday long run
+        tss = 120;
+        dist = 18;
+        type = 'long_run';
+      } else if (dayOfWeek === 3) {
+        // Wednesday tempo
+        tss = 80;
+        dist = 8;
+        type = 'tempo';
+      } else if (dayOfWeek === 1) {
+        // Monday rest
+        tss = 0;
+        dist = 0;
+        type = 'rest';
       } else {
-        tss = 40; dist = 6; type = 'easy';
+        tss = 40;
+        dist = 6;
+        type = 'easy';
       }
       history.push({ date: date.toISOString().slice(0, 10), tss, distanceMi: dist, type });
     }
@@ -335,7 +347,7 @@ describe('Taper Optimizer — Banister Model Validation', () => {
     // Verified structurally: ATL uses 7-day constant, CTL uses 42-day
     const snapshots = calculateFitnessFatigue(trainingHistory);
     // ATL should always be >= 0 and finite
-    expect(snapshots.every(s => isFinite(s.atl))).toBe(true);
+    expect(snapshots.every((s) => isFinite(s.atl))).toBe(true);
   });
 
   it('TSB = CTL - ATL at every snapshot', () => {

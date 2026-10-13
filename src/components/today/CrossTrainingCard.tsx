@@ -14,20 +14,27 @@ export default function CrossTrainingCard({ summaries }: CrossTrainingCardProps)
   return (
     <section className="card" aria-labelledby="today-cross-title">
       <div className="today-cross-head">
-        <h2 id="today-cross-title" className="today-section-title">Cross-training this week</h2>
+        <h2 id="today-cross-title" className="today-section-title">
+          Cross-training this week
+        </h2>
         <span className="today-cross-total">{formatHoursMinutes(totalSec)}</span>
       </div>
       <ul className="today-cross-list">
         {summaries.map((s) => (
           <li key={s.category} className="today-cross-item">
-            <span className="today-cross-label"><span aria-hidden="true">{s.icon} </span>{s.label}</span>
+            <span className="today-cross-label">
+              <span aria-hidden="true">{s.icon} </span>
+              {s.label}
+            </span>
             <span className="today-cross-value">{formatHoursMinutes(s.movingTimeSec)}</span>
             <span className="today-cross-sub">
               {[
                 `${s.count} session${s.count === 1 ? '' : 's'}`,
                 s.distanceMeters > 0 ? formatDistanceShort(s.distanceMeters) : null,
                 s.trainingLoad > 0 ? `Load ${Math.round(s.trainingLoad)}` : null,
-              ].filter(Boolean).join(' · ')}
+              ]
+                .filter(Boolean)
+                .join(' · ')}
             </span>
           </li>
         ))}

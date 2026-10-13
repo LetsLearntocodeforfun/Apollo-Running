@@ -245,15 +245,23 @@ class WellnessAbortError extends Error {
 function raceAbort<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
   if (!signal) return promise;
   if (signal.aborted) {
-    promise.catch(() => { /* result no longer wanted */ });
+    promise.catch(() => {
+      /* result no longer wanted */
+    });
     return Promise.reject(new WellnessAbortError());
   }
   return new Promise<T>((resolve, reject) => {
     const onAbort = () => reject(new WellnessAbortError());
     signal.addEventListener('abort', onAbort);
     promise.then(
-      (value) => { signal.removeEventListener('abort', onAbort); resolve(value); },
-      (err: unknown) => { signal.removeEventListener('abort', onAbort); reject(err); },
+      (value) => {
+        signal.removeEventListener('abort', onAbort);
+        resolve(value);
+      },
+      (err: unknown) => {
+        signal.removeEventListener('abort', onAbort);
+        reject(err);
+      },
     );
   });
 }
@@ -317,7 +325,9 @@ function readStore(): WellnessStore {
     try {
       const obj: unknown = JSON.parse(raw);
       if (obj && typeof obj === 'object' && !Array.isArray(obj)) parsed = obj as WellnessStore;
-    } catch { /* unreadable → start over */ }
+    } catch {
+      /* unreadable → start over */
+    }
   }
   memoRaw = raw;
   memoStore = parsed;
@@ -332,7 +342,9 @@ function writeStore(store: WellnessStore): void {
 }
 
 function storedDates(store: WellnessStore): string[] {
-  return Object.keys(store).filter((k) => DATE_RE.test(k) && !!store[k] && typeof store[k] === 'object').sort();
+  return Object.keys(store)
+    .filter((k) => DATE_RE.test(k) && !!store[k] && typeof store[k] === 'object')
+    .sort();
 }
 
 function trimStore(store: WellnessStore, today: string): void {
@@ -414,7 +426,11 @@ export function onWellnessUpdated(listener: (result: WellnessSyncResult) => void
 
 function emit(result: WellnessSyncResult): void {
   for (const listener of listeners) {
-    try { listener(result); } catch { /* listener errors must not break sync */ }
+    try {
+      listener(result);
+    } catch {
+      /* listener errors must not break sync */
+    }
   }
 }
 
@@ -438,8 +454,8 @@ function sportSettingsDue(state: StoredState, creds: IntervalsCredentials, now: 
   const connection = connectionKey(creds);
   if (state.sportSettingsConnection !== connection) return true;
   const run = state.run;
-  const settled = !!run && run.connection === connection && run.fetchedAt === state.sportSettingsCheckedAt
-    && !!run.thresholdPace;
+  const settled =
+    !!run && run.connection === connection && run.fetchedAt === state.sportSettingsCheckedAt && !!run.thresholdPace;
   return msSince(state.sportSettingsCheckedAt, now) >= (settled ? SPORT_SETTINGS_TTL_MS : SPORT_SETTINGS_RECHECK_MS);
 }
 
@@ -513,7 +529,11 @@ export async function refreshRunSportSettings(): Promise<SportSettingsResult> {
   const result = await readSportSettings(creds);
   if (result.ok) {
     if (getAppPreferences().syncWellness) {
-      try { applyHRProfileFromWellness(); } catch { /* non-critical */ }
+      try {
+        applyHRProfileFromWellness();
+      } catch {
+        /* non-critical */
+      }
     }
     emit({ fetched: 0 });
   }
@@ -567,8 +587,12 @@ function applyHRProfileFromWellness(today: string = localDateKey()): void {
 
   const patch: Partial<StoredState> = {};
   const maxHR = state.run?.maxHR;
-  if (maxHR !== undefined && maxHR >= 120 && maxHR <= 230
-    && (maxHR !== state.appliedMaxHR || profile.source === 'default')) {
+  if (
+    maxHR !== undefined &&
+    maxHR >= 120 &&
+    maxHR <= 230 &&
+    (maxHR !== state.appliedMaxHR || profile.source === 'default')
+  ) {
     if (next.maxHR !== maxHR) {
       next.maxHR = maxHR;
       changed = true;
@@ -632,8 +656,14 @@ async function runWellnessSync(full: boolean, signal?: AbortSignal): Promise<Wel
     // Different intervals.icu athlete: their data replaces the previous one's.
     writeStore({});
     state = saveState({
-      ...EMPTY_STATE, athleteId, connectedAt,
-      sportSettingsCheckedAt: null, sportSettingsConnection: null, run: null, appliedMaxHR: null, appliedLthr: null,
+      ...EMPTY_STATE,
+      athleteId,
+      connectedAt,
+      sportSettingsCheckedAt: null,
+      sportSettingsConnection: null,
+      run: null,
+      appliedMaxHR: null,
+      appliedLthr: null,
     });
   }
 
@@ -641,8 +671,11 @@ async function runWellnessSync(full: boolean, signal?: AbortSignal): Promise<Wel
   const today = localDateKey(new Date(now));
   const dates = storedDates(readStore());
   const latest = dates.length ? dates[dates.length - 1] : null;
-  const doFull = full || reconnected || !state.lastFullSyncAt
-    || (!latest && msSince(state.lastFullSyncAt, now) >= EMPTY_STORE_FULL_SYNC_MS);
+  const doFull =
+    full ||
+    reconnected ||
+    !state.lastFullSyncAt ||
+    (!latest && msSince(state.lastFullSyncAt, now) >= EMPTY_STORE_FULL_SYNC_MS);
   const newest = today;
   const oldest = doFull
     ? addDays(today, -(FULL_SYNC_DAYS - 1))
@@ -689,9 +722,17 @@ async function runWellnessSync(full: boolean, signal?: AbortSignal): Promise<Wel
 
   if (!signal?.aborted && sportSettingsDue(state, creds, Date.now())) {
     // Cancelling stops waiting; the read itself finishes and is cached in the background.
-    try { await raceAbort(readSportSettings(creds), signal); } catch { /* cancelled */ }
+    try {
+      await raceAbort(readSportSettings(creds), signal);
+    } catch {
+      /* cancelled */
+    }
   }
-  try { applyHRProfileFromWellness(today); } catch { /* non-critical */ }
+  try {
+    applyHRProfileFromWellness(today);
+  } catch {
+    /* non-critical */
+  }
 
   const result: WellnessSyncResult = { fetched };
   emit(result);
@@ -846,7 +887,10 @@ function hasRecoveryData(r: WellnessRecord): boolean {
  * under a week of data or nothing from the last 2 days. 'good' needs an HRV or
  * resting-HR baseline to back it.
  */
-export function computeRecoverySnapshot(records: readonly WellnessRecord[], today: string = localDateKey()): RecoverySnapshot {
+export function computeRecoverySnapshot(
+  records: readonly WellnessRecord[],
+  today: string = localDateKey(),
+): RecoverySnapshot {
   const byDate = new Map<string, WellnessRecord>();
   for (const r of records) {
     if (r && typeof r.date === 'string' && DATE_RE.test(r.date) && r.date <= today) byDate.set(r.date, r);
@@ -883,7 +927,13 @@ export function computeRecoverySnapshot(records: readonly WellnessRecord[], toda
   for (const [date, r] of byDate) if (date >= windowStart && hasRecoveryData(r)) daysWithData++;
 
   const snapshot: RecoverySnapshot = {
-    status: 'unknown', headline: '', reasons: [], suggestion: '', date: today, daysWithData, series,
+    status: 'unknown',
+    headline: '',
+    reasons: [],
+    suggestion: '',
+    date: today,
+    daysWithData,
+    series,
   };
   const signals: Signal[] = [];
   const notes: string[] = [];
@@ -902,12 +952,18 @@ export function computeRecoverySnapshot(records: readonly WellnessRecord[], toda
     const dur = formatDuration(secs);
     const deficit = sleep.avg7Secs !== undefined ? sleep.avg7Secs - secs : 0;
     const belowUsual = deficit >= SLEEP_BELOW_USUAL_HOURS * 3600;
-    const vsUsual = belowUsual && sleep.avg7Secs !== undefined
-      ? `, ${formatDuration(deficit)} less than your 7-night average (${formatDuration(sleep.avg7Secs)})`
-      : '';
+    const vsUsual =
+      belowUsual && sleep.avg7Secs !== undefined
+        ? `, ${formatDuration(deficit)} less than your 7-night average (${formatDuration(sleep.avg7Secs)})`
+        : '';
     if (hours < SLEEP_VERY_SHORT_HOURS) {
       sleep.flagged = true;
-      signals.push({ strong: true, rank: 2, phrase: `you slept only ${dur}`, reason: `You slept only ${dur}${vsUsual}.` });
+      signals.push({
+        strong: true,
+        rank: 2,
+        phrase: `you slept only ${dur}`,
+        reason: `You slept only ${dur}${vsUsual}.`,
+      });
     } else if (hours < SLEEP_SHORT_HOURS || (hours < SLEEP_FLOOR_HOURS && belowUsual)) {
       sleep.flagged = true;
       signals.push({
@@ -978,14 +1034,16 @@ export function computeRecoverySnapshot(records: readonly WellnessRecord[], toda
       hrv.high = round1(Math.exp(mu + HRV_NORMAL_SD * sd));
       // Only rated with a reading from the last 2 days, like the other metrics.
       if (lnAvg7 !== undefined && hrv.latest !== undefined) {
-        hrv.position = lnAvg7 < mu - HRV_NORMAL_SD * sd ? 'below' : lnAvg7 > mu + HRV_NORMAL_SD * sd ? 'above' : 'within';
+        hrv.position =
+          lnAvg7 < mu - HRV_NORMAL_SD * sd ? 'below' : lnAvg7 > mu + HRV_NORMAL_SD * sd ? 'above' : 'within';
         strongLow = lnAvg7 < mu - HRV_STRONG_SD * sd;
       }
       latestLow = hrv.latest !== undefined && Math.log(hrv.latest) < mu - sd;
     }
     snapshot.hrv = hrv;
 
-    const range = hrv.low !== undefined && hrv.high !== undefined ? `${Math.round(hrv.low)}–${Math.round(hrv.high)} ms` : '';
+    const range =
+      hrv.low !== undefined && hrv.high !== undefined ? `${Math.round(hrv.low)}–${Math.round(hrv.high)} ms` : '';
     const avg7 = hrv.avg7 !== undefined ? Math.round(hrv.avg7) : 0;
     if (lnBaseline.length < HRV_MIN_BASELINE_READINGS) {
       notes.push(`Building your HRV baseline (${lnBaseline.length} of ${HRV_MIN_BASELINE_READINGS} days).`);
@@ -1004,7 +1062,9 @@ export function computeRecoverySnapshot(records: readonly WellnessRecord[], toda
     } else {
       notes.push(`HRV 7-day average (${avg7} ms) is ${hrv.position} your normal range (${range}).`);
       if (latestLow && hrv.latest !== undefined) {
-        notes.push(`Your latest HRV reading (${Math.round(hrv.latest)} ms) was low, but one reading on its own isn't a concern.`);
+        notes.push(
+          `Your latest HRV reading (${Math.round(hrv.latest)} ms) was low, but one reading on its own isn't a concern.`,
+        );
       }
     }
   }

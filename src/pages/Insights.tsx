@@ -41,12 +41,7 @@ import {
   getLatestReadinessScore,
   type ReadinessScore,
 } from '../services/weeklyReadiness';
-import {
-  generateTodayRecap,
-  getDailyRecap,
-  getRecentRecaps,
-  type DailyRecap,
-} from '../services/dailyRecap';
+import { generateTodayRecap, getDailyRecap, getRecentRecaps, type DailyRecap } from '../services/dailyRecap';
 import {
   getAggregateZoneDistribution,
   getHRProfile,
@@ -87,9 +82,12 @@ function useStoreSnapshot<T>(read: () => T): T {
 /** Localised label for a YYYY-MM-DD key, e.g. "Mon, Oct 5" (local calendar date). */
 function formatDayLabel(key: string, withYear = false): string {
   if (!isDateKey(key)) return key;
-  return parseDateKey(key).toLocaleDateString(undefined, withYear
-    ? { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
-    : { weekday: 'short', month: 'short', day: 'numeric' });
+  return parseDateKey(key).toLocaleDateString(
+    undefined,
+    withYear
+      ? { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }
+      : { weekday: 'short', month: 'short', day: 'numeric' },
+  );
 }
 
 type ScoreBand = 'good' | 'ok' | 'low';
@@ -116,7 +114,17 @@ function gradeColor(grade: string): string {
 }
 
 /** Circular gauge component for scores */
-function ScoreGauge({ score, size = 120, label, color }: { score: number; size?: number; label: string; color: string }) {
+function ScoreGauge({
+  score,
+  size = 120,
+  label,
+  color,
+}: {
+  score: number;
+  size?: number;
+  label: string;
+  color: string;
+}) {
   const radius = (size - 12) / 2;
   const circumference = 2 * Math.PI * radius;
   const clamped = Math.max(0, Math.min(100, score));
@@ -126,22 +134,33 @@ function ScoreGauge({ score, size = 120, label, color }: { score: number; size?:
       <svg width={size} height={size} className="progress-gauge-svg" aria-hidden="true">
         <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth={8} />
         <circle
-          cx={size / 2} cy={size / 2} r={radius} fill="none"
-          stroke={color} strokeWidth={8} strokeLinecap="round"
-          strokeDasharray={circumference} strokeDashoffset={offset}
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={8}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
           className="progress-gauge-arc"
         />
         <text
-          x={size / 2} y={size / 2}
-          textAnchor="middle" dominantBaseline="central"
-          fill="var(--text)" fontSize={size * 0.28} fontWeight={700}
+          x={size / 2}
+          y={size / 2}
+          textAnchor="middle"
+          dominantBaseline="central"
+          fill="var(--text)"
+          fontSize={size * 0.28}
+          fontWeight={700}
           style={{ transform: 'rotate(90deg)', transformOrigin: `${size / 2}px ${size / 2}px` }}
         >
           {score}
         </text>
       </svg>
       <span className="progress-gauge-label">
-        <span className="sr-only">{score} — </span>{label}
+        <span className="sr-only">{score} — </span>
+        {label}
       </span>
     </div>
   );
@@ -212,10 +231,13 @@ function TrendChip({ trend }: { trend: string }) {
   );
 }
 
-const PREDICTION_EMPTY_COPY =
-  'Add a recent race in Settings › Athlete Profile (or sync a race) to see a prediction.';
+const PREDICTION_EMPTY_COPY = 'Add a recent race in Settings › Athlete Profile (or sync a race) to see a prediction.';
 
-function PredictionCard({ prediction, goalMarathonSec, computed }: {
+function PredictionCard({
+  prediction,
+  goalMarathonSec,
+  computed,
+}: {
   prediction: RacePrediction | null;
   goalMarathonSec: number | null;
   computed: boolean;
@@ -226,11 +248,17 @@ function PredictionCard({ prediction, goalMarathonSec, computed }: {
     if (!computed) return null;
     return (
       <section className="card" aria-labelledby={titleId}>
-        <h2 id={titleId} className="card-title">Race prediction</h2>
+        <h2 id={titleId} className="card-title">
+          Race prediction
+        </h2>
         <EmptyState
           icon="⏱️"
           title="No prediction yet"
-          action={<Link to="/settings?tab=profile" className="btn btn-secondary">Add a recent race</Link>}
+          action={
+            <Link to="/settings?tab=profile" className="btn btn-secondary">
+              Add a recent race
+            </Link>
+          }
         >
           {PREDICTION_EMPTY_COPY}
         </EmptyState>
@@ -246,7 +274,9 @@ function PredictionCard({ prediction, goalMarathonSec, computed }: {
   return (
     <section className="card progress-prediction" aria-labelledby={titleId}>
       <div className="progress-card-head">
-        <h2 id={titleId} className="card-title">Race prediction</h2>
+        <h2 id={titleId} className="card-title">
+          Race prediction
+        </h2>
         <TrendChip trend={prediction.trend} />
       </div>
 
@@ -265,22 +295,48 @@ function PredictionCard({ prediction, goalMarathonSec, computed }: {
 
       <dl className="progress-meta">
         {source ? (
-          <div><dt>Source</dt><dd>{source}</dd></div>
+          <div>
+            <dt>Source</dt>
+            <dd>{source}</dd>
+          </div>
         ) : (
-          <div><dt>Method</dt><dd>{prediction.method.replace(/_/g, ' ')}</dd></div>
+          <div>
+            <dt>Method</dt>
+            <dd>{prediction.method.replace(/_/g, ' ')}</dd>
+          </div>
         )}
-        <div><dt>Confidence</dt><dd>{predictionConfidenceText(prediction)}</dd></div>
-        {asOf && <div><dt>As of</dt><dd>{formatDayLabel(asOf, true)}</dd></div>}
-        <div><dt>VDOT</dt><dd>{prediction.vdot}</dd></div>
+        <div>
+          <dt>Confidence</dt>
+          <dd>{predictionConfidenceText(prediction)}</dd>
+        </div>
+        {asOf && (
+          <div>
+            <dt>As of</dt>
+            <dd>{formatDayLabel(asOf, true)}</dd>
+          </div>
+        )}
+        <div>
+          <dt>VDOT</dt>
+          <dd>{prediction.vdot}</dd>
+        </div>
       </dl>
 
       {prediction.basis && <p className="progress-basis">{prediction.basis}</p>}
 
       <h3>Other distances</h3>
       <ul className="progress-distances">
-        <li><strong>{prediction.halfMarathonFormatted}</strong><span>Half marathon</span></li>
-        <li><strong>{prediction.tenKFormatted}</strong><span>10K</span></li>
-        <li><strong>{prediction.fiveKFormatted}</strong><span>5K</span></li>
+        <li>
+          <strong>{prediction.halfMarathonFormatted}</strong>
+          <span>Half marathon</span>
+        </li>
+        <li>
+          <strong>{prediction.tenKFormatted}</strong>
+          <span>10K</span>
+        </li>
+        <li>
+          <strong>{prediction.fiveKFormatted}</strong>
+          <span>5K</span>
+        </li>
       </ul>
 
       {change && <p className="progress-muted progress-change">{change}</p>}
@@ -313,11 +369,17 @@ function CountdownCard({ journey, planAuthor }: { journey: JourneyState; planAut
   if (!journey.planName && journey.daysToRace === null) {
     return (
       <section className="card" aria-labelledby={titleId}>
-        <h2 id={titleId} className="card-title">Race countdown</h2>
+        <h2 id={titleId} className="card-title">
+          Race countdown
+        </h2>
         <EmptyState
           icon="🗓️"
           title="No training plan yet"
-          action={<Link to="/plan" className="btn btn-primary">Choose a plan</Link>}
+          action={
+            <Link to="/plan" className="btn btn-primary">
+              Choose a plan
+            </Link>
+          }
         >
           Choose a training plan to unlock readiness scores, adherence tracking and a race-day countdown.
         </EmptyState>
@@ -326,16 +388,25 @@ function CountdownCard({ journey, planAuthor }: { journey: JourneyState; planAut
   }
 
   const countdown = countdownText(journey.daysToRace);
-  const phase = journey.trainingPhase ? PHASE_LABEL[journey.trainingPhase] ?? journey.trainingPhase : null;
+  const phase = journey.trainingPhase ? (PHASE_LABEL[journey.trainingPhase] ?? journey.trainingPhase) : null;
   return (
     <section className="card progress-countdown" aria-labelledby={titleId}>
-      <h2 id={titleId} className="card-title">Race countdown</h2>
+      <h2 id={titleId} className="card-title">
+        Race countdown
+      </h2>
       {countdown && <p className="progress-countdown-days">{countdown}</p>}
       <ul className="progress-facts">
-        {journey.planName && <li>{journey.planName}{planAuthor ? ` by ${planAuthor}` : ''}</li>}
+        {journey.planName && (
+          <li>
+            {journey.planName}
+            {planAuthor ? ` by ${planAuthor}` : ''}
+          </li>
+        )}
         {journey.raceDate && <li>Race day {formatDayLabel(journey.raceDate, true)}</li>}
         {journey.weekIndex !== null && journey.totalWeeks !== null && (
-          <li>Week {journey.weekIndex + 1} of {journey.totalWeeks}</li>
+          <li>
+            Week {journey.weekIndex + 1} of {journey.totalWeeks}
+          </li>
         )}
         {phase && <li>{phase}</li>}
       </ul>
@@ -352,8 +423,12 @@ function AdherenceCard({ adherence }: { adherence: TrainingAdherence }) {
   return (
     <section className="card" aria-labelledby={titleId}>
       <div className="progress-card-head">
-        <h2 id={titleId} className="card-title">Training adherence</h2>
-        <span className={`progress-chip is-${adherence.rating === 'excellent' ? 'up' : adherence.rating === 'good' ? 'info' : 'warn'}`}>
+        <h2 id={titleId} className="card-title">
+          Training adherence
+        </h2>
+        <span
+          className={`progress-chip is-${adherence.rating === 'excellent' ? 'up' : adherence.rating === 'good' ? 'info' : 'warn'}`}
+        >
           {adherence.rating}
         </span>
       </div>
@@ -374,7 +449,9 @@ function AdherenceCard({ adherence }: { adherence: TrainingAdherence }) {
       <div className="progress-stats">
         <div>
           <div className="progress-stat-label">Days completed</div>
-          <div className="progress-stat-value">{adherence.completedDays} / {adherence.totalScheduledDays}</div>
+          <div className="progress-stat-value">
+            {adherence.completedDays} / {adherence.totalScheduledDays}
+          </div>
         </div>
         <div>
           <div className="progress-stat-label">Intensity balance</div>
@@ -416,7 +493,8 @@ function ReadinessCard({ readiness, history }: { readiness: ReadinessScore; hist
           Race-day readiness — week {readiness.weekNumber}
         </h2>
         <span className="progress-grade-letter" style={{ color }}>
-          <span className="sr-only">Grade </span>{readiness.grade}
+          <span className="sr-only">Grade </span>
+          {readiness.grade}
         </span>
         {readiness.trend !== 'stable' && (
           <span className={`progress-chip ${readiness.trend === 'improving' ? 'is-up' : 'is-down'}`}>
@@ -433,7 +511,10 @@ function ReadinessCard({ readiness, history }: { readiness: ReadinessScore; hist
             <li key={item.label}>
               <span className="progress-subscore-label">{item.label}</span>
               <span className="progress-bar" aria-hidden="true">
-                <span className={`progress-bar-fill is-${scoreBand(item.score)}`} style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }} />
+                <span
+                  className={`progress-bar-fill is-${scoreBand(item.score)}`}
+                  style={{ width: `${Math.max(0, Math.min(100, item.score))}%` }}
+                />
               </span>
               <span className="progress-subscore-value">{item.score}</span>
             </li>
@@ -444,19 +525,25 @@ function ReadinessCard({ readiness, history }: { readiness: ReadinessScore; hist
       {readiness.strengths.length > 0 && (
         <div className="progress-notes">
           <h3 className="progress-notes-title is-good">What went well</h3>
-          {readiness.strengths.map((s, i) => <p key={i}>{s}</p>)}
+          {readiness.strengths.map((s, i) => (
+            <p key={i}>{s}</p>
+          ))}
         </div>
       )}
       {readiness.improvements.length > 0 && (
         <div className="progress-notes">
           <h3 className="progress-notes-title is-ok">Areas to improve</h3>
-          {readiness.improvements.map((s, i) => <p key={i}>{s}</p>)}
+          {readiness.improvements.map((s, i) => (
+            <p key={i}>{s}</p>
+          ))}
         </div>
       )}
       {readiness.nextWeekTips.length > 0 && (
         <div className="progress-notes">
           <h3 className="progress-notes-title is-info">Tips for next week</h3>
-          {readiness.nextWeekTips.map((s, i) => <p key={i}>{s}</p>)}
+          {readiness.nextWeekTips.map((s, i) => (
+            <p key={i}>{s}</p>
+          ))}
         </div>
       )}
 
@@ -536,7 +623,9 @@ export function OverviewPanel() {
       {/* Today's recovery (sleep / HRV / resting HR via intervals.icu) — independent of the plan */}
       {data.connected && (
         <section aria-labelledby="progress-recovery-title">
-          <h2 id="progress-recovery-title" className="sr-only">Recovery</h2>
+          <h2 id="progress-recovery-title" className="sr-only">
+            Recovery
+          </h2>
           <ErrorBoundary variant="inline" label="Recovery">
             <RecoveryCard />
           </ErrorBoundary>
@@ -551,22 +640,39 @@ export function OverviewPanel() {
 /** Plain-language origin of the HR profile values. */
 export function hrSourceLabel(source: string | undefined): string {
   switch (source) {
-    case 'age-estimate': return 'Estimated from your birth year';
-    case 'manual': return 'Set by you';
-    case 'intervals': return 'From your intervals.icu activities';
-    case 'strava': return 'From your Strava activities';
-    case 'garmin': return 'From Garmin';
-    case 'file': return 'From imported activity files';
+    case 'age-estimate':
+      return 'Estimated from your birth year';
+    case 'manual':
+      return 'Set by you';
+    case 'intervals':
+      return 'From your intervals.icu activities';
+    case 'strava':
+      return 'From your Strava activities';
+    case 'garmin':
+      return 'From Garmin';
+    case 'file':
+      return 'From imported activity files';
     case 'default':
     case undefined:
     case '':
       return 'Default values (not personalised yet)';
-    default: return `From ${source}`;
+    default:
+      return `From ${source}`;
   }
 }
 
 /** HR zone distribution bars (30 days) */
-function ZoneChart({ zones, percentages, totalTimeSec, estimated = false }: { zones: HRZone[]; percentages: number[]; totalTimeSec: number; estimated?: boolean }) {
+function ZoneChart({
+  zones,
+  percentages,
+  totalTimeSec,
+  estimated = false,
+}: {
+  zones: HRZone[];
+  percentages: number[];
+  totalTimeSec: number;
+  estimated?: boolean;
+}) {
   // v1.0.7 (L-11): estimated shares are shown as approximate ("~").
   const approx = estimated ? '~' : '';
   return (
@@ -575,13 +681,19 @@ function ZoneChart({ zones, percentages, totalTimeSec, estimated = false }: { zo
         {zones.map((z, i) => (
           <li key={z.zone} className="progress-zone-row">
             <span className="progress-zone-name">
-              <span className="progress-zone-dot" style={{ background: z.color }} aria-hidden="true" />
-              Z{z.zone} {z.name}
+              <span className="progress-zone-dot" style={{ background: z.color }} aria-hidden="true" />Z{z.zone}{' '}
+              {z.name}
             </span>
             <span className="progress-zone-track" aria-hidden="true">
-              <span className="progress-zone-fill" style={{ width: `${Math.max(percentages[i] ?? 0, 1)}%`, background: z.color }} />
+              <span
+                className="progress-zone-fill"
+                style={{ width: `${Math.max(percentages[i] ?? 0, 1)}%`, background: z.color }}
+              />
             </span>
-            <span className="progress-zone-pct">{approx}{percentages[i] ?? 0}%</span>
+            <span className="progress-zone-pct">
+              {approx}
+              {percentages[i] ?? 0}%
+            </span>
           </li>
         ))}
       </ul>
@@ -616,12 +728,28 @@ export function HeartRatePanel() {
   return (
     <>
       <section className="card" aria-labelledby="progress-hr-profile-title">
-        <h2 id="progress-hr-profile-title" className="card-title">Heart rate profile</h2>
+        <h2 id="progress-hr-profile-title" className="card-title">
+          Heart rate profile
+        </h2>
         <dl className="progress-hr-values">
-          <div><dt>Max HR</dt><dd>{profile.maxHR} bpm</dd></div>
-          <div><dt>Resting HR</dt><dd>{profile.restingHR} bpm</dd></div>
-          {profile.lthr ? <div><dt>Lactate threshold</dt><dd>{profile.lthr} bpm</dd></div> : null}
-          <div><dt>Source</dt><dd>{hrSourceLabel(profile.source)}</dd></div>
+          <div>
+            <dt>Max HR</dt>
+            <dd>{profile.maxHR} bpm</dd>
+          </div>
+          <div>
+            <dt>Resting HR</dt>
+            <dd>{profile.restingHR} bpm</dd>
+          </div>
+          {profile.lthr ? (
+            <div>
+              <dt>Lactate threshold</dt>
+              <dd>{profile.lthr} bpm</dd>
+            </div>
+          ) : null}
+          <div>
+            <dt>Source</dt>
+            <dd>{hrSourceLabel(profile.source)}</dd>
+          </div>
         </dl>
         <p className="progress-muted progress-small">
           Max HR updates automatically when synced runs reach a higher heart rate, unless you entered it yourself.
@@ -632,7 +760,9 @@ export function HeartRatePanel() {
       </section>
 
       <section className="card" aria-labelledby="progress-hr-zones-title">
-        <h2 id="progress-hr-zones-title" className="card-title">Running heart-rate zones</h2>
+        <h2 id="progress-hr-zones-title" className="card-title">
+          Running heart-rate zones
+        </h2>
         <table className="progress-table">
           <caption className="progress-table-caption">
             Based on your max HR of {profile.maxHR} bpm (standard 5-zone model).
@@ -649,12 +779,16 @@ export function HeartRatePanel() {
             {zones.map((z) => (
               <tr key={z.zone}>
                 <th scope="row">
-                  <span className="progress-zone-dot" style={{ background: z.color }} aria-hidden="true" />
-                  Z{z.zone} {z.name}
+                  <span className="progress-zone-dot" style={{ background: z.color }} aria-hidden="true" />Z{z.zone}{' '}
+                  {z.name}
                 </th>
                 <td>{z.description}</td>
-                <td className="progress-num">{z.minBpm}–{z.maxBpm} bpm</td>
-                <td className="progress-num">{z.minPct}–{z.maxPct}%</td>
+                <td className="progress-num">
+                  {z.minBpm}–{z.maxBpm} bpm
+                </td>
+                <td className="progress-num">
+                  {z.minPct}–{z.maxPct}%
+                </td>
               </tr>
             ))}
           </tbody>
@@ -663,14 +797,20 @@ export function HeartRatePanel() {
 
       {!hasData && (
         <section className="card" aria-labelledby="progress-hr-empty-title">
-          <h2 id="progress-hr-empty-title" className="card-title">Your heart-rate data</h2>
+          <h2 id="progress-hr-empty-title" className="card-title">
+            Your heart-rate data
+          </h2>
           <EmptyState
             icon="❤️"
             title="No heart-rate data yet"
-            action={<Link to="/settings?tab=connections" className="btn btn-primary">Connect a data source</Link>}
+            action={
+              <Link to="/settings?tab=connections" className="btn btn-primary">
+                Connect a data source
+              </Link>
+            }
           >
-            Connect intervals.icu or Strava to sync heart rate from your runs. intervals.icu also brings in
-            Garmin, COROS, Polar, Suunto and Wahoo data.
+            Connect intervals.icu or Strava to sync heart rate from your runs. intervals.icu also brings in Garmin,
+            COROS, Polar, Suunto and Wahoo data.
           </EmptyState>
         </section>
       )}
@@ -680,7 +820,12 @@ export function HeartRatePanel() {
           <h2 id="progress-hr-dist-title" className="card-title">
             {distribution.estimated ? 'Estimated zone distribution (last 30 days)' : 'Zone distribution (last 30 days)'}
           </h2>
-          <ZoneChart zones={distribution.zones} percentages={distribution.percentages} totalTimeSec={distribution.totalTimeSec} estimated={distribution.estimated} />
+          <ZoneChart
+            zones={distribution.zones}
+            percentages={distribution.percentages}
+            totalTimeSec={distribution.totalTimeSec}
+            estimated={distribution.estimated}
+          />
           {distribution.estimated && (
             <p className="progress-muted progress-small" data-testid="hr-zones-estimated-note">
               {distribution.measuredShare > 0
@@ -698,7 +843,9 @@ export function HeartRatePanel() {
 
       {trend.length > 2 && (
         <section className="card" aria-labelledby="progress-hr-trend-title">
-          <h2 id="progress-hr-trend-title" className="card-title">Heart-rate trend (30 days)</h2>
+          <h2 id="progress-hr-trend-title" className="card-title">
+            Heart-rate trend (30 days)
+          </h2>
           <div
             className="progress-hr-trend"
             role="img"
@@ -744,8 +891,13 @@ function GradeChip({ grade }: { grade: string }) {
 
 function TodayRecapCard({ recap }: { recap: DailyRecap }) {
   return (
-    <section className={`card progress-recap-today ${GRADE_CLASS[recap.grade] ?? ''}`} aria-labelledby="progress-recap-today-title">
-      <h2 id="progress-recap-today-title" className="card-title">Today — {formatDayLabel(recap.date)}</h2>
+    <section
+      className={`card progress-recap-today ${GRADE_CLASS[recap.grade] ?? ''}`}
+      aria-labelledby="progress-recap-today-title"
+    >
+      <h2 id="progress-recap-today-title" className="card-title">
+        Today — {formatDayLabel(recap.date)}
+      </h2>
       <div className="progress-recap-tags">
         <GradeChip grade={recap.grade} />
         <span className="progress-muted">Week {recap.weekNumber}</span>
@@ -758,8 +910,9 @@ function TodayRecapCard({ recap }: { recap: DailyRecap }) {
             <div className="progress-stat-value">{formatMiles(recap.actualDistanceMi)}</div>
             {recap.plannedDistanceMi > 0 && (
               <div className={`progress-small ${recap.metPlan ? 'progress-good' : 'progress-warn'}`}>
-                {recap.distanceDiffMi >= 0 ? '+' : ''}{formatMiles(recap.distanceDiffMi)}{' '}
-                ({recap.distanceDiffPct >= 0 ? '+' : ''}{recap.distanceDiffPct.toFixed(0)}%)
+                {recap.distanceDiffMi >= 0 ? '+' : ''}
+                {formatMiles(recap.distanceDiffMi)} ({recap.distanceDiffPct >= 0 ? '+' : ''}
+                {recap.distanceDiffPct.toFixed(0)}%)
                 {recap.metPlan ? ' · plan met' : ' · below plan'}
               </div>
             )}
@@ -820,7 +973,9 @@ export function RecapsPanel() {
     <>
       {today && <TodayRecapCard recap={today} />}
       <section className="card" aria-labelledby="progress-recaps-title">
-        <h2 id="progress-recaps-title" className="card-title">Recent recaps</h2>
+        <h2 id="progress-recaps-title" className="card-title">
+          Recent recaps
+        </h2>
         {past.length > 0 ? (
           <ul className="progress-recap-list">
             {past.map((r) => (
@@ -831,7 +986,9 @@ export function RecapsPanel() {
                 </div>
                 <GradeChip grade={r.grade} />
                 <span className="progress-recap-summary">
-                  {r.synced ? `${formatMiles(r.actualDistanceMi)} · ${formatPaceFromMinPerMi(r.actualPaceMinPerMi)}` : r.plannedWorkout}
+                  {r.synced
+                    ? `${formatMiles(r.actualDistanceMi)} · ${formatPaceFromMinPerMi(r.actualPaceMinPerMi)}`
+                    : r.plannedWorkout}
                 </span>
                 {r.metPlan && (
                   <span className="progress-good progress-small">
@@ -845,7 +1002,11 @@ export function RecapsPanel() {
           <EmptyState
             icon="📝"
             title={today ? 'No earlier recaps yet' : 'No recaps yet'}
-            action={<Link to="/settings?tab=coaching" className="btn btn-secondary">Recap settings</Link>}
+            action={
+              <Link to="/settings?tab=coaching" className="btn btn-secondary">
+                Recap settings
+              </Link>
+            }
           >
             Recaps are generated after each activity sync or at your scheduled recap time.
           </EmptyState>

@@ -42,7 +42,7 @@ describe('riegelPredict', () => {
     // Riegel: T2 = 1200 * (26.2/3.1)^1.06
     expect(marathonSec).toBeGreaterThan(20 * 60);
     expect(marathonSec).toBeGreaterThan(3 * 3600); // > 3 hours
-    expect(marathonSec).toBeLessThan(5 * 3600);    // < 5 hours
+    expect(marathonSec).toBeLessThan(5 * 3600); // < 5 hours
   });
 
   it('should predict a shorter race time from a longer race', () => {
@@ -50,7 +50,7 @@ describe('riegelPredict', () => {
     const fiveKSec = riegelPredict(26.2, 4 * 3600, 3.1);
     expect(fiveKSec).toBeLessThan(4 * 3600);
     expect(fiveKSec).toBeGreaterThan(15 * 60); // > 15 minutes
-    expect(fiveKSec).toBeLessThan(35 * 60);    // < 35 minutes
+    expect(fiveKSec).toBeLessThan(35 * 60); // < 35 minutes
   });
 
   it('should return 0 for zero or negative inputs', () => {
@@ -219,13 +219,7 @@ describe('VDOT and Riegel cross-validation', () => {
 
 // ── v1.0.6 engine ─────────────────────────────────────────────────────────────
 
-function run(
-  id: number,
-  date: string,
-  distanceM: number,
-  timeSec: number,
-  extra: Partial<Activity> = {},
-): Activity {
+function run(id: number, date: string, distanceM: number, timeSec: number, extra: Partial<Activity> = {}): Activity {
   return {
     id,
     name: 'Morning Run',
@@ -283,7 +277,9 @@ describe('isRaceActivity', () => {
     expect(isRaceActivity(run(6, TODAY, 10000, 3300, { name: 'Easy 10k' }))).toBe(false);
     expect(isRaceActivity(run(7, TODAY, 10000, 3000))).toBe(false);
     expect(isRaceActivity(run(8, TODAY, 13000, 3600, { name: 'Half marathon' }))).toBe(false); // not a standard distance
-    expect(isRaceActivity(run(9, TODAY, 5000, 1300, { type: 'Ride', sport_type: 'Ride', name: '5K race' }))).toBe(false);
+    expect(isRaceActivity(run(9, TODAY, 5000, 1300, { type: 'Ride', sport_type: 'Ride', name: '5K race' }))).toBe(
+      false,
+    );
   });
 });
 
@@ -311,7 +307,11 @@ describe('deriveVdot', () => {
     expect(fresh.source).toBe('race_activity');
     expect(fresh.performance?.activityId).toBe(1);
 
-    const stale = deriveVdot({ ...base, activities: [], profile: { recentRace: { distanceM: 10000, timeSec: 2700, date: '2025-01-01' } } });
+    const stale = deriveVdot({
+      ...base,
+      activities: [],
+      profile: { recentRace: { distanceM: 10000, timeSec: 2700, date: '2025-01-01' } },
+    });
     expect(stale.source).toBe('none');
     expect(stale.vdot).toBeNull();
   });
@@ -319,7 +319,10 @@ describe('deriveVdot', () => {
   it('easy runs never lower a race-derived VDOT (even with heart-rate data)', () => {
     const race = { distanceM: 21097.5, timeSec: 5700, date: '2026-05-20' };
     const easy = Array.from({ length: 15 }, (_, i) =>
-      run(i + 1, `2026-06-${String(i + 1).padStart(2, '0')}`, 12000, 12000 / 1609.344 * 600, { average_heartrate: 135 }));
+      run(i + 1, `2026-06-${String(i + 1).padStart(2, '0')}`, 12000, (12000 / 1609.344) * 600, {
+        average_heartrate: 135,
+      }),
+    );
     const withEasy = deriveVdot({ ...base, hrProfile: HR, profile: { recentRace: race }, activities: easy });
     const raceOnly = deriveVdot({ ...base, profile: { recentRace: race }, activities: [] });
     expect(withEasy.source).toBe('recent_race');
@@ -338,7 +341,8 @@ describe('deriveVdot', () => {
   it('a slow best effort (easy run segment) does not beat the heart-rate estimate', () => {
     // Steady 9:00/mi runs at 150 bpm (HRR 0.71) → HR estimate ≈ 42.
     const steady = [3, 5, 7, 9].map((day, i) =>
-      run(i + 1, `2026-06-0${day}`, 12000, 12000 / 1609.344 * 540, { average_heartrate: 150 }));
+      run(i + 1, `2026-06-0${day}`, 12000, (12000 / 1609.344) * 540, { average_heartrate: 150 }),
+    );
     const slowEffort = run(10, '2026-06-10', 10000, 3600, {
       best_efforts: [{ key: '5k', distanceM: 5000, elapsedSec: 1800, startM: 0, source: 'splits' }], // 30:00 5K ≈ VDOT 31
     });
@@ -353,13 +357,17 @@ describe('deriveVdot', () => {
     const steady = [3, 5].map((day, i) => run(i + 1, `2026-06-0${day}`, 12000, 4000, { average_heartrate: 150 }));
     expect(deriveVdot({ ...base, hrProfile: HR, profile: {}, activities: steady }).source).toBe('none');
     const three = [...steady, run(3, '2026-06-07', 12000, 4000, { average_heartrate: 150 })];
-    expect(deriveVdot({ ...base, hrProfile: { ...HR, source: 'default' }, profile: {}, activities: three }).source).toBe('none');
+    expect(
+      deriveVdot({ ...base, hrProfile: { ...HR, source: 'default' }, profile: {}, activities: three }).source,
+    ).toBe('none');
     expect(deriveVdot({ ...base, hrProfile: HR, profile: {}, activities: three }).source).toBe('hr_estimate');
   });
 
   it('falls back to the goal time, unless disabled', () => {
     expect(deriveVdot({ ...base, activities: [], profile: { goalMarathonSec: 4 * 3600 } }).source).toBe('goal');
-    expect(deriveVdot({ ...base, activities: [], profile: { goalMarathonSec: 4 * 3600 }, allowGoal: false }).source).toBe('none');
+    expect(
+      deriveVdot({ ...base, activities: [], profile: { goalMarathonSec: 4 * 3600 }, allowGoal: false }).source,
+    ).toBe('none');
   });
 });
 
@@ -394,8 +402,10 @@ describe('computeRacePrediction / calculateRacePrediction', () => {
 
   it('widens the range for low weekly mileage', () => {
     const race = { distanceM: 10000, timeSec: 2700, date: '2026-06-01' };
-    const weeks = (miPerWeek: number) => Array.from({ length: 24 }, (_, i) =>
-      run(100 + i, addDays(TODAY, -1 - i * 1.75 | 0), (miPerWeek / 4) * 1609.344, 3600));
+    const weeks = (miPerWeek: number) =>
+      Array.from({ length: 24 }, (_, i) =>
+        run(100 + i, addDays(TODAY, (-1 - i * 1.75) | 0), (miPerWeek / 4) * 1609.344, 3600),
+      );
     const high = computeRacePrediction({ ...base, profile: { recentRace: race }, activities: weeks(55) })!;
     const low = computeRacePrediction({ ...base, profile: { recentRace: race }, activities: weeks(20) })!;
     expect(low.rangeHighSec! - low.marathonTimeSec).toBeGreaterThan(high.rangeHighSec! - high.marathonTimeSec);
@@ -404,7 +414,8 @@ describe('computeRacePrediction / calculateRacePrediction', () => {
 
   it('labels heart-rate predictions as estimates with low confidence', () => {
     const steady = [3, 5, 7, 9].map((day, i) =>
-      run(i + 1, `2026-06-0${day}`, 12000, 12000 / 1609.344 * 540, { average_heartrate: 150 }));
+      run(i + 1, `2026-06-0${day}`, 12000, (12000 / 1609.344) * 540, { average_heartrate: 150 }),
+    );
     const p = computeRacePrediction({ ...base, hrProfile: HR, profile: {}, activities: steady })!;
     expect(p.method).toBe('heart_rate_estimate');
     expect(p.vdotSource).toBe('hr_estimate');

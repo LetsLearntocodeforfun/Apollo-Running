@@ -33,20 +33,32 @@ afterEach(() => {
 describe('measured zones from file imports (L-11)', () => {
   it('keeps the zones aside without creating an HR record at build time', () => {
     // 20 min at 150 bpm (Z3), 20 min at 170 bpm (Z4).
-    const a = toActivity({ type: 'Run', startTime: T0, samples: samples((s) => (s < 1200 ? 150 : 170)), laps: [], totals: {} }, { fileName: 'run.fit' })!;
+    const a = toActivity(
+      { type: 'Run', startTime: T0, samples: samples((s) => (s < 1200 ? 150 : 170)), laps: [], totals: {} },
+      { fileName: 'run.fit' },
+    )!;
     expect(getMeasuredTimeInZones(a.id)).toEqual([0, 0, 1200, 1200, 0]);
     expect(getHRHistory()).toEqual([]);
   });
 
   it('runs without heart rate, and non-runs, store nothing', () => {
-    const noHr = toActivity({ type: 'Run', startTime: T0, samples: samples(() => undefined), laps: [], totals: {} }, { fileName: 'a.gpx' })!;
+    const noHr = toActivity(
+      { type: 'Run', startTime: T0, samples: samples(() => undefined), laps: [], totals: {} },
+      { fileName: 'a.gpx' },
+    )!;
     expect(getMeasuredTimeInZones(noHr.id)).toBeNull();
-    const ride = toActivity({ type: 'Ride', startTime: T0 + 86_400_000, samples: samples(() => 150), laps: [], totals: {} }, { fileName: 'b.fit' })!;
+    const ride = toActivity(
+      { type: 'Ride', startTime: T0 + 86_400_000, samples: samples(() => 150), laps: [], totals: {} },
+      { fileName: 'b.fit' },
+    )!;
     expect(getMeasuredTimeInZones(ride.id)).toBeNull();
   });
 
   it('after the import is stored, the HR capture saves the run as measured', () => {
-    const a = toActivity({ type: 'Run', startTime: T0, samples: samples((s) => (s < 1200 ? 150 : 170)), laps: [], totals: {} }, { fileName: 'run.fit' })!;
+    const a = toActivity(
+      { type: 'Run', startTime: T0, samples: samples((s) => (s < 1200 ? 150 : 170)), laps: [], totals: {} },
+      { fileName: 'run.fit' },
+    )!;
     storeActivities([a]);
     refreshPlanFromStoredActivities();
     const rec = getHRHistory().find((h) => h.activityId === a.id)!;

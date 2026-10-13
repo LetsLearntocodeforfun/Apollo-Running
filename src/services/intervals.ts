@@ -131,7 +131,9 @@ function untilAborted<T>(promise: Promise<T>, signal: AbortSignal | undefined): 
 function flagRejectedStoredKey(used: IntervalsCredentials, message: string): void {
   try {
     if (getIntervalsCredentials()?.apiKey === used.apiKey) setNeedsReconnect('intervals', message);
-  } catch { /* flagging is best-effort */ }
+  } catch {
+    /* flagging is best-effort */
+  }
 }
 
 function requireCredentials(creds?: IntervalsCredentials | null): IntervalsCredentials {
@@ -187,9 +189,11 @@ async function attemptRequest<T>(
     if (external?.aborted) throw new IntervalsAbortError();
     if (spec.retry && attempt < MAX_RETRIES) return { kind: 'retry', waitMs: 1000 * (attempt + 1) };
     const aborted = err instanceof Error && err.name === 'AbortError';
-    throw new Error(aborted
-      ? 'intervals.icu did not respond in time. Check your connection and try again.'
-      : 'Could not reach intervals.icu. Check your internet connection.');
+    throw new Error(
+      aborted
+        ? 'intervals.icu did not respond in time. Check your connection and try again.'
+        : 'Could not reach intervals.icu. Check your internet connection.',
+    );
   };
 
   try {
@@ -215,11 +219,17 @@ async function attemptRequest<T>(
       throw new IntervalsHttpError(429, 'intervals.icu rate limit reached. Please try again in a few minutes.');
     }
     if (res.status === 404) {
-      throw new IntervalsHttpError(404, 'intervals.icu could not find that athlete or activity. Check the athlete ID in Settings.');
+      throw new IntervalsHttpError(
+        404,
+        'intervals.icu could not find that athlete or activity. Check the athlete ID in Settings.',
+      );
     }
     if (!res.ok) {
       const text = await untilAborted(res.text(), signal).catch(() => '');
-      throw new IntervalsHttpError(res.status, `intervals.icu error ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`);
+      throw new IntervalsHttpError(
+        res.status,
+        `intervals.icu error ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`,
+      );
     }
     // Some endpoints (e.g. the map of an indoor activity) answer 200 with an empty body.
     let body: string;
@@ -246,7 +256,11 @@ async function attemptRequest<T>(
  * IntervalsAuthError, other failures → IntervalsHttpError). Empty 2xx bodies
  * resolve to null.
  */
-async function requestIntervals<T>(path: string, creds: IntervalsCredentials | null | undefined, spec: RequestSpec): Promise<T> {
+async function requestIntervals<T>(
+  path: string,
+  creds: IntervalsCredentials | null | undefined,
+  spec: RequestSpec,
+): Promise<T> {
   const c = requireCredentials(creds);
   const authorization = 'Basic ' + btoa(`API_KEY:${c.apiKey}`);
   const headers: Record<string, string> = { Authorization: authorization, Accept: 'application/json' };
@@ -326,11 +340,29 @@ export interface IcuActivity {
 
 /** Fields requested from the list endpoint (keeps payloads small for full-history imports). */
 const LIST_FIELDS = [
-  'id', 'name', 'type', 'start_date_local', 'start_date', 'distance', 'icu_distance',
-  'moving_time', 'elapsed_time', 'icu_recording_time', 'total_elevation_gain',
-  'average_speed', 'max_speed', 'average_heartrate', 'max_heartrate', 'average_cadence',
-  'icu_training_load', 'icu_average_watts', 'icu_weighted_avg_watts', 'trainer',
-  'device_name', 'calories', 'source',
+  'id',
+  'name',
+  'type',
+  'start_date_local',
+  'start_date',
+  'distance',
+  'icu_distance',
+  'moving_time',
+  'elapsed_time',
+  'icu_recording_time',
+  'total_elevation_gain',
+  'average_speed',
+  'max_speed',
+  'average_heartrate',
+  'max_heartrate',
+  'average_cadence',
+  'icu_training_load',
+  'icu_average_watts',
+  'icu_weighted_avg_watts',
+  'trainer',
+  'device_name',
+  'calories',
+  'source',
 ].join(',');
 
 function num(v: unknown): number | undefined {
@@ -387,10 +419,14 @@ function normalizeCadence(cadence: unknown, isRun: boolean): number | undefined 
 
 function defaultName(type: string, startLocal: string): string {
   const hour = Number(startLocal.slice(11, 13));
-  const part = hour >= 5 && hour < 12 ? 'Morning'
-    : hour >= 12 && hour < 17 ? 'Afternoon'
-    : hour >= 17 && hour < 21 ? 'Evening'
-    : 'Night';
+  const part =
+    hour >= 5 && hour < 12
+      ? 'Morning'
+      : hour >= 12 && hour < 17
+        ? 'Afternoon'
+        : hour >= 17 && hour < 21
+          ? 'Evening'
+          : 'Night';
   return `${part} ${formatSportType(type)}`;
 }
 
@@ -602,8 +638,8 @@ function toLaps(intervals: IcuInterval[] | null | undefined, isRun: boolean): Ac
     const moving = num(iv.moving_time) ?? num(iv.elapsed_time) ?? 0;
     const kind = (iv.type ?? '').toUpperCase();
     if (kind === 'WORK') work++;
-    const name = iv.label?.trim()
-      || (kind === 'WORK' ? `Interval ${work}` : kind === 'RECOVERY' ? 'Recovery' : `Lap ${i + 1}`);
+    const name =
+      iv.label?.trim() || (kind === 'WORK' ? `Interval ${work}` : kind === 'RECOVERY' ? 'Recovery' : `Lap ${i + 1}`);
     return stripUndefined<ActivityLap>({
       id: num(iv.id) ?? i + 1,
       name,
@@ -657,7 +693,10 @@ function toSamples(streams: IcuStream[]): StreamSample[] {
  * splits (derived from the streams) and the GPS route. Sub-requests fail
  * independently — anything missing falls back to the stored summary.
  */
-export async function getIntervalsActivityDetail(base: Activity, creds?: IntervalsCredentials | null): Promise<Activity> {
+export async function getIntervalsActivityDetail(
+  base: Activity,
+  creds?: IntervalsCredentials | null,
+): Promise<Activity> {
   const c = requireCredentials(creds);
   const id = base.source_id ?? fromStoreId(base.id);
   const path = `/activity/${encodeURIComponent(id)}`;
@@ -685,8 +724,11 @@ export async function getIntervalsActivityDetail(base: Activity, creds?: Interva
   let intervals = raw?.icu_intervals;
   if (raw && !Array.isArray(intervals)) {
     try {
-      intervals = (await fetchIntervals<{ icu_intervals?: IcuInterval[] } | null>(`${path}/intervals`, c))?.icu_intervals;
-    } catch { /* laps are optional */ }
+      intervals = (await fetchIntervals<{ icu_intervals?: IcuInterval[] } | null>(`${path}/intervals`, c))
+        ?.icu_intervals;
+    } catch {
+      /* laps are optional */
+    }
   }
   const laps = toLaps(intervals, isRun);
   if (laps.length) detail.laps = laps;
@@ -707,7 +749,9 @@ export async function getIntervalsActivityDetail(base: Activity, creds?: Interva
           maxHR: detail.max_heartrate,
           source: 'intervals',
         });
-      } catch { /* non-critical */ }
+      } catch {
+        /* non-critical */
+      }
     }
   }
 
@@ -821,7 +865,10 @@ export async function deleteIntervalsEventsByExternalId(
   let deleted = 0;
   for (const chunk of chunks(ids, EVENTS_CHUNK_SIZE)) {
     const res = await sendIntervals<{ eventsDeleted?: number | null } | null>(
-      'PUT', path, chunk.map((external_id) => ({ external_id })), c,
+      'PUT',
+      path,
+      chunk.map((external_id) => ({ external_id })),
+      c,
     );
     deleted += typeof res?.eventsDeleted === 'number' ? res.eventsDeleted : chunk.length;
   }
@@ -888,9 +935,25 @@ export interface ListIntervalsWellnessParams {
 
 /** Fields requested from the wellness endpoint (intervals.icu also drops null values). */
 const WELLNESS_FIELDS = [
-  'id', 'updated', 'restingHR', 'hrv', 'hrvSDNN', 'sleepSecs', 'sleepScore', 'sleepQuality',
-  'avgSleepingHR', 'readiness', 'weight', 'vo2max', 'steps', 'soreness', 'fatigue', 'stress',
-  'mood', 'tempRestingHR', 'tempWeight',
+  'id',
+  'updated',
+  'restingHR',
+  'hrv',
+  'hrvSDNN',
+  'sleepSecs',
+  'sleepScore',
+  'sleepQuality',
+  'avgSleepingHR',
+  'readiness',
+  'weight',
+  'vo2max',
+  'steps',
+  'soreness',
+  'fatigue',
+  'stress',
+  'mood',
+  'tempRestingHR',
+  'tempWeight',
 ].join(',');
 
 /** Daily wellness records (sleep, HRV, resting HR…) in a local-date window. */
@@ -902,8 +965,9 @@ export async function fetchIntervalsWellness(
   const qs = new URLSearchParams({ oldest: params.oldest, newest: params.newest, fields: WELLNESS_FIELDS });
   const raw = await fetchIntervals<unknown>(`/athlete/${athletePath(c)}/wellness?${qs}`, c);
   if (!Array.isArray(raw)) return [];
-  return raw.filter((r): r is IcuWellness =>
-    !!r && typeof r === 'object' && typeof (r as { id?: unknown }).id === 'string');
+  return raw.filter(
+    (r): r is IcuWellness => !!r && typeof r === 'object' && typeof (r as { id?: unknown }).id === 'string',
+  );
 }
 
 /** Per-sport settings (subset of the intervals.icu SportSettings schema). */

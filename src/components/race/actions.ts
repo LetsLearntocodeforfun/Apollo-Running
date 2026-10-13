@@ -28,7 +28,10 @@ export function chooseMyRace(race: MarathonRace): MyRace {
   if (getActivePlan() === null) patch.date = isDateKey(race.date) ? race.date : undefined;
   if (current.raceId !== race.id) patch.wave = undefined;
   const active = current.activeStrategyId ? getStrategyById(current.activeStrategyId) : undefined;
-  if (current.activeStrategyId && (!active || normalizeMarathonId(active.marathonId) !== normalizeMarathonId(race.id))) {
+  if (
+    current.activeStrategyId &&
+    (!active || normalizeMarathonId(active.marathonId) !== normalizeMarathonId(race.id))
+  ) {
     patch.activeStrategyId = undefined;
   }
   return setMyRace(patch);

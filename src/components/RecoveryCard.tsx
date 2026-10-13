@@ -181,10 +181,13 @@ function Stat({ label, value, sub, flagged, compact, children }: StatProps) {
   return (
     <div style={{ minWidth: 0 }}>
       <div className="label-micro">{label}</div>
-      <div className="stat-value" style={{
-        color: flagged ? 'var(--color-warning)' : 'var(--text)',
-        fontSize: compact ? '1.2rem' : undefined,
-      }}>
+      <div
+        className="stat-value"
+        style={{
+          color: flagged ? 'var(--color-warning)' : 'var(--text)',
+          fontSize: compact ? '1.2rem' : undefined,
+        }}
+      >
         {value}
       </div>
       <div className="stat-sub">{sub}</div>
@@ -231,26 +234,38 @@ export default function RecoveryCard({ compact = false, headingLevel = 3 }: Reco
   const colors = STATUS_COLORS[snapshot.status];
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
 
-  const errorLine = connected && enabled && sync.lastError ? (
-    <p style={{ color: 'var(--color-error-text, var(--color-error))', fontSize: '0.82rem', margin: '0.75rem 0 0', lineHeight: 1.4 }}>
-      Last wellness sync failed{sync.lastErrorAt ? ` (${formatWhen(sync.lastErrorAt)})` : ''}: {sync.lastError}
-    </p>
-  ) : null;
+  const errorLine =
+    connected && enabled && sync.lastError ? (
+      <p
+        style={{
+          color: 'var(--color-error-text, var(--color-error))',
+          fontSize: '0.82rem',
+          margin: '0.75rem 0 0',
+          lineHeight: 1.4,
+        }}
+      >
+        Last wellness sync failed{sync.lastErrorAt ? ` (${formatWhen(sync.lastErrorAt)})` : ''}: {sync.lastError}
+      </p>
+    ) : null;
 
   let body: ReactNode;
   if (!connected) {
     body = (
       <p style={{ ...textStyle, margin: 0 }}>
-        <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>Connect intervals.icu in Settings → Connections</Link>
-        {' '}to see sleep, HRV and resting HR.
+        <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>
+          Connect intervals.icu in Settings → Connections
+        </Link>{' '}
+        to see sleep, HRV and resting HR.
       </p>
     );
   } else if (!enabled) {
     body = (
       <p style={{ ...textStyle, margin: 0 }}>
         Wellness sync is turned off.{' '}
-        <Link to="/settings?tab=sync" style={{ fontWeight: 600 }}>Turn it on in Settings → Sync</Link>
-        {' '}to see sleep, HRV and resting HR here.
+        <Link to="/settings?tab=sync" style={{ fontWeight: 600 }}>
+          Turn it on in Settings → Sync
+        </Link>{' '}
+        to see sleep, HRV and resting HR here.
       </p>
     );
   } else if (!hasData) {
@@ -265,8 +280,8 @@ export default function RecoveryCard({ compact = false, headingLevel = 3 }: Reco
           To send them from your watch, open{' '}
           <a href={INTERVALS_SETTINGS_URL} target="_blank" rel="noopener noreferrer">
             intervals.icu → Settings<span className="sr-only"> (opens in a new tab)</span>
-          </a>
-          {' '}→ Connections and turn on wellness for your device (Garmin: tick <strong>Download wellness data</strong>).
+          </a>{' '}
+          → Connections and turn on wellness for your device (Garmin: tick <strong>Download wellness data</strong>).
         </p>
         {errorLine}
       </>
@@ -282,9 +297,11 @@ export default function RecoveryCard({ compact = false, headingLevel = 3 }: Reco
 
     const sleepSub = sleep
       ? [
-        sleep.score !== undefined ? `Score ${Math.round(sleep.score)}` : null,
-        sleep.avg7Secs !== undefined ? `7-night avg ${formatHMM(sleep.avg7Secs)}` : null,
-      ].filter((s): s is string => !!s).join(' · ') || 'Last night'
+          sleep.score !== undefined ? `Score ${Math.round(sleep.score)}` : null,
+          sleep.avg7Secs !== undefined ? `7-night avg ${formatHMM(sleep.avg7Secs)}` : null,
+        ]
+          .filter((s): s is string => !!s)
+          .join(' · ') || 'Last night'
       : 'No data from the last 2 nights';
 
     const rhrSub = !restingHR
@@ -297,25 +314,37 @@ export default function RecoveryCard({ compact = false, headingLevel = 3 }: Reco
     const hrvSub = !hrv
       ? 'No data from the last 2 days'
       : [
-        hrv.low !== undefined && hrv.high !== undefined
-          ? `Normal ${Math.round(hrv.low)}–${Math.round(hrv.high)} ms`
-          : 'Learning your normal range',
-        hrv.avg7 !== undefined && hrv.latest !== undefined ? `last ${Math.round(hrv.latest)}` : null,
-      ].filter((s): s is string => !!s).join(' · ');
+          hrv.low !== undefined && hrv.high !== undefined
+            ? `Normal ${Math.round(hrv.low)}–${Math.round(hrv.high)} ms`
+            : 'Learning your normal range',
+          hrv.avg7 !== undefined && hrv.latest !== undefined ? `last ${Math.round(hrv.latest)}` : null,
+        ]
+          .filter((s): s is string => !!s)
+          .join(' · ');
 
     body = (
       <>
         <div role="status" style={{ marginBottom: '1rem' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--text-md)', color: 'var(--text)' }}>
+          <div
+            style={{
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              fontSize: 'var(--text-md)',
+              color: 'var(--text)',
+            }}
+          >
             {snapshot.headline}
           </div>
           <p style={{ ...textStyle, margin: '0.25rem 0 0' }}>{snapshot.suggestion}</p>
         </div>
 
-        <div style={{
-          display: 'grid', gap: compact ? '0.75rem' : '1rem',
-          gridTemplateColumns: `repeat(auto-fit, minmax(${compact ? 110 : 140}px, 1fr))`,
-        }}>
+        <div
+          style={{
+            display: 'grid',
+            gap: compact ? '0.75rem' : '1rem',
+            gridTemplateColumns: `repeat(auto-fit, minmax(${compact ? 110 : 140}px, 1fr))`,
+          }}
+        >
           <Stat
             label={`Sleep${asOf(sleep?.date)}`}
             value={sleep ? formatHMM(sleep.secs) : '—'}
@@ -360,18 +389,26 @@ export default function RecoveryCard({ compact = false, headingLevel = 3 }: Reco
         </div>
 
         {!compact && snapshot.reasons.length > 0 && (
-          <ul style={{
-            ...hintStyle, margin: '1rem 0 0', paddingLeft: '1.1rem',
-            display: 'flex', flexDirection: 'column', gap: '0.25rem',
-          }}>
-            {snapshot.reasons.map((reason) => <li key={reason}>{reason}</li>)}
+          <ul
+            style={{
+              ...hintStyle,
+              margin: '1rem 0 0',
+              paddingLeft: '1.1rem',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '0.25rem',
+            }}
+          >
+            {snapshot.reasons.map((reason) => (
+              <li key={reason}>{reason}</li>
+            ))}
           </ul>
         )}
         {errorLine}
         {!compact && (
           <p style={{ ...hintStyle, margin: '0.75rem 0 0' }}>
-            From your watch via intervals.icu{sync.lastSyncAt ? ` · updated ${formatWhen(sync.lastSyncAt)}` : ''}.
-            {' '}A guide, not a rule: how you feel counts too.
+            From your watch via intervals.icu{sync.lastSyncAt ? ` · updated ${formatWhen(sync.lastSyncAt)}` : ''}. A
+            guide, not a rule: how you feel counts too.
           </p>
         )}
       </>
@@ -379,22 +416,40 @@ export default function RecoveryCard({ compact = false, headingLevel = 3 }: Reco
   }
 
   return (
-    <div className="card" style={{
-      borderLeftWidth: 3, borderLeftStyle: 'solid',
-      borderLeftColor: hasData ? colors.color : 'var(--border)',
-      ...(compact ? { padding: '1rem 1.25rem' } : {}),
-    }}>
-      <Heading style={{
-        display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap',
-        margin: '0 0 1rem', fontFamily: 'var(--font-display)', fontSize: 'var(--text-md)', fontWeight: 600,
-      }}>
+    <div
+      className="card"
+      style={{
+        borderLeftWidth: 3,
+        borderLeftStyle: 'solid',
+        borderLeftColor: hasData ? colors.color : 'var(--border)',
+        ...(compact ? { padding: '1rem 1.25rem' } : {}),
+      }}
+    >
+      <Heading
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          margin: '0 0 1rem',
+          fontFamily: 'var(--font-display)',
+          fontSize: 'var(--text-md)',
+          fontWeight: 600,
+        }}
+      >
         <span style={{ color: 'var(--apollo-teal)' }}>Recovery</span>
         {hasData && (
-          <span style={{
-            fontSize: 'var(--text-xs)', background: colors.background, color: colors.color,
-            padding: '0.15rem 0.6rem', borderRadius: 'var(--radius-full)', fontWeight: 600,
-            fontFamily: 'var(--font-display)',
-          }}>
+          <span
+            style={{
+              fontSize: 'var(--text-xs)',
+              background: colors.background,
+              color: colors.color,
+              padding: '0.15rem 0.6rem',
+              borderRadius: 'var(--radius-full)',
+              fontWeight: 600,
+              fontFamily: 'var(--font-display)',
+            }}
+          >
             {STATUS_LABEL[snapshot.status]}
           </span>
         )}

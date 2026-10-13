@@ -18,12 +18,7 @@
  * - Printing uses a hidden iframe (window.open is blocked on desktop, L-04).
  */
 
-import type {
-  RaceStrategy,
-  MilePacePlan,
-  NutritionPlan,
-  MarathonRace,
-} from '../types/raceStrategy';
+import type { RaceStrategy, MilePacePlan, NutritionPlan, MarathonRace } from '../types/raceStrategy';
 import { persistence } from './db/persistence';
 import {
   KM_PER_MI,
@@ -79,9 +74,9 @@ export interface RaceCardMile {
   cumSec: number;
   /** Elapsed time at the end of the row, "h:mm:ss". */
   cumTime: string;
-  elevation: string;            // e.g. "+45 ft", "+14 m" or "flat"
+  elevation: string; // e.g. "+45 ft", "+14 m" or "flat"
   landmark: string;
-  nutrition: string;            // e.g. "Energy gel 2 (25 g carbs)" or ""
+  nutrition: string; // e.g. "Energy gel 2 (25 g carbs)" or ""
   mantra: string;
 }
 
@@ -100,7 +95,7 @@ export interface PaceBand {
 }
 
 export interface FiveKCheckpoint {
-  label: string;    // e.g. "5K", "10K", "15K", "20K", "Half", "25K", "30K", "35K", "40K"
+  label: string; // e.g. "5K", "10K", "15K", "20K", "Half", "25K", "30K", "35K", "40K"
   distanceMi: number;
   /** True 5 km split (time since the previous 5 km mark); '' for the halfway row. */
   splitTime: string;
@@ -110,7 +105,7 @@ export interface FiveKCheckpoint {
 }
 
 export interface SegmentSummary {
-  label: string;    // e.g. "Miles 1-5", "Miles 6-10", "Km 41-42.2"
+  label: string; // e.g. "Miles 1-5", "Miles 6-10", "Km 41-42.2"
   /** First row number of the segment, in the card's unit. */
   startMile: number;
   /** End distance of the segment, in the card's unit. */
@@ -183,7 +178,11 @@ function sanitizePrefs(raw: unknown): RaceCardPreferences {
 export function getRaceCardPrefs(): RaceCardPreferences {
   const raw = persistence.getItem(STORAGE_KEY);
   if (!raw) return {};
-  try { return sanitizePrefs(JSON.parse(raw)); } catch { return {}; }
+  try {
+    return sanitizePrefs(JSON.parse(raw));
+  } catch {
+    return {};
+  }
 }
 
 /** Replace the saved race card preferences (explicit save; idempotent). */
@@ -225,7 +224,11 @@ function formatRaceDate(key: string): string {
   if (!m) return key;
   const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
   return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
   }).format(d);
 }
 
@@ -317,7 +320,10 @@ function addUnique(bucket: string[], text: string): void {
   for (let i = 0; i < bucket.length; i++) {
     const existing = bucket[i].toLowerCase();
     if (existing.includes(lower)) return;
-    if (lower.includes(existing)) { bucket[i] = t; return; }
+    if (lower.includes(existing)) {
+      bucket[i] = t;
+      return;
+    }
   }
   bucket.push(t);
 }
@@ -371,12 +377,13 @@ function generatePaceBands(strategy: RaceStrategy, distanceMi: number, unit: Rac
   if (distanceMi <= 0) return [];
   const goalPace = strategy.targetTimeSec / distanceMi;
   const planFinish = mp.length > 0 ? timeAtDistance(mp, distanceMi) : strategy.targetTimeSec;
-  const planFiveK = mp.length > 0 ? timeAtDistance(mp, Math.min(5 / KM_PER_MI, distanceMi)) : goalPace * (5 / KM_PER_MI);
+  const planFiveK =
+    mp.length > 0 ? timeAtDistance(mp, Math.min(5 / KM_PER_MI, distanceMi)) : goalPace * (5 / KM_PER_MI);
   const planHalf = mp.length > 0 ? timeAtDistance(mp, distanceMi / 2) : strategy.targetTimeSec / 2;
   const bands = [
     { label: 'Goal', offset: 0 },
-    { label: 'Conservative', offset: 10 },    // 10s/mi slower
-    { label: 'Aggressive', offset: -10 },      // 10s/mi faster
+    { label: 'Conservative', offset: 10 }, // 10s/mi slower
+    { label: 'Aggressive', offset: -10 }, // 10s/mi faster
   ];
 
   return bands.map((band) => {
@@ -533,9 +540,8 @@ export function generateRaceCard(input: RaceCardInput): RaceCard {
   const elevationWarnings: string[] = [];
   let prevEnd = 0;
   for (const mp of milePaces) {
-    const where = unit === 'km'
-      ? `km ${fmtDist(prevEnd * KM_PER_MI)}–${fmtDist(mp.mile * KM_PER_MI)}`
-      : `Mile ${fmtDist(mp.mile)}`;
+    const where =
+      unit === 'km' ? `km ${fmtDist(prevEnd * KM_PER_MI)}–${fmtDist(mp.mile * KM_PER_MI)}` : `Mile ${fmtDist(mp.mile)}`;
     const change = elevationNote(mp.elevationChangeFt, unit);
     if (mp.elevationChangeFt > 50) {
       elevationWarnings.push(`${where}: ${change} climb — maintain effort, not pace`);
@@ -593,14 +599,17 @@ function generateHTML(card: RaceCard): string {
   const halfMi = card.distanceMi / 2;
   const halfRow = card.miles.findIndex((m) => m.endMi >= halfMi - EPS);
 
-  const mileSplitsRows = card.miles.map((m, i) => {
-    const nutritionCell = m.nutrition ? `<td class="rc-nutrition">${esc(m.nutrition)}</td>` : '<td></td>';
-    const noteParts = [
-      m.landmark ? `<span class="rc-landmark">${esc(m.landmark)}</span>` : '',
-      m.mantra ? `<span class="rc-mantra">${esc(m.mantra)}</span>` : '',
-    ].filter(Boolean).join('<br>');
-    const rowClass = i === halfRow ? ' class="rc-half-highlight"' : '';
-    return `<tr${rowClass}>
+  const mileSplitsRows = card.miles
+    .map((m, i) => {
+      const nutritionCell = m.nutrition ? `<td class="rc-nutrition">${esc(m.nutrition)}</td>` : '<td></td>';
+      const noteParts = [
+        m.landmark ? `<span class="rc-landmark">${esc(m.landmark)}</span>` : '',
+        m.mantra ? `<span class="rc-mantra">${esc(m.mantra)}</span>` : '',
+      ]
+        .filter(Boolean)
+        .join('<br>');
+      const rowClass = i === halfRow ? ' class="rc-half-highlight"' : '';
+      return `<tr${rowClass}>
       <td class="rc-mile"><strong>${esc(m.label)}</strong></td>
       <td class="rc-pace">${esc(m.targetPace)}</td>
       <td class="rc-cum">${esc(m.cumTime)}</td>
@@ -608,46 +617,68 @@ function generateHTML(card: RaceCard): string {
       ${nutritionCell}
       <td class="rc-note">${noteParts}</td>
     </tr>`;
-  }).join('\n');
+    })
+    .join('\n');
 
-  const paceBandRows = card.paceBands.map((b) =>
-    `<tr><td>${esc(b.label)}</td><td>${esc(b.pace)}${paceUnit}</td><td>${esc(b.fiveKSplit)}</td><td>${esc(b.halfSplit)}</td><td><strong>${esc(b.finishTime)}</strong></td></tr>`,
-  ).join('\n');
+  const paceBandRows = card.paceBands
+    .map(
+      (b) =>
+        `<tr><td>${esc(b.label)}</td><td>${esc(b.pace)}${paceUnit}</td><td>${esc(b.fiveKSplit)}</td><td>${esc(b.halfSplit)}</td><td><strong>${esc(b.finishTime)}</strong></td></tr>`,
+    )
+    .join('\n');
 
   // v2: 5K checkpoint table (true 5 km splits; the halfway row is cumulative only)
-  const checkpointRows = card.fiveKCheckpoints.map((cp) => {
-    const isHalf = cp.splitTime === '';
-    const rowClass = isHalf ? ' class="rc-half-highlight"' : '';
-    return `<tr${rowClass}><td><strong>${esc(cp.label)}</strong></td><td>${isHalf ? '—' : esc(cp.splitTime)}</td><td><strong>${esc(cp.cumTime)}</strong></td></tr>`;
-  }).join('\n');
+  const checkpointRows = card.fiveKCheckpoints
+    .map((cp) => {
+      const isHalf = cp.splitTime === '';
+      const rowClass = isHalf ? ' class="rc-half-highlight"' : '';
+      return `<tr${rowClass}><td><strong>${esc(cp.label)}</strong></td><td>${isHalf ? '—' : esc(cp.splitTime)}</td><td><strong>${esc(cp.cumTime)}</strong></td></tr>`;
+    })
+    .join('\n');
 
-  const checkpointSection = card.fiveKCheckpoints.length > 0
-    ? section('📍', 'Checkpoint Splits', `
+  const checkpointSection =
+    card.fiveKCheckpoints.length > 0
+      ? section(
+          '📍',
+          'Checkpoint Splits',
+          `
        <table class="rc-checkpoints">
          <thead><tr><th>Point</th><th>5K split</th><th>Clock</th></tr></thead>
          <tbody>${checkpointRows}</tbody>
-       </table>`)
-    : '';
+       </table>`,
+        )
+      : '';
 
   // v2: Segment summary
-  const segmentRows = card.segments.map((seg) =>
-    `<tr><td>${esc(seg.label)}</td><td>${esc(seg.avgPace)}${paceUnit}</td><td>${esc(seg.totalTime)}</td></tr>`,
-  ).join('\n');
+  const segmentRows = card.segments
+    .map(
+      (seg) =>
+        `<tr><td>${esc(seg.label)}</td><td>${esc(seg.avgPace)}${paceUnit}</td><td>${esc(seg.totalTime)}</td></tr>`,
+    )
+    .join('\n');
 
-  const segmentSection = card.segments.length > 0
-    ? section('📊', 'Segment Summary', `
+  const segmentSection =
+    card.segments.length > 0
+      ? section(
+          '📊',
+          'Segment Summary',
+          `
        <table class="rc-segments">
          <thead><tr><th>Segment</th><th>Avg Pace</th><th>Time</th></tr></thead>
          <tbody>${segmentRows}</tbody>
-       </table>`)
-    : '';
+       </table>`,
+        )
+      : '';
 
   const list = (items: string[]) => `<ul>${items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`;
-  const elevWarnings = card.elevationWarnings.length > 0 ? section('⛰️', 'Elevation Alerts', list(card.elevationWarnings)) : '';
+  const elevWarnings =
+    card.elevationWarnings.length > 0 ? section('⛰️', 'Elevation Alerts', list(card.elevationWarnings)) : '';
   const weatherSection = card.weatherSummary ? section('🌤️', 'Weather', `<p>${esc(card.weatherSummary)}</p>`) : '';
   const mantraSection = card.mantras.length > 0 ? section('💪', 'Mantras', list(card.mantras)) : '';
   const notesSection = card.notes ? section('📝', 'Notes', `<p>${esc(card.notes)}</p>`) : '';
-  const emergencySection = card.emergencyContact ? section('🆘', 'Emergency', `<p>${esc(card.emergencyContact)}</p>`) : '';
+  const emergencySection = card.emergencyContact
+    ? section('🆘', 'Emergency', `<p>${esc(card.emergencyContact)}</p>`)
+    : '';
   const meta = [card.raceDate ? formatRaceDate(card.raceDate) : '', card.startInfo].filter(Boolean).join(' · ');
   const rowUnit = card.unit === 'km' ? 'Km' : 'Mi';
   const halfHeader = halfLabel(card.distanceMi);
@@ -782,7 +813,10 @@ export function printHtmlInHiddenFrame(html: string): boolean {
     if (started) return;
     started = true;
     const win = frame.contentWindow;
-    if (!win) { remove(); return; }
+    if (!win) {
+      remove();
+      return;
+    }
     try {
       win.addEventListener('afterprint', () => setTimeout(remove, 0), { once: true });
       win.focus();

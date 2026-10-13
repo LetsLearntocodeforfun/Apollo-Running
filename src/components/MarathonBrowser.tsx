@@ -24,7 +24,12 @@ interface Props {
 /** "Sunday, October 11, 2026" from a YYYY-MM-DD key (no UTC shift). */
 function formatDate(dateKey: string): string {
   if (!isDateKey(dateKey)) return 'Date to be announced';
-  return parseDateKey(dateKey).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  return parseDateKey(dateKey).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
 }
 
 function difficultyLabel(d: number): { label: string; tone: string } {
@@ -42,14 +47,19 @@ function formatElev(ft: number, unit: DistanceUnit, signed = false): string {
 }
 
 const COURSE_TYPE_LABEL: Record<MarathonRace['courseType'], string> = {
-  'loop': 'Loop',
+  loop: 'Loop',
   'point-to-point': 'Point-to-point',
   'out-and-back': 'Out and back',
   'multi-loop': 'Multi-loop',
 };
 
 function MarathonCard({
-  marathon, isSelected, isMyRace, onSelect, onChooseRace, today,
+  marathon,
+  isSelected,
+  isMyRace,
+  onSelect,
+  onChooseRace,
+  today,
 }: {
   marathon: MarathonRace;
   isSelected: boolean;
@@ -78,7 +88,9 @@ function MarathonCard({
               aria-controls={panelId}
               onClick={() => setExpanded((v) => !v)}
             >
-              <span aria-hidden="true" className="rs-disclosure-icon">{expanded ? '▾' : '▸'}</span>
+              <span aria-hidden="true" className="rs-disclosure-icon">
+                {expanded ? '▾' : '▸'}
+              </span>
               {marathon.name}
             </button>
           </h3>
@@ -92,15 +104,21 @@ function MarathonCard({
             {formatDate(marathon.date)}
             {marathon.dateEstimated && <span className="rs-note"> (date to be confirmed)</span>}
             {daysUntil !== null && daysUntil >= 0 && (
-              <span className="rs-gold rs-strong"> · {daysUntil === 0 ? 'Today' : `${daysUntil} day${daysUntil === 1 ? '' : 's'} away`}</span>
+              <span className="rs-gold rs-strong">
+                {' '}
+                · {daysUntil === 0 ? 'Today' : `${daysUntil} day${daysUntil === 1 ? '' : 's'} away`}
+              </span>
             )}
             {daysUntil !== null && daysUntil < 0 && <span> · past</span>}
           </p>
         </div>
         <div className="rs-race-card-side">
-          <p className={`rs-strong rs-tight ${diff.tone}`}>{diff.label} ({marathon.course.difficulty}/10)</p>
+          <p className={`rs-strong rs-tight ${diff.tone}`}>
+            {diff.label} ({marathon.course.difficulty}/10)
+          </p>
           <p className="rs-muted rs-tight rs-small">
-            {distance} · {formatElev(marathon.course.totalGainFt, unit)} gain · {COURSE_TYPE_LABEL[marathon.courseType] ?? marathon.courseType}
+            {distance} · {formatElev(marathon.course.totalGainFt, unit)} gain ·{' '}
+            {COURSE_TYPE_LABEL[marathon.courseType] ?? marathon.courseType}
           </p>
           {marathon.course.prFriendly && <p className="rs-tone-good rs-small rs-tight">PR-friendly course</p>}
         </div>
@@ -125,10 +143,21 @@ function MarathonCard({
               { label: 'Elevation gain', value: formatElev(marathon.course.totalGainFt, unit) },
               { label: 'Elevation loss', value: formatElev(marathon.course.totalLossFt, unit) },
               { label: 'Net change', value: formatElev(marathon.course.netChangeFt, unit, true) },
-              { label: 'Typical temperature', value: `${formatTemperatureF(marathon.typicalTempF.low)} to ${formatTemperatureF(marathon.typicalTempF.high)}` },
-              { label: 'Start time', value: marathon.startTime ? `${marathon.startTime}${marathon.timeZone ? ` (${marathon.timeZone.replace(/_/g, ' ')})` : ''}` : 'To be announced' },
+              {
+                label: 'Typical temperature',
+                value: `${formatTemperatureF(marathon.typicalTempF.low)} to ${formatTemperatureF(marathon.typicalTempF.high)}`,
+              },
+              {
+                label: 'Start time',
+                value: marathon.startTime
+                  ? `${marathon.startTime}${marathon.timeZone ? ` (${marathon.timeZone.replace(/_/g, ' ')})` : ''}`
+                  : 'To be announced',
+              },
               { label: 'Field size', value: marathon.fieldSize ? marathon.fieldSize.toLocaleString() : 'Unknown' },
-              { label: 'Time limit', value: marathon.timeLimitHours ? `${marathon.timeLimitHours} h` : 'None published' },
+              {
+                label: 'Time limit',
+                value: marathon.timeLimitHours ? `${marathon.timeLimitHours} h` : 'None published',
+              },
               { label: 'Aid stations', value: String(marathon.aidStations.length) },
             ].map(({ label, value }) => (
               <div key={label} className="rs-stat">
@@ -140,7 +169,11 @@ function MarathonCard({
 
           <h4 className="rs-eyebrow">Elevation profile</h4>
           <div className="rs-chart">
-            <ElevationChart points={marathon.course.elevationPoints} totalDistanceMi={marathon.distanceMi} unit={unit} />
+            <ElevationChart
+              points={marathon.course.elevationPoints}
+              totalDistanceMi={marathon.distanceMi}
+              unit={unit}
+            />
           </div>
 
           {marathon.qualifyingInfo && (
@@ -154,7 +187,9 @@ function MarathonCard({
             <>
               <h4 className="rs-eyebrow">Race tips</h4>
               <ul className="rs-tips">
-                {marathon.tips.map((tip, i) => <li key={i}>{tip}</li>)}
+                {marathon.tips.map((tip, i) => (
+                  <li key={i}>{tip}</li>
+                ))}
               </ul>
             </>
           )}
@@ -173,7 +208,14 @@ function MarathonCard({
 }
 
 /** Browse the World Marathon Majors (dated to their next edition) and custom races. */
-export default function MarathonBrowser({ customMarathons, onSelect, selectedId, onChooseRace, myRaceId, today = todayKey() }: Props) {
+export default function MarathonBrowser({
+  customMarathons,
+  onSelect,
+  selectedId,
+  onChooseRace,
+  myRaceId,
+  today = todayKey(),
+}: Props) {
   const [filter, setFilter] = useState<'all' | 'world-major' | 'custom'>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -184,7 +226,9 @@ export default function MarathonBrowser({ customMarathons, onSelect, selectedId,
       if (filter === 'world-major' && !m.isWorldMajor) return false;
       if (filter === 'custom' && m.category !== 'custom') return false;
       if (!q) return true;
-      return m.name.toLowerCase().includes(q) || m.city.toLowerCase().includes(q) || m.country.toLowerCase().includes(q);
+      return (
+        m.name.toLowerCase().includes(q) || m.city.toLowerCase().includes(q) || m.country.toLowerCase().includes(q)
+      );
     })
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
 

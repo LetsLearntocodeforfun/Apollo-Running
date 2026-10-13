@@ -31,12 +31,7 @@ import {
   putBackupPayload,
 } from './db/backupStore';
 import { QUARANTINE_PREFIX } from './db/quarantine';
-import {
-  exportAllData,
-  isExcludedFromExport,
-  isPreservedOnRestore,
-  type BackupData,
-} from './dataManager';
+import { exportAllData, isExcludedFromExport, isPreservedOnRestore, type BackupData } from './dataManager';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -171,7 +166,9 @@ function errorMessage(err: unknown): string {
 function emitBackupsChanged(): void {
   try {
     if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent(BACKUPS_CHANGED_EVENT));
-  } catch { /* no DOM */ }
+  } catch {
+    /* no DOM */
+  }
 }
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -200,7 +197,7 @@ function getBackupRegistry(): BackupRecord[] {
   try {
     const raw = persistence.getItem(BACKUP_REGISTRY_KEY);
     const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed as BackupRecord[] : [];
+    return Array.isArray(parsed) ? (parsed as BackupRecord[]) : [];
   } catch {
     return [];
   }
@@ -226,7 +223,9 @@ export function getLastBackupError(): { message: string; at: string } | null {
     if (parsed && typeof parsed === 'object' && typeof (parsed as { message?: unknown }).message === 'string') {
       return parsed as { message: string; at: string };
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return null;
 }
 
@@ -252,7 +251,9 @@ export async function createBackup(
 ): Promise<BackupRecord | null> {
   try {
     if (isStorageDegraded()) {
-      throw new Error('Storage is unavailable right now, so the backup could not be saved. Restart Apollo and try again.');
+      throw new Error(
+        'Storage is unavailable right now, so the backup could not be saved. Restart Apollo and try again.',
+      );
     }
     const backupData = exportAllData({ purpose: 'backup' });
     const jsonStr = JSON.stringify(backupData);
@@ -276,11 +277,15 @@ export async function createBackup(
     try {
       await putBackupPayload(id, jsonStr);
     } catch (err) {
-      throw new Error(`The backup could not be stored on this device (${errorMessage(err)}). Free up disk space and try again.`);
+      throw new Error(
+        `The backup could not be stored on this device (${errorMessage(err)}). Free up disk space and try again.`,
+      );
     }
     const stored = await getBackupPayload(id);
     if (stored === null || (await sha256(stored)) !== checksum) {
-      await deleteBackupPayload(id).catch(() => { /* nothing usable was stored */ });
+      await deleteBackupPayload(id).catch(() => {
+        /* nothing usable was stored */
+      });
       throw new Error('The backup could not be stored on this device.');
     }
     record.verified = true;
@@ -295,18 +300,26 @@ export async function createBackup(
     await persistence.flush();
     if (persistence.failedWrites.has(BACKUP_REGISTRY_KEY)) {
       emitBackupsChanged();
-      throw new Error('The backup was stored, but the backup list could not be saved to disk yet. Apollo keeps retrying; free up disk space, then try again.');
+      throw new Error(
+        'The backup was stored, but the backup list could not be saved to disk yet. Apollo keeps retrying; free up disk space, then try again.',
+      );
     }
     await pruneOldBackups();
     setLastBackupError(null);
     emitBackupsChanged();
 
-    console.info(`[Apollo Backup] Created backup ${id} (${record.keyCount} keys, ${formatBytes(record.sizeBytes)}, checksum: ${checksum.slice(0, 12)}…)`);
+    console.info(
+      `[Apollo Backup] Created backup ${id} (${record.keyCount} keys, ${formatBytes(record.sizeBytes)}, checksum: ${checksum.slice(0, 12)}…)`,
+    );
     return record;
   } catch (err) {
     const message = errorMessage(err);
     console.error('[Apollo Backup] Failed to create backup:', err);
-    try { setLastBackupError(message); } catch { /* ignore */ }
+    try {
+      setLastBackupError(message);
+    } catch {
+      /* ignore */
+    }
     return null;
   }
 }
@@ -314,7 +327,9 @@ export async function createBackup(
 function isBackupShape(value: unknown): value is BackupData {
   if (!value || typeof value !== 'object') return false;
   const v = value as Partial<BackupData>;
-  return !!v.metadata && typeof v.metadata === 'object' && !!v.data && typeof v.data === 'object' && !Array.isArray(v.data);
+  return (
+    !!v.metadata && typeof v.metadata === 'object' && !!v.data && typeof v.data === 'object' && !Array.isArray(v.data)
+  );
 }
 
 /** Snapshot keys a restore may write: Apollo data only (no backups, credentials, caches, device state). */
@@ -337,7 +352,8 @@ function restorableEntries(data: Record<string, unknown>): Record<string, string
 export async function restoreFromBackupDetailed(backupId: string): Promise<RestoreResult> {
   const fail = (error: string): RestoreResult => ({ success: false, error, restoredKeys: 0, removedKeys: [] });
   try {
-    if (isStorageDegraded()) return fail('Storage is unavailable right now, so nothing was restored. Restart Apollo and try again.');
+    if (isStorageDegraded())
+      return fail('Storage is unavailable right now, so nothing was restored. Restart Apollo and try again.');
     const jsonStr = await getBackupPayload(backupId);
     if (!jsonStr) return fail('This backup\u2019s data is missing from the device.');
 
@@ -345,7 +361,9 @@ export async function restoreFromBackupDetailed(backupId: string): Promise<Resto
     if (record) {
       const checksum = await sha256(jsonStr);
       if (checksum !== record.checksum) {
-        return fail('This backup failed its integrity check (checksum mismatch), so it was not restored. It may be corrupted.');
+        return fail(
+          'This backup failed its integrity check (checksum mismatch), so it was not restored. It may be corrupted.',
+        );
       }
     }
 
@@ -363,17 +381,19 @@ export async function restoreFromBackupDetailed(backupId: string): Promise<Resto
     // Safety backup first, so the restore can be undone.
     const safety = await createBackup('manual', { note: 'Before restore' });
     if (!safety) {
-      return fail(`Couldn\u2019t create a safety backup first, so nothing was changed. ${getLastBackupError()?.message ?? ''}`.trim());
+      return fail(
+        `Couldn\u2019t create a safety backup first, so nothing was changed. ${getLastBackupError()?.message ?? ''}`.trim(),
+      );
     }
 
-    const removedKeys = persistence
-      .keys()
-      .filter((key) => !isPreservedOnRestore(key) && !(key in snapshot));
+    const removedKeys = persistence.keys().filter((key) => !isPreservedOnRestore(key) && !(key in snapshot));
     persistence.bulkSet(snapshot);
     for (const key of removedKeys) persistence.removeItem(key);
     emitBackupsChanged();
 
-    console.info(`[Apollo Backup] Restored from backup ${backupId} (${Object.keys(snapshot).length} keys, removed ${removedKeys.length})`);
+    console.info(
+      `[Apollo Backup] Restored from backup ${backupId} (${Object.keys(snapshot).length} keys, removed ${removedKeys.length})`,
+    );
     return { success: true, restoredKeys: Object.keys(snapshot).length, removedKeys, safetyBackupId: safety.id };
   } catch (err) {
     console.error('[Apollo Backup] Restore failed:', err);
@@ -399,7 +419,11 @@ export async function verifyLatestBackup(): Promise<boolean> {
 
   const latest = registry[registry.length - 1];
   let jsonStr: string | null = null;
-  try { jsonStr = await getBackupPayload(latest.id); } catch { /* unreadable counts as failed */ }
+  try {
+    jsonStr = await getBackupPayload(latest.id);
+  } catch {
+    /* unreadable counts as failed */
+  }
   const passed = !!jsonStr && (await sha256(jsonStr)) === latest.checksum;
 
   // Update record
@@ -514,8 +538,9 @@ export async function compactLegacyBackups(opts: { force?: boolean } = {}): Prom
       await putBackupPayload(id, json);
       record = {
         id,
-        createdAt: existing?.createdAt
-          ?? (typeof parsed.metadata.exportDate === 'string' ? parsed.metadata.exportDate : createdAtFromId(id)),
+        createdAt:
+          existing?.createdAt ??
+          (typeof parsed.metadata.exportDate === 'string' ? parsed.metadata.exportDate : createdAtFromId(id)),
         checksum: await sha256(json),
         keyCount: Object.keys(data).length,
         sizeBytes: utf8Length(json),
@@ -535,7 +560,9 @@ export async function compactLegacyBackups(opts: { force?: boolean } = {}): Prom
   emitBackupsChanged();
   const kept = getBackupRegistry().length;
   if (compacted || deleted) {
-    console.info(`[Apollo Backup] Compacted ${compacted} legacy backup(s), deleted ${deleted} unreadable one(s), keeping ${kept}`);
+    console.info(
+      `[Apollo Backup] Compacted ${compacted} legacy backup(s), deleted ${deleted} unreadable one(s), keeping ${kept}`,
+    );
   }
   return { compacted, deleted, kept };
 }
@@ -599,8 +626,7 @@ export function isAutoBackupDue(): boolean {
   if (registry.length === 0) return true; // Never backed up
 
   const latest = registry[registry.length - 1];
-  const hoursSinceLastBackup =
-    (Date.now() - new Date(latest.createdAt).getTime()) / (1000 * 60 * 60);
+  const hoursSinceLastBackup = (Date.now() - new Date(latest.createdAt).getTime()) / (1000 * 60 * 60);
 
   return hoursSinceLastBackup >= config.intervalHours;
 }
@@ -631,7 +657,9 @@ let stopScheduler: (() => void) | null = null;
  */
 export function startAutoBackupScheduler(intervalMs: number = AUTO_BACKUP_CHECK_MS): () => void {
   if (stopScheduler) return stopScheduler;
-  const tick = () => { void runAutoBackupIfDue(); };
+  const tick = () => {
+    void runAutoBackupIfDue();
+  };
   const timer = setInterval(tick, intervalMs);
   const onVisible = () => {
     if (typeof document !== 'undefined' && document.visibilityState === 'visible') tick();
@@ -725,8 +753,9 @@ export function getBackupHealth(): BackupHealth {
       status = 'critical';
       message = `The last backup attempt failed: ${lastError.message}`;
     } else if (config.autoBackupEnabled) {
-      message = 'No backups yet. Apollo backs up your data automatically every '
-        + `${config.intervalHours} hours while it is open, once there is data to protect. You can also create one now.`;
+      message =
+        'No backups yet. Apollo backs up your data automatically every ' +
+        `${config.intervalHours} hours while it is open, once there is data to protect. You can also create one now.`;
     } else {
       message = 'No backups. Automatic backups are off — turn them on or create a backup now.';
     }
@@ -741,8 +770,7 @@ export function getBackupHealth(): BackupHealth {
   }
 
   const latest = registry[registry.length - 1];
-  const daysSinceBackup =
-    (Date.now() - new Date(latest.createdAt).getTime()) / (1000 * 60 * 60 * 24);
+  const daysSinceBackup = (Date.now() - new Date(latest.createdAt).getTime()) / (1000 * 60 * 60 * 24);
 
   let status: BackupHealth['status'] = 'healthy';
   let message: string;
@@ -798,7 +826,11 @@ function dateStamp(date: Date): string {
  */
 export async function downloadBackup(backupId: string): Promise<boolean> {
   let jsonStr: string | null = null;
-  try { jsonStr = await getBackupPayload(backupId); } catch { /* treated as missing */ }
+  try {
+    jsonStr = await getBackupPayload(backupId);
+  } catch {
+    /* treated as missing */
+  }
   if (!jsonStr) return false;
 
   const registry = getBackupRegistry();
@@ -811,7 +843,9 @@ export async function downloadBackup(backupId: string): Promise<boolean> {
       // The checksum was computed over this exact compact JSON; Import strips it again.
       content = JSON.stringify({ ...parsed, metadata: { ...parsed.metadata, checksum: record.checksum } }, null, 2);
     }
-  } catch { /* download as stored */ }
+  } catch {
+    /* download as stored */
+  }
 
   triggerDownload(content, `apollo-backup-${dateStamp(new Date(record?.createdAt ?? Date.now()))}.json`);
   return true;
@@ -842,8 +876,8 @@ export async function downloadCurrentData(): Promise<void> {
 
 /** Known value shapes, checked on import (others only need to be well-formed). */
 const KNOWN_SHAPES: Record<string, (value: unknown) => boolean> = {
-  apollo_activities_store: (v) => Array.isArray(v)
-    && v.every((a) => !!a && typeof a === 'object' && typeof (a as { id?: unknown }).id === 'number'),
+  apollo_activities_store: (v) =>
+    Array.isArray(v) && v.every((a) => !!a && typeof a === 'object' && typeof (a as { id?: unknown }).id === 'number'),
   apollo_app_prefs: (v) => !!v && typeof v === 'object' && !Array.isArray(v),
   apollo_athlete_profile: (v) => !!v && typeof v === 'object' && !Array.isArray(v),
 };
@@ -877,7 +911,12 @@ function isGzip(bytes: Uint8Array): boolean {
 async function gunzipToText(bytes: Uint8Array): Promise<string> {
   const ds = new DecompressionStream('gzip');
   const writer = ds.writable.getWriter();
-  void writer.write(bytes as unknown as BufferSource).then(() => writer.close()).catch(() => { /* surfaced by the reader */ });
+  void writer
+    .write(bytes as unknown as BufferSource)
+    .then(() => writer.close())
+    .catch(() => {
+      /* surfaced by the reader */
+    });
   const reader = ds.readable.getReader();
   const decoder = new TextDecoder();
   const parts: string[] = [];
@@ -895,7 +934,9 @@ async function readImportText(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (isGzip(bytes)) {
     if (typeof DecompressionStream === 'undefined') {
-      throw new Error('This app version can\u2019t open compressed (.gz) backups here. Unzip the file and import the .json file.');
+      throw new Error(
+        'This app version can\u2019t open compressed (.gz) backups here. Unzip the file and import the .json file.',
+      );
     }
     try {
       return await gunzipToText(bytes);
@@ -907,7 +948,10 @@ async function readImportText(file: File): Promise<string> {
 }
 
 /** Checksums written by Apollo: canonical compact JSON (1.0.6+) or pretty JSON (≤ 1.0.5). */
-async function checksumMatches(expected: string, original: { metadata: Record<string, unknown>; data: unknown }): Promise<boolean> {
+async function checksumMatches(
+  expected: string,
+  original: { metadata: Record<string, unknown>; data: unknown },
+): Promise<boolean> {
   if ((await sha256(JSON.stringify(original))) === expected) return true;
   return (await sha256(JSON.stringify(original, null, 2))) === expected;
 }
@@ -927,7 +971,9 @@ function rejectImport(message: string): ImportResult {
 export async function importFromFile(file: File): Promise<ImportResult> {
   try {
     if (file.size > MAX_IMPORT_FILE_BYTES) {
-      return rejectImport(`Import file is too large (${formatBytes(file.size)}). Maximum supported size is ${formatBytes(MAX_IMPORT_FILE_BYTES)}.`);
+      return rejectImport(
+        `Import file is too large (${formatBytes(file.size)}). Maximum supported size is ${formatBytes(MAX_IMPORT_FILE_BYTES)}.`,
+      );
     }
     if (isStorageDegraded()) {
       return rejectImport('Storage is unavailable right now, so nothing was imported. Restart Apollo and try again.');
@@ -947,7 +993,14 @@ export async function importFromFile(file: File): Promise<ImportResult> {
     }
 
     const data = parsed as Record<string, unknown>;
-    if (!data || typeof data !== 'object' || !data.metadata || !data.data || typeof data.metadata !== 'object' || typeof data.data !== 'object') {
+    if (
+      !data ||
+      typeof data !== 'object' ||
+      !data.metadata ||
+      !data.data ||
+      typeof data.metadata !== 'object' ||
+      typeof data.data !== 'object'
+    ) {
       return rejectImport('Not an Apollo backup file.');
     }
 
@@ -1000,9 +1053,11 @@ export async function importFromFile(file: File): Promise<ImportResult> {
     const importedKeys = Object.keys(allowed);
     if (importedKeys.length === 0) {
       return {
-        ...rejectImport(skippedKeys.length
-          ? `Nothing was imported: ${describeSkipped(skippedKeys)}.`
-          : 'No valid Apollo data found in the file.'),
+        ...rejectImport(
+          skippedKeys.length
+            ? `Nothing was imported: ${describeSkipped(skippedKeys)}.`
+            : 'No valid Apollo data found in the file.',
+        ),
         skippedKeys,
         ignoredKeys,
       };
@@ -1011,7 +1066,9 @@ export async function importFromFile(file: File): Promise<ImportResult> {
     // Create a safety backup before importing
     const safety = await createBackup('manual', { note: 'Before import' });
     if (!safety) {
-      return rejectImport(`Couldn\u2019t create a safety backup first, so nothing was imported. ${getLastBackupError()?.message ?? ''}`.trim());
+      return rejectImport(
+        `Couldn\u2019t create a safety backup first, so nothing was imported. ${getLastBackupError()?.message ?? ''}`.trim(),
+      );
     }
 
     persistence.bulkSet(allowed);
@@ -1027,7 +1084,10 @@ export async function importFromFile(file: File): Promise<ImportResult> {
 }
 
 function describeSkipped(skipped: SkippedKey[]): string {
-  const shown = skipped.slice(0, 5).map((s) => `${s.key} (${s.reason})`).join(', ');
+  const shown = skipped
+    .slice(0, 5)
+    .map((s) => `${s.key} (${s.reason})`)
+    .join(', ');
   return skipped.length > 5 ? `${shown} and ${skipped.length - 5} more` : shown;
 }
 

@@ -6,7 +6,13 @@ import { canToggleDayCompletion, toggleDayCompleted, type SyncMeta } from '../..
 import { restoreDay, skipWorkout } from '../../services/planOverlay';
 import type { SyncResult } from '../../services/autoSync';
 import { formatHoursMinutes } from '../../services/crossTraining';
-import { getSportCategoryIcon, getSportIcon, getSportLabel, SPORT_CATEGORIES, type SportCategory } from '../../services/activity/sports';
+import {
+  getSportCategoryIcon,
+  getSportIcon,
+  getSportLabel,
+  SPORT_CATEGORIES,
+  type SportCategory,
+} from '../../services/activity/sports';
 import { formatDistanceShort, formatMiles, formatPaceFromMinPerMi } from '../../services/unitPreferences';
 import RouteMap from '../RouteMap';
 import { DayActionsMenu } from '../plan/DayActionsMenu';
@@ -50,8 +56,11 @@ function categoryIcon(category: string): string {
 /** True when the OS asks for reduced motion (JS-driven animation must honour it). */
 function prefersReducedMotion(): boolean {
   try {
-    return typeof window !== 'undefined' && typeof window.matchMedia === 'function'
-      && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    return (
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
   } catch {
     return false;
   }
@@ -72,7 +81,8 @@ function WorkoutResult({ meta }: { meta: SyncMeta }) {
         {ct ? (
           <>
             <span className="today-result-main today-result-main--cross">
-              <span aria-hidden="true">{categoryIcon(ct.category)} </span>{ct.label}
+              <span aria-hidden="true">{categoryIcon(ct.category)} </span>
+              {ct.label}
             </span>
             <span>{formatHoursMinutes(meta.movingTimeSec)}</span>
             {ct.distanceMeters > 0 && <span>{formatDistanceShort(ct.distanceMeters)}</span>}
@@ -97,7 +107,21 @@ function WorkoutResult({ meta }: { meta: SyncMeta }) {
  * result is announced in a polite live region that stays mounted.
  */
 export default function TodayWorkout(props: TodayWorkoutProps) {
-  const { plan, planId, weekIndex, dayIndex, dateKey, startDate, headingLevel, completed, syncMeta, vdot, activity, syncResults, taper } = props;
+  const {
+    plan,
+    planId,
+    weekIndex,
+    dayIndex,
+    dateKey,
+    startDate,
+    headingLevel,
+    completed,
+    syncMeta,
+    vdot,
+    activity,
+    syncResults,
+    taper,
+  } = props;
   const [status, setStatus] = useState<Status>({ text: '', error: false });
   const day = plan.weeks[weekIndex]?.days[dayIndex];
   const Heading = headingLevel === 2 ? 'h2' : 'h3';
@@ -109,7 +133,9 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
     return (
       <div className="today-workout">
         <Heading className="today-hero-title">Nothing scheduled today</Heading>
-        <p className="today-text">Your plan has no session for today. <Link to="/plan">Open your plan</Link></p>
+        <p className="today-text">
+          Your plan has no session for today. <Link to="/plan">Open your plan</Link>
+        </p>
       </div>
     );
   }
@@ -126,16 +152,20 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
 
   const skip = () => {
     const result = skipWorkout(ref);
-    setStatus(result.ok
-      ? { text: 'Workout skipped. You can restore it from the menu or the Plan page.', error: false }
-      : { text: result.error ?? 'This workout can’t be skipped.', error: true });
+    setStatus(
+      result.ok
+        ? { text: 'Workout skipped. You can restore it from the menu or the Plan page.', error: false }
+        : { text: result.error ?? 'This workout can’t be skipped.', error: true },
+    );
   };
 
   const restore = () => {
     const result = restoreDay(ref);
-    setStatus(result.ok
-      ? { text: 'Workout restored.', error: false }
-      : { text: result.error ?? 'This day can’t be restored.', error: true });
+    setStatus(
+      result.ok
+        ? { text: 'Workout restored.', error: false }
+        : { text: result.error ?? 'This day can’t be restored.', error: true },
+    );
   };
 
   const onMenuChanged = (message: string) => setStatus({ text: message, error: false });
@@ -146,16 +176,30 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
     </p>
   );
 
-  const menu = <DayActionsMenu plan={plan} weekIndex={weekIndex} dayIndex={dayIndex} dayLabel={dayLabel} onChanged={onMenuChanged} />;
+  const menu = (
+    <DayActionsMenu
+      plan={plan}
+      weekIndex={weekIndex}
+      dayIndex={dayIndex}
+      dayLabel={dayLabel}
+      onChanged={onMenuChanged}
+    />
+  );
 
   // Skipped day: rest with the option to bring the workout back.
   if (day.skipped) {
     return (
       <div className="today-workout" aria-labelledby={headingId}>
-        <Heading id={headingId} className="today-hero-title">Workout skipped</Heading>
-        <p className="today-text">You skipped today’s {originalTitle(day)}. Rest up, or bring it back if plans change.</p>
+        <Heading id={headingId} className="today-hero-title">
+          Workout skipped
+        </Heading>
+        <p className="today-text">
+          You skipped today’s {originalTitle(day)}. Rest up, or bring it back if plans change.
+        </p>
         <div className="today-actions">
-          <button type="button" className="btn btn-secondary" onClick={restore}>Restore workout</button>
+          <button type="button" className="btn btn-secondary" onClick={restore}>
+            Restore workout
+          </button>
           {menu}
         </div>
         {statusRegion}
@@ -167,13 +211,18 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
   if (!isWorkoutDay(day)) {
     return (
       <div className="today-workout" aria-labelledby={headingId}>
-        <Heading id={headingId} className="today-hero-title">Rest day</Heading>
+        <Heading id={headingId} className="today-hero-title">
+          Rest day
+        </Heading>
         <p className="today-text">
-          Recovery is part of training: sleep well, eat well and keep any movement easy. Your legs will thank you tomorrow.
+          Recovery is part of training: sleep well, eat well and keep any movement easy. Your legs will thank you
+          tomorrow.
         </p>
         <div className="today-actions">
           {menu}
-          <Link to="/plan" className="today-link">Open your plan</Link>
+          <Link to="/plan" className="today-link">
+            Open your plan
+          </Link>
         </div>
         {statusRegion}
       </div>
@@ -187,10 +236,14 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
   return (
     <div className="today-workout" aria-labelledby={headingId}>
       <p className="today-eyebrow">Today’s workout</p>
-      <Heading id={headingId} className="today-hero-title">{workoutSummary(day)}</Heading>
+      <Heading id={headingId} className="today-hero-title">
+        {workoutSummary(day)}
+      </Heading>
       <div className="today-badges">
         {completed && <span className="today-badge today-badge--done">Completed</span>}
-        {syncMeta && <span className="today-badge">{syncMeta.activitySource === 'file' ? 'Imported' : 'Auto-synced'}</span>}
+        {syncMeta && (
+          <span className="today-badge">{syncMeta.activitySource === 'file' ? 'Imported' : 'Auto-synced'}</span>
+        )}
         {taper && <span className="today-badge today-badge--taper">Taper</span>}
       </div>
 
@@ -214,13 +267,20 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
       ) : null}
       {purpose && <p className="today-purpose">{purpose}</p>}
       {taper && (
-        <p className="today-purpose">Taper: less volume so you arrive fresh. Keep easy runs easy and trust your training.</p>
+        <p className="today-purpose">
+          Taper: less volume so you arrive fresh. Keep easy runs easy and trust your training.
+        </p>
       )}
 
       {syncMeta && <WorkoutResult meta={syncMeta} />}
       {syncMeta && activity?.map?.summary_polyline && (
         <div className="today-map">
-          <RouteMap activity={activity} size="card" colorMode={syncMeta.crossTraining ? 'teal' : 'apollo'} animate={!prefersReducedMotion()} />
+          <RouteMap
+            activity={activity}
+            size="card"
+            colorMode={syncMeta.crossTraining ? 'teal' : 'apollo'}
+            animate={!prefersReducedMotion()}
+          />
         </div>
       )}
 
@@ -228,10 +288,15 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
         <ul className="today-sync-list" aria-label="Latest synced workouts">
           {syncResults.slice(0, 3).map((r) => (
             <li key={`${r.weekIndex}-${r.dayIndex}-${r.activity.id}`}>
-              <strong>{r.isNew ? 'Auto-completed' : 'Synced'}:</strong>{' '}
-              {workoutTitle(r.plannedDay)} — {r.isCrossTraining
-                ? <><span aria-hidden="true">{getSportIcon(r.activity)} </span>{getSportLabel(r.activity)} · {formatHoursMinutes(r.activity.moving_time || r.activity.elapsed_time)}</>
-                : formatMiles(r.actualDistanceMi)}
+              <strong>{r.isNew ? 'Auto-completed' : 'Synced'}:</strong> {workoutTitle(r.plannedDay)} —{' '}
+              {r.isCrossTraining ? (
+                <>
+                  <span aria-hidden="true">{getSportIcon(r.activity)} </span>
+                  {getSportLabel(r.activity)} · {formatHoursMinutes(r.activity.moving_time || r.activity.elapsed_time)}
+                </>
+              ) : (
+                formatMiles(r.actualDistanceMi)
+              )}
             </li>
           ))}
         </ul>
@@ -247,16 +312,28 @@ export default function TodayWorkout(props: TodayWorkoutProps) {
           aria-describedby={!doneCheck.allowed && doneCheck.message ? doneHintId : undefined}
           onClick={toggleDone}
         >
-          {completed ? <><span aria-hidden="true">✓ </span>Done</> : 'Mark done'}
+          {completed ? (
+            <>
+              <span aria-hidden="true">✓ </span>Done
+            </>
+          ) : (
+            'Mark done'
+          )}
         </button>
         {!completed && (
-          <button type="button" className="btn btn-secondary" onClick={skip}>Skip</button>
+          <button type="button" className="btn btn-secondary" onClick={skip}>
+            Skip
+          </button>
         )}
         {menu}
-        <Link to="/plan" className="today-link">Open your plan</Link>
+        <Link to="/plan" className="today-link">
+          Open your plan
+        </Link>
       </div>
       {!doneCheck.allowed && doneCheck.message && (
-        <p id={doneHintId} className="today-muted">{doneCheck.message}</p>
+        <p id={doneHintId} className="today-muted">
+          {doneCheck.message}
+        </p>
       )}
       {statusRegion}
     </div>

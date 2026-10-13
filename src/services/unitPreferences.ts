@@ -63,7 +63,7 @@ export function formatPace(distanceMeters: number, timeSec: number, unit?: Dista
   const u = unit ?? getDistanceUnit();
   const dist = metersToUnit(distanceMeters, u);
   if (dist <= 0) return '—';
-  const minPerUnit = (timeSec / 60) / dist;
+  const minPerUnit = timeSec / 60 / dist;
   return formatPaceValue(minPerUnit, u);
 }
 
@@ -78,7 +78,7 @@ export function formatPaceValue(paceMinPerUnit: number, unit?: DistanceUnit): st
 export function calcPace(distanceMeters: number, timeSec: number, unit?: DistanceUnit): number {
   if (!distanceMeters || !timeSec) return 0;
   const dist = metersToUnit(distanceMeters, unit);
-  return dist > 0 ? (timeSec / 60) / dist : 0;
+  return dist > 0 ? timeSec / 60 / dist : 0;
 }
 
 export function formatElevation(meters: number, unit?: DistanceUnit): string {
@@ -118,7 +118,7 @@ export function metersToKm(m: number): number {
 /** Calculate pace in min/mi from raw distance (meters) and time (seconds). */
 export function calcPaceMinPerMi(distanceMeters: number, movingTimeSec: number): number {
   if (!distanceMeters || !movingTimeSec) return 0;
-  return (movingTimeSec / 60) / metersToMiles(distanceMeters);
+  return movingTimeSec / 60 / metersToMiles(distanceMeters);
 }
 
 /** Format a pace value as "M:SS" (no unit suffix). Used for PRs and compact display. */

@@ -65,7 +65,12 @@ export default function SaveStatusBanner() {
   const [retrying, setRetrying] = useState(false);
   const [stillFailing, setStillFailing] = useState(false);
   const mounted = useRef(true);
-  useEffect(() => () => { mounted.current = false; }, []);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+    },
+    [],
+  );
 
   const retry = useCallback(async () => {
     setRetrying(true);
@@ -85,7 +90,9 @@ export default function SaveStatusBanner() {
       setStillFailing(false);
       return;
     }
-    const timer = window.setInterval(() => { void persistence.retryFailedWrites(); }, AUTO_RETRY_MS);
+    const timer = window.setInterval(() => {
+      void persistence.retryFailedWrites();
+    }, AUTO_RETRY_MS);
     return () => window.clearInterval(timer);
   }, [health.ok]);
 
@@ -95,19 +102,21 @@ export default function SaveStatusBanner() {
       {!health.ok && (
         <div className="app-banner app-banner--error save-status-banner" role="alert" data-testid="save-status-banner">
           <div className="app-banner-text">
-            <strong>Not saved.</strong>{' '}
-            Apollo couldn&rsquo;t save {count === 1 ? '1 change' : `${count} changes`} to this device.
-            {' '}Your changes are kept while Apollo stays open and are retried automatically.
+            <strong>Not saved.</strong> Apollo couldn&rsquo;t save {count === 1 ? '1 change' : `${count} changes`} to
+            this device. Your changes are kept while Apollo stays open and are retried automatically.
             {stillFailing && (
               <span className="save-status-detail">
-                {' '}Still not saved — free up disk space or close other Apollo windows, then retry.
+                {' '}
+                Still not saved — free up disk space or close other Apollo windows, then retry.
               </span>
             )}
           </div>
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => { void retry(); }}
+            onClick={() => {
+              void retry();
+            }}
             disabled={retrying}
             aria-busy={retrying}
           >
@@ -118,9 +127,8 @@ export default function SaveStatusBanner() {
       {quarantined.length > 0 && (
         <div className="app-banner app-banner--warning" data-testid="quarantine-banner">
           <div className="app-banner-text">
-            <strong>{describeQuarantine(quarantined)} couldn&rsquo;t be read.</strong>{' '}
-            The damaged copy was set aside on this device instead of being overwritten. Sync again to
-            re-download it, or restore a backup.
+            <strong>{describeQuarantine(quarantined)} couldn&rsquo;t be read.</strong> The damaged copy was set aside on
+            this device instead of being overwritten. Sync again to re-download it, or restore a backup.
           </div>
           <Link to="/settings?tab=data" className="btn btn-secondary">
             Restore a backup

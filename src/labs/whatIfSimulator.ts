@@ -61,14 +61,44 @@ export interface WhatIfResult {
  */
 export function getAvailableScenarios(): WhatIfScenario[] {
   return [
-    { type: 'increase_mileage', label: 'Increase weekly mileage by 10%', description: 'Add 10% to current weekly volume', value: 10 },
-    { type: 'increase_mileage', label: 'Increase weekly mileage by 20%', description: 'Add 20% to current weekly volume', value: 20 },
-    { type: 'decrease_mileage', label: 'Decrease weekly mileage by 20%', description: 'Drop 20% from current volume', value: 20 },
+    {
+      type: 'increase_mileage',
+      label: 'Increase weekly mileage by 10%',
+      description: 'Add 10% to current weekly volume',
+      value: 10,
+    },
+    {
+      type: 'increase_mileage',
+      label: 'Increase weekly mileage by 20%',
+      description: 'Add 20% to current weekly volume',
+      value: 20,
+    },
+    {
+      type: 'decrease_mileage',
+      label: 'Decrease weekly mileage by 20%',
+      description: 'Drop 20% from current volume',
+      value: 20,
+    },
     { type: 'skip_days', label: 'Skip the next 7 days', description: 'Miss one full week of training', value: 7 },
     { type: 'skip_days', label: 'Skip the next 14 days', description: 'Miss two full weeks of training', value: 14 },
-    { type: 'add_long_run', label: 'Add 1 extra long run per month', description: 'One additional 20+ mile run monthly', value: 1 },
-    { type: 'marathon_pace_long_runs', label: 'Run long runs at marathon pace', description: 'Convert easy long runs to MP long runs', value: 1 },
-    { type: 'add_tempo_runs', label: 'Add 1 extra tempo run per week', description: 'One additional threshold session weekly', value: 1 },
+    {
+      type: 'add_long_run',
+      label: 'Add 1 extra long run per month',
+      description: 'One additional 20+ mile run monthly',
+      value: 1,
+    },
+    {
+      type: 'marathon_pace_long_runs',
+      label: 'Run long runs at marathon pace',
+      description: 'Convert easy long runs to MP long runs',
+      value: 1,
+    },
+    {
+      type: 'add_tempo_runs',
+      label: 'Add 1 extra tempo run per week',
+      description: 'One additional threshold session weekly',
+      value: 1,
+    },
   ];
 }
 
@@ -113,7 +143,7 @@ export function simulateWhatIf(
       projectedTimeSec = baselineTimeSec * (1 + declinePct / 100);
       confidence = 65;
       risk = scenario.value > 30 ? 'high' : 'moderate';
-      explanation = `Reducing weekly volume by ${scenario.value}% would cost approximately ${formatTimeSec(Math.round(baselineTimeSec * declinePct / 100))} on your marathon.`;
+      explanation = `Reducing weekly volume by ${scenario.value}% would cost approximately ${formatTimeSec(Math.round((baselineTimeSec * declinePct) / 100))} on your marathon.`;
       break;
     }
 
@@ -158,9 +188,10 @@ export function simulateWhatIf(
       projectedTimeSec = baselineTimeSec + totalDeltaSec;
       confidence = 70;
       risk = Math.abs(lbs) > 10 ? 'moderate' : 'low';
-      explanation = lbs < 0
-        ? `Losing ${Math.abs(lbs)} lbs saves ~${Math.abs(secPerMile)} sec/mile (${formatTimeSec(Math.abs(Math.round(totalDeltaSec)))} total). Ensure weight loss is gradual (0.5-1 lb/week) and doesn't compromise training quality.`
-        : `Gaining ${lbs} lbs adds ~${secPerMile} sec/mile (${formatTimeSec(Math.round(totalDeltaSec))} total). If from muscle gain in strength training, actual impact may be smaller.`;
+      explanation =
+        lbs < 0
+          ? `Losing ${Math.abs(lbs)} lbs saves ~${Math.abs(secPerMile)} sec/mile (${formatTimeSec(Math.abs(Math.round(totalDeltaSec)))} total). Ensure weight loss is gradual (0.5-1 lb/week) and doesn't compromise training quality.`
+          : `Gaining ${lbs} lbs adds ~${secPerMile} sec/mile (${formatTimeSec(Math.round(totalDeltaSec))} total). If from muscle gain in strength training, actual impact may be smaller.`;
       break;
     }
 
@@ -202,11 +233,6 @@ export function simulateWhatIf(
 /**
  * Run all available scenarios against current fitness.
  */
-export function simulateAllScenarios(
-  currentVdot: number,
-  currentWeeklyMiles: number,
-): WhatIfResult[] {
-  return getAvailableScenarios().map((s) =>
-    simulateWhatIf(s, currentVdot, currentWeeklyMiles),
-  );
+export function simulateAllScenarios(currentVdot: number, currentWeeklyMiles: number): WhatIfResult[] {
+  return getAvailableScenarios().map((s) => simulateWhatIf(s, currentVdot, currentWeeklyMiles));
 }

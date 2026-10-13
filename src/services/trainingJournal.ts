@@ -117,8 +117,7 @@ export function deleteJournalEntry(date: string): void {
 /** Get all journal entries sorted by date descending */
 export function getAllJournalEntries(): JournalEntry[] {
   if (!isJournalEnabled()) return [];
-  return Object.values(getJournalStore())
-    .sort((a, b) => b.date.localeCompare(a.date));
+  return Object.values(getJournalStore()).sort((a, b) => b.date.localeCompare(a.date));
 }
 
 /** Get recent journal entries */

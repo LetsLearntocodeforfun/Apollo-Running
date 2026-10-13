@@ -60,7 +60,9 @@ for (const ref of refs) {
   const gzSize = gzipSync(buf, { level: 9 }).length;
   raw += size;
   gz += gzSize;
-  console.log(`  ${basename(file).padEnd(40)} ${(size / 1024).toFixed(1).padStart(8)} KiB  (gzip ${(gzSize / 1024).toFixed(1)} KiB)`);
+  console.log(
+    `  ${basename(file).padEnd(40)} ${(size / 1024).toFixed(1).padStart(8)} KiB  (gzip ${(gzSize / 1024).toFixed(1)} KiB)`,
+  );
   if (FORBIDDEN.some((re) => re.test(basename(file)))) {
     problems.push(`${basename(file)} is preloaded on the first screen — the chart library must load lazily`);
   }
@@ -68,8 +70,10 @@ for (const ref of refs) {
 console.log(`  ${'total'.padEnd(40)} ${(raw / 1024).toFixed(1).padStart(8)} KiB  (gzip ${(gz / 1024).toFixed(1)} KiB)`);
 console.log(`  budget: ${BUDGET_KB} KiB raw, ${BUDGET_GZIP_KB} KiB gzip`);
 
-if (raw / 1024 > BUDGET_KB) problems.push(`preloaded JS is ${(raw / 1024).toFixed(1)} KiB, over the ${BUDGET_KB} KiB budget`);
-if (gz / 1024 > BUDGET_GZIP_KB) problems.push(`preloaded JS is ${(gz / 1024).toFixed(1)} KiB gzip, over the ${BUDGET_GZIP_KB} KiB budget`);
+if (raw / 1024 > BUDGET_KB)
+  problems.push(`preloaded JS is ${(raw / 1024).toFixed(1)} KiB, over the ${BUDGET_KB} KiB budget`);
+if (gz / 1024 > BUDGET_GZIP_KB)
+  problems.push(`preloaded JS is ${(gz / 1024).toFixed(1)} KiB gzip, over the ${BUDGET_GZIP_KB} KiB budget`);
 
 if (problems.length) {
   for (const p of problems) console.error(`::error::${p}`);

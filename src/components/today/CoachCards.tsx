@@ -50,7 +50,9 @@ export function DailyRecapCard({ recap, onDismiss }: DailyRecapCardProps) {
           {recap.avgHR ? <span>{recap.avgHR} bpm</span> : null}
           {recap.primaryZone ? (
             // v1.0.7 (L-11): estimated zones are labelled as such.
-            <span>{recap.primaryZoneEstimated ? 'Est. zone' : 'Zone'}: {recap.primaryZone}</span>
+            <span>
+              {recap.primaryZoneEstimated ? 'Est. zone' : 'Zone'}: {recap.primaryZone}
+            </span>
           ) : null}
         </p>
       )}
@@ -84,22 +86,36 @@ export function WeeklyReadinessCard({ readiness, onDismiss }: WeeklyReadinessCar
       {readiness.strengths.length > 0 && (
         <>
           <span className="today-coach-label">Strengths</span>
-          <ul className="today-coach-list">{readiness.strengths.map((s) => <li key={s}>{s}</li>)}</ul>
+          <ul className="today-coach-list">
+            {readiness.strengths.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
         </>
       )}
       {readiness.improvements.length > 0 && (
         <>
           <span className="today-coach-label">Areas to improve</span>
-          <ul className="today-coach-list">{readiness.improvements.map((s) => <li key={s}>{s}</li>)}</ul>
+          <ul className="today-coach-list">
+            {readiness.improvements.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
         </>
       )}
       {readiness.nextWeekTips.length > 0 && (
         <>
           <span className="today-coach-label">Next week</span>
-          <ul className="today-coach-list">{readiness.nextWeekTips.map((s) => <li key={s}>{s}</li>)}</ul>
+          <ul className="today-coach-list">
+            {readiness.nextWeekTips.map((s) => (
+              <li key={s}>{s}</li>
+            ))}
+          </ul>
         </>
       )}
-      <Link to="/progress?tab=overview" className="today-link">View your progress</Link>
+      <Link to="/progress?tab=overview" className="today-link">
+        View your progress
+      </Link>
     </section>
   );
 }

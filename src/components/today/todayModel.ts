@@ -25,7 +25,7 @@ export const TRAINING_PHASE_LABEL: Record<PhaseName, string> = {
 
 /** "Build", "Taper"… or null when the phase is unknown. */
 export function trainingPhaseLabel(phase: PhaseName | null | undefined): string | null {
-  return phase ? TRAINING_PHASE_LABEL[phase] ?? null : null;
+  return phase ? (TRAINING_PHASE_LABEL[phase] ?? null) : null;
 }
 
 /** "47 days to race", "1 day to race", "Race day!" — null when unknown or in the past. */

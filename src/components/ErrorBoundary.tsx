@@ -44,7 +44,9 @@ export default class ErrorBoundary extends Component<Props, State> {
   private copyDetails = () => {
     const err = this.state.error;
     const text = err ? `${err.name}: ${err.message}\n${err.stack ?? ''}` : 'Unknown error';
-    void navigator.clipboard?.writeText(text).catch(() => { /* clipboard unavailable */ });
+    void navigator.clipboard?.writeText(text).catch(() => {
+      /* clipboard unavailable */
+    });
   };
 
   render() {
@@ -70,7 +72,8 @@ export default class ErrorBoundary extends Component<Props, State> {
         <div className="welcome-card" role="alert">
           <h1 className="welcome-title">Something went wrong</h1>
           <p style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>
-            Apollo ran into an error. Your training data is stored on this device and is safe — reloading usually fixes this.
+            Apollo ran into an error. Your training data is stored on this device and is safe — reloading usually fixes
+            this.
           </p>
           {this.state.error && (
             <pre style={{ fontSize: '0.8rem', color: 'var(--text-muted)', overflow: 'auto', marginBottom: '1rem' }}>
@@ -78,11 +81,7 @@ export default class ErrorBoundary extends Component<Props, State> {
             </pre>
           )}
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => window.location.reload()}
-            >
+            <button type="button" className="btn btn-primary" onClick={() => window.location.reload()}>
               Reload Apollo
             </button>
             <button type="button" className="btn btn-secondary" onClick={this.copyDetails}>

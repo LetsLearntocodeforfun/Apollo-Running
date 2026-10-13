@@ -29,7 +29,12 @@ export interface XmlHandler {
 }
 
 const NAMED_ENTITIES: Record<string, string> = {
-  amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: '\u00a0',
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: '\u00a0',
 };
 
 /** Decode XML entities (`&amp;`, `&#233;`, `&#xE9;`, …); unknown entities are kept verbatim. */
@@ -193,7 +198,10 @@ export function scanXml(xml: string, handler: XmlHandler): void {
 export function parseXmlTime(value: string): number {
   let iso = value.trim();
   if (!iso) return NaN;
-  iso = iso.replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1').replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
+  iso = iso
+    .replace(' ', 'T')
+    .replace(/(\.\d{3})\d+/, '$1')
+    .replace(/([+-]\d{2})(\d{2})$/, '$1:$2');
   if (!/(?:[zZ]|[+-]\d{2}:\d{2})$/.test(iso) && /T\d{2}:\d{2}/.test(iso)) iso += 'Z';
   return Date.parse(iso);
 }

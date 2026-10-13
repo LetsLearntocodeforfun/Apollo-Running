@@ -60,8 +60,20 @@ export interface ActivityHRData {
 
 const ZONE_DEFS: { name: string; description: string; minPct: number; maxPct: number; color: string }[] = [
   { name: 'Recovery', description: 'Very light effort, active recovery', minPct: 50, maxPct: 60, color: '#78909C' },
-  { name: 'Aerobic', description: 'Easy endurance, fat burning, base building', minPct: 60, maxPct: 70, color: '#4FC3F7' },
-  { name: 'Tempo', description: 'Moderate effort, improves aerobic capacity', minPct: 70, maxPct: 80, color: '#66BB6A' },
+  {
+    name: 'Aerobic',
+    description: 'Easy endurance, fat burning, base building',
+    minPct: 60,
+    maxPct: 70,
+    color: '#4FC3F7',
+  },
+  {
+    name: 'Tempo',
+    description: 'Moderate effort, improves aerobic capacity',
+    minPct: 70,
+    maxPct: 80,
+    color: '#66BB6A',
+  },
   { name: 'Threshold', description: 'Hard effort, raises lactate threshold', minPct: 80, maxPct: 90, color: '#FFA726' },
   { name: 'VO2 Max', description: 'Maximum effort, builds speed and power', minPct: 90, maxPct: 100, color: '#EF5350' },
 ];
@@ -74,7 +86,9 @@ export function getHRProfile(): HRProfile {
   try {
     const raw = persistence.getItem(HR_PROFILE_KEY);
     if (raw) return JSON.parse(raw);
-  } catch { /* fallthrough */ }
+  } catch {
+    /* fallthrough */
+  }
   return { maxHR: DEFAULT_MAX_HR, restingHR: DEFAULT_RESTING_HR, source: 'default', updatedAt: '' };
 }
 
@@ -91,8 +105,8 @@ export function getHRZones(maxHR?: number): HRZone[] {
     description: def.description,
     minPct: def.minPct,
     maxPct: def.maxPct,
-    minBpm: Math.round(hr * def.minPct / 100),
-    maxBpm: Math.round(hr * def.maxPct / 100),
+    minBpm: Math.round((hr * def.minPct) / 100),
+    maxBpm: Math.round((hr * def.maxPct) / 100),
     color: def.color,
   }));
 }
@@ -127,9 +141,10 @@ export function upsertActivityHR(data: ActivityHRData): void {
   if (idx >= 0) {
     const prev = history[idx];
     // v1.0.7 (L-11): a later average-HR rebuild must not replace measured zone times.
-    history[idx] = prev.zoneSource === 'measured' && data.zoneSource !== 'measured'
-      ? { ...data, timeInZones: prev.timeInZones, zoneSource: 'measured' }
-      : data;
+    history[idx] =
+      prev.zoneSource === 'measured' && data.zoneSource !== 'measured'
+        ? { ...data, timeInZones: prev.timeInZones, zoneSource: 'measured' }
+        : data;
   } else {
     history.push(data);
   }
@@ -159,7 +174,10 @@ export function timeInZonesFromStream(
     const hr = pts[i].hr as number;
     let z = 0;
     for (let k = zones.length - 1; k >= 0; k--) {
-      if (hr >= zones[k].minBpm) { z = k; break; }
+      if (hr >= zones[k].minBpm) {
+        z = k;
+        break;
+      }
     }
     out[z] += dt;
   }
@@ -169,8 +187,12 @@ export function timeInZonesFromStream(
 
 /** True when `v` is five finite, non-negative zone times with a positive total. */
 function isZoneTimes(v: unknown): v is number[] {
-  return Array.isArray(v) && v.length === 5 && v.every((x) => typeof x === 'number' && Number.isFinite(x) && x >= 0)
-    && v.reduce((s: number, x: number) => s + x, 0) > 0;
+  return (
+    Array.isArray(v) &&
+    v.length === 5 &&
+    v.every((x) => typeof x === 'number' && Number.isFinite(x) && x >= 0) &&
+    v.reduce((s: number, x: number) => s + x, 0) > 0
+  );
 }
 
 /**
@@ -223,8 +245,11 @@ export function buildHRDataFromActivity(
   // Guard against sensor spikes: must be between 120-230 and within 15% of current maxHR.
   // v1.0.7 (L-10): never overwrite a max HR the athlete entered (e.g. from a lab or field test).
   if (
-    profile.source !== 'manual'
-    && maxHR > profile.maxHR && maxHR < 230 && maxHR >= 120 && maxHR <= profile.maxHR * 1.15
+    profile.source !== 'manual' &&
+    maxHR > profile.maxHR &&
+    maxHR < 230 &&
+    maxHR >= 120 &&
+    maxHR <= profile.maxHR * 1.15
   ) {
     console.info(`[Apollo HR] Auto-updated maxHR: ${profile.maxHR} → ${maxHR} (from activity ${activityId})`);
     setHRProfile({ ...profile, maxHR, source, updatedAt: new Date().toISOString() });
@@ -310,7 +335,8 @@ export function recordMeasuredTimeInZones(
       averageHR: opts.averageHR && opts.averageHR > 0 ? opts.averageHR : streamAvg,
       maxHR: opts.maxHR && opts.maxHR > 0 ? opts.maxHR : streamMax,
       source: opts.source ?? 'intervals',
-      movingTimeSec: opts.movingTimeSec && opts.movingTimeSec > 0 ? opts.movingTimeSec : zones.reduce((a, b) => a + b, 0),
+      movingTimeSec:
+        opts.movingTimeSec && opts.movingTimeSec > 0 ? opts.movingTimeSec : zones.reduce((a, b) => a + b, 0),
     }),
     timeInZones: zones,
     zoneSource: 'measured',
@@ -325,7 +351,7 @@ export function buildHRDataFromStrava(
   averageHR: number,
   maxHR: number,
   movingTimeSec: number,
-  avgCadence?: number
+  avgCadence?: number,
 ): ActivityHRData | null {
   return buildHRDataFromActivity(activityId, date, averageHR, maxHR, movingTimeSec, avgCadence, 'strava');
 }
@@ -375,7 +401,7 @@ export function getAggregateZoneDistribution(days: number = 30): {
     else estimated = true;
   }
 
-  const percentages = totalTime.map((t) => totalTimeSec > 0 ? Math.round((t / totalTimeSec) * 100) : 0);
+  const percentages = totalTime.map((t) => (totalTimeSec > 0 ? Math.round((t / totalTimeSec) * 100) : 0));
 
   return {
     zones: getHRZones(),
@@ -388,15 +414,13 @@ export function getAggregateZoneDistribution(days: number = 30): {
 }
 
 /** Calculate aerobic efficiency: pace at a given HR (lower = more efficient) */
-export function getAerobicEfficiency(
-  recentActivities: { avgHR: number; paceMinPerMi: number }[]
-): number | null {
+export function getAerobicEfficiency(recentActivities: { avgHR: number; paceMinPerMi: number }[]): number | null {
   if (recentActivities.length < 3) return null;
   // Efficiency = avg pace / avg HR ratio (lower pace at same HR = better)
-  const total = recentActivities.reduce(
-    (acc, a) => ({ pace: acc.pace + a.paceMinPerMi, hr: acc.hr + a.avgHR }),
-    { pace: 0, hr: 0 }
-  );
+  const total = recentActivities.reduce((acc, a) => ({ pace: acc.pace + a.paceMinPerMi, hr: acc.hr + a.avgHR }), {
+    pace: 0,
+    hr: 0,
+  });
   const avgPace = total.pace / recentActivities.length;
   const avgHR = total.hr / recentActivities.length;
   // Return efficiency factor: pace * 1000 / HR (arbitrary units, lower = better pace at HR)

@@ -15,10 +15,7 @@ import {
   expireStaleRecommendations,
   getRecommendationBadgeCount,
 } from '../services/adaptiveTraining';
-import type {
-  AdaptiveRecommendation,
-  PlanModification,
-} from '../types/recommendations';
+import type { AdaptiveRecommendation, PlanModification } from '../types/recommendations';
 
 interface UseAdaptiveRecommendationsResult {
   /** Currently active recommendations */
@@ -66,20 +63,23 @@ export function useAdaptiveRecommendations(): UseAdaptiveRecommendationsResult {
   }, []);
 
   /** Run analysis (rate-limited unless forced). */
-  const runAnalysis = useCallback((force = false) => {
-    if (!prefs.enabled) return;
-    setAnalyzing(true);
-    try {
-      analyzeTrainingProgress(force);
-    } catch {
-      // non-critical
-    } finally {
-      if (mountedRef.current) {
-        loadState();
-        setAnalyzing(false);
+  const runAnalysis = useCallback(
+    (force = false) => {
+      if (!prefs.enabled) return;
+      setAnalyzing(true);
+      try {
+        analyzeTrainingProgress(force);
+      } catch {
+        // non-critical
+      } finally {
+        if (mountedRef.current) {
+          loadState();
+          setAnalyzing(false);
+        }
       }
-    }
-  }, [prefs.enabled, loadState]);
+    },
+    [prefs.enabled, loadState],
+  );
 
   // Run on mount
   useEffect(() => {
@@ -95,23 +95,29 @@ export function useAdaptiveRecommendations(): UseAdaptiveRecommendationsResult {
     };
   }, [loadState, runAnalysis]);
 
-  const dismiss = useCallback((id: string) => {
-    dismissRecommendation(id);
-    loadState();
-  }, [loadState]);
+  const dismiss = useCallback(
+    (id: string) => {
+      dismissRecommendation(id);
+      loadState();
+    },
+    [loadState],
+  );
 
-  const accept = useCallback((id: string, optionKey: string): PlanModification | null => {
-    setUndoError(null);
-    const mod = applyRecommendation(id, optionKey);
-    loadState();
-    return mod;
-  }, [loadState]);
+  const accept = useCallback(
+    (id: string, optionKey: string): PlanModification | null => {
+      setUndoError(null);
+      const mod = applyRecommendation(id, optionKey);
+      loadState();
+      return mod;
+    },
+    [loadState],
+  );
 
   const undo = useCallback((): boolean => {
     const mod = getLastModification();
     if (!mod) return false;
     const result = undoRecommendationWithReason(mod.id);
-    setUndoError(result.ok ? null : result.error ?? null);
+    setUndoError(result.ok ? null : (result.error ?? null));
     loadState();
     return result.ok;
   }, [loadState]);

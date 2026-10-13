@@ -22,8 +22,17 @@ type Extra = Partial<StravaActivity> & Record<string, unknown>;
 
 function act(id: number, local: string, distance: number, moving: number, extra: Extra = {}): StravaActivity {
   return {
-    id, name: `Run ${id}`, type: 'Run', sport_type: 'Run', distance, moving_time: moving, elapsed_time: moving,
-    start_date: local, start_date_local: local, kudos_count: 0, ...extra,
+    id,
+    name: `Run ${id}`,
+    type: 'Run',
+    sport_type: 'Run',
+    distance,
+    moving_time: moving,
+    elapsed_time: moving,
+    start_date: local,
+    start_date_local: local,
+    kudos_count: 0,
+    ...extra,
   } as unknown as StravaActivity;
 }
 
@@ -93,7 +102,7 @@ describe('week over week (B3)', () => {
       const wow = weekOverWeek([
         act(10, '2026-10-05T06:00:00Z', 10000, 3000), // Monday 06:00 local -> this week
         act(11, '2026-10-03T08:00:00Z', 12000, 3600), // Saturday -> last week
-        act(12, '2026-09-28T05:30:00Z', 5000, 1500),  // last Monday early -> last week
+        act(12, '2026-09-28T05:30:00Z', 5000, 1500), // last Monday early -> last week
       ]);
       const runs = wow.find((w) => w.label === 'Runs')!;
       expect(runs.current).toBe(1);
@@ -105,7 +114,7 @@ describe('week over week (B3)', () => {
     });
   }
 
-  it('returns base units and formats them in the athlete\'s unit (km users see km)', () => {
+  it("returns base units and formats them in the athlete's unit (km users see km)", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 9, 5, 19, 0, 0));
     const wow = weekOverWeek([act(10, '2026-10-05T06:00:00Z', 10000, 3000, { total_elevation_gain: 120 })]);
@@ -129,10 +138,13 @@ describe('pace progression (B5)', () => {
   it('is distance-weighted: 3 mi @ 10:00 + 20 mi @ 8:00 = 8.261 min/mi', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-05T19:00:00'));
-    const pp = calculatePaceProgression([
-      act(20, '2026-09-29T07:00:00Z', 3 * 1609.344, 30 * 60),
-      act(21, '2026-10-04T07:00:00Z', 20 * 1609.344, 160 * 60),
-    ], 2);
+    const pp = calculatePaceProgression(
+      [
+        act(20, '2026-09-29T07:00:00Z', 3 * 1609.344, 30 * 60),
+        act(21, '2026-10-04T07:00:00Z', 20 * 1609.344, 160 * 60),
+      ],
+      2,
+    );
     expect(pp).toHaveLength(1);
     expect(pp[0].weekStart).toBe('2026-09-28');
     expect(pp[0].avgPace).toBeCloseTo(190 / 23, 2);
@@ -142,10 +154,13 @@ describe('pace progression (B5)', () => {
   it('applies the outlier filter to every series (a 25 min/mi "run" is ignored)', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-05T19:00:00'));
-    const pp = calculatePaceProgression([
-      act(30, '2026-09-29T07:00:00Z', 3 * 1609.344, 30 * 60),
-      act(31, '2026-09-30T07:00:00Z', 3 * 1609.344, 75 * 60), // 25:00/mi walk logged as a run
-    ], 2);
+    const pp = calculatePaceProgression(
+      [
+        act(30, '2026-09-29T07:00:00Z', 3 * 1609.344, 30 * 60),
+        act(31, '2026-09-30T07:00:00Z', 3 * 1609.344, 75 * 60), // 25:00/mi walk logged as a run
+      ],
+      2,
+    );
     expect(pp[0].avgPace).toBeCloseTo(10, 2);
     expect(pp[0].easyPace).toBeCloseTo(10, 2);
   });
@@ -195,11 +210,18 @@ describe('HR efficiency (S6)', () => {
   it('leaves out treadmill / virtual runs', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-05T19:00:00'));
-    const pts = calculateHREfficiency([
-      act(40, '2026-10-01T07:00:00Z', 10000, 3000, { average_heartrate: 150 }),
-      act(41, '2026-10-02T07:00:00Z', 10000, 3000, { average_heartrate: 150, trainer: true }),
-      act(42, '2026-10-03T07:00:00Z', 10000, 3000, { average_heartrate: 150, sport_type: 'VirtualRun', type: 'VirtualRun' }),
-    ], 30);
+    const pts = calculateHREfficiency(
+      [
+        act(40, '2026-10-01T07:00:00Z', 10000, 3000, { average_heartrate: 150 }),
+        act(41, '2026-10-02T07:00:00Z', 10000, 3000, { average_heartrate: 150, trainer: true }),
+        act(42, '2026-10-03T07:00:00Z', 10000, 3000, {
+          average_heartrate: 150,
+          sport_type: 'VirtualRun',
+          type: 'VirtualRun',
+        }),
+      ],
+      30,
+    );
     expect(pts.map((p) => p.date)).toEqual(['2026-10-01']);
   });
 });

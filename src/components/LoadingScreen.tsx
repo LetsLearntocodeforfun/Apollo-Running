@@ -13,7 +13,9 @@ export default function LoadingScreen({ message = 'Preparing your training…' }
         {/* The PNG has white corners: show it as a circle */}
         <img src={logo256} alt="" width={120} height={120} className="loading-screen-logo" />
       </div>
-      <div className="loading-screen-name" aria-hidden="true">Apollo</div>
+      <div className="loading-screen-name" aria-hidden="true">
+        Apollo
+      </div>
       <p className="loading-screen-message">{message}</p>
     </div>
   );

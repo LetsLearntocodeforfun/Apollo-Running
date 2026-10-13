@@ -15,11 +15,19 @@ const memoryStore = new Map<string, string>();
 vi.mock('@/services/db/persistence', () => ({
   persistence: {
     getItem: (key: string) => memoryStore.get(key) ?? null,
-    setItem: (key: string, value: string) => { memoryStore.set(key, value); },
-    removeItem: (key: string) => { memoryStore.delete(key); },
+    setItem: (key: string, value: string) => {
+      memoryStore.set(key, value);
+    },
+    removeItem: (key: string) => {
+      memoryStore.delete(key);
+    },
     keys: () => Array.from(memoryStore.keys()),
-    get length() { return memoryStore.size; },
-    clear: () => { memoryStore.clear(); },
+    get length() {
+      return memoryStore.size;
+    },
+    clear: () => {
+      memoryStore.clear();
+    },
     bulkSet: (entries: Record<string, string>) => {
       for (const [k, v] of Object.entries(entries)) memoryStore.set(k, v);
     },
@@ -28,7 +36,10 @@ vi.mock('@/services/db/persistence', () => ({
     initialized: true,
     // v1.0.6 additions (agent S): coalesced writes are synchronous in the mock.
     flush: () => Promise.resolve(),
-    clearAll: () => { memoryStore.clear(); return Promise.resolve(); },
+    clearAll: () => {
+      memoryStore.clear();
+      return Promise.resolve();
+    },
     failedWrites: new Set<string>(),
     blockedWrites: new Set<string>(),
     retryFailedWrites: () => Promise.resolve(0),
@@ -45,7 +56,9 @@ vi.mock('@/services/db/persistence', () => ({
   ]),
   isApolloKey: (key: string) =>
     key.startsWith('apollo_') ||
-    ['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials', 'intervals_credentials'].includes(key),
+    ['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials', 'intervals_credentials'].includes(
+      key,
+    ),
   LOCAL_MIRROR_MAX_CHARS: 4_000_000,
   DEGRADED_MAX_WRITE_CHARS: 256 * 1024,
 }));
@@ -69,10 +82,19 @@ vi.mock('@/services/db/apolloDB', () => ({
       clear: () => Promise.resolve(),
     },
     backups: {
-      put: (row: { id: string; json: string; updatedAt: number }) => { backupTable.set(row.id, { ...row }); return Promise.resolve(row.id); },
+      put: (row: { id: string; json: string; updatedAt: number }) => {
+        backupTable.set(row.id, { ...row });
+        return Promise.resolve(row.id);
+      },
       get: (id: string) => Promise.resolve(backupTable.get(id)),
-      delete: (id: string) => { backupTable.delete(id); return Promise.resolve(); },
-      clear: () => { backupTable.clear(); return Promise.resolve(); },
+      delete: (id: string) => {
+        backupTable.delete(id);
+        return Promise.resolve();
+      },
+      clear: () => {
+        backupTable.clear();
+        return Promise.resolve();
+      },
       toCollection: () => ({ primaryKeys: () => Promise.resolve(Array.from(backupTable.keys())) }),
     },
   },

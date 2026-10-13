@@ -12,12 +12,7 @@
  */
 
 import { useEffect, useId, useState } from 'react';
-import {
-  downloadICS,
-  exportActivePlan,
-  getActivePlanExportInfo,
-  resolveExportPaces,
-} from '../services/calendarExport';
+import { downloadICS, exportActivePlan, getActivePlanExportInfo, resolveExportPaces } from '../services/calendarExport';
 import { onPlanOverlayChanged } from '../services/planOverlay';
 import { getIntervalsCredentials } from '../services/storage';
 import { getDistanceUnit } from '../services/unitPreferences';
@@ -51,10 +46,14 @@ export default function PlanCalendarExport({ headingLevel = 3 }: PlanCalendarExp
   const [, setPlanVersion] = useState(0);
 
   // Moves, skips and plan switches change what would be exported.
-  useEffect(() => onPlanOverlayChanged(() => {
-    setPlanVersion((n) => n + 1);
-    setStatus(null);
-  }), []);
+  useEffect(
+    () =>
+      onPlanOverlayChanged(() => {
+        setPlanVersion((n) => n + 1);
+        setStatus(null);
+      }),
+    [],
+  );
 
   // Cheap synchronous reads, re-evaluated on every render.
   const info = getActivePlanExportInfo();
@@ -79,13 +78,17 @@ export default function PlanCalendarExport({ headingLevel = 3 }: PlanCalendarExp
       return;
     }
     if (!downloadICS(result)) {
-      setStatus({ kind: 'error', text: 'Downloads aren’t available here. Try again from the desktop app or another browser.' });
+      setStatus({
+        kind: 'error',
+        text: 'Downloads aren’t available here. Try again from the desktop app or another browser.',
+      });
       return;
     }
     setStatus({
       kind: 'success',
-      text: `Downloaded ${plural(result.totalEvents, 'event')} (${formatDay(result.firstDate)} – ${formatDay(result.lastDate)}). `
-        + `Open ${result.fileName} to add them to your calendar.`,
+      text:
+        `Downloaded ${plural(result.totalEvents, 'event')} (${formatDay(result.firstDate)} – ${formatDay(result.lastDate)}). ` +
+        `Open ${result.fileName} to add them to your calendar.`,
     });
   };
 
@@ -95,8 +98,8 @@ export default function PlanCalendarExport({ headingLevel = 3 }: PlanCalendarExp
         <span aria-hidden="true">📅</span> Add your plan to your calendar
       </Heading>
       <p className="plan-ics-text">
-        Download an .ics file for Apple Calendar, Google Calendar or Outlook. Each workout becomes an all-day event
-        with its distance{hasPaces ? ' and target paces' : ''}.
+        Download an .ics file for Apple Calendar, Google Calendar or Outlook. Each workout becomes an all-day event with
+        its distance{hasPaces ? ' and target paces' : ''}.
       </p>
 
       {!info ? (
@@ -114,7 +117,10 @@ export default function PlanCalendarExport({ headingLevel = 3 }: PlanCalendarExp
               <input
                 type="checkbox"
                 checked={includeRestDays}
-                onChange={(e) => { setIncludeRestDays(e.target.checked); setStatus(null); }}
+                onChange={(e) => {
+                  setIncludeRestDays(e.target.checked);
+                  setStatus(null);
+                }}
               />
               Include rest days
             </label>
@@ -122,7 +128,10 @@ export default function PlanCalendarExport({ headingLevel = 3 }: PlanCalendarExp
               <input
                 type="checkbox"
                 checked={fromToday}
-                onChange={(e) => { setFromToday(e.target.checked); setStatus(null); }}
+                onChange={(e) => {
+                  setFromToday(e.target.checked);
+                  setStatus(null);
+                }}
               />
               From today only
             </label>
@@ -146,8 +155,8 @@ export default function PlanCalendarExport({ headingLevel = 3 }: PlanCalendarExp
             </p>
           )}
           <p className="plan-ics-hint">
-            A calendar file doesn’t update itself: download and import it again after you change your plan.
-            Events keep the same IDs, so most calendar apps update them instead of adding duplicates.
+            A calendar file doesn’t update itself: download and import it again after you change your plan. Events keep
+            the same IDs, so most calendar apps update them instead of adding duplicates.
           </p>
           {intervalsConnected && (
             <p className="plan-ics-hint plan-ics-hint--push">

@@ -79,61 +79,184 @@ export interface SportInfo {
  * common app spellings. Canonical names map to themselves.
  */
 const SPORT_ALIASES: Record<string, string> = {
-  run: 'Run', running: 'Run', roadrunning: 'Run', streetrunning: 'Run', trackrunning: 'Run',
-  ultrarun: 'Run', ultrarunning: 'Run', obstaclerun: 'Run', jogging: 'Run',
-  trailrun: 'TrailRun', trailrunning: 'TrailRun',
-  virtualrun: 'VirtualRun', virtualrunning: 'VirtualRun',
-  treadmill: 'Run', treadmillrun: 'Run', treadmillrunning: 'Run', indoorrun: 'Run', indoorrunning: 'Run',
-  ride: 'Ride', cycling: 'Ride', biking: 'Ride', bike: 'Ride', roadbiking: 'Ride', roadcycling: 'Ride',
-  roadride: 'Ride', cyclocross: 'Ride', bmx: 'Ride', recumbentcycling: 'Ride', commuting: 'Ride',
-  indoorcycling: 'Ride', indoorbiking: 'Ride', indoorride: 'Ride', spinning: 'Ride',
-  virtualride: 'VirtualRide', virtualcycling: 'VirtualRide', virtualbiking: 'VirtualRide',
-  mountainbikeride: 'MountainBikeRide', mountainbiking: 'MountainBikeRide', mountainbike: 'MountainBikeRide',
-  mtb: 'MountainBikeRide', downhillbiking: 'MountainBikeRide', enduromtb: 'MountainBikeRide',
-  gravelride: 'GravelRide', gravelcycling: 'GravelRide', gravelbiking: 'GravelRide', gravel: 'GravelRide',
-  ebikeride: 'EBikeRide', ebike: 'EBikeRide', ebiking: 'EBikeRide', ebikefitness: 'EBikeRide',
-  emountainbikeride: 'EMountainBikeRide', emountainbiking: 'EMountainBikeRide', ebikemountain: 'EMountainBikeRide',
-  trackride: 'TrackRide', trackcycling: 'TrackRide', handcycle: 'Handcycle', handcycling: 'Handcycle',
+  run: 'Run',
+  running: 'Run',
+  roadrunning: 'Run',
+  streetrunning: 'Run',
+  trackrunning: 'Run',
+  ultrarun: 'Run',
+  ultrarunning: 'Run',
+  obstaclerun: 'Run',
+  jogging: 'Run',
+  trailrun: 'TrailRun',
+  trailrunning: 'TrailRun',
+  virtualrun: 'VirtualRun',
+  virtualrunning: 'VirtualRun',
+  treadmill: 'Run',
+  treadmillrun: 'Run',
+  treadmillrunning: 'Run',
+  indoorrun: 'Run',
+  indoorrunning: 'Run',
+  ride: 'Ride',
+  cycling: 'Ride',
+  biking: 'Ride',
+  bike: 'Ride',
+  roadbiking: 'Ride',
+  roadcycling: 'Ride',
+  roadride: 'Ride',
+  cyclocross: 'Ride',
+  bmx: 'Ride',
+  recumbentcycling: 'Ride',
+  commuting: 'Ride',
+  indoorcycling: 'Ride',
+  indoorbiking: 'Ride',
+  indoorride: 'Ride',
+  spinning: 'Ride',
+  virtualride: 'VirtualRide',
+  virtualcycling: 'VirtualRide',
+  virtualbiking: 'VirtualRide',
+  mountainbikeride: 'MountainBikeRide',
+  mountainbiking: 'MountainBikeRide',
+  mountainbike: 'MountainBikeRide',
+  mtb: 'MountainBikeRide',
+  downhillbiking: 'MountainBikeRide',
+  enduromtb: 'MountainBikeRide',
+  gravelride: 'GravelRide',
+  gravelcycling: 'GravelRide',
+  gravelbiking: 'GravelRide',
+  gravel: 'GravelRide',
+  ebikeride: 'EBikeRide',
+  ebike: 'EBikeRide',
+  ebiking: 'EBikeRide',
+  ebikefitness: 'EBikeRide',
+  emountainbikeride: 'EMountainBikeRide',
+  emountainbiking: 'EMountainBikeRide',
+  ebikemountain: 'EMountainBikeRide',
+  trackride: 'TrackRide',
+  trackcycling: 'TrackRide',
+  handcycle: 'Handcycle',
+  handcycling: 'Handcycle',
   velomobile: 'Velomobile',
-  swim: 'Swim', swimming: 'Swim', lapswimming: 'Swim', poolswim: 'Swim', poolswimming: 'Swim',
-  openwaterswim: 'OpenWaterSwim', openwaterswimming: 'OpenWaterSwim',
-  walk: 'Walk', walking: 'Walk', casualwalking: 'Walk', speedwalking: 'Walk', fitnesswalking: 'Walk',
+  swim: 'Swim',
+  swimming: 'Swim',
+  lapswimming: 'Swim',
+  poolswim: 'Swim',
+  poolswimming: 'Swim',
+  openwaterswim: 'OpenWaterSwim',
+  openwaterswimming: 'OpenWaterSwim',
+  walk: 'Walk',
+  walking: 'Walk',
+  casualwalking: 'Walk',
+  speedwalking: 'Walk',
+  fitnesswalking: 'Walk',
   indoorwalking: 'Walk',
-  hike: 'Hike', hiking: 'Hike', mountaineering: 'Hike',
-  weighttraining: 'WeightTraining', strengthtraining: 'WeightTraining', strength: 'WeightTraining',
+  hike: 'Hike',
+  hiking: 'Hike',
+  mountaineering: 'Hike',
+  weighttraining: 'WeightTraining',
+  strengthtraining: 'WeightTraining',
+  strength: 'WeightTraining',
   weights: 'WeightTraining',
-  workout: 'Workout', other: 'Workout', generic: 'Workout', training: 'Workout', cardio: 'Workout',
-  indoorcardio: 'Workout', cardiotraining: 'Workout', fitnessequipment: 'Workout', multisport: 'Workout',
-  transition: 'Workout', breathwork: 'Workout',
-  hiit: 'HighIntensityIntervalTraining', highintensityintervaltraining: 'HighIntensityIntervalTraining',
-  crossfit: 'Crossfit', yoga: 'Yoga', pilates: 'Pilates',
-  rowing: 'Rowing', rower: 'Rowing', indoorrowing: 'Rowing', virtualrow: 'VirtualRow',
-  elliptical: 'Elliptical', stairstepper: 'StairStepper', stairclimbing: 'StairStepper', stairs: 'StairStepper',
-  alpineski: 'AlpineSki', resortskiing: 'AlpineSki', resortskiingsnowboarding: 'AlpineSki',
-  downhillskiing: 'AlpineSki', skiing: 'AlpineSki',
-  backcountryski: 'BackcountrySki', backcountryskiing: 'BackcountrySki',
+  workout: 'Workout',
+  other: 'Workout',
+  generic: 'Workout',
+  training: 'Workout',
+  cardio: 'Workout',
+  indoorcardio: 'Workout',
+  cardiotraining: 'Workout',
+  fitnessequipment: 'Workout',
+  multisport: 'Workout',
+  transition: 'Workout',
+  breathwork: 'Workout',
+  hiit: 'HighIntensityIntervalTraining',
+  highintensityintervaltraining: 'HighIntensityIntervalTraining',
+  crossfit: 'Crossfit',
+  yoga: 'Yoga',
+  pilates: 'Pilates',
+  rowing: 'Rowing',
+  rower: 'Rowing',
+  indoorrowing: 'Rowing',
+  virtualrow: 'VirtualRow',
+  elliptical: 'Elliptical',
+  stairstepper: 'StairStepper',
+  stairclimbing: 'StairStepper',
+  stairs: 'StairStepper',
+  alpineski: 'AlpineSki',
+  resortskiing: 'AlpineSki',
+  resortskiingsnowboarding: 'AlpineSki',
+  downhillskiing: 'AlpineSki',
+  skiing: 'AlpineSki',
+  backcountryski: 'BackcountrySki',
+  backcountryskiing: 'BackcountrySki',
   backcountryskiingsnowboarding: 'BackcountrySki',
-  nordicski: 'NordicSki', crosscountryskiing: 'NordicSki', crosscountryclassicskiing: 'NordicSki',
-  crosscountryskateskiing: 'NordicSki', skateskiing: 'NordicSki',
-  rollerski: 'RollerSki', rollerskiing: 'RollerSki',
-  snowboard: 'Snowboard', snowboarding: 'Snowboard', snowshoe: 'Snowshoe', snowshoeing: 'Snowshoe',
-  iceskate: 'IceSkate', iceskating: 'IceSkate', inlineskate: 'InlineSkate', inlineskating: 'InlineSkate',
-  kayaking: 'Kayaking', kayak: 'Kayaking', whitewaterkayaking: 'Kayaking', canoeing: 'Canoeing',
-  canoe: 'Canoeing', standuppaddling: 'StandUpPaddling', standuppaddleboarding: 'StandUpPaddling',
-  sup: 'StandUpPaddling', surfing: 'Surfing', kitesurf: 'Kitesurf', kitesurfing: 'Kitesurf',
-  kiteboarding: 'Kitesurf', windsurf: 'Windsurf', windsurfing: 'Windsurf', sail: 'Sail', sailing: 'Sail',
-  rockclimbing: 'RockClimbing', climbing: 'RockClimbing', bouldering: 'RockClimbing',
+  nordicski: 'NordicSki',
+  crosscountryskiing: 'NordicSki',
+  crosscountryclassicskiing: 'NordicSki',
+  crosscountryskateskiing: 'NordicSki',
+  skateskiing: 'NordicSki',
+  rollerski: 'RollerSki',
+  rollerskiing: 'RollerSki',
+  snowboard: 'Snowboard',
+  snowboarding: 'Snowboard',
+  snowshoe: 'Snowshoe',
+  snowshoeing: 'Snowshoe',
+  iceskate: 'IceSkate',
+  iceskating: 'IceSkate',
+  inlineskate: 'InlineSkate',
+  inlineskating: 'InlineSkate',
+  kayaking: 'Kayaking',
+  kayak: 'Kayaking',
+  whitewaterkayaking: 'Kayaking',
+  canoeing: 'Canoeing',
+  canoe: 'Canoeing',
+  standuppaddling: 'StandUpPaddling',
+  standuppaddleboarding: 'StandUpPaddling',
+  sup: 'StandUpPaddling',
+  surfing: 'Surfing',
+  kitesurf: 'Kitesurf',
+  kitesurfing: 'Kitesurf',
+  kiteboarding: 'Kitesurf',
+  windsurf: 'Windsurf',
+  windsurfing: 'Windsurf',
+  sail: 'Sail',
+  sailing: 'Sail',
+  rockclimbing: 'RockClimbing',
+  climbing: 'RockClimbing',
+  bouldering: 'RockClimbing',
   indoorclimbing: 'RockClimbing',
-  golf: 'Golf', soccer: 'Soccer', football: 'Soccer', tennis: 'Tennis', squash: 'Squash',
-  badminton: 'Badminton', pickleball: 'Pickleball', tabletennis: 'TableTennis', racquetball: 'Racquetball',
-  wheelchair: 'Wheelchair', skateboard: 'Skateboard', skateboarding: 'Skateboard',
+  golf: 'Golf',
+  soccer: 'Soccer',
+  football: 'Soccer',
+  tennis: 'Tennis',
+  squash: 'Squash',
+  badminton: 'Badminton',
+  pickleball: 'Pickleball',
+  tabletennis: 'TableTennis',
+  racquetball: 'Racquetball',
+  wheelchair: 'Wheelchair',
+  skateboard: 'Skateboard',
+  skateboarding: 'Skateboard',
 };
 
 /** Aliases that imply an indoor / trainer session. */
 const INDOOR_ALIASES = new Set([
-  'treadmill', 'treadmillrun', 'treadmillrunning', 'indoorrun', 'indoorrunning', 'indoorcycling',
-  'indoorbiking', 'indoorride', 'spinning', 'virtualride', 'virtualcycling', 'virtualbiking',
-  'virtualrun', 'virtualrunning', 'indoorrowing', 'virtualrow', 'indoorwalking',
+  'treadmill',
+  'treadmillrun',
+  'treadmillrunning',
+  'indoorrun',
+  'indoorrunning',
+  'indoorcycling',
+  'indoorbiking',
+  'indoorride',
+  'spinning',
+  'virtualride',
+  'virtualcycling',
+  'virtualbiking',
+  'virtualrun',
+  'virtualrunning',
+  'indoorrowing',
+  'virtualrow',
+  'indoorwalking',
 ]);
 
 /** `<type>` codes used in Strava's GPX exports. */
@@ -154,7 +277,9 @@ export function normalizeSportType(raw: string | null | undefined): SportInfo {
   if (mapped) return INDOOR_ALIASES.has(key) ? { type: mapped, trainer: true } : { type: mapped };
   const words = text.split(/[^A-Za-z0-9]+/).filter(Boolean);
   const type = words
-    .map((w) => (w === w.toUpperCase() ? w.charAt(0) + w.slice(1).toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1)))
+    .map((w) =>
+      w === w.toUpperCase() ? w.charAt(0) + w.slice(1).toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1),
+    )
     .join('');
   return { type };
 }
@@ -228,10 +353,14 @@ function formatWallClock(d: Date, utc: boolean): string {
 /** Same naming as intervals.ts: "Morning Run", "Evening Ride"… from the LOCAL start hour. */
 function defaultName(type: string, startLocal: string): string {
   const hour = Number(startLocal.slice(11, 13));
-  const part = hour >= 5 && hour < 12 ? 'Morning'
-    : hour >= 12 && hour < 17 ? 'Afternoon'
-    : hour >= 17 && hour < 21 ? 'Evening'
-    : 'Night';
+  const part =
+    hour >= 5 && hour < 12
+      ? 'Morning'
+      : hour >= 12 && hour < 17
+        ? 'Afternoon'
+        : hour >= 17 && hour < 21
+          ? 'Evening'
+          : 'Night';
   return `${part} ${formatSportType(type)}`;
 }
 
@@ -260,7 +389,9 @@ function haversineMeters(lat1: number, lng1: number, lat2: number, lng2: number)
 }
 
 function hasPosition(s: ParsedSample): s is ParsedSample & { lat: number; lng: number } {
-  return finite(s.lat) && finite(s.lng) && Math.abs(s.lat) <= 90 && Math.abs(s.lng) <= 180 && !(s.lat === 0 && s.lng === 0);
+  return (
+    finite(s.lat) && finite(s.lng) && Math.abs(s.lat) <= 90 && Math.abs(s.lng) <= 180 && !(s.lat === 0 && s.lng === 0)
+  );
 }
 
 /** Samples with a valid time, in chronological order. */
@@ -373,7 +504,9 @@ function maxOf(samples: ParsedSample[], pick: (s: ParsedSample) => number | unde
 
 /** Max speed: the recorded speed channel, else the fastest ≥ 5 s window of the distance stream. */
 function sampleMaxSpeed(samples: ParsedSample[], times: number[], dist: number[] | null): number | undefined {
-  const recorded = maxOf(samples, (s) => (finite(s.speed) && s.speed >= 0 && s.speed < MAX_PLAUSIBLE_SPEED_MPS ? s.speed : undefined));
+  const recorded = maxOf(samples, (s) =>
+    finite(s.speed) && s.speed >= 0 && s.speed < MAX_PLAUSIBLE_SPEED_MPS ? s.speed : undefined,
+  );
   if (recorded !== undefined) return recorded > 0 ? recorded : undefined;
   if (!dist) return undefined;
   let max = 0;
@@ -407,8 +540,14 @@ export function elevationGain(altitudes: number[], threshold: number = ELEVATION
   for (let i = 1; i < alts.length; i++) {
     const a = alts[i];
     if (direction === 0) {
-      if (a < low) { low = a; lowIndex = i; }
-      if (a > high) { high = a; highIndex = i; }
+      if (a < low) {
+        low = a;
+        lowIndex = i;
+      }
+      if (a > high) {
+        high = a;
+        highIndex = i;
+      }
       if (high - low >= threshold) {
         direction = highIndex > lowIndex ? 1 : -1;
         turn = direction === 1 ? low : high;
@@ -504,9 +643,12 @@ function toActivityLaps(
     const factor = cadenceFactor ?? (isRun && avgCadence !== undefined && avgCadence > 120 ? 0.5 : 1);
     const avgHr = positive(l.avgHeartRate) ?? timeWeightedMean(slice, (s) => validHeartRate(s.heartRate));
     const maxHr = positive(l.maxHeartRate) ?? maxOf(slice, (s) => validHeartRate(s.heartRate));
-    const ascent = finite(l.ascent) && l.ascent >= 0
-      ? l.ascent
-      : slice.length >= 2 ? elevationGain(slice.map((s) => s.altitude ?? NaN)) : 0;
+    const ascent =
+      finite(l.ascent) && l.ascent >= 0
+        ? l.ascent
+        : slice.length >= 2
+          ? elevationGain(slice.map((s) => s.altitude ?? NaN))
+          : 0;
     return stripUndefined<ActivityLap>({
       id: i + 1,
       name: l.name?.trim() || `Lap ${i + 1}`,
@@ -565,22 +707,25 @@ export function toActivity(p: ParsedActivity, opts: ToActivityOptions): Activity
   // ── Distance & durations (device totals first) ──
   const streamDistance = dist ? dist[n - 1] - dist[0] : 0;
   const lapDistance = laps.reduce((sum, l) => sum + (positive(l?.distance) ?? 0), 0);
-  const distance = positive(totals.distance)
-    ?? (streamDistance > 0 ? streamDistance : undefined)
-    ?? (lapDistance > 0 ? lapDistance : 0);
+  const distance =
+    positive(totals.distance) ??
+    (streamDistance > 0 ? streamDistance : undefined) ??
+    (lapDistance > 0 ? lapDistance : 0);
 
   const span = n >= 2 ? (samples[n - 1].time - Math.min(startMs, samples[0].time)) / 1000 : 0;
   const lapElapsed = laps.reduce((sum, l) => sum + (positive(l?.elapsedSec) ?? 0), 0);
-  let elapsed = positive(totals.elapsedSec)
-    ?? (span > 0 ? span : undefined)
-    ?? positive(totals.movingSec)
-    ?? (lapElapsed > 0 ? lapElapsed : 0);
+  let elapsed =
+    positive(totals.elapsedSec) ??
+    (span > 0 ? span : undefined) ??
+    positive(totals.movingSec) ??
+    (lapElapsed > 0 ? lapElapsed : 0);
 
   const derivedMoving = n >= 2 ? movingTimeSec(samples, times, dist) : 0;
   const lapMoving = laps.reduce((sum, l) => sum + (positive(l?.movingSec) ?? positive(l?.elapsedSec) ?? 0), 0);
-  const moving = positive(totals.movingSec)
-    ?? (derivedMoving > 0 ? derivedMoving : undefined)
-    ?? (lapMoving > 0 ? lapMoving : elapsed);
+  const moving =
+    positive(totals.movingSec) ??
+    (derivedMoving > 0 ? derivedMoving : undefined) ??
+    (lapMoving > 0 ? lapMoving : elapsed);
   if (moving > elapsed) elapsed = moving;
 
   if (elapsed < MIN_DURATION_SEC && moving < MIN_DURATION_SEC && !(distance > 0)) return null;
@@ -590,32 +735,42 @@ export function toActivity(p: ParsedActivity, opts: ToActivityOptions): Activity
   const fileSport = normalizeSportType(p.type);
   let type = metaSport.type || fileSport.type;
   if (!type) type = inferSport(distance, moving);
-  const trainer = typeof p.trainer === 'boolean'
-    ? p.trainer
-    : metaSport.trainer || fileSport.trainer || type.startsWith('Virtual') ? true : undefined;
+  const trainer =
+    typeof p.trainer === 'boolean'
+      ? p.trainer
+      : metaSport.trainer || fileSport.trainer || type.startsWith('Virtual')
+        ? true
+        : undefined;
 
-  const offset = finite(p.utcOffsetSec) && Math.abs(p.utcOffsetSec) <= MAX_UTC_OFFSET_SEC ? Math.round(p.utcOffsetSec) : undefined;
-  const startLocal = offset !== undefined
-    ? formatWallClock(new Date(startMs + offset * 1000), true)
-    : formatWallClock(new Date(startMs), false);
+  const offset =
+    finite(p.utcOffsetSec) && Math.abs(p.utcOffsetSec) <= MAX_UTC_OFFSET_SEC ? Math.round(p.utcOffsetSec) : undefined;
+  const startLocal =
+    offset !== undefined
+      ? formatWallClock(new Date(startMs + offset * 1000), true)
+      : formatWallClock(new Date(startMs), false);
   const id = finite(opts.id) && Number.isSafeInteger(opts.id) && opts.id > 0 ? opts.id : FILE_ID_OFFSET + startSec;
   const isRun = isRunActivity({ type });
 
   // ── Heart rate, cadence, power, elevation ──
   const avgHr = positive(totals.avgHeartRate) ?? timeWeightedMean(samples, (s) => validHeartRate(s.heartRate));
   const maxHr = positive(totals.maxHeartRate) ?? maxOf(samples, (s) => validHeartRate(s.heartRate));
-  const rawCadence = positive(totals.avgCadence)
-    ?? timeWeightedMean(samples, (s) => (finite(s.cadence) && s.cadence > 0 ? s.cadence : undefined));
+  const rawCadence =
+    positive(totals.avgCadence) ??
+    timeWeightedMean(samples, (s) => (finite(s.cadence) && s.cadence > 0 ? s.cadence : undefined));
   // Running cadence is stored as strides/min; anything above 120 can only be steps/min.
   const cadenceFactor = rawCadence === undefined ? undefined : isRun && rawCadence > 120 ? 0.5 : 1;
   const hasPower = samples.some((s) => finite(s.power) && s.power > 0);
-  const avgWatts = positive(totals.avgPower)
-    ?? (hasPower ? timeWeightedMean(samples, (s) => (finite(s.power) && s.power >= 0 ? s.power : undefined)) : undefined);
+  const avgWatts =
+    positive(totals.avgPower) ??
+    (hasPower ? timeWeightedMean(samples, (s) => (finite(s.power) && s.power >= 0 ? s.power : undefined)) : undefined);
   const weightedWatts = positive(totals.normalizedPower) ?? (hasPower ? normalizedPower(samples) : undefined);
   const altitudes = samples.map((s) => s.altitude ?? NaN).filter(finite);
-  const elevation = finite(totals.ascent) && totals.ascent >= 0
-    ? totals.ascent
-    : altitudes.length >= 2 ? elevationGain(altitudes) : undefined;
+  const elevation =
+    finite(totals.ascent) && totals.ascent >= 0
+      ? totals.ascent
+      : altitudes.length >= 2
+        ? elevationGain(altitudes)
+        : undefined;
   const avgSpeed = positive(totals.avgSpeed) ?? (moving > 0 && distance > 0 ? distance / moving : undefined);
   const maxSpeed = positive(totals.maxSpeed) ?? sampleMaxSpeed(samples, times, dist);
 
@@ -651,7 +806,9 @@ export function toActivity(p: ParsedActivity, opts: ToActivityOptions): Activity
         samples.map((s, i) => ({ t: times[i], hr: validHeartRate(s.heartRate) })),
         { movingTimeSec: moving, averageHR: avgHr, maxHR: maxHr, source: 'file', createRecord: false },
       );
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }
 
   return stripUndefined<Activity>({

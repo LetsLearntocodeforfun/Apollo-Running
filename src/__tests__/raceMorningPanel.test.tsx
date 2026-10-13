@@ -84,7 +84,9 @@ describe('RaceMorningPanel', () => {
     expect(gun.querySelector('time')!.textContent).toBe('7:30 AM');
     expect(gun.textContent).toContain('Your start: Wave 2.');
     // Chicago (47,000 starters) defaults to arriving 120 min early.
-    expect(screen.getByText('Arrive at the start area').closest('li')!.querySelector('time')!.textContent).toBe('5:30 AM');
+    expect(screen.getByText('Arrive at the start area').closest('li')!.querySelector('time')!.textContent).toBe(
+      '5:30 AM',
+    );
     // Fuel rows come from planRaceFueling (time-based).
     expect(screen.getAllByText(/^Gel \d+/).length).toBeGreaterThan(3);
     expect(screen.getByText(/^5K$/)).toBeTruthy();

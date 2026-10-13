@@ -14,12 +14,7 @@
  * - Keep weight loss < 2% body weight to avoid performance degradation
  */
 
-import type {
-  AthleteProfile,
-  RaceConditions,
-  SweatRateEstimate,
-  AidStationHydration,
-} from '../types/nutrition';
+import type { AthleteProfile, RaceConditions, SweatRateEstimate, AidStationHydration } from '../types/nutrition';
 import type { AidStation } from '../types/raceStrategy';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -91,17 +86,14 @@ export function calculateSweatRate(
   const fluidDeficitPerMile = Math.round((adjustedSweatRate / 60) * mileTimeMin);
 
   // Recommended intake (70% of sweat rate, capped at safe max)
-  const recommendedIntake = Math.min(
-    Math.round(adjustedSweatRate * REPLACEMENT_RATIO),
-    MAX_SAFE_INTAKE_ML_HR,
-  );
+  const recommendedIntake = Math.min(Math.round(adjustedSweatRate * REPLACEMENT_RATIO), MAX_SAFE_INTAKE_ML_HR);
 
   // Total fluid needed
   const totalFluidNeeded = Math.round((recommendedIntake / 60) * estimatedDurationMin);
 
   // Dehydration risk
   const totalSweatLoss = (adjustedSweatRate / 60) * estimatedDurationMin;
-  const weightLossPct = (totalSweatLoss / 1000) / athlete.weightKg * 100;
+  const weightLossPct = (totalSweatLoss / 1000 / athlete.weightKg) * 100;
   let dehydrationRisk: SweatRateEstimate['dehydrationRisk'];
   if (weightLossPct < 2) dehydrationRisk = 'low';
   else if (weightLossPct < 3) dehydrationRisk = 'moderate';
@@ -118,7 +110,11 @@ export function calculateSweatRate(
 
   // Summary
   const summary = buildHydrationSummary(
-    adjustedSweatRate, conditions, recommendedIntake, dehydrationRisk, weightLossPct,
+    adjustedSweatRate,
+    conditions,
+    recommendedIntake,
+    dehydrationRisk,
+    weightLossPct,
   );
 
   return {
@@ -192,11 +188,17 @@ function buildHydrationSummary(
   weightLossPct: number,
 ): string {
   const parts: string[] = [];
-  parts.push(`At your pace in ${conditions.tempF}°F/${conditions.humidityPct}% humidity, estimated sweat rate is ~${(sweatRate / 1000).toFixed(1)} L/hr.`);
-  parts.push(`Target ${Math.round(recommended / ML_PER_OZ)} oz/hr (${recommended} ml/hr) to stay within ${weightLossPct.toFixed(1)}% body weight loss.`);
+  parts.push(
+    `At your pace in ${conditions.tempF}°F/${conditions.humidityPct}% humidity, estimated sweat rate is ~${(sweatRate / 1000).toFixed(1)} L/hr.`,
+  );
+  parts.push(
+    `Target ${Math.round(recommended / ML_PER_OZ)} oz/hr (${recommended} ml/hr) to stay within ${weightLossPct.toFixed(1)}% body weight loss.`,
+  );
 
   if (risk === 'high' || risk === 'extreme') {
-    parts.push('⚠️ High dehydration risk — aggressive hydration strategy needed. Start drinking early and at every aid station.');
+    parts.push(
+      '⚠️ High dehydration risk — aggressive hydration strategy needed. Start drinking early and at every aid station.',
+    );
   } else if (risk === 'moderate') {
     parts.push('Moderate dehydration risk — consistent hydration at each aid station is important.');
   }

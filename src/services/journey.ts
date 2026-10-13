@@ -14,14 +14,7 @@ import { getMyRace } from './myRace';
 import { daysBetween, isDateKey, todayKey } from '../utils/localDate';
 
 export type JourneyPhase =
-  | 'no-plan'
-  | 'pre-plan'
-  | 'training'
-  | 'taper'
-  | 'race-week'
-  | 'race-day'
-  | 'post-race'
-  | 'off-season';
+  'no-plan' | 'pre-plan' | 'training' | 'taper' | 'race-week' | 'race-day' | 'post-race' | 'off-season';
 
 export interface JourneyState {
   phase: JourneyPhase;

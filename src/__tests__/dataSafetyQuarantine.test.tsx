@@ -30,8 +30,15 @@ const settle = () => new Promise((r) => setTimeout(r, 0));
 
 function run(id: number): StravaActivity {
   return {
-    id, name: `Run ${id}`, type: 'Run', sport_type: 'Run', distance: 5000, moving_time: 1500,
-    elapsed_time: 1500, total_elevation_gain: 0, start_date: '2026-10-01T07:00:00Z',
+    id,
+    name: `Run ${id}`,
+    type: 'Run',
+    sport_type: 'Run',
+    distance: 5000,
+    moving_time: 1500,
+    elapsed_time: 1500,
+    total_elevation_gain: 0,
+    start_date: '2026-10-01T07:00:00Z',
     start_date_local: '2026-10-01T07:00:00Z',
   } as unknown as StravaActivity;
 }
@@ -132,7 +139,9 @@ function controlWriteHealth() {
     retry,
     setFailed(keys: string[]) {
       failed = keys;
-      act(() => { for (const l of listeners) l(); });
+      act(() => {
+        for (const l of listeners) l();
+      });
     },
   };
 }
@@ -189,7 +198,9 @@ describe('PX-03: "Not saved — Retry" banner', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     renderBanner();
     persistence.setItem(STORE, '[broken3');
-    act(() => { getAllStoredActivities(); });
+    act(() => {
+      getAllStoredActivities();
+    });
     const notice = await screen.findByTestId('quarantine-banner');
     expect(notice.textContent).toMatch(/activity history couldn’t be read/i);
     expect(screen.getByRole('link', { name: 'Restore a backup' }).getAttribute('href')).toBe('/settings?tab=data');

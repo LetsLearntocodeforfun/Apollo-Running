@@ -111,11 +111,11 @@ describe('generateRaceCard', () => {
 
   it('should include nutrition at correct miles', () => {
     const card = generateRaceCard({ strategy: makeStrategy() });
-    expect(card.miles[4].nutrition).toBe('Gel #1');   // mile 5
-    expect(card.miles[9].nutrition).toBe('Gel #2');   // mile 10
-    expect(card.miles[14].nutrition).toBe('Gel #3');  // mile 15
-    expect(card.miles[19].nutrition).toBe('Gel #4');  // mile 20
-    expect(card.miles[0].nutrition).toBe('');         // no nutrition at mile 1
+    expect(card.miles[4].nutrition).toBe('Gel #1'); // mile 5
+    expect(card.miles[9].nutrition).toBe('Gel #2'); // mile 10
+    expect(card.miles[14].nutrition).toBe('Gel #3'); // mile 15
+    expect(card.miles[19].nutrition).toBe('Gel #4'); // mile 20
+    expect(card.miles[0].nutrition).toBe(''); // no nutrition at mile 1
   });
 
   it('should mark elevation changes correctly', () => {
@@ -489,7 +489,12 @@ describe('race card with real strategies (v1.0.6)', () => {
 
   it('L-02: a half marathon card uses its own distance', () => {
     const race = importCustomMarathon({
-      name: 'Test Half', city: 'X', country: 'Y', date: '2027-05-01', courseType: 'loop', distanceMi: 13.1,
+      name: 'Test Half',
+      city: 'X',
+      country: 'Y',
+      date: '2027-05-01',
+      courseType: 'loop',
+      distanceMi: 13.1,
     });
     const s = buildRaceStrategy(race.id, 6300, 'even-split');
     expect(s).not.toBeNull();

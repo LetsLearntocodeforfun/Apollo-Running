@@ -71,7 +71,9 @@ describe('athleteProfile', () => {
 
   it('notifies subscribers on change', () => {
     let seen: number | undefined;
-    const off = onAthleteProfileChanged((p) => { seen = p.weightKg; });
+    const off = onAthleteProfileChanged((p) => {
+      seen = p.weightKg;
+    });
     updateAthleteProfile({ weightKg: 65 });
     off();
     updateAthleteProfile({ weightKg: 66 });

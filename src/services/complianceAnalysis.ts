@@ -75,10 +75,7 @@ export function analyzeCompliance(
 /**
  * Analyze pace compliance against the workout target range.
  */
-function analyzePaceCompliance(
-  actualPaceSec: number,
-  target: WorkoutTarget,
-): ComplianceResult['paceCompliance'] {
+function analyzePaceCompliance(actualPaceSec: number, target: WorkoutTarget): ComplianceResult['paceCompliance'] {
   const range = target.targetPaceRange;
   if (!range) {
     return {
@@ -129,9 +126,8 @@ function calculatePaceScore(actualPaceSec: number, target: WorkoutTarget): numbe
   // Out of range: score decreases proportionally
   // 10 sec/mi off = ~85, 20 sec/mi off = ~70, 30+ sec/mi off = ~55
   const rangeMid = (range.minSecPerMi + range.maxSecPerMi) / 2;
-  const deviation = actualPaceSec < range.minSecPerMi
-    ? range.minSecPerMi - actualPaceSec
-    : actualPaceSec - range.maxSecPerMi;
+  const deviation =
+    actualPaceSec < range.minSecPerMi ? range.minSecPerMi - actualPaceSec : actualPaceSec - range.maxSecPerMi;
   const maxDeviation = rangeMid * 0.15; // 15% of target pace = zero credit
   const penalty = Math.min(deviation / maxDeviation, 1) * 50;
   return Math.max(Math.round(100 - penalty), 50);
@@ -140,10 +136,7 @@ function calculatePaceScore(actualPaceSec: number, target: WorkoutTarget): numbe
 /**
  * Analyze distance compliance.
  */
-function analyzeDistanceCompliance(
-  actualMi: number,
-  plannedMi: number,
-): ComplianceResult['distanceCompliance'] {
+function analyzeDistanceCompliance(actualMi: number, plannedMi: number): ComplianceResult['distanceCompliance'] {
   if (plannedMi <= 0) {
     return { score: 100, actualMi, plannedMi, diffPct: 0 };
   }
@@ -190,11 +183,11 @@ function generateComplianceFeedback(
     lines.push(`Right on target at ${paceStr} (goal: ${targetMinStr}–${targetMaxStr}/mi). Perfect execution.`);
   } else if (paceCompliance.direction === 'too_fast') {
     lines.push(
-      `Averaged ${paceStr} — ${paceCompliance.deviationSec}s/mi faster than the ${targetMinStr}–${targetMaxStr}/mi target.`
+      `Averaged ${paceStr} — ${paceCompliance.deviationSec}s/mi faster than the ${targetMinStr}–${targetMaxStr}/mi target.`,
     );
   } else {
     lines.push(
-      `Averaged ${paceStr} — ${paceCompliance.deviationSec}s/mi slower than the ${targetMinStr}–${targetMaxStr}/mi target.`
+      `Averaged ${paceStr} — ${paceCompliance.deviationSec}s/mi slower than the ${targetMinStr}–${targetMaxStr}/mi target.`,
     );
   }
 
@@ -216,46 +209,60 @@ function generateCoachingSuggestion(
   if (paceCompliance.direction === 'too_fast') {
     if (cat === 'easy' || cat === 'long' || cat === 'medium_long') {
       if (dev > 20) {
-        return `Your easy pace is significantly too fast. Running easy days hard ` +
+        return (
+          `Your easy pace is significantly too fast. Running easy days hard ` +
           `increases injury risk and reduces the quality of your hard sessions. ` +
-          `Slow down — easy runs build aerobic base best when truly easy.`;
+          `Slow down — easy runs build aerobic base best when truly easy.`
+        );
       }
       return `Try slowing down on easy days. The purpose is active recovery and aerobic base building, not speed.`;
     }
     if (cat === 'tempo') {
       if (dev > 15) {
-        return `Your tempo was faster than threshold pace. Running tempos too fast ` +
+        return (
+          `Your tempo was faster than threshold pace. Running tempos too fast ` +
           `turns them into VO2max sessions and requires more recovery. ` +
-          `Dial back to maximize lactate threshold adaptation.`;
+          `Dial back to maximize lactate threshold adaptation.`
+        );
       }
       return `Slightly faster than tempo target. Consider dialing back to maximize threshold adaptation.`;
     }
     if (cat === 'speed') {
-      return `Running intervals too fast can compromise form and recovery. ` +
-        `Focus on consistent repeats at the target pace rather than maximum effort.`;
+      return (
+        `Running intervals too fast can compromise form and recovery. ` +
+        `Focus on consistent repeats at the target pace rather than maximum effort.`
+      );
     }
     if (cat === 'marathon_pace') {
-      return `Faster than your goal marathon pace. Marathon-pace runs rehearse race rhythm and fueling; ` +
-        `running them faster adds fatigue without extra benefit. Hold the target pace.`;
+      return (
+        `Faster than your goal marathon pace. Marathon-pace runs rehearse race rhythm and fueling; ` +
+        `running them faster adds fatigue without extra benefit. Hold the target pace.`
+      );
     }
   }
 
   if (paceCompliance.direction === 'too_slow') {
     if (cat === 'tempo') {
       if (dev > 15) {
-        return `Your tempo pace was well below threshold. To improve lactate threshold, ` +
+        return (
+          `Your tempo pace was well below threshold. To improve lactate threshold, ` +
           `you need to run at a pace that's comfortably hard — hard enough that you ` +
-          `can only speak in short phrases.`;
+          `can only speak in short phrases.`
+        );
       }
       return `A bit slower than tempo target. Try to hold pace more consistently next time.`;
     }
     if (cat === 'speed') {
-      return `Interval pace was below target. If you're fatigued, reduce the number of repeats ` +
-        `rather than slowing down — quality over quantity for speed work.`;
+      return (
+        `Interval pace was below target. If you're fatigued, reduce the number of repeats ` +
+        `rather than slowing down — quality over quantity for speed work.`
+      );
     }
     if (cat === 'marathon_pace') {
-      return `Slower than your goal marathon pace. Heat, hills or fatigue can explain one run; ` +
-        `if it keeps happening, your goal pace may be too ambitious for now.`;
+      return (
+        `Slower than your goal marathon pace. Heat, hills or fatigue can explain one run; ` +
+        `if it keeps happening, your goal pace may be too ambitious for now.`
+      );
     }
     if (cat === 'easy' || cat === 'long') {
       // Slower than easy pace is usually fine
@@ -283,11 +290,7 @@ interface ComplianceEntry {
 }
 
 /** Save a compliance result for a specific day */
-export function saveComplianceResult(
-  weekIndex: number,
-  dayIndex: number,
-  result: ComplianceResult,
-): void {
+export function saveComplianceResult(weekIndex: number, dayIndex: number, result: ComplianceResult): void {
   try {
     const store = getComplianceStore();
     const key = `${weekIndex}:${dayIndex}`;
@@ -300,14 +303,15 @@ export function saveComplianceResult(
     // Keep last 365 entries
     const keys = Object.keys(store);
     if (keys.length > 365) {
-      const sorted = keys.sort((a, b) =>
-        (store[a].date ?? '').localeCompare(store[b].date ?? ''));
+      const sorted = keys.sort((a, b) => (store[a].date ?? '').localeCompare(store[b].date ?? ''));
       for (const old of sorted.slice(0, keys.length - 365)) {
         delete store[old];
       }
     }
     persistence.setItem(COMPLIANCE_KEY, JSON.stringify(store));
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 }
 
 /** Get compliance result for a specific week/day */

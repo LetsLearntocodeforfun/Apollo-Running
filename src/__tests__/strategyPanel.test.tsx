@@ -26,7 +26,7 @@ import type { RaceStrategy } from '../types/raceStrategy';
 const TODAY = '2026-10-08';
 
 function ctxFor(raceId: string | null, overrides: Partial<RaceDayContext> = {}): RaceDayContext {
-  const race = raceId ? getMarathon(raceId) ?? null : null;
+  const race = raceId ? (getMarathon(raceId) ?? null) : null;
   return {
     race,
     raceDate: race?.date ?? null,
@@ -41,7 +41,12 @@ function ctxFor(raceId: string | null, overrides: Partial<RaceDayContext> = {}):
   };
 }
 
-function saved(raceId: string, goalSec: number, name: string, pacing: RaceStrategy['pacingStrategy'] = 'even-split'): RaceStrategy {
+function saved(
+  raceId: string,
+  goalSec: number,
+  name: string,
+  pacing: RaceStrategy['pacingStrategy'] = 'even-split',
+): RaceStrategy {
   const s = buildRaceStrategy(raceId, goalSec, pacing, name);
   if (!s) throw new Error('fixture: strategy did not build');
   saveStrategy(s);
@@ -175,7 +180,12 @@ describe('StrategyBuilder via StrategyPanel', () => {
 
   it('builds a 1:45 half marathon with halves at 6.55 mi', () => {
     const half = importCustomMarathon({
-      name: 'Harvest Half', city: 'Portland', country: 'USA', date: '2026-11-15', courseType: 'loop', distanceMi: 13.1,
+      name: 'Harvest Half',
+      city: 'Portland',
+      country: 'USA',
+      date: '2026-11-15',
+      courseType: 'loop',
+      distanceMi: 13.1,
     });
     render(<StrategyPanel ctx={ctxFor(half.id)} />);
     const { h, m, s } = goalInputs();
@@ -272,7 +282,12 @@ describe('My strategies', () => {
 
   it('removing a custom race asks first and clears it from My Race', () => {
     const race = importCustomMarathon({
-      name: 'Harvest Half', city: 'Portland', country: 'USA', date: '2026-11-15', courseType: 'loop', distanceMi: 13.1,
+      name: 'Harvest Half',
+      city: 'Portland',
+      country: 'USA',
+      date: '2026-11-15',
+      courseType: 'loop',
+      distanceMi: 13.1,
     });
     const s = saved(race.id, 6300, 'Half plan');
     setMyRace({ raceId: race.id, activeStrategyId: s.id });

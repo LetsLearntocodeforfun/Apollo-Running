@@ -83,7 +83,7 @@ export function decodePolyline(encoded: string): LatLng[] {
       result |= (byte & 0x1f) << shift;
       shift += 5;
     } while (byte >= 0x20);
-    lat += (result & 1) ? ~(result >> 1) : (result >> 1);
+    lat += result & 1 ? ~(result >> 1) : result >> 1;
 
     // Decode longitude
     shift = 0;
@@ -93,7 +93,7 @@ export function decodePolyline(encoded: string): LatLng[] {
       result |= (byte & 0x1f) << shift;
       shift += 5;
     } while (byte >= 0x20);
-    lng += (result & 1) ? ~(result >> 1) : (result >> 1);
+    lng += result & 1 ? ~(result >> 1) : result >> 1;
 
     coordinates.push({ lat: lat / 1e5, lng: lng / 1e5 });
   }
@@ -145,12 +145,7 @@ export function bearingToCompass(degrees: number): string {
  * Uses equirectangular projection with latitude correction (cosine).
  * Returns points normalized to 0–width / 0–height with padding.
  */
-export function projectCoordinates(
-  coords: LatLng[],
-  width: number,
-  height: number,
-  padding: number = 0.1
-): Point[] {
+export function projectCoordinates(coords: LatLng[], width: number, height: number, padding: number = 0.1): Point[] {
   if (coords.length === 0) return [];
 
   const bounds = getBoundingBox(coords);
@@ -186,8 +181,10 @@ export function projectCoordinates(
 
 /** Calculate bounding box for a coordinate array. */
 export function getBoundingBox(coords: LatLng[]): BoundingBox {
-  let minLat = Infinity, maxLat = -Infinity;
-  let minLng = Infinity, maxLng = -Infinity;
+  let minLat = Infinity,
+    maxLat = -Infinity;
+  let minLng = Infinity,
+    maxLng = -Infinity;
   for (const c of coords) {
     if (c.lat < minLat) minLat = c.lat;
     if (c.lat > maxLat) maxLat = c.lat;
@@ -363,7 +360,10 @@ export function getCachedRoute(activityId: number): string | null {
 }
 
 /** Get the polyline for an activity: from the activity object or local cache. */
-export function getPolylineForActivity(activity: { id: number; map?: { summary_polyline: string | null } | null }): string | null {
+export function getPolylineForActivity(activity: {
+  id: number;
+  map?: { summary_polyline: string | null } | null;
+}): string | null {
   // Prefer the polyline from the activity data
   const fromActivity = activity.map?.summary_polyline;
   if (fromActivity) {

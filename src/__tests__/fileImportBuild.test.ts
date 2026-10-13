@@ -94,11 +94,20 @@ describe('toActivity: identity', () => {
 
   it('takes the ID, name, type and origin from archive metadata', () => {
     const a = build(workout({ name: 'Name in the file', origin: 'GARMIN' }), {
-      id: 10_123_456_789, sourceId: 'strava:10123456789', name: ' Strava name ', type: 'Virtual Run', origin: 'STRAVA',
+      id: 10_123_456_789,
+      sourceId: 'strava:10123456789',
+      name: ' Strava name ',
+      type: 'Virtual Run',
+      origin: 'STRAVA',
     });
     expect(a).toMatchObject({
-      id: 10_123_456_789, source_id: 'strava:10123456789', name: 'Strava name',
-      type: 'VirtualRun', sport_type: 'VirtualRun', trainer: true, origin: 'STRAVA',
+      id: 10_123_456_789,
+      source_id: 'strava:10123456789',
+      name: 'Strava name',
+      type: 'VirtualRun',
+      sport_type: 'VirtualRun',
+      trainer: true,
+      origin: 'STRAVA',
     });
     for (const id of [0, -5, 1.5, Number.NaN]) expect(build(workout(), { id }).id).toBe(FILE_ID_OFFSET + T0_SEC);
   });
@@ -129,8 +138,9 @@ describe('toActivity: local start time', () => {
 
   it("falls back to the computer's time zone without a plausible offset", () => {
     const d = new Date(T0);
-    const local = `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
-      + `T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}Z`;
+    const local =
+      `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}` +
+      `T${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}Z`;
     expect(build(workout()).start_date_local).toBe(local);
     expect(build(workout({ utcOffsetSec: 30 * 3600 })).start_date_local).toBe(local);
   });
@@ -163,15 +173,33 @@ describe('toActivity: distance and time', () => {
   });
 
   it('prefers the totals the device recorded', () => {
-    const a = build(workout({
-      totals: {
-        distance: 5000, movingSec: 1500, elapsedSec: 1600, ascent: 42, calories: 400.4, avgHeartRate: 150,
-        maxHeartRate: 181, avgSpeed: 3.33, maxSpeed: 5.1, trainingLoad: 55.44,
-      },
-    }));
+    const a = build(
+      workout({
+        totals: {
+          distance: 5000,
+          movingSec: 1500,
+          elapsedSec: 1600,
+          ascent: 42,
+          calories: 400.4,
+          avgHeartRate: 150,
+          maxHeartRate: 181,
+          avgSpeed: 3.33,
+          maxSpeed: 5.1,
+          trainingLoad: 55.44,
+        },
+      }),
+    );
     expect(a).toMatchObject({
-      distance: 5000, moving_time: 1500, elapsed_time: 1600, total_elevation_gain: 42, calories: 400,
-      average_heartrate: 150, max_heartrate: 181, average_speed: 3.33, max_speed: 5.1, training_load: 55.4,
+      distance: 5000,
+      moving_time: 1500,
+      elapsed_time: 1600,
+      total_elevation_gain: 42,
+      calories: 400,
+      average_heartrate: 150,
+      max_heartrate: 181,
+      average_speed: 3.33,
+      max_speed: 5.1,
+      training_load: 55.4,
     });
     // Elapsed time is never shorter than moving time.
     expect(build(workout({ totals: { movingSec: 2000, elapsedSec: 1600 } })).elapsed_time).toBe(2000);
@@ -186,7 +214,10 @@ describe('toActivity: distance and time', () => {
     expect(a).toMatchObject({ distance: 2000, moving_time: 1200, elapsed_time: 1260 });
     expect(a.map?.summary_polyline).toBe('');
     expect(a.start_latlng).toBeNull();
-    expect(a.laps?.map((l) => [l.distance, l.moving_time, l.elapsed_time])).toEqual([[1000, 600, 600], [1000, 600, 660]]);
+    expect(a.laps?.map((l) => [l.distance, l.moving_time, l.elapsed_time])).toEqual([
+      [1000, 600, 600],
+      [1000, 600, 660],
+    ]);
   });
 });
 
@@ -215,9 +246,11 @@ describe('toActivity: sensors', () => {
   });
 
   it('ignores implausible heart rates and weights the average by time', () => {
-    const a = build(workout({
-      samples: steady(600, 3, (s) => ({ heartRate: s === 100 ? 0 : s === 200 ? 255 : s <= 300 ? 140 : 160 })),
-    }));
+    const a = build(
+      workout({
+        samples: steady(600, 3, (s) => ({ heartRate: s === 100 ? 0 : s === 200 ? 255 : s <= 300 ? 140 : 160 })),
+      }),
+    );
     expect(a.average_heartrate).toBeCloseTo(150, 0);
     expect(a.max_heartrate).toBe(160);
   });
@@ -239,7 +272,9 @@ describe('toActivity: sensors', () => {
     const even = build(workout({ type: 'Ride', samples: steady(600, 8, () => ({ power: 200 })) }));
     expect(even.average_watts).toBe(200);
     expect(even.weighted_average_watts).toBe(200);
-    const intervals = build(workout({ type: 'Ride', samples: steady(600, 8, (s) => ({ power: s < 300 ? 100 : 300 })) }));
+    const intervals = build(
+      workout({ type: 'Ride', samples: steady(600, 8, (s) => ({ power: s < 300 ? 100 : 300 })) }),
+    );
     expect(intervals.average_watts).toBe(200);
     expect(intervals.weighted_average_watts).toBeGreaterThan(240);
     expect(intervals.weighted_average_watts).toBeLessThan(260);
@@ -289,7 +324,12 @@ describe('toActivity: route, splits and laps', () => {
     const run = build(workout({ samples: steady(1000, 2.5, (s) => ({ heartRate: 150, altitude: 100 + s / 100 })) }));
     expect(run.splits_metric?.map((s) => s.distance)).toEqual([1000, 1000, 500]);
     expect(run.splits_metric?.map((s) => s.elapsed_time)).toEqual([400, 400, 200]);
-    expect(run.splits_metric?.[0]).toMatchObject({ split: 1, average_speed: 2.5, average_heartrate: 150, elevation_difference: 4 });
+    expect(run.splits_metric?.[0]).toMatchObject({
+      split: 1,
+      average_speed: 2.5,
+      average_heartrate: 150,
+      elevation_difference: 4,
+    });
     expect(run.splits_standard?.map((s) => s.distance)).toEqual([1609.3, 890.7]);
     expect(build(workout({ type: 'Hike', samples: steady(1000, 2.5) })).splits_metric).toHaveLength(3);
     const ride = build(workout({ type: 'Ride', samples: steady(1000, 2.5) }));
@@ -300,7 +340,10 @@ describe('toActivity: route, splits and laps', () => {
   it('keeps device laps when a workout has 2 to 100 of them', () => {
     const samples = steady(900, 10 / 3); // 3 km in 15 minutes
     const laps: ParsedLap[] = [0, 1, 2].map((i) => ({
-      startTime: T0 + i * 300_000, elapsedSec: 300, distance: 1000, avgHeartRate: 140 + i * 5,
+      startTime: T0 + i * 300_000,
+      elapsedSec: 300,
+      distance: 1000,
+      avgHeartRate: 140 + i * 5,
       name: i === 2 ? 'Cool-down' : undefined,
     }));
     const a = build(workout({ samples, laps }));
@@ -310,10 +353,18 @@ describe('toActivity: route, splits and laps', () => {
       [2, 3, 'Cool-down', 600, 900],
     ]);
     expect(a.laps?.[1]).toMatchObject({
-      distance: 1000, elapsed_time: 300, moving_time: 300, average_heartrate: 145, average_speed: 3.333,
+      distance: 1000,
+      elapsed_time: 300,
+      moving_time: 300,
+      average_heartrate: 145,
+      average_speed: 3.333,
     });
     expect(build(workout({ samples, laps: laps.slice(0, 1) })).laps).toBeUndefined();
-    const many = Array.from({ length: 101 }, (_, i): ParsedLap => ({ startTime: T0 + i * 5000, elapsedSec: 5, distance: 15 }));
+    const many = Array.from({ length: 101 }, (_, i): ParsedLap => ({
+      startTime: T0 + i * 5000,
+      elapsedSec: 5,
+      distance: 15,
+    }));
     expect(build(workout({ samples, laps: many })).laps).toBeUndefined();
     const withEmpty: ParsedLap[] = [...laps.slice(0, 2), { startTime: T0 + 600_000, elapsedSec: 0, distance: 0 }];
     expect(build(workout({ samples, laps: withEmpty })).laps).toHaveLength(2);
@@ -364,9 +415,18 @@ describe('toActivity: rejected records', () => {
 describe('normalizeSportType', () => {
   it('maps names from every platform to Strava / intervals.icu sport types', () => {
     const cases: [string, string][] = [
-      ['running', 'Run'], ['Biking', 'Ride'], ['trail_running', 'TrailRun'], ['lap_swimming', 'Swim'],
-      ['E-Bike Ride', 'EBikeRide'], ['HIIT', 'HighIntensityIntervalTraining'], ['strength_training', 'WeightTraining'],
-      ['9', 'Run'], ['1', 'Ride'], ['42', ''], ['floor_climbing', 'FloorClimbing'], ['PADDLE_BOARD', 'PaddleBoard'],
+      ['running', 'Run'],
+      ['Biking', 'Ride'],
+      ['trail_running', 'TrailRun'],
+      ['lap_swimming', 'Swim'],
+      ['E-Bike Ride', 'EBikeRide'],
+      ['HIIT', 'HighIntensityIntervalTraining'],
+      ['strength_training', 'WeightTraining'],
+      ['9', 'Run'],
+      ['1', 'Ride'],
+      ['42', ''],
+      ['floor_climbing', 'FloorClimbing'],
+      ['PADDLE_BOARD', 'PaddleBoard'],
       ['  ', ''],
     ];
     for (const [raw, type] of cases) expect(normalizeSportType(raw).type).toBe(type);

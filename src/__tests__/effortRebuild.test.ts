@@ -18,8 +18,18 @@ import type { Activity } from '@/services/activity/types';
 function run(id: number, day: number): Activity {
   const iso = `2026-09-${String(day).padStart(2, '0')}T07:00:00Z`;
   return {
-    id, name: `Run ${id}`, type: 'Run', sport_type: 'Run', distance: 8000, moving_time: 2700, elapsed_time: 2700,
-    start_date: iso, start_date_local: iso, kudos_count: 0, source: 'intervals', source_id: `e${id}`,
+    id,
+    name: `Run ${id}`,
+    type: 'Run',
+    sport_type: 'Run',
+    distance: 8000,
+    moving_time: 2700,
+    elapsed_time: 2700,
+    start_date: iso,
+    start_date_local: iso,
+    kudos_count: 0,
+    source: 'intervals',
+    source_id: `e${id}`,
   };
 }
 
@@ -38,7 +48,10 @@ describe('effort recognition rebuild', () => {
     expect(needsEffortRebuild()).toBe(true);
     expect(await rebuildEffortRecognitions()).toEqual({ processed: 2 });
     expect(needsEffortRebuild()).toBe(false);
-    expect(JSON.parse(persistence.getItem(EFFORT_META_KEY)!)).toMatchObject({ algoVersion: EFFORT_ALGO_VERSION, processed: 2 });
+    expect(JSON.parse(persistence.getItem(EFFORT_META_KEY)!)).toMatchObject({
+      algoVersion: EFFORT_ALGO_VERSION,
+      processed: 2,
+    });
   });
 
   it('is single-flight: overlapping calls share one run (plus one queued pass)', async () => {

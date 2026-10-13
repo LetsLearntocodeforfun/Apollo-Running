@@ -37,13 +37,16 @@ export default function SyncTab() {
       <div className="card settings-card settings-card--teal">
         <h2 className="card-title settings-card-title">Automatic activity sync</h2>
         <p className="settings-lead">
-          Nothing syncs in the background unless you turn it on here or choose it when connecting a service.
-          You can always sync by hand from Settings › Connections.
+          Nothing syncs in the background unless you turn it on here or choose it when connecting a service. You can
+          always sync by hand from Settings › Connections.
         </p>
         {!hasSource && (
           <p className="settings-callout">
             Connect a service first:{' '}
-            <Link to={settingsTabPath('connections')}>Settings › Connections › intervals.icu › Connect &amp; import history</Link>.
+            <Link to={settingsTabPath('connections')}>
+              Settings › Connections › intervals.icu › Connect &amp; import history
+            </Link>
+            .
           </p>
         )}
         <label className="settings-check">
@@ -60,11 +63,13 @@ export default function SyncTab() {
           <span>Sync new activities automatically when Apollo opens and while it runs</span>
         </label>
         <p id="settings-auto-sync-hint" className="settings-hint settings-indent">
-          Syncs every connected service when Apollo opens and, while it&apos;s open, on the schedule below — so each day&apos;s
-          runs, rides and other workouts arrive on their own.
+          Syncs every connected service when Apollo opens and, while it&apos;s open, on the schedule below — so each
+          day&apos;s runs, rides and other workouts arrive on their own.
         </p>
         <div className="settings-row settings-indent">
-          <label htmlFor="settings-background-sync" className="settings-label">Sync while open</label>
+          <label htmlFor="settings-background-sync" className="settings-label">
+            Sync while open
+          </label>
           <select
             id="settings-background-sync"
             value={appPrefs.backgroundSyncMinutes}
@@ -77,7 +82,9 @@ export default function SyncTab() {
             className="settings-select"
           >
             {backgroundSyncChoices(appPrefs.backgroundSyncMinutes).map((minutes) => (
-              <option key={minutes} value={minutes}>{backgroundSyncLabel(minutes)}</option>
+              <option key={minutes} value={minutes}>
+                {backgroundSyncLabel(minutes)}
+              </option>
             ))}
           </select>
         </div>
@@ -102,7 +109,8 @@ export default function SyncTab() {
         </label>
         <p id="settings-wellness-hint" className="settings-hint settings-indent">
           From intervals.icu, whenever activities sync. Powers the Recovery card and fills in your heart-rate profile.
-          Your watch platform must share wellness with intervals.icu — for Garmin, allow <strong>Download wellness data</strong>.
+          Your watch platform must share wellness with intervals.icu — for Garmin, allow{' '}
+          <strong>Download wellness data</strong>.
           {!intervalsConnected && ' Only works while intervals.icu is connected.'}
         </p>
         <StatusLine status={wellnessStatus.status} />

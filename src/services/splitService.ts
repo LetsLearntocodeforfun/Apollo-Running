@@ -94,15 +94,15 @@ const METERS_PER_MILE = 1609.344;
 const METERS_PER_KM = 1000;
 
 /** CV thresholds for pace consistency grade */
-const CV_GOLD = 4;    // < 4% — metronomic pacing
-const CV_SILVER = 7;  // < 7% — strong pacing
+const CV_GOLD = 4; // < 4% — metronomic pacing
+const CV_SILVER = 7; // < 7% — strong pacing
 const CV_BRONZE = 12; // < 12% — acceptable variation
 
 /** Half difference thresholds for split pattern */
-const NEGATIVE_SPLIT_PCT = -2;  // 2nd half > 2% faster
-const POSITIVE_SPLIT_PCT = 2;   // 1st half > 2% faster
-const EVEN_SPLIT_PCT = 2;       // within ±2%
-const FADE_THRESHOLD_PCT = 8;   // severe slowdown in last quarter
+const NEGATIVE_SPLIT_PCT = -2; // 2nd half > 2% faster
+const POSITIVE_SPLIT_PCT = 2; // 1st half > 2% faster
+const EVEN_SPLIT_PCT = 2; // within ±2%
+const FADE_THRESHOLD_PCT = 8; // severe slowdown in last quarter
 const SURGE_THRESHOLD_PCT = -8; // severe speedup in last quarter
 
 /** Minimum number of splits for meaningful analysis */
@@ -120,25 +120,20 @@ const INTERVAL_PACE_RATIO = 1.15;
  * Convert raw Strava splits to SplitData with user-preferred units.
  * Filters out very short partial splits at the end.
  */
-export function processSplits(
-  rawSplits: StravaSplit[],
-  unit: DistanceUnit,
-): SplitData[] {
+export function processSplits(rawSplits: StravaSplit[], unit: DistanceUnit): SplitData[] {
   if (!rawSplits || rawSplits.length < MIN_SPLITS) return [];
 
   const expectedDist = unit === 'km' ? METERS_PER_KM : METERS_PER_MILE;
 
   // Filter out very short final partial splits
-  const filtered = rawSplits.filter(
-    (s) => s.distance >= expectedDist * MIN_SPLIT_FRACTION,
-  );
+  const filtered = rawSplits.filter((s) => s.distance >= expectedDist * MIN_SPLIT_FRACTION);
 
   if (filtered.length < MIN_SPLITS) return [];
 
   // Calculate paces
   const withPace = filtered.map((s) => {
     const distUnits = s.distance / expectedDist;
-    const paceMinPerUnit = distUnits > 0 ? (s.moving_time / 60) / distUnits : 0;
+    const paceMinPerUnit = distUnits > 0 ? s.moving_time / 60 / distUnits : 0;
     return { split: s, paceMinPerUnit };
   });
 
@@ -169,17 +164,14 @@ export function processSplits(
 }
 
 /** Convert raw Strava laps to LapData. */
-export function processLaps(
-  rawLaps: StravaLap[],
-  unit: DistanceUnit,
-): LapData[] {
+export function processLaps(rawLaps: StravaLap[], unit: DistanceUnit): LapData[] {
   if (!rawLaps || rawLaps.length === 0) return [];
 
   const divisor = unit === 'km' ? METERS_PER_KM : METERS_PER_MILE;
 
   return rawLaps.map((lap) => {
     const distUnits = lap.distance / divisor;
-    const paceMinPerUnit = distUnits > 0 ? (lap.moving_time / 60) / distUnits : 0;
+    const paceMinPerUnit = distUnits > 0 ? lap.moving_time / 60 / distUnits : 0;
 
     return {
       index: lap.lap_index,
@@ -316,9 +308,7 @@ export function detectIntervals(laps: LapData[]): IntervalDetection | null {
   if (laps.length < 3) return null;
 
   // Sort paces to find the median
-  const paces = laps
-    .filter((l) => l.paceMinPerUnit > 0)
-    .map((l) => l.paceMinPerUnit);
+  const paces = laps.filter((l) => l.paceMinPerUnit > 0).map((l) => l.paceMinPerUnit);
 
   if (paces.length < 3) return null;
 
@@ -341,18 +331,22 @@ export function detectIntervals(laps: LapData[]): IntervalDetection | null {
 
   // Must have at least 2 work intervals to call it an interval workout
   if (work.length < 2) {
-    return { isInterval: false, workIntervals: 0, recoveryIntervals: 0, avgWorkPace: 0, avgRecoveryPace: 0, workRestRatio: '' };
+    return {
+      isInterval: false,
+      workIntervals: 0,
+      recoveryIntervals: 0,
+      avgWorkPace: 0,
+      avgRecoveryPace: 0,
+      workRestRatio: '',
+    };
   }
 
   const avgWorkPace = work.reduce((s, l) => s + l.paceMinPerUnit, 0) / work.length;
-  const avgRecoveryPace = recovery.length > 0
-    ? recovery.reduce((s, l) => s + l.paceMinPerUnit, 0) / recovery.length
-    : 0;
+  const avgRecoveryPace =
+    recovery.length > 0 ? recovery.reduce((s, l) => s + l.paceMinPerUnit, 0) / recovery.length : 0;
 
   const avgWorkTime = work.reduce((s, l) => s + l.movingTimeSec, 0) / work.length;
-  const avgRestTime = recovery.length > 0
-    ? recovery.reduce((s, l) => s + l.movingTimeSec, 0) / recovery.length
-    : 0;
+  const avgRestTime = recovery.length > 0 ? recovery.reduce((s, l) => s + l.movingTimeSec, 0) / recovery.length : 0;
 
   const ratio = avgRestTime > 0 ? `${(avgWorkTime / avgRestTime).toFixed(1)}:1` : 'N/A';
 

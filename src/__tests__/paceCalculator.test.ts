@@ -268,7 +268,9 @@ function run(id: number, date: string, distanceM: number, timeSec: number, name 
 
 describe('getCurrentTrainingPaces', () => {
   it('returns null when there is no VDOT source', () => {
-    expect(getCurrentTrainingPaces({ activities: [], profile: {}, hrProfile: null, planRaceDays: new Map() })).toBeNull();
+    expect(
+      getCurrentTrainingPaces({ activities: [], profile: {}, hrProfile: null, planRaceDays: new Map() }),
+    ).toBeNull();
   });
 
   it('derives paces from the profile race and attaches the source — without writing storage', () => {
@@ -292,15 +294,34 @@ describe('getCurrentTrainingPaces', () => {
   it('easy runs never lower a race-derived VDOT', () => {
     const today = todayKey();
     const race = { distanceM: 10000, timeSec: 42 * 60, date: addDays(today, -20) };
-    const easyRuns = Array.from({ length: 12 }, (_, i) => run(i + 1, addDays(today, -i - 1), 10000, 10000 / 1609.344 * 600)); // 10:00/mi
-    const withRuns = getCurrentTrainingPaces({ today, activities: easyRuns, hrProfile: null, planRaceDays: new Map(), profile: { recentRace: race } })!;
-    const raceOnly = getCurrentTrainingPaces({ today, activities: [], hrProfile: null, planRaceDays: new Map(), profile: { recentRace: race } })!;
+    const easyRuns = Array.from({ length: 12 }, (_, i) =>
+      run(i + 1, addDays(today, -i - 1), 10000, (10000 / 1609.344) * 600),
+    ); // 10:00/mi
+    const withRuns = getCurrentTrainingPaces({
+      today,
+      activities: easyRuns,
+      hrProfile: null,
+      planRaceDays: new Map(),
+      profile: { recentRace: race },
+    })!;
+    const raceOnly = getCurrentTrainingPaces({
+      today,
+      activities: [],
+      hrProfile: null,
+      planRaceDays: new Map(),
+      profile: { recentRace: race },
+    })!;
     expect(withRuns.vdot).toBe(raceOnly.vdot);
     expect(withRuns.source).toBe('recent_race');
   });
 
   it('falls back to the goal time (paces only, low confidence)', () => {
-    const paces = getCurrentTrainingPaces({ activities: [], hrProfile: null, planRaceDays: new Map(), profile: { goalMarathonSec: 12600 } })!;
+    const paces = getCurrentTrainingPaces({
+      activities: [],
+      hrProfile: null,
+      planRaceDays: new Map(),
+      profile: { goalMarathonSec: 12600 },
+    })!;
     expect(paces.source).toBe('goal');
     expect(paces.confidence).toBe('low');
     expect(Math.abs(paces.marathon - 12600 / (42195 / 1609.344))).toBeLessThanOrEqual(3);

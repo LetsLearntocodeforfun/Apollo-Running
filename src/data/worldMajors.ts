@@ -29,7 +29,7 @@ const TOKYO: MarathonRace = {
   isWorldMajor: true,
   year: 2026,
   courseDescription:
-    'Starting at the Tokyo Metropolitan Government Building in Shinjuku, the course winds through the heart of Tokyo past iconic landmarks including the Imperial Palace, Tokyo Tower, Ginza, and Asakusa\'s Sensoji Temple before finishing at Tokyo Station. One of the flattest and fastest World Major courses.',
+    "Starting at the Tokyo Metropolitan Government Building in Shinjuku, the course winds through the heart of Tokyo past iconic landmarks including the Imperial Palace, Tokyo Tower, Ginza, and Asakusa's Sensoji Temple before finishing at Tokyo Station. One of the flattest and fastest World Major courses.",
   qualifyingInfo:
     'Entry via lottery (general), championship entry with qualifying times, or charity entry. Lottery acceptance rate ~10%.',
   tips: [
@@ -107,18 +107,18 @@ const BOSTON: MarathonRace = {
   isWorldMajor: true,
   year: 2026,
   courseDescription:
-    'The world\'s oldest annual marathon. A legendary point-to-point course from Hopkinton to Copley Square in downtown Boston. Net downhill (480 ft drop) but deceptively challenging with the infamous Newton Hills (miles 16-21) including Heartbreak Hill at mile 20.5. The early downhill tempts runners into pacing mistakes that punish them on the hills.',
+    "The world's oldest annual marathon. A legendary point-to-point course from Hopkinton to Copley Square in downtown Boston. Net downhill (480 ft drop) but deceptively challenging with the infamous Newton Hills (miles 16-21) including Heartbreak Hill at mile 20.5. The early downhill tempts runners into pacing mistakes that punish them on the hills.",
   qualifyingInfo:
     'Qualifying times required (age/gender graded). BQ times range from 3:00 (M 18-34) to 5:25 (F 80+). Typically need to beat BQ by 5+ minutes due to demand.',
   tips: [
     'DO NOT bank time on the early downhill — it will cost you on the Newton Hills.',
     'The first 16 miles are net downhill and deceptively easy. Show discipline.',
-    'Heartbreak Hill (mile 20.5) is not the steepest hill, but it comes when you\'re fatigued.',
+    "Heartbreak Hill (mile 20.5) is not the steepest hill, but it comes when you're fatigued.",
     'The Newton Hills are really 4 hills from mile 16-21. Budget energy for all of them.',
     'Crowds at Wellesley ("The Scream Tunnel") at mile 12 are electric — don\'t surge.',
     'Point-to-point means tailwind is your friend, headwind is brutal. Check forecast.',
     'April weather in Boston is unpredictable — prepare for anything from 35°F to 75°F.',
-    'The final downhill mile to Boylston Street is one of running\'s great finishes.',
+    "The final downhill mile to Boylston Street is one of running's great finishes.",
   ],
   course: {
     totalGainFt: 780,
@@ -164,7 +164,13 @@ const BOSTON: MarathonRace = {
     ],
   },
   splits: [
-    { number: 1, endMi: 1, elevationChangeFt: -50, terrain: 'Steep downhill — resist the urge to fly', landmarks: ['Hopkinton start'] },
+    {
+      number: 1,
+      endMi: 1,
+      elevationChangeFt: -50,
+      terrain: 'Steep downhill — resist the urge to fly',
+      landmarks: ['Hopkinton start'],
+    },
     { number: 2, endMi: 2, elevationChangeFt: -60, terrain: 'Continued downhill', landmarks: [] },
     { number: 3, endMi: 3, elevationChangeFt: -60, terrain: 'Rolling downhill into Ashland', landmarks: [] },
     { number: 4, endMi: 4, elevationChangeFt: -30, terrain: 'Gentle descent', landmarks: ['Ashland center'] },
@@ -175,25 +181,79 @@ const BOSTON: MarathonRace = {
     { number: 9, endMi: 9, elevationChangeFt: -25, terrain: 'Continued gentle descent', landmarks: [] },
     { number: 10, endMi: 10, elevationChangeFt: -10, terrain: 'Flattening out', landmarks: ['Natick'] },
     { number: 11, endMi: 11, elevationChangeFt: -15, terrain: 'Into Wellesley', landmarks: [] },
-    { number: 12, endMi: 12, elevationChangeFt: -5, terrain: 'Wellesley — deafening crowd support', landmarks: ['Wellesley Scream Tunnel'] },
+    {
+      number: 12,
+      endMi: 12,
+      elevationChangeFt: -5,
+      terrain: 'Wellesley — deafening crowd support',
+      landmarks: ['Wellesley Scream Tunnel'],
+    },
     { number: 13, endMi: 13, elevationChangeFt: 10, terrain: 'Slight rise', landmarks: ['Half marathon point'] },
     { number: 14, endMi: 14, elevationChangeFt: -10, terrain: 'Rolling', landmarks: [] },
     { number: 15, endMi: 15, elevationChangeFt: -10, terrain: 'Gentle descent', landmarks: [] },
-    { number: 16, endMi: 16, elevationChangeFt: -35, terrain: 'Downhill to Newton Lower Falls — get ready for hills', landmarks: ['Newton Lower Falls'] },
-    { number: 17, endMi: 17, elevationChangeFt: 85, terrain: 'NEWTON HILL #1 — first real climb', landmarks: ['Newton Hill 1'] },
+    {
+      number: 16,
+      endMi: 16,
+      elevationChangeFt: -35,
+      terrain: 'Downhill to Newton Lower Falls — get ready for hills',
+      landmarks: ['Newton Lower Falls'],
+    },
+    {
+      number: 17,
+      endMi: 17,
+      elevationChangeFt: 85,
+      terrain: 'NEWTON HILL #1 — first real climb',
+      landmarks: ['Newton Hill 1'],
+    },
     { number: 18, endMi: 18, elevationChangeFt: -30, terrain: 'Brief downhill reprieve', landmarks: [] },
-    { number: 19, endMi: 19, elevationChangeFt: 50, terrain: 'NEWTON HILL #2 — grinding uphill', landmarks: ['Newton Hill 2'] },
-    { number: 20, endMi: 20, elevationChangeFt: -15, terrain: 'Short downhill before Heartbreak', landmarks: ['Newton Hill 3 begins'] },
-    { number: 21, endMi: 21, elevationChangeFt: 80, terrain: 'HEARTBREAK HILL — the iconic climb. Stay calm, shorten stride.', landmarks: ['Heartbreak Hill', 'Boston College'] },
+    {
+      number: 19,
+      endMi: 19,
+      elevationChangeFt: 50,
+      terrain: 'NEWTON HILL #2 — grinding uphill',
+      landmarks: ['Newton Hill 2'],
+    },
+    {
+      number: 20,
+      endMi: 20,
+      elevationChangeFt: -15,
+      terrain: 'Short downhill before Heartbreak',
+      landmarks: ['Newton Hill 3 begins'],
+    },
+    {
+      number: 21,
+      endMi: 21,
+      elevationChangeFt: 80,
+      terrain: 'HEARTBREAK HILL — the iconic climb. Stay calm, shorten stride.',
+      landmarks: ['Heartbreak Hill', 'Boston College'],
+    },
     { number: 22, endMi: 22, elevationChangeFt: -90, terrain: 'Fast downhill — quads will feel it', landmarks: [] },
-    { number: 23, endMi: 23, elevationChangeFt: -70, terrain: 'Continued descent into Brookline', landmarks: ['Brookline'] },
+    {
+      number: 23,
+      endMi: 23,
+      elevationChangeFt: -70,
+      terrain: 'Continued descent into Brookline',
+      landmarks: ['Brookline'],
+    },
     { number: 24, endMi: 24, elevationChangeFt: -30, terrain: 'Heading into Boston', landmarks: ['Coolidge Corner'] },
-    { number: 25, endMi: 25, elevationChangeFt: -20, terrain: 'Kenmore Square — Citgo sign in sight', landmarks: ['Kenmore Square', 'Citgo sign'] },
-    { number: 26, endMi: 26, elevationChangeFt: -15, terrain: 'Right on Hereford, Left on Boylston — crowd roars', landmarks: ['Hereford St', 'Boylston St'] },
+    {
+      number: 25,
+      endMi: 25,
+      elevationChangeFt: -20,
+      terrain: 'Kenmore Square — Citgo sign in sight',
+      landmarks: ['Kenmore Square', 'Citgo sign'],
+    },
+    {
+      number: 26,
+      endMi: 26,
+      elevationChangeFt: -15,
+      terrain: 'Right on Hereford, Left on Boylston — crowd roars',
+      landmarks: ['Hereford St', 'Boylston St'],
+    },
   ],
   aidStations: buildAidStations(
     [2.2, 4.6, 6.9, 9.2, 11.5, 13.8, 15, 16.1, 17.7, 19.3, 21.5, 23, 24.5],
-    ['water', 'Gatorade Endurance']
+    ['water', 'Gatorade Endurance'],
   ),
 };
 
@@ -228,9 +288,9 @@ const LONDON: MarathonRace = {
     'Entry via ballot (general), Good for Age qualifying times, championship entry, or charity places. Ballot acceptance ~15%.',
   tips: [
     'Very flat course — one of the best World Majors for a fast time after Berlin.',
-    'Tower Bridge at mile 12 is an emotional highlight — don\'t get carried away.',
+    "Tower Bridge at mile 12 is an emotional highlight — don't get carried away.",
     'The Docklands loop (miles 14-21) can feel isolating. Stay focused.',
-    'London\'s spring weather can be unpredictable — layers recommended.',
+    "London's spring weather can be unpredictable — layers recommended.",
     'Cobblestones at Cutty Sark (mile 6) — watch your footing.',
     'The final stretch along The Mall with Buckingham Palace ahead is iconic.',
     'Crowd support is among the best in the world — 700,000+ spectators.',
@@ -301,16 +361,16 @@ const BERLIN: MarathonRace = {
   isWorldMajor: true,
   year: 2026,
   courseDescription:
-    'The world\'s fastest marathon course. Starting near the Reichstag, the largely flat course loops through Berlin\'s diverse neighborhoods — Kreuzberg, Schöneberg, Charlottenburg — before the spectacular finish through the Brandenburg Gate. Nearly every world record in the last 20 years has been set here. A dream course for PR-seekers.',
+    "The world's fastest marathon course. Starting near the Reichstag, the largely flat course loops through Berlin's diverse neighborhoods — Kreuzberg, Schöneberg, Charlottenburg — before the spectacular finish through the Brandenburg Gate. Nearly every world record in the last 20 years has been set here. A dream course for PR-seekers.",
   qualifyingInfo:
     'Entry via lottery or qualifying time. Lottery acceptance rate ~20%. Fast runners get priority entrance.',
   tips: [
     'THE course for a PR or BQ attempt — flattest of all World Majors.',
     'September weather in Berlin is typically ideal for marathoning.',
-    'The finish through the Brandenburg Gate is one of sport\'s greatest moments.',
+    "The finish through the Brandenburg Gate is one of sport's greatest moments.",
     'Pacing groups are excellent — latch onto one if you have a time goal.',
     'Aid stations every 5K with water, electrolyte, banana, and apple.',
-    'Cobblestones in some sections — they\'re smoother than they look.',
+    "Cobblestones in some sections — they're smoother than they look.",
     'Crowd support builds throughout and is electric near the finish.',
     'Nearly every WR since 2003 has been set here — the course is THAT fast.',
   ],
@@ -351,9 +411,12 @@ const BERLIN: MarathonRace = {
     { mile: 15, landmarks: ['Charlottenburg'], terrain: 'Flat, tree-lined streets' },
     { mile: 20, landmarks: ['Moabit'], terrain: 'Flat — maintain focus' },
     { mile: 25, landmarks: ['Unter den Linden'], terrain: 'Flat — crowds roar as you approach the Gate' },
-    { mile: 26, landmarks: ['Brandenburg Gate'], terrain: 'Through the Gate — one of sport\'s great finishes' },
+    { mile: 26, landmarks: ['Brandenburg Gate'], terrain: "Through the Gate — one of sport's great finishes" },
   ]),
-  aidStations: buildAidStations([3.1, 6.2, 9.3, 12.4, 15.5, 17, 18.6, 20, 21.7, 23, 24.3], ['water', 'electrolyte', 'banana', 'apple']),
+  aidStations: buildAidStations(
+    [3.1, 6.2, 9.3, 12.4, 15.5, 17, 18.6, 20, 21.7, 23, 24.3],
+    ['water', 'electrolyte', 'banana', 'apple'],
+  ),
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -382,7 +445,7 @@ const CHICAGO: MarathonRace = {
   isWorldMajor: true,
   year: 2026,
   courseDescription:
-    'Starting and finishing in Grant Park, the course tours 29 of Chicago\'s diverse neighborhoods. The completely flat course travels through Little Italy, Chinatown, Pilsen, Lincoln Park, Wrigleyville, and more. The city\'s grid system and lakefront setting provide one of the most spectator-friendly marathon experiences. A top-tier BQ and PR course.',
+    "Starting and finishing in Grant Park, the course tours 29 of Chicago's diverse neighborhoods. The completely flat course travels through Little Italy, Chinatown, Pilsen, Lincoln Park, Wrigleyville, and more. The city's grid system and lakefront setting provide one of the most spectator-friendly marathon experiences. A top-tier BQ and PR course.",
   qualifyingInfo:
     'Entry via lottery (general), guaranteed entry with qualifying times, or charity entry. Lottery acceptance ~30-40%.',
   tips: [
@@ -391,7 +454,7 @@ const CHICAGO: MarathonRace = {
     '2007 saw 88°F temps and a race cancellation — heat is the wildcard.',
     'The course tours 29 neighborhoods — each with its own energy and culture.',
     'Wind off Lake Michigan can affect the exposed sections.',
-    'Pilsen (around mile 19) and Chinatown (around mile 21) bring big, loud crowds — enjoy the lift but don\'t surge.',
+    "Pilsen (around mile 19) and Chinatown (around mile 21) bring big, loud crowds — enjoy the lift but don't surge.",
     'The only real hill is Roosevelt Road ("Mount Roosevelt") just before the finish — save a little for it.',
     'The finish in Grant Park with the Chicago skyline is spectacular.',
     'Fueling stations are every 2 miles — well-stocked.',
@@ -434,7 +497,10 @@ const CHICAGO: MarathonRace = {
     { mile: 21, landmarks: ['Chinatown'], terrain: 'Flat — big crowds through Chinatown' },
     { mile: 25, landmarks: ['Michigan Avenue'], terrain: 'Flat — final push to Grant Park' },
   ]),
-  aidStations: buildAidStations([1.6, 3.7, 5.7, 7.7, 9.7, 11.7, 13.7, 15.7, 17.7, 19.7, 21.5, 23.5, 25], ['water', 'Gatorade Endurance', 'gel']),
+  aidStations: buildAidStations(
+    [1.6, 3.7, 5.7, 7.7, 9.7, 11.7, 13.7, 15.7, 17.7, 19.7, 21.5, 23.5, 25],
+    ['water', 'Gatorade Endurance', 'gel'],
+  ),
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -463,14 +529,14 @@ const NYC: MarathonRace = {
   isWorldMajor: true,
   year: 2026,
   courseDescription:
-    'The world\'s largest marathon. Starting on Staten Island at the foot of the Verrazzano-Narrows Bridge, the course traverses all five boroughs of New York City: Staten Island, Brooklyn, Queens, the Bronx, and Manhattan. Famously hilly with five major bridge crossings. Not a PR course, but an unparalleled experience. Two million spectators line the route.',
+    "The world's largest marathon. Starting on Staten Island at the foot of the Verrazzano-Narrows Bridge, the course traverses all five boroughs of New York City: Staten Island, Brooklyn, Queens, the Bronx, and Manhattan. Famously hilly with five major bridge crossings. Not a PR course, but an unparalleled experience. Two million spectators line the route.",
   qualifyingInfo:
     'Entry via lottery, guaranteed entry with 15+ NYRR qualifying races (9+1), time qualifier, charity entry, or international travel partner. Lottery acceptance ~15%.',
   tips: [
     'NOT a PR course — hilly bridges, undulating terrain, and crowd-induced pace surges.',
-    'The Verrazzano Bridge start is exposed and windy — don\'t overdress but bring a throwaway.',
+    "The Verrazzano Bridge start is exposed and windy — don't overdress but bring a throwaway.",
     'Brooklyn (miles 3-13) is the easiest section — flat with incredible crowd energy.',
-    'First Avenue in Manhattan (mile 16) is a mile-long party — DON\'T surge with the crowd.',
+    "First Avenue in Manhattan (mile 16) is a mile-long party — DON'T surge with the crowd.",
     'The Queensboro Bridge (mile 15) is silent, uphill, and a mental test. Stay patient.',
     'The Bronx section (miles 20-21) is short but the hills and empty-ish feel can break you.',
     'The final miles through Central Park have real hills — save something for them.',
@@ -515,10 +581,28 @@ const NYC: MarathonRace = {
     ],
   },
   splits: [
-    { number: 1, endMi: 1, elevationChangeFt: 245, terrain: 'Verrazzano Bridge — steep uphill, windy, exposed', landmarks: ['Verrazzano-Narrows Bridge'] },
-    { number: 2, endMi: 2, elevationChangeFt: -210, terrain: 'Bridge descent into Brooklyn — control downhill', landmarks: ['Brooklyn entrance'] },
+    {
+      number: 1,
+      endMi: 1,
+      elevationChangeFt: 245,
+      terrain: 'Verrazzano Bridge — steep uphill, windy, exposed',
+      landmarks: ['Verrazzano-Narrows Bridge'],
+    },
+    {
+      number: 2,
+      endMi: 2,
+      elevationChangeFt: -210,
+      terrain: 'Bridge descent into Brooklyn — control downhill',
+      landmarks: ['Brooklyn entrance'],
+    },
     { number: 3, endMi: 3, elevationChangeFt: -10, terrain: 'Flat through Bay Ridge', landmarks: ['4th Avenue'] },
-    { number: 4, endMi: 4, elevationChangeFt: 0, terrain: 'Flat — enjoy Brooklyn\'s amazing crowds', landmarks: ['Bay Ridge'] },
+    {
+      number: 4,
+      endMi: 4,
+      elevationChangeFt: 0,
+      terrain: "Flat — enjoy Brooklyn's amazing crowds",
+      landmarks: ['Bay Ridge'],
+    },
     { number: 5, endMi: 5, elevationChangeFt: -5, terrain: 'Flat through Park Slope area', landmarks: [] },
     { number: 6, endMi: 6, elevationChangeFt: -5, terrain: 'Flat', landmarks: [] },
     { number: 7, endMi: 7, elevationChangeFt: 0, terrain: 'Flat through Clinton Hill', landmarks: [] },
@@ -527,24 +611,84 @@ const NYC: MarathonRace = {
     { number: 10, endMi: 10, elevationChangeFt: -5, terrain: 'Northern Brooklyn', landmarks: [] },
     { number: 11, endMi: 11, elevationChangeFt: 0, terrain: 'Flat through Greenpoint', landmarks: [] },
     { number: 12, endMi: 12, elevationChangeFt: 5, terrain: 'Williamsburg', landmarks: ['Williamsburg'] },
-    { number: 13, endMi: 13, elevationChangeFt: 20, terrain: 'Pulaski Bridge — short uphill into Queens', landmarks: ['Pulaski Bridge'] },
+    {
+      number: 13,
+      endMi: 13,
+      elevationChangeFt: 20,
+      terrain: 'Pulaski Bridge — short uphill into Queens',
+      landmarks: ['Pulaski Bridge'],
+    },
     { number: 14, endMi: 14, elevationChangeFt: -10, terrain: 'Long Island City', landmarks: ['Half marathon nearby'] },
     { number: 15, endMi: 15, elevationChangeFt: 20, terrain: 'Approaching Queensboro Bridge', landmarks: [] },
-    { number: 16, endMi: 16, elevationChangeFt: -35, terrain: 'Queensboro Bridge descent — crowd silence then First Ave explosion', landmarks: ['Queensboro Bridge', 'First Avenue'] },
-    { number: 17, endMi: 17, elevationChangeFt: -5, terrain: 'First Avenue — massive crowd energy', landmarks: ['First Avenue'] },
+    {
+      number: 16,
+      endMi: 16,
+      elevationChangeFt: -35,
+      terrain: 'Queensboro Bridge descent — crowd silence then First Ave explosion',
+      landmarks: ['Queensboro Bridge', 'First Avenue'],
+    },
+    {
+      number: 17,
+      endMi: 17,
+      elevationChangeFt: -5,
+      terrain: 'First Avenue — massive crowd energy',
+      landmarks: ['First Avenue'],
+    },
     { number: 18, endMi: 18, elevationChangeFt: 5, terrain: 'Upper East Side', landmarks: [] },
     { number: 19, endMi: 19, elevationChangeFt: 5, terrain: 'East Harlem', landmarks: [] },
-    { number: 20, endMi: 20, elevationChangeFt: 50, terrain: 'Willis Avenue Bridge — climb into Bronx', landmarks: ['Willis Ave Bridge'] },
-    { number: 21, endMi: 21, elevationChangeFt: -5, terrain: 'Short out-and-back in the Bronx', landmarks: ['The Bronx'] },
-    { number: 22, endMi: 22, elevationChangeFt: -25, terrain: 'Madison Ave Bridge back to Manhattan', landmarks: ['Madison Ave Bridge'] },
-    { number: 23, endMi: 23, elevationChangeFt: 40, terrain: 'Fifth Avenue uphill — tough at this point', landmarks: ['Fifth Avenue'] },
-    { number: 24, endMi: 24, elevationChangeFt: 40, terrain: 'Enter Central Park — Harlem Hill hurts', landmarks: ['Central Park', 'Harlem Hill'] },
-    { number: 25, endMi: 25, elevationChangeFt: -30, terrain: 'Central Park South — almost there', landmarks: ['Central Park South'] },
-    { number: 26, endMi: 26, elevationChangeFt: -15, terrain: 'Final push through Central Park', landmarks: ['Cat Hill (small)'] },
+    {
+      number: 20,
+      endMi: 20,
+      elevationChangeFt: 50,
+      terrain: 'Willis Avenue Bridge — climb into Bronx',
+      landmarks: ['Willis Ave Bridge'],
+    },
+    {
+      number: 21,
+      endMi: 21,
+      elevationChangeFt: -5,
+      terrain: 'Short out-and-back in the Bronx',
+      landmarks: ['The Bronx'],
+    },
+    {
+      number: 22,
+      endMi: 22,
+      elevationChangeFt: -25,
+      terrain: 'Madison Ave Bridge back to Manhattan',
+      landmarks: ['Madison Ave Bridge'],
+    },
+    {
+      number: 23,
+      endMi: 23,
+      elevationChangeFt: 40,
+      terrain: 'Fifth Avenue uphill — tough at this point',
+      landmarks: ['Fifth Avenue'],
+    },
+    {
+      number: 24,
+      endMi: 24,
+      elevationChangeFt: 40,
+      terrain: 'Enter Central Park — Harlem Hill hurts',
+      landmarks: ['Central Park', 'Harlem Hill'],
+    },
+    {
+      number: 25,
+      endMi: 25,
+      elevationChangeFt: -30,
+      terrain: 'Central Park South — almost there',
+      landmarks: ['Central Park South'],
+    },
+    {
+      number: 26,
+      endMi: 26,
+      elevationChangeFt: -15,
+      terrain: 'Final push through Central Park',
+      landmarks: ['Cat Hill (small)'],
+    },
   ],
   aidStations: buildAidStations(
     [3, 5, 7, 9, 11, 13, 15, 16.5, 18, 19.5, 21, 22.5, 24, 25],
-    ['water', 'Gatorade Endurance']
+    ['water', 'Gatorade Endurance'],
   ),
 };
 
@@ -555,7 +699,7 @@ const NYC: MarathonRace = {
 function buildEvenSplits(
   totalMiles: number,
   defaultTerrain: string,
-  overrides: { mile: number; landmarks: string[]; terrain: string }[]
+  overrides: { mile: number; landmarks: string[]; terrain: string }[],
 ): CourseSplit[] {
   const overrideMap = new Map(overrides.map((o) => [o.mile, o]));
   const splits: CourseSplit[] = [];

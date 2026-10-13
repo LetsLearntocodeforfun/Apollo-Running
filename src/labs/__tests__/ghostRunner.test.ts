@@ -70,9 +70,9 @@ describe('compareRuns', () => {
     const ghost = buildGhostRun(100, '2025-01-10', 'Past', [480, 480, 480]);
     const comparison = compareRuns(current, ghost);
 
-    expect(comparison.miles[0].cumulativeDeltaSec).toBe(10);  // +10
-    expect(comparison.miles[1].cumulativeDeltaSec).toBe(10);  // +10 + 0
-    expect(comparison.miles[2].cumulativeDeltaSec).toBe(0);   // +10 + 0 - 10
+    expect(comparison.miles[0].cumulativeDeltaSec).toBe(10); // +10
+    expect(comparison.miles[1].cumulativeDeltaSec).toBe(10); // +10 + 0
+    expect(comparison.miles[2].cumulativeDeltaSec).toBe(0); // +10 + 0 - 10
   });
 
   it('should compare up to the shorter run', () => {

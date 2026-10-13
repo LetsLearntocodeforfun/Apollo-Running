@@ -28,7 +28,10 @@ import type { IcuActivity } from '@/services/intervals';
 
 // ── Fake intervals.icu ────────────────────────────────────────────────────────
 
-interface FakeReply { status?: number; body?: unknown }
+interface FakeReply {
+  status?: number;
+  body?: unknown;
+}
 
 function fakeResponse({ status = 200, body }: FakeReply): Response {
   const text = body === undefined ? '' : JSON.stringify(body);
@@ -43,11 +46,14 @@ function fakeResponse({ status = 200, body }: FakeReply): Response {
 
 function mockFetch(handler: (url: URL) => FakeReply): URL[] {
   const calls: URL[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
-    const url = new URL(String(input));
-    calls.push(url);
-    return fakeResponse(handler(url));
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: unknown) => {
+      const url = new URL(String(input));
+      calls.push(url);
+      return fakeResponse(handler(url));
+    }),
+  );
   return calls;
 }
 
@@ -95,7 +101,16 @@ function fakeIntervals(activities: IcuActivity[], noGps: string[] = []): URL[] {
     }
     if (path.endsWith('/map')) {
       const id = path.split('/').slice(-2)[0];
-      return noGps.includes(id) ? { status: 404 } : { body: { latlngs: [[45.1, -122.1], [45.11, -122.12]] } };
+      return noGps.includes(id)
+        ? { status: 404 }
+        : {
+            body: {
+              latlngs: [
+                [45.1, -122.1],
+                [45.11, -122.12],
+              ],
+            },
+          };
     }
     if (/\/athlete\/[^/]+$/.test(path)) return { body: { id: 'i42', firstname: 'Marc', lastname: 'C' } };
     return { status: 404 };
@@ -149,8 +164,20 @@ describe('connectIntervals', () => {
 
   it('disconnect keeps synced history', () => {
     connect();
-    storeActivities([{ id: 1, name: 'x', type: 'Run', sport_type: 'Run', distance: 1, moving_time: 1, elapsed_time: 1,
-      start_date: '2024-01-01T00:00:00Z', start_date_local: '2024-01-01T00:00:00Z', kudos_count: 0 }]);
+    storeActivities([
+      {
+        id: 1,
+        name: 'x',
+        type: 'Run',
+        sport_type: 'Run',
+        distance: 1,
+        moving_time: 1,
+        elapsed_time: 1,
+        start_date: '2024-01-01T00:00:00Z',
+        start_date_local: '2024-01-01T00:00:00Z',
+        kudos_count: 0,
+      },
+    ]);
     disconnectSource('intervals');
     expect(isActivitySourceConnected()).toBe(false);
     expect(getStoredActivities()).toHaveLength(1);
@@ -159,7 +186,9 @@ describe('connectIntervals', () => {
 
 describe('getActivityExternalUrl', () => {
   it('links to the platform the activity came from', () => {
-    expect(getActivityExternalUrl({ id: 1, source: 'intervals', source_id: 'i9' })).toBe('https://intervals.icu/activities/i9');
+    expect(getActivityExternalUrl({ id: 1, source: 'intervals', source_id: 'i9' })).toBe(
+      'https://intervals.icu/activities/i9',
+    );
     expect(getActivityExternalUrl({ id: 77 })).toBe('https://www.strava.com/activities/77');
   });
 });
@@ -169,13 +198,16 @@ describe('getActivityExternalUrl', () => {
 describe('syncActivities (intervals.icu)', () => {
   it('imports the full history on first sync, then syncs incrementally', async () => {
     connect();
-    const calls = fakeIntervals([
-      icu(1, 1),
-      icu(2, 2, { type: 'VirtualRide', distance: 30000, moving_time: 3600, trainer: true, source: 'ZWIFT' }),
-      icu(3, 3),
-      icu(4, 10, { trainer: true }), // treadmill run
-      icu(5, 400),                   // more than a year ago
-    ], ['i3']);
+    const calls = fakeIntervals(
+      [
+        icu(1, 1),
+        icu(2, 2, { type: 'VirtualRide', distance: 30000, moving_time: 3600, trainer: true, source: 'ZWIFT' }),
+        icu(3, 3),
+        icu(4, 10, { trainer: true }), // treadmill run
+        icu(5, 400), // more than a year ago
+      ],
+      ['i3'],
+    );
     const updates: number[] = [];
     const unsubscribe = onActivitiesUpdated((s) => updates.push(s.added));
 
@@ -224,12 +256,21 @@ describe('syncActivities (intervals.icu)', () => {
     connect();
     const run = icu(7, 2);
     // Record cached by earlier Apollo versions: Strava ID, no source field.
-    storeActivities([{
-      id: 987654, name: 'Strava run', type: 'Run', sport_type: 'Run',
-      distance: 8030, moving_time: 2410, elapsed_time: 2460,
-      start_date: run.start_date!, start_date_local: `${run.start_date_local}Z`, kudos_count: 3,
-      map: { id: 'a987654', summary_polyline: '_p~iF~ps|U' },
-    }]);
+    storeActivities([
+      {
+        id: 987654,
+        name: 'Strava run',
+        type: 'Run',
+        sport_type: 'Run',
+        distance: 8030,
+        moving_time: 2410,
+        elapsed_time: 2460,
+        start_date: run.start_date!,
+        start_date_local: `${run.start_date_local}Z`,
+        kudos_count: 3,
+        map: { id: 'a987654', summary_polyline: '_p~iF~ps|U' },
+      },
+    ]);
     fakeIntervals([run]);
 
     const first = await syncActivities();
@@ -237,7 +278,7 @@ describe('syncActivities (intervals.icu)', () => {
     expect(first.updated).toBe(1);
     let stored = getStoredActivities();
     expect(stored).toHaveLength(1);
-    expect(stored[0].id).toBe(987654);          // plan-day links keep working
+    expect(stored[0].id).toBe(987654); // plan-day links keep working
     expect(stored[0].source).toBe('intervals');
     expect(stored[0].map?.summary_polyline).toBe('_p~iF~ps|U');
 
@@ -278,7 +319,9 @@ describe('syncActivities (intervals.icu)', () => {
     const first = syncActivities();
     // e.g. Strava OAuth completing during the launch sync
     setStravaTokens({
-      access_token: 'a', refresh_token: 'r', expires_at: Math.floor(Date.now() / 1000) + 3600,
+      access_token: 'a',
+      refresh_token: 'r',
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
       athlete: { id: 7, firstname: 'S', lastname: 'T' },
     });
     const second = syncActivities();
@@ -291,7 +334,9 @@ describe('syncActivities (intervals.icu)', () => {
   it('web version: never calls Strava, even with saved Strava tokens', async () => {
     connect();
     setStravaTokens({
-      access_token: 'a', refresh_token: 'r', expires_at: Math.floor(Date.now() / 1000) - 60, // expired: would refresh
+      access_token: 'a',
+      refresh_token: 'r',
+      expires_at: Math.floor(Date.now() / 1000) - 60, // expired: would refresh
       athlete: { id: 7, firstname: 'S', lastname: 'T' },
     });
     const calls = fakeIntervals([icu(1, 1)]);

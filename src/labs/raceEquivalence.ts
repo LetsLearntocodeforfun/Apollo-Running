@@ -12,11 +12,7 @@
  * Allows fair comparison of results across different marathons and conditions.
  */
 
-import type {
-  RaceConditions,
-  RaceEquivalenceResult,
-  EquivalenceAdjustment,
-} from '../types/nutrition';
+import type { RaceConditions, RaceEquivalenceResult, EquivalenceAdjustment } from '../types/nutrition';
 import { formatTimeSec } from '../services/racePrediction';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -72,12 +68,7 @@ export function normalizeToIdeal(
   actualConditions: RaceConditions,
   courseAdjustment?: CourseAdjustment,
 ): RaceEquivalenceResult {
-  return convertBetweenConditions(
-    actualTimeSec,
-    actualConditions,
-    IDEAL_CONDITIONS,
-    courseAdjustment,
-  );
+  return convertBetweenConditions(actualTimeSec, actualConditions, IDEAL_CONDITIONS, courseAdjustment);
 }
 
 /**
@@ -100,9 +91,7 @@ export function convertBetweenConditions(
   }
 
   // Humidity adjustment
-  const humidityAdjustment = calculateHumidityAdjustment(
-    fromConditions.humidityPct, toConditions.humidityPct,
-  );
+  const humidityAdjustment = calculateHumidityAdjustment(fromConditions.humidityPct, toConditions.humidityPct);
   if (Math.abs(humidityAdjustment.pctChange) >= 0.1) {
     adjustments.push(humidityAdjustment);
     totalPctChange += humidityAdjustment.pctChange;
@@ -110,9 +99,7 @@ export function convertBetweenConditions(
 
   // Wind adjustment
   if (fromConditions.windMph || toConditions.windMph) {
-    const windAdjustment = calculateWindAdjustment(
-      fromConditions.windMph ?? 0, toConditions.windMph ?? 0,
-    );
+    const windAdjustment = calculateWindAdjustment(fromConditions.windMph ?? 0, toConditions.windMph ?? 0);
     if (Math.abs(windAdjustment.pctChange) >= 0.1) {
       adjustments.push(windAdjustment);
       totalPctChange += windAdjustment.pctChange;
@@ -121,9 +108,7 @@ export function convertBetweenConditions(
 
   // Altitude adjustment
   if (fromConditions.altitudeFt || toConditions.altitudeFt) {
-    const altAdjustment = calculateAltitudeAdjustment(
-      fromConditions.altitudeFt ?? 0, toConditions.altitudeFt ?? 0,
-    );
+    const altAdjustment = calculateAltitudeAdjustment(fromConditions.altitudeFt ?? 0, toConditions.altitudeFt ?? 0);
     if (Math.abs(altAdjustment.pctChange) >= 0.1) {
       adjustments.push(altAdjustment);
       totalPctChange += altAdjustment.pctChange;
@@ -147,9 +132,7 @@ export function convertBetweenConditions(
   const fromDesc = describeConditions(fromConditions);
   const toDesc = describeConditions(toConditions);
 
-  const summary = buildEquivalenceSummary(
-    actualTimeSec, adjustedTimeSec, deltaSec, fromDesc, toDesc, adjustments,
-  );
+  const summary = buildEquivalenceSummary(actualTimeSec, adjustedTimeSec, deltaSec, fromDesc, toDesc, adjustments);
 
   return {
     originalTimeSec: actualTimeSec,
@@ -190,8 +173,8 @@ function calculateTempPenalty(tempF: number): number {
 }
 
 function calculateHumidityAdjustment(fromH: number, toH: number): EquivalenceAdjustment {
-  const fromPenalty = Math.max(0, (fromH - IDEAL_HUMIDITY)) * HUMIDITY_PCT_PER_PCT;
-  const toPenalty = Math.max(0, (toH - IDEAL_HUMIDITY)) * HUMIDITY_PCT_PER_PCT;
+  const fromPenalty = Math.max(0, fromH - IDEAL_HUMIDITY) * HUMIDITY_PCT_PER_PCT;
+  const toPenalty = Math.max(0, toH - IDEAL_HUMIDITY) * HUMIDITY_PCT_PER_PCT;
   const pctChange = toPenalty - fromPenalty;
 
   return {

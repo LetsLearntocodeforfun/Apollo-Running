@@ -188,7 +188,11 @@ describe('RaceWeekPanel', () => {
     const hadCreate = 'createObjectURL' in URL;
     const prevCreate = urlApi.createObjectURL;
     const prevRevoke = urlApi.revokeObjectURL;
-    Object.defineProperty(URL, 'createObjectURL', { value: vi.fn(() => 'blob:race-card'), configurable: true, writable: true });
+    Object.defineProperty(URL, 'createObjectURL', {
+      value: vi.fn(() => 'blob:race-card'),
+      configurable: true,
+      writable: true,
+    });
     Object.defineProperty(URL, 'revokeObjectURL', { value: vi.fn(), configurable: true, writable: true });
 
     try {

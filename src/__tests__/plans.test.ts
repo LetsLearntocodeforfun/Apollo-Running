@@ -354,10 +354,10 @@ describe('createCustomPlanFromScratch with dayAssignments', () => {
 
   it('should respect explicit day assignments for workout types', () => {
     const assignments = makeAssignments({
-      1: 'easy',    // Tue
-      2: 'tempo',   // Wed
-      4: 'speed',   // Fri
-      6: 'long',    // Sun
+      1: 'easy', // Tue
+      2: 'tempo', // Wed
+      4: 'speed', // Fri
+      6: 'long', // Sun
     });
     const plan = createCustomPlanFromScratch({
       name: 'Assigned Plan',

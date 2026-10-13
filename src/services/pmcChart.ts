@@ -168,12 +168,12 @@ export function classifyTSBZone(tsb: number): TSBZone {
  */
 export function getZoneColor(zone: TSBZone): string {
   const colors: Record<TSBZone, string> = {
-    overreaching: '#EF5350',   // red
-    productive: '#66BB6A',     // green
-    fresh: '#4FC3F7',          // light blue
-    peak: '#FFD700',           // gold
-    transition: '#FFA726',     // orange
-    very_fresh: '#78909C',     // grey
+    overreaching: '#EF5350', // red
+    productive: '#66BB6A', // green
+    fresh: '#4FC3F7', // light blue
+    peak: '#FFD700', // gold
+    transition: '#FFA726', // orange
+    very_fresh: '#78909C', // grey
   };
   return colors[zone] ?? colors.very_fresh;
 }
@@ -239,7 +239,7 @@ export function classifyWorkoutType(
     if (typical && typical > 0) {
       if (paceMinPerMi < typical * 0.9) return 'tempo';
     } else if (paceMinPerMi < 7) {
-      return 'tempo';  // sub-7 pace suggests quality (no athlete context)
+      return 'tempo'; // sub-7 pace suggests quality (no athlete context)
     }
     if (distance >= 10) return 'long_run';
   }
@@ -261,11 +261,7 @@ function hrTSS(movingTimeSec: number, avgHR: number, maxHR: number): number {
  *  3. Heuristic from distance, duration and workout type (runs) or the
  *     sport's per-hour estimate (cross-training)
  */
-export function activityTSS(
-  a: StravaActivity,
-  maxHR?: number | null,
-  ctx: WorkoutClassifyContext = {},
-): number {
+export function activityTSS(a: StravaActivity, maxHR?: number | null, ctx: WorkoutClassifyContext = {}): number {
   if (typeof a.training_load === 'number' && a.training_load > 0) return a.training_load;
   if (!isRunActivity(a)) return estimateActivityLoad(a, maxHR ?? undefined);
   const moving = a.moving_time || a.elapsed_time || 0;
@@ -279,7 +275,7 @@ export function activityTSS(
 function typicalRunPace(runs: StravaActivity[]): number | undefined {
   const paces = runs
     .filter((a) => a.distance >= 3218 && a.moving_time > 0)
-    .map((a) => (a.moving_time / 60) / (a.distance / 1609.34))
+    .map((a) => a.moving_time / 60 / (a.distance / 1609.34))
     .filter((p) => p > 3 && p < 20)
     .sort((x, y) => x - y);
   if (paces.length < 5) return undefined;
@@ -568,11 +564,7 @@ export function recentTssPerMile(loads: DailyTrainingLoad[], today: string = tod
 
 // ── Insights Generator ───────────────────────────────────────────────────────
 
-function generateInsights(
-  dataPoints: PMCDataPoint[],
-  current: PMCResult['current'],
-  formReliable = true,
-): string[] {
+function generateInsights(dataPoints: PMCDataPoint[], current: PMCResult['current'], formReliable = true): string[] {
   const insights: string[] = [];
   if (!current || dataPoints.length < 14) return insights;
   // L-3: no zone advice (e.g. "overreaching") until the model has enough history.
@@ -585,24 +577,30 @@ function generateInsights(
   const ctlChange = ctlEnd - ctlStart;
 
   if (ctlChange > 3) {
-    insights.push(`Your fitness (CTL) increased ${ctlChange.toFixed(0)} points in the last 2 weeks — solid training load.`);
+    insights.push(
+      `Your fitness (CTL) increased ${ctlChange.toFixed(0)} points in the last 2 weeks — solid training load.`,
+    );
   } else if (ctlChange < -3) {
-    insights.push(`Your fitness (CTL) decreased ${Math.abs(ctlChange).toFixed(0)} points recently. This is expected during a taper or recovery week.`);
+    insights.push(
+      `Your fitness (CTL) decreased ${Math.abs(ctlChange).toFixed(0)} points recently. This is expected during a taper or recovery week.`,
+    );
   }
 
   // Current zone advice
   switch (current.zone) {
     case 'overreaching':
-      insights.push('You\'re in the overreaching zone. Consider an easy day or rest day to prevent overtraining.');
+      insights.push("You're in the overreaching zone. Consider an easy day or rest day to prevent overtraining.");
       break;
     case 'productive':
-      insights.push('You\'re in the productive training zone — fatigue is present but manageable. Keep it up.');
+      insights.push("You're in the productive training zone — fatigue is present but manageable. Keep it up.");
       break;
     case 'peak':
-      insights.push('You\'re in the peak readiness zone (TSB +15 to +25). This is the ideal window for racing.');
+      insights.push("You're in the peak readiness zone (TSB +15 to +25). This is the ideal window for racing.");
       break;
     case 'very_fresh':
-      insights.push('You\'re very fresh (form above +30). Ideal for a race; outside a taper it means your training load has dropped, so rebuild gradually.');
+      insights.push(
+        "You're very fresh (form above +30). Ideal for a race; outside a taper it means your training load has dropped, so rebuild gradually.",
+      );
       break;
   }
 
@@ -641,9 +639,10 @@ export function buildPMC(
   }).filter((l) => l.date <= today);
 
   // Pad with a zero-load day for today so "current" never goes stale (V16).
-  const padded = dailyLoads.length > 0 && dailyLoads[dailyLoads.length - 1].date < today
-    ? [...dailyLoads, { date: today, tss: 0, distanceMi: 0, type: 'rest' as const }]
-    : dailyLoads;
+  const padded =
+    dailyLoads.length > 0 && dailyLoads[dailyLoads.length - 1].date < today
+      ? [...dailyLoads, { date: today, tss: 0, distanceMi: 0, type: 'rest' as const }]
+      : dailyLoads;
   // L-3: seed fitness/fatigue from the first 28 days so new users don't start at
   // zero (which reads as "Overreached" for weeks).
   const snapshots = calculateFitnessFatigue(padded, { seedDays: FORM_SEED_DAYS });
@@ -692,9 +691,10 @@ export function buildPMC(
     const from = addDays(today, -14);
     const recentTotal = dailyLoads.filter((l) => l.date > from).reduce((s, l) => s + l.tss, 0);
     const avgDailyTSS = recentTotal / 14;
-    const planned = options.plannedLoads && options.plannedLoads.length > 0
-      ? new Map(options.plannedLoads.map((p) => [p.date, p.tss] as const))
-      : undefined;
+    const planned =
+      options.plannedLoads && options.plannedLoads.length > 0
+        ? new Map(options.plannedLoads.map((p) => [p.date, p.tss] as const))
+        : undefined;
     projection = projectForward(lastSnapshot, avgDailyTSS, projectionDays, planned);
     projectionSource = planned ? 'plan' : 'recent-average';
   }
@@ -710,10 +710,13 @@ export function buildPMC(
 // ── Persistence ───────────────────────────────────────────────────────────────
 
 export function cachePMC(result: PMCResult): void {
-  persistence.setItem(PMC_CACHE_KEY, JSON.stringify({
-    ...result,
-    cachedAt: new Date().toISOString(),
-  }));
+  persistence.setItem(
+    PMC_CACHE_KEY,
+    JSON.stringify({
+      ...result,
+      cachedAt: new Date().toISOString(),
+    }),
+  );
 }
 
 export function getCachedPMC(): PMCResult | null {

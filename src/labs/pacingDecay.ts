@@ -98,7 +98,11 @@ export function fitDecayModel(
   // Linear regression: relPace = 1 + decayRate × mileOffset
   // i.e., y = 1 + slope × x where y = relPace, x = mileOffset
   const n = allDecayPoints.length;
-  let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0, sumY2 = 0;
+  let sumX = 0,
+    sumY = 0,
+    sumXY = 0,
+    sumX2 = 0,
+    sumY2 = 0;
   for (const pt of allDecayPoints) {
     sumX += pt.mileOffset;
     sumY += pt.relPace;
@@ -148,7 +152,7 @@ function filterAnomalous(splits: number[]): number[] {
   const sorted = [...splits].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
   const threshold = median * 1.35;
-  return splits.map((s) => (s > threshold || s <= 0) ? median : s);
+  return splits.map((s) => (s > threshold || s <= 0 ? median : s));
 }
 
 // ── Predictions ───────────────────────────────────────────────────────────────
@@ -197,14 +201,12 @@ export function predictRacePacing(
  * 3:30-4:00: ~0.6-1.0%/mi
  * 4:00+: ~0.8-1.5%/mi
  */
-export function compareDecayToIdeal(
-  model: PacingDecayModel,
-  targetTimeSec: number,
-): DecayComparison {
+export function compareDecayToIdeal(model: PacingDecayModel, targetTimeSec: number): DecayComparison {
   const targetHours = targetTimeSec / 3600;
   let idealDecay: number;
 
-  if (targetHours < 2.75) idealDecay = 0.004; // 0.4%/mi
+  if (targetHours < 2.75)
+    idealDecay = 0.004; // 0.4%/mi
   else if (targetHours < 3.0) idealDecay = 0.005;
   else if (targetHours < 3.5) idealDecay = 0.007;
   else if (targetHours < 4.0) idealDecay = 0.009;

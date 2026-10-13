@@ -16,7 +16,7 @@ function readMigrations(): Record<string, string> {
       // Tolerate a list of ids.
       return Object.fromEntries(parsed.filter((v): v is string => typeof v === 'string').map((id) => [id, '']));
     }
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, string> : {};
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
   } catch {
     return {};
   }

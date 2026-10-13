@@ -197,7 +197,8 @@ function validateRecentRace(form: RecentRaceForm, today: string): { race?: Recen
   const timeSec = parseDuration(form.time, true);
   if (!form.time.trim()) errors.time = 'Enter your finish time, or skip this step.';
   else if (timeSec === null) errors.time = 'Use H:MM:SS or MM:SS, e.g. 1:45:30 or 45:30.';
-  else if (timeSec < distance.minSec) errors.time = `That’s faster than the ${distance.label} world record — check the time.`;
+  else if (timeSec < distance.minSec)
+    errors.time = `That’s faster than the ${distance.label} world record — check the time.`;
   else if (timeSec > MAX_RACE_SEC) errors.time = 'Enter a time under 24 hours.';
   if (!isDateKey(form.date)) errors.date = 'Enter the race date.';
   else if (daysBetween(today, form.date) > 0) errors.date = 'The race date can’t be in the future.';
@@ -355,8 +356,8 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
     return (
       <StepFrame step={step} headingRef={headingRef}>
         <p className="welcome-text">
-          Apollo turns your marathon plan into a day-by-day checklist, syncs your runs and keeps you on track to race day.
-          A few quick questions first.
+          Apollo turns your marathon plan into a day-by-day checklist, syncs your runs and keeps you on track to race
+          day. A few quick questions first.
         </p>
         <fieldset className="wf-fieldset">
           <legend className="wf-legend">Distance units</legend>
@@ -466,7 +467,12 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
       }
       const preview = previewStartPlan(input);
       if (getActivePlan() && preview.isNewInstance && (preview.clears.completions > 0 || preview.clears.overlay)) {
-        setPendingStart({ input, goalSec: goal.sec, planName: selectedPlan.name, completions: preview.clears.completions });
+        setPendingStart({
+          input,
+          goalSec: goal.sec,
+          planName: selectedPlan.name,
+          completions: preview.clears.completions,
+        });
         return;
       }
       commitStart(input, goal.sec);
@@ -497,7 +503,11 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
               checked={planChoice === CUSTOM_PLAN_ID}
               onSelect={choosePlan}
               title={customPlan ? `Your custom plan: ${customPlan.name}` : 'Build my own plan'}
-              sub={customPlan ? `${customPlan.totalWeeks} weeks · made with the plan builder` : 'Set your weeks, run days and mileage.'}
+              sub={
+                customPlan
+                  ? `${customPlan.totalWeeks} weeks · made with the plan builder`
+                  : 'Set your weeks, run days and mileage.'
+              }
             />
             <RadioOption
               name="welcome-plan"
@@ -533,7 +543,13 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
             <h2 id="welcome-race-heading" className="wf-subtitle">
               When is your race?
             </h2>
-            <RaceDatePlanSetup plan={selectedPlan} value={setup} onChange={setSetup} idPrefix="welcome" onChoosePlan={choosePlan} />
+            <RaceDatePlanSetup
+              plan={selectedPlan}
+              value={setup}
+              onChange={setSetup}
+              idPrefix="welcome"
+              onChoosePlan={choosePlan}
+            />
             {planChoice === CUSTOM_PLAN_ID && (
               <div className="wf-inline-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowBuilder(true)}>
@@ -596,8 +612,8 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
         >
           {pendingStart && pendingStart.completions > 0 && (
             <p className="welcome-hint">
-              {pendingStart.completions} completed {pendingStart.completions === 1 ? 'day' : 'days'} of {pendingStart.planName}{' '}
-              will be reset, along with any moved or skipped workouts.
+              {pendingStart.completions} completed {pendingStart.completions === 1 ? 'day' : 'days'} of{' '}
+              {pendingStart.planName} will be reset, along with any moved or skipped workouts.
             </p>
           )}
         </ConfirmDialog>
@@ -618,8 +634,8 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
     return (
       <StepFrame step={step} headingRef={headingRef}>
         <p className="welcome-text">
-          A recent all-out race lets Apollo set your training paces and race prediction from day one. Haven’t raced lately?
-          Skip this step.
+          A recent all-out race lets Apollo set your training paces and race prediction from day one. Haven’t raced
+          lately? Skip this step.
         </p>
         <div className="wf-fields">
           <div className="wf-field">
@@ -648,7 +664,9 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
               value={raceForm.time}
               onChange={(e) => setRaceForm({ ...raceForm, time: e.target.value })}
               aria-invalid={raceErrors.time ? true : undefined}
-              aria-describedby={raceErrors.time ? 'welcome-race-time-hint welcome-race-time-error' : 'welcome-race-time-hint'}
+              aria-describedby={
+                raceErrors.time ? 'welcome-race-time-hint welcome-race-time-error' : 'welcome-race-time-hint'
+              }
             />
             <p id="welcome-race-time-hint" className="wf-hint">
               H:MM:SS or MM:SS

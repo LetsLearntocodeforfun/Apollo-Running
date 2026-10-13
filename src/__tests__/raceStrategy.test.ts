@@ -20,12 +20,7 @@ import {
   formatPace,
   saveStrategy,
 } from '@/services/raceStrategy';
-import {
-  WORLD_MAJOR_MARATHONS,
-  getMarathonById,
-  getWorldMajorsByDate,
-  getNextWorldMajor,
-} from '@/data/worldMajors';
+import { WORLD_MAJOR_MARATHONS, getMarathonById, getWorldMajorsByDate, getNextWorldMajor } from '@/data/worldMajors';
 
 // ── World Majors Data Integrity ───────────────────────────────────────────────
 
@@ -113,9 +108,7 @@ describe('World Major Marathons Database', () => {
   it('getWorldMajorsByDate returns marathons sorted by date', () => {
     const sorted = getWorldMajorsByDate();
     for (let i = 1; i < sorted.length; i++) {
-      expect(new Date(sorted[i].date).getTime()).toBeGreaterThanOrEqual(
-        new Date(sorted[i - 1].date).getTime()
-      );
+      expect(new Date(sorted[i].date).getTime()).toBeGreaterThanOrEqual(new Date(sorted[i - 1].date).getTime());
     }
   });
 
@@ -127,9 +120,9 @@ describe('World Major Marathons Database', () => {
 
   it('getNextWorldMajor returns the soonest upcoming major (or null when all have passed)', () => {
     const now = Date.now();
-    const upcoming = WORLD_MAJOR_MARATHONS
-      .filter((m) => new Date(m.date).getTime() > now)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const upcoming = WORLD_MAJOR_MARATHONS.filter((m) => new Date(m.date).getTime() > now).sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+    );
     const next = getNextWorldMajor();
     if (upcoming.length === 0) {
       expect(next).toBeNull();
@@ -208,9 +201,13 @@ describe('buildRaceStrategy', () => {
   // target; at a 5:00 finish that is ~1.3 mi from the end (was "none in the last 2 miles").
   it('places gels by projected race time (slower = more gels, none in the final 15 min)', () => {
     const gels = (targetSec: number) =>
-      buildRaceStrategy('chicago-marathon-2026', targetSec, 'even-split')!
-        .nutritionPlan.filter((n) => n.item.startsWith('Energy gel'));
-    for (const [targetSec, list] of [[2.75 * 3600, gels(2.75 * 3600)], [5 * 3600, gels(5 * 3600)]] as const) {
+      buildRaceStrategy('chicago-marathon-2026', targetSec, 'even-split')!.nutritionPlan.filter((n) =>
+        n.item.startsWith('Energy gel'),
+      );
+    for (const [targetSec, list] of [
+      [2.75 * 3600, gels(2.75 * 3600)],
+      [5 * 3600, gels(5 * 3600)],
+    ] as const) {
       for (const g of list) {
         expect(g.mile).toBeGreaterThan(0);
         expect(g.mile).toBeLessThan(26.2);
@@ -275,7 +272,7 @@ describe('Custom Marathon Import', () => {
 
   it('should appear in getAllMarathons', () => {
     importCustomMarathon({
-      name: 'Grandma\'s Marathon',
+      name: "Grandma's Marathon",
       city: 'Duluth',
       country: 'United States',
       date: '2026-06-20',
@@ -284,7 +281,7 @@ describe('Custom Marathon Import', () => {
 
     const all = getAllMarathons();
     expect(all.length).toBe(WORLD_MAJOR_MARATHONS.length + 1);
-    expect(all.some((m) => m.name === 'Grandma\'s Marathon')).toBe(true);
+    expect(all.some((m) => m.name === "Grandma's Marathon")).toBe(true);
   });
 
   it('should build strategies for custom marathons', () => {

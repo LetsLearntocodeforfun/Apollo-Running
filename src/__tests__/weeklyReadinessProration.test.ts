@@ -88,8 +88,6 @@ describe('weekly readiness proration (V5)', () => {
     const latest = getLatestReadinessScore();
     expect(latest).not.toBeNull();
     expect(['1', '2']).toContain(String(latest?.weekNumber));
-    expect(latest?.generatedAt).toBe(
-      [later?.generatedAt ?? '', latest?.generatedAt ?? ''].sort().pop(),
-    );
+    expect(latest?.generatedAt).toBe([later?.generatedAt ?? '', latest?.generatedAt ?? ''].sort().pop());
   });
 });

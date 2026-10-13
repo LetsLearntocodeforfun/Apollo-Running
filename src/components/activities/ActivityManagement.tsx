@@ -80,7 +80,7 @@ export function DuplicatesBanner({ onNotice }: DuplicatesBannerProps) {
   const keepBoth = (c: DuplicateCandidate): void => {
     keepBothDuplicates(c.keep.id, c.drop.id);
     refresh();
-    onNotice?.('Kept both. Apollo won\'t suggest that pair again.');
+    onNotice?.("Kept both. Apollo won't suggest that pair again.");
   };
 
   const n = candidates.length;
@@ -90,7 +90,15 @@ export function DuplicatesBanner({ onNotice }: DuplicatesBannerProps) {
       className="card"
       style={{ marginBottom: '1.25rem', borderLeft: '3px solid var(--color-warning)', padding: '0.85rem 1.1rem' }}
     >
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+        }}
+      >
         <button
           type="button"
           className="btn btn-secondary"
@@ -112,16 +120,21 @@ export function DuplicatesBanner({ onNotice }: DuplicatesBannerProps) {
       </div>
       <div id={panelId} hidden={!open}>
         <p style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', margin: '0.75rem 0' }}>
-          These look like the same workout stored twice. Merging keeps the more detailed record and hides the other,
-          so it isn&apos;t counted twice in your stats.
+          These look like the same workout stored twice. Merging keeps the more detailed record and hides the other, so
+          it isn&apos;t counted twice in your stats.
         </p>
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: '0.6rem' }}>
           {candidates.map((c) => (
             <li
               key={c.key}
               style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap',
-                padding: '0.6rem 0', borderTop: '1px solid var(--border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '0.75rem',
+                flexWrap: 'wrap',
+                padding: '0.6rem 0',
+                borderTop: '1px solid var(--border)',
               }}
             >
               <div style={{ minWidth: 0, fontSize: 'var(--text-sm)' }}>
@@ -213,13 +226,17 @@ export function ActivityActions({ activity, onDone }: ActivityActionsProps) {
       >
         Delete from this device
       </button>
-      {error && <span role="alert" style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>{error}</span>}
+      {error && (
+        <span role="alert" style={{ color: 'var(--color-error)', fontSize: 'var(--text-sm)' }}>
+          {error}
+        </span>
+      )}
       <ConfirmDialog
         open={confirmDelete}
         title="Delete from this device?"
         tone="danger"
         confirmLabel="Delete from this device"
-        message={(
+        message={
           <>
             <p>
               “{label}” ({formatActivityStart(activity)}) will be removed from Apollo on this device. It won&apos;t come
@@ -227,7 +244,7 @@ export function ActivityActions({ activity, onDone }: ActivityActionsProps) {
             </p>
             <p>Nothing is deleted from {upstream}. To keep it but leave it out of your stats, use Hide instead.</p>
           </>
-        )}
+        }
         onCancel={() => setConfirmDelete(false)}
         onConfirm={() => {
           setConfirmDelete(false);

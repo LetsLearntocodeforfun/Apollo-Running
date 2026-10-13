@@ -1,4 +1,14 @@
-import { app, BrowserWindow, ipcMain, shell, safeStorage, session, type IpcMainEvent, type IpcMainInvokeEvent, type WebContents } from 'electron';
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  shell,
+  safeStorage,
+  session,
+  type IpcMainEvent,
+  type IpcMainInvokeEvent,
+  type WebContents,
+} from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
 import path from 'path';
 import fs from 'fs';
@@ -189,7 +199,7 @@ function createWindow() {
     },
     title: 'Apollo',
     backgroundColor: '#0D1B2A',
-    icon: iconPath
+    icon: iconPath,
   });
   mainWindow = win;
 
@@ -247,7 +257,8 @@ function createWindow() {
         console.error('Failed to load app:', error);
 
         // Escape HTML entities to prevent XSS in error messages
-        const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        const esc = (s: string) =>
+          s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         const errMsg = esc(error instanceof Error ? error.message : String(error));
         const errStack = esc(error instanceof Error && error.stack ? error.stack : 'No stack trace available');
 
@@ -300,15 +311,14 @@ function createWindow() {
             </body>
           </html>
         `;
-        
+
         await win.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(errorHtml)}`);
       }
     }
-    
   };
-  
+
   // Start the app
-  loadApp().catch(error => {
+  loadApp().catch((error) => {
     console.error('Failed to load app:', error);
     app.quit();
   });
@@ -328,7 +338,7 @@ function createWindow() {
     });
   });
 
-  win.on('closed', () => { 
+  win.on('closed', () => {
     if (mainWindow === win) mainWindow = null;
     closeOAuthServer();
   });
@@ -343,7 +353,9 @@ const flushReadyContents = new WeakSet<WebContents>();
 /** True once the app is quitting (Cmd+Q, menu quit, update install). */
 let quitRequested = false;
 
-app.on('before-quit', () => { quitRequested = true; });
+app.on('before-quit', () => {
+  quitRequested = true;
+});
 
 ipcMain.on('lifecycle:flush-ready', (event: IpcMainEvent, ready: unknown) => {
   if (ready === true) flushReadyContents.add(event.sender);
@@ -394,7 +406,10 @@ app.on('activate', () => {
 /** How long to wait for the user to approve access in the browser. */
 const OAUTH_TIMEOUT_MS = 5 * 60 * 1000;
 
-interface OAuthCallbackResult { code: string; scope?: string }
+interface OAuthCallbackResult {
+  code: string;
+  scope?: string;
+}
 interface PendingOAuth {
   /** Resolves with the loopback port once the callback server is listening. */
   listening: Promise<number>;
@@ -440,7 +455,9 @@ function ensureOAuthServer(): PendingOAuth {
     resolveResult = resolve;
     rejectResult = reject;
   });
-  result.catch(() => { /* handled by whoever awaits it */ });
+  result.catch(() => {
+    /* handled by whoever awaits it */
+  });
 
   const server = http.createServer((req, res) => {
     // The CSRF state is checked on every branch, including ?error=, so another
@@ -493,7 +510,9 @@ function ensureOAuthServer(): PendingOAuth {
       else reject(new Error('Could not start the Strava callback server'));
     });
   });
-  listening.catch(() => { /* surfaced through the IPC handlers */ });
+  listening.catch(() => {
+    /* surfaced through the IPC handlers */
+  });
 
   oauthServer = server;
   pendingOAuth = { listening, result };
@@ -539,22 +558,25 @@ handleTrusted('strava:exchange-code', async (_, payload: { clientId: string; cli
   return res.json();
 });
 
-handleTrusted('strava:refresh-token', async (_, payload: { clientId: string; clientSecret: string; refreshToken: string }) => {
-  const body = new URLSearchParams({
-    client_id: requireString(payload?.clientId, 'Strava client ID', 64),
-    client_secret: requireString(payload?.clientSecret, 'Strava client secret'),
-    grant_type: 'refresh_token',
-    refresh_token: requireString(payload?.refreshToken, 'refresh token'),
-  });
-  const res = await fetch(STRAVA_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-  // The renderer maps 400/401/403 to "reconnect Strava" (strava.ts).
-  if (!res.ok) throw new Error(`Refresh failed: ${res.status}`);
-  return res.json();
-});
+handleTrusted(
+  'strava:refresh-token',
+  async (_, payload: { clientId: string; clientSecret: string; refreshToken: string }) => {
+    const body = new URLSearchParams({
+      client_id: requireString(payload?.clientId, 'Strava client ID', 64),
+      client_secret: requireString(payload?.clientSecret, 'Strava client secret'),
+      grant_type: 'refresh_token',
+      refresh_token: requireString(payload?.refreshToken, 'refresh token'),
+    });
+    const res = await fetch(STRAVA_TOKEN_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(),
+    });
+    // The renderer maps 400/401/403 to "reconnect Strava" (strava.ts).
+    if (!res.ok) throw new Error(`Refresh failed: ${res.status}`);
+    return res.json();
+  },
+);
 
 handleTrusted('oauth:start-server', async () => {
   const pending = ensureOAuthServer();
@@ -631,15 +653,21 @@ function writeSecureStore(store: Record<string, string>): void {
     }
     fs.renameSync(tmpPath, SECURE_STORE_PATH);
   } catch (err) {
-    try { fs.unlinkSync(tmpPath); } catch { /* temp file may not exist */ }
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* temp file may not exist */
+    }
     console.error('[Apollo] Failed to write secure store:', err);
     throw err;
   }
 }
 
 const ALLOWED_SECURE_KEYS = new Set([
-  'strava_tokens', 'strava_credentials',
-  'garmin_tokens', 'garmin_credentials',
+  'strava_tokens',
+  'strava_credentials',
+  'garmin_tokens',
+  'garmin_credentials',
   'intervals_credentials',
 ]);
 
@@ -655,10 +683,14 @@ function encryptionUnavailableReason(): string | null {
   if (process.platform === 'linux') {
     try {
       if (safeStorage.getSelectedStorageBackend() === 'basic_text') {
-        return 'No system keyring (GNOME Keyring / KWallet) was found, so credentials can\'t be encrypted. '
-          + 'They will work until Apollo is closed.';
+        return (
+          "No system keyring (GNOME Keyring / KWallet) was found, so credentials can't be encrypted. " +
+          'They will work until Apollo is closed.'
+        );
       }
-    } catch { /* backend query unsupported — trust isEncryptionAvailable */ }
+    } catch {
+      /* backend query unsupported — trust isEncryptionAvailable */
+    }
   }
   return null;
 }
@@ -705,7 +737,8 @@ handleTrusted('secure-storage:get', (_, key: unknown) => {
 /** Remove a stored credential */
 handleTrusted('secure-storage:remove', (_, key: unknown) => {
   try {
-    if (typeof key !== 'string' || !ALLOWED_SECURE_KEYS.has(key)) return { success: false, error: 'Invalid credential key' };
+    if (typeof key !== 'string' || !ALLOWED_SECURE_KEYS.has(key))
+      return { success: false, error: 'Invalid credential key' };
     const store = readSecureStore();
     if (!(key in store)) return { success: true };
     delete store[key];
@@ -780,11 +813,12 @@ autoUpdater.on('checking-for-update', () => {
 autoUpdater.on('update-available', (info: UpdateInfo) => {
   updateState.status = 'available';
   updateState.version = info.version;
-  updateState.releaseNotes = typeof info.releaseNotes === 'string'
-    ? info.releaseNotes
-    : Array.isArray(info.releaseNotes)
-      ? info.releaseNotes.map(n => typeof n === 'string' ? n : n.note).join('\n')
-      : null;
+  updateState.releaseNotes =
+    typeof info.releaseNotes === 'string'
+      ? info.releaseNotes
+      : Array.isArray(info.releaseNotes)
+        ? info.releaseNotes.map((n) => (typeof n === 'string' ? n : n.note)).join('\n')
+        : null;
   sendUpdateState();
 });
 

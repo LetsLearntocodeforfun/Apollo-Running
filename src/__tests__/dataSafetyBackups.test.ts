@@ -9,11 +9,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { persistence } from '@/services/db/persistence';
 import { db } from '@/services/db/apolloDB';
-import {
-  getBackupPayload,
-  listBackupPayloadIds,
-  migrateLegacyBackupPayloads,
-} from '@/services/db/backupStore';
+import { getBackupPayload, listBackupPayloadIds, migrateLegacyBackupPayloads } from '@/services/db/backupStore';
 import {
   createBackup,
   getBackupRecords,

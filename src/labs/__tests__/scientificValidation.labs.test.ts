@@ -40,7 +40,6 @@ const maleRunner70kg = {
   vo2max: 50,
 };
 
-
 // ── Glycogen Model Scientific Validation ──────────────────────────────────────
 
 describe('Glycogen Model — Scientific Validation', () => {
@@ -94,8 +93,7 @@ describe('Glycogen Model — Scientific Validation', () => {
       expect(loadedSim.depletionMile).toBeGreaterThan(baseSim.depletionMile);
     }
     // Loaded glycogen should have more remaining at each mile
-    expect(loadedSim.miles[15].glycogenRemainingG)
-      .toBeGreaterThan(baseSim.miles[15].glycogenRemainingG);
+    expect(loadedSim.miles[15].glycogenRemainingG).toBeGreaterThan(baseSim.miles[15].glycogenRemainingG);
   });
 
   it('in-race fueling extends glycogen endurance', () => {
@@ -117,8 +115,7 @@ describe('Glycogen Model — Scientific Validation', () => {
       fuelingItems: gels,
     });
     // With 100g of additional carbs, glycogen at mile 22 should be higher
-    expect(withFuel.miles[21].glycogenRemainingG)
-      .toBeGreaterThan(noFuel.miles[21].glycogenRemainingG);
+    expect(withFuel.miles[21].glycogenRemainingG).toBeGreaterThan(noFuel.miles[21].glycogenRemainingG);
   });
 
   it('lighter runner depletes glycogen faster per body weight', () => {
@@ -162,7 +159,7 @@ describe('Glycogen Model — Scientific Validation', () => {
     const sim = simulateGlycogenDepletion({
       athlete: maleRunner70kg,
       paceSecPerMi: 360, // very fast, high glycogen burn
-      distanceMi: 30,    // ultra distance
+      distanceMi: 30, // ultra distance
     });
     for (const mile of sim.miles) {
       expect(mile.glycogenRemainingG).toBeGreaterThanOrEqual(0);
@@ -177,12 +174,7 @@ describe('Hydration Calculator — Scientific Validation', () => {
   const hotConditions = { tempF: 85, humidityPct: 70 };
 
   it('base sweat rate in ideal conditions is physiologically plausible (600-1000 ml/hr)', () => {
-    const result = calculateSweatRate(
-      maleRunner70kg,
-      idealConditions,
-      480,
-      210,
-    );
+    const result = calculateSweatRate(maleRunner70kg, idealConditions, 480, 210);
     expect(result.adjustedSweatRateMlHr).toBeGreaterThanOrEqual(500);
     expect(result.adjustedSweatRateMlHr).toBeLessThanOrEqual(1200);
   });
@@ -196,14 +188,8 @@ describe('Hydration Calculator — Scientific Validation', () => {
   });
 
   it('female runners have lower sweat rate than males (Sawka 2007)', () => {
-    const maleResult = calculateSweatRate(
-      { weightKg: 65, sex: 'male', vo2max: 50 },
-      idealConditions, 480, 210,
-    );
-    const femaleResult = calculateSweatRate(
-      { weightKg: 65, sex: 'female', vo2max: 50 },
-      idealConditions, 480, 210,
-    );
+    const maleResult = calculateSweatRate({ weightKg: 65, sex: 'male', vo2max: 50 }, idealConditions, 480, 210);
+    const femaleResult = calculateSweatRate({ weightKg: 65, sex: 'female', vo2max: 50 }, idealConditions, 480, 210);
     expect(femaleResult.adjustedSweatRateMlHr).toBeLessThan(maleResult.adjustedSweatRateMlHr);
   });
 
@@ -295,9 +281,9 @@ describe('Fatigue Resistance Index — Scientific Validation', () => {
 
   it('negative split (faster late) produces FRI < 100', () => {
     // Start 8:00, gradually get faster to 7:30
-    const splits = Array(20).fill(0).map((_, i) =>
-      480 - (i / 19) * 30,
-    );
+    const splits = Array(20)
+      .fill(0)
+      .map((_, i) => 480 - (i / 19) * 30);
     const result = calculateFRI(splits, 20, 'test-2', '2025-01-01');
     expect(result).not.toBeNull();
     expect(result!.fri).toBeLessThan(100);
@@ -306,10 +292,7 @@ describe('Fatigue Resistance Index — Scientific Validation', () => {
 
   it('moderate fade (5% slower last 30%) produces "good" or "fair" rating', () => {
     // First 14 miles at 8:00, last 6 miles at 8:24 (5% slower)
-    const splits = [
-      ...Array(14).fill(480),
-      ...Array(6).fill(504),
-    ];
+    const splits = [...Array(14).fill(480), ...Array(6).fill(504)];
     const result = calculateFRI(splits, 20, 'test-3', '2025-01-01');
     expect(result).not.toBeNull();
     expect(result!.fri).toBeGreaterThanOrEqual(100);
@@ -319,10 +302,7 @@ describe('Fatigue Resistance Index — Scientific Validation', () => {
 
   it('severe fade (15% slower) produces "severe_fade" rating', () => {
     // First 14 miles at 8:00, last 6 miles at 9:12 (15% slower)
-    const splits = [
-      ...Array(14).fill(480),
-      ...Array(6).fill(552),
-    ];
+    const splits = [...Array(14).fill(480), ...Array(6).fill(552)];
     const result = calculateFRI(splits, 20, 'test-4', '2025-01-01');
     expect(result).not.toBeNull();
     expect(result!.fri).toBeGreaterThan(110);
@@ -426,7 +406,9 @@ describe('Race Equivalence — Scientific Validation', () => {
   it('altitude penalty matches Péronnet (~3% per 1000m = ~0.9% per 1000ft)', () => {
     // 5000ft altitude → ~4.5% penalty
     const result = normalizeToIdeal(threeHourMarathon, {
-      tempF: 55, humidityPct: 40, altitudeFt: 5000,
+      tempF: 55,
+      humidityPct: 40,
+      altitudeFt: 5000,
     });
     expect(result.adjustedTimeSec).toBeLessThan(threeHourMarathon);
     const pctDelta = ((threeHourMarathon - result.adjustedTimeSec) / threeHourMarathon) * 100;
@@ -462,11 +444,13 @@ describe('Race Equivalence — Scientific Validation', () => {
 
 describe('Aerobic Decoupling — Scientific Validation', () => {
   it('zero cardiac drift = 0% decoupling (excellent)', () => {
-    const splits = Array(12).fill(0).map((_, i) => ({
-      mile: i + 1,
-      paceSec: 480,
-      avgHR: 150,
-    }));
+    const splits = Array(12)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: 150,
+      }));
     const result = calculateDecoupling(splits, 12, 1, '2025-01-01');
     expect(result).not.toBeNull();
     expect(Math.abs(result!.decouplingPct)).toBeLessThan(1);
@@ -476,8 +460,12 @@ describe('Aerobic Decoupling — Scientific Validation', () => {
   it('moderate cardiac drift = ~7% decoupling (adequate per Friel)', () => {
     // Second half: HR rises 7% while pace stays same
     const splits = [
-      ...Array(6).fill(0).map((_, i) => ({ mile: i + 1, paceSec: 480, avgHR: 150 })),
-      ...Array(6).fill(0).map((_, i) => ({ mile: i + 7, paceSec: 480, avgHR: 160 })),
+      ...Array(6)
+        .fill(0)
+        .map((_, i) => ({ mile: i + 1, paceSec: 480, avgHR: 150 })),
+      ...Array(6)
+        .fill(0)
+        .map((_, i) => ({ mile: i + 7, paceSec: 480, avgHR: 160 })),
     ];
     const result = calculateDecoupling(splits, 12, 2, '2025-01-01');
     expect(result).not.toBeNull();
@@ -488,8 +476,12 @@ describe('Aerobic Decoupling — Scientific Validation', () => {
 
   it('severe drift produces needs_work rating (>10%)', () => {
     const splits = [
-      ...Array(6).fill(0).map((_, i) => ({ mile: i + 1, paceSec: 480, avgHR: 145 })),
-      ...Array(6).fill(0).map((_, i) => ({ mile: i + 7, paceSec: 480, avgHR: 170 })),
+      ...Array(6)
+        .fill(0)
+        .map((_, i) => ({ mile: i + 1, paceSec: 480, avgHR: 145 })),
+      ...Array(6)
+        .fill(0)
+        .map((_, i) => ({ mile: i + 7, paceSec: 480, avgHR: 170 })),
     ];
     const result = calculateDecoupling(splits, 12, 3, '2025-01-01');
     expect(result).not.toBeNull();
@@ -498,18 +490,24 @@ describe('Aerobic Decoupling — Scientific Validation', () => {
   });
 
   it('rejects short runs (< 8 miles)', () => {
-    const splits = Array(5).fill(0).map((_, i) => ({
-      mile: i + 1, paceSec: 480, avgHR: 150,
-    }));
+    const splits = Array(5)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: 150,
+      }));
     expect(calculateDecoupling(splits, 5, 4, '2025-01-01')).toBeNull();
   });
 
   it('filters out low HR splits (sensor errors)', () => {
-    const splits = Array(10).fill(0).map((_, i) => ({
-      mile: i + 1,
-      paceSec: 480,
-      avgHR: i === 5 ? 50 : 150, // One bad reading
-    }));
+    const splits = Array(10)
+      .fill(0)
+      .map((_, i) => ({
+        mile: i + 1,
+        paceSec: 480,
+        avgHR: i === 5 ? 50 : 150, // One bad reading
+      }));
     const result = calculateDecoupling(splits, 10, 5, '2025-01-01');
     // Should filter the bad reading and still compute
     expect(result).not.toBeNull();
@@ -595,22 +593,34 @@ describe('Bonk Risk Assessment — Scientific Validation', () => {
   it('risk factors sum is bounded [0, 100]', () => {
     // Best case
     const low = assessBonkRisk({
-      longestRunMi: 24, runsOver18Mi: 6, longRunsPlanned: 6, longRunsCompleted: 6,
-      targetRacePaceSec: 480, avgLongRunPaceSec: 490,
-      practicedFueling: true, fueledLongRuns: 6,
-      carbLoading: true, carbLoadingDaysCompleted: 3,
-      experience: 'advanced', raceTempF: 50,
+      longestRunMi: 24,
+      runsOver18Mi: 6,
+      longRunsPlanned: 6,
+      longRunsCompleted: 6,
+      targetRacePaceSec: 480,
+      avgLongRunPaceSec: 490,
+      practicedFueling: true,
+      fueledLongRuns: 6,
+      carbLoading: true,
+      carbLoadingDaysCompleted: 3,
+      experience: 'advanced',
+      raceTempF: 50,
     });
     expect(low.score).toBeGreaterThanOrEqual(0);
     expect(low.score).toBeLessThanOrEqual(100);
 
     // Worst case
     const high = assessBonkRisk({
-      longestRunMi: 10, runsOver18Mi: 0, longRunsPlanned: 10, longRunsCompleted: 2,
-      targetRacePaceSec: 360, avgLongRunPaceSec: 600,
+      longestRunMi: 10,
+      runsOver18Mi: 0,
+      longRunsPlanned: 10,
+      longRunsCompleted: 2,
+      targetRacePaceSec: 360,
+      avgLongRunPaceSec: 600,
       practicedFueling: false,
       carbLoading: false,
-      experience: 'beginner', raceTempF: 95,
+      experience: 'beginner',
+      raceTempF: 95,
     });
     expect(high.score).toBeGreaterThanOrEqual(0);
     expect(high.score).toBeLessThanOrEqual(100);
@@ -618,9 +628,15 @@ describe('Bonk Risk Assessment — Scientific Validation', () => {
 
   it('heat factor increases risk score', () => {
     const base = {
-      longestRunMi: 20, runsOver18Mi: 3, longRunsPlanned: 6, longRunsCompleted: 5,
-      targetRacePaceSec: 480, avgLongRunPaceSec: 510,
-      practicedFueling: true, carbLoading: true, carbLoadingDaysCompleted: 3,
+      longestRunMi: 20,
+      runsOver18Mi: 3,
+      longRunsPlanned: 6,
+      longRunsCompleted: 5,
+      targetRacePaceSec: 480,
+      avgLongRunPaceSec: 510,
+      practicedFueling: true,
+      carbLoading: true,
+      carbLoadingDaysCompleted: 3,
       experience: 'intermediate' as const,
     };
     const cool = assessBonkRisk({ ...base, raceTempF: 50 });
@@ -630,9 +646,15 @@ describe('Bonk Risk Assessment — Scientific Validation', () => {
 
   it('experience level affects pace aggression tolerance', () => {
     const baseInput = {
-      longestRunMi: 20, runsOver18Mi: 4, longRunsPlanned: 6, longRunsCompleted: 6,
-      targetRacePaceSec: 420, avgLongRunPaceSec: 480, // 60 sec/mi = ~12.5% faster
-      practicedFueling: true, carbLoading: true, carbLoadingDaysCompleted: 3,
+      longestRunMi: 20,
+      runsOver18Mi: 4,
+      longRunsPlanned: 6,
+      longRunsCompleted: 6,
+      targetRacePaceSec: 420,
+      avgLongRunPaceSec: 480, // 60 sec/mi = ~12.5% faster
+      practicedFueling: true,
+      carbLoading: true,
+      carbLoadingDaysCompleted: 3,
     };
     const beginner = assessBonkRisk({ ...baseInput, experience: 'beginner' });
     const advanced = assessBonkRisk({ ...baseInput, experience: 'advanced' });

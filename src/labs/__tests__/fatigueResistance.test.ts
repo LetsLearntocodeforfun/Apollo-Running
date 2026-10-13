@@ -3,12 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import {
-  calculateFRI,
-  saveFRIResult,
-  getFRIHistory,
-  getFRITrend,
-} from '@/labs/fatigueResistance';
+import { calculateFRI, saveFRIResult, getFRIHistory, getFRITrend } from '@/labs/fatigueResistance';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {
@@ -101,7 +96,7 @@ describe('getFRITrend', () => {
         fri,
         rating: 'good' as const,
         firstSegmentPaceSec: 480,
-        lastSegmentPaceSec: Math.round(480 * fri / 100),
+        lastSegmentPaceSec: Math.round((480 * fri) / 100),
         fadeRateSecPerMi: 1.5,
         message: 'test',
       };

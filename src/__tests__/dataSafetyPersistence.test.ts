@@ -32,8 +32,14 @@ function flakyDb() {
       rows.set(e.key, e);
       return Promise.resolve(e.key);
     },
-    delete: (key: string) => { rows.delete(key); return Promise.resolve(); },
-    clear: () => { rows.clear(); return Promise.resolve(); },
+    delete: (key: string) => {
+      rows.delete(key);
+      return Promise.resolve();
+    },
+    clear: () => {
+      rows.clear();
+      return Promise.resolve();
+    },
   };
   return { db: { kvStore } as unknown as PersistenceDatabase, rows, state };
 }
@@ -111,7 +117,9 @@ describe('PX-03: write health', () => {
     await svc.ready;
     const listener = vi.fn();
     const unsubscribe = svc.onWriteHealthChange(listener);
-    svc.onWriteHealthChange(() => { throw new Error('bad listener'); });
+    svc.onWriteHealthChange(() => {
+      throw new Error('bad listener');
+    });
     unsubscribe();
     state.failing = true;
     svc.setItem('apollo_k', '"v"');
@@ -156,8 +164,10 @@ describe('PX-04: Dexie version 2 moves backups to their own table', () => {
     const upgraded = new ApolloDatabase(NAME);
     await upgraded.open();
     expect(upgraded.verno).toBe(2);
-    expect((await upgraded.kvStore.toCollection().primaryKeys()).sort())
-      .toEqual(['apollo_activities_store', 'apollo_backup_registry']);
+    expect((await upgraded.kvStore.toCollection().primaryKeys()).sort()).toEqual([
+      'apollo_activities_store',
+      'apollo_backup_registry',
+    ]);
     const backups = await upgraded.backups.toArray();
     expect(backups.map((b) => b.id).sort()).toEqual(['backup_1_a', 'backup_2_b']);
     expect((await upgraded.backups.get('backup_2_b'))?.json).toBe('{"metadata":{},"data":{"b":"2"}}');

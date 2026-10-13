@@ -8,21 +8,11 @@ import type { PlanWorkoutKind } from '../data/plans';
 
 /** Scenario categories the analysis engine can detect */
 export type RecommendationScenario =
-  | 'ahead_of_schedule'
-  | 'behind_schedule'
-  | 'overtraining'
-  | 'inconsistent_execution'
-  | 'race_week_optimization';
+  'ahead_of_schedule' | 'behind_schedule' | 'overtraining' | 'inconsistent_execution' | 'race_week_optimization';
 
 /** Action types that a recommendation can suggest */
 export type RecommendationType =
-  | 'upgrade'
-  | 'reduce'
-  | 'rest'
-  | 'adjust_pacing'
-  | 'extend_timeline'
-  | 'taper'
-  | 'celebrate';
+  'upgrade' | 'reduce' | 'rest' | 'adjust_pacing' | 'extend_timeline' | 'taper' | 'celebrate';
 
 /** Priority levels for recommendations */
 export type RecommendationPriority = 'high' | 'medium' | 'low';
@@ -90,7 +80,8 @@ export interface PlanModification {
   /** Human-readable description of the change */
   description: string;
   /** What type of change */
-  modificationType: 'mileage_reduction' | 'mileage_increase' | 'add_rest_day' | 'swap_workout' | 'extend_plan' | 'pace_adjustment';
+  modificationType:
+    'mileage_reduction' | 'mileage_increase' | 'add_rest_day' | 'swap_workout' | 'extend_plan' | 'pace_adjustment';
   /** Week-level adjustments: weekIndex → multiplier or replacement data */
   weekAdjustments: WeekAdjustment[];
   /** When this modification was applied (ISO string) */

@@ -48,7 +48,10 @@ import type { Activity } from '@/services/activity/types';
 
 // ── Fake intervals.icu (same shape as activitySource.test.ts) ─────────────────
 
-interface FakeReply { status?: number; body?: unknown }
+interface FakeReply {
+  status?: number;
+  body?: unknown;
+}
 
 function fakeResponse({ status = 200, body }: FakeReply): Response {
   const text = body === undefined ? '' : JSON.stringify(body);
@@ -74,11 +77,14 @@ function stalledBodyResponse(): Response {
 
 function mockFetch(handler: (url: URL) => FakeReply): URL[] {
   const calls: URL[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
-    const url = new URL(String(input));
-    calls.push(url);
-    return fakeResponse(handler(url));
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: unknown) => {
+      const url = new URL(String(input));
+      calls.push(url);
+      return fakeResponse(handler(url));
+    }),
+  );
   return calls;
 }
 
@@ -124,7 +130,15 @@ function fakeIntervals(activities: IcuActivity[]): URL[] {
         }),
       };
     }
-    if (path.endsWith('/map')) return { body: { latlngs: [[45.1, -122.1], [45.11, -122.12]] } };
+    if (path.endsWith('/map'))
+      return {
+        body: {
+          latlngs: [
+            [45.1, -122.1],
+            [45.11, -122.12],
+          ],
+        },
+      };
     if (/\/athlete\/[^/]+$/.test(path)) return { body: { id: 'i42', firstname: 'Marc', lastname: 'C' } };
     return { status: 404 };
   });
@@ -159,10 +173,13 @@ describe('hung requests', () => {
     vi.useFakeTimers();
     connect();
     const requests: string[] = [];
-    vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
-      requests.push(String(input));
-      return stalledBodyResponse();
-    }));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: unknown) => {
+        requests.push(String(input));
+        return stalledBodyResponse();
+      }),
+    );
 
     const stalled = syncActivities();
     // 3 attempts × 30 s timeout + 1 s + 2 s back-off.
@@ -199,9 +216,7 @@ describe('sync watchdog', () => {
     await vi.advanceTimersByTimeAsync(5 * 60 * 1000);
     const summary = await stuck;
     expect(summary.cancelled).toBe(true);
-    expect(summary.errors).toEqual([
-      { source: 'intervals', message: expect.stringMatching(/longer than 5 minutes/) },
-    ]);
+    expect(summary.errors).toEqual([{ source: 'intervals', message: expect.stringMatching(/longer than 5 minutes/) }]);
     expect(isSyncRunning()).toBe(false);
     expect(getSourceSyncState('intervals').lastError).toMatch(/longer than 5 minutes/);
 
@@ -235,9 +250,12 @@ describe('cancelSync', () => {
     connect();
     fakeIntervals([icu(1, 1)]);
     let release: (list: IntervalsActivityList) => void = () => undefined;
-    listMock.mockImplementationOnce(() => new Promise<IntervalsActivityList>((resolve) => {
-      release = resolve;
-    }));
+    listMock.mockImplementationOnce(
+      () =>
+        new Promise<IntervalsActivityList>((resolve) => {
+          release = resolve;
+        }),
+    );
 
     const running = syncActivities();
     await vi.waitFor(() => expect(listMock).toHaveBeenCalledTimes(1));
@@ -298,7 +316,9 @@ describe('source-scoped sync', () => {
   it('syncs only the requested sources', async () => {
     connect();
     setStravaTokens({
-      access_token: 'a', refresh_token: 'r', expires_at: Math.floor(Date.now() / 1000) + 3600,
+      access_token: 'a',
+      refresh_token: 'r',
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
       athlete: { id: 7, firstname: 'S', lastname: 'T' },
     });
     const calls = fakeIntervals([icu(1, 1)]);
@@ -369,11 +389,20 @@ describe('remote deletion reconcile (intervals.icu)', () => {
     connect();
     const legacyRun = icu(6, 8);
     // Record cached by an earlier Apollo version from Strava; intervals.icu data merges into it.
-    storeActivities([{
-      id: 987654, name: 'Strava run', type: 'Run', sport_type: 'Run',
-      distance: 8030, moving_time: 2410, elapsed_time: 2460,
-      start_date: legacyRun.start_date!, start_date_local: `${legacyRun.start_date_local}Z`, kudos_count: 3,
-    }]);
+    storeActivities([
+      {
+        id: 987654,
+        name: 'Strava run',
+        type: 'Run',
+        sport_type: 'Run',
+        distance: 8030,
+        moving_time: 2410,
+        elapsed_time: 2460,
+        start_date: legacyRun.start_date!,
+        start_date_local: `${legacyRun.start_date_local}Z`,
+        kudos_count: 3,
+      },
+    ]);
     fakeIntervals([icu(1, 1), icu(2, 5), icu(3, 10), icu(4, 15), icu(5, 31), legacyRun]);
     await syncActivities();
     expect(getAllStoredActivities()).toHaveLength(6);
@@ -445,9 +474,16 @@ describe('full history import', () => {
     const filler: Activity[] = Array.from({ length: MAX_STORED_ACTIVITIES }, (_, i) => {
       const iso = new Date(base + i * 3_600_000).toISOString().replace(/\.\d{3}Z$/, 'Z');
       return {
-        id: i + 1, name: `Ride ${i + 1}`, type: 'Ride', sport_type: 'Ride',
-        distance: 20000, moving_time: 3600, elapsed_time: 3600,
-        start_date: iso, start_date_local: iso, kudos_count: 0,
+        id: i + 1,
+        name: `Ride ${i + 1}`,
+        type: 'Ride',
+        sport_type: 'Ride',
+        distance: 20000,
+        moving_time: 3600,
+        elapsed_time: 3600,
+        start_date: iso,
+        start_date_local: iso,
+        kudos_count: 0,
       };
     });
     writeActivityStore(filler);

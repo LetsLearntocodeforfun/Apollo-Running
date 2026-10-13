@@ -12,10 +12,7 @@
  * `onActivityStoreChanged` subscribers.
  */
 
-import {
-  getAllStoredActivities,
-  writeActivityStore,
-} from '../analyticsService';
+import { getAllStoredActivities, writeActivityStore } from '../analyticsService';
 import { notifyActivitiesUpdated } from '../activitySource';
 import { persistence } from '../db/persistence';
 import { addTombstones } from './tombstones';
@@ -48,16 +45,29 @@ export function onActivityStoreChanged(cb: (kind: ActivityChangeKind, ids: numbe
 
 function emit(kind: ActivityChangeKind, ids: number[]): void {
   for (const l of listeners) {
-    try { l(kind, ids); } catch { /* listener errors must not break the action */ }
+    try {
+      l(kind, ids);
+    } catch {
+      /* listener errors must not break the action */
+    }
   }
   if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
     try {
       window.dispatchEvent(new CustomEvent(ACTIVITY_STORE_CHANGED_EVENT, { detail: { kind, ids } }));
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   const now = new Date().toISOString();
   notifyActivitiesUpdated({
-    sources: [], fetched: 0, added: 0, updated: ids.length, full: false, errors: [], startedAt: now, finishedAt: now,
+    sources: [],
+    fetched: 0,
+    added: 0,
+    updated: ids.length,
+    full: false,
+    errors: [],
+    startedAt: now,
+    finishedAt: now,
   });
 }
 
@@ -85,7 +95,11 @@ export function getHiddenActivities(): Activity[] {
 }
 
 /** Hide an activity from analytics, PRs, load and plan matching. Idempotent. */
-export function hideActivity(id: number, reason: 'user' | 'duplicate' = 'user', duplicateOf?: number): ActivityActionResult {
+export function hideActivity(
+  id: number,
+  reason: 'user' | 'duplicate' = 'user',
+  duplicateOf?: number,
+): ActivityActionResult {
   if (!getAllStoredActivities().some((a) => a.id === id)) return { ok: false, error: 'Activity not found.' };
   const changed = patchActivities(new Set([id]), (a) => {
     if (a.hidden && a.hidden_reason === reason && a.duplicate_of === duplicateOf) return a;

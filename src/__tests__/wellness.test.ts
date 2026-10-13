@@ -43,7 +43,12 @@ function day(offset: number): string {
 const CREDS: IntervalsCredentials = { apiKey: 'key', athleteId: 'i42', connectedAt: '2026-09-01T08:00:00.000Z' };
 
 const RUN: IcuSportSettings = {
-  id: 2, types: ['Run', 'VirtualRun', 'TrailRun'], lthr: 168, max_hr: 188, threshold_pace: 4, pace_units: 'MINS_KM',
+  id: 2,
+  types: ['Run', 'VirtualRun', 'TrailRun'],
+  lthr: 168,
+  max_hr: 188,
+  threshold_pace: 4,
+  pace_units: 'MINS_KM',
 };
 const RIDE: IcuSportSettings = { id: 1, types: ['Ride', 'VirtualRide'], lthr: 160, max_hr: 180 };
 
@@ -58,7 +63,11 @@ function row(offset: number, fields: Omit<IcuWellness, 'id'>): IcuWellness {
 }
 
 // Same fetch stub as intervals.test.ts.
-interface FakeReply { status?: number; body?: unknown; headers?: Record<string, string> }
+interface FakeReply {
+  status?: number;
+  body?: unknown;
+  headers?: Record<string, string>;
+}
 
 function fakeResponse({ status = 200, body, headers = {} }: FakeReply): Response {
   const text = body === undefined ? '' : typeof body === 'string' ? body : JSON.stringify(body);
@@ -74,11 +83,14 @@ function fakeResponse({ status = 200, body, headers = {} }: FakeReply): Response
 /** Stub global fetch; the handler receives the parsed URL of each request. */
 function mockFetch(handler: (url: URL) => FakeReply): URL[] {
   const calls: URL[] = [];
-  vi.stubGlobal('fetch', vi.fn(async (input: unknown) => {
-    const url = new URL(String(input));
-    calls.push(url);
-    return fakeResponse(handler(url));
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: unknown) => {
+      const url = new URL(String(input));
+      calls.push(url);
+      return fakeResponse(handler(url));
+    }),
+  );
   return calls;
 }
 
@@ -140,24 +152,68 @@ afterEach(() => {
 
 describe('normalizeWellness', () => {
   it('keeps plausible values and rounds counts', () => {
-    expect(normalizeWellness({
-      id: '2026-10-04', updated: '2026-10-04T07:12:00Z', restingHR: 47.6, hrv: 62.5, hrvSDNN: 80, sleepSecs: 27000.4,
-      sleepScore: 84, sleepQuality: 2, avgSleepingHR: 52, readiness: 71, weight: 70.2, vo2max: 54, steps: 9876,
-      soreness: 1, fatigue: 2, stress: 3, mood: 2,
-    })).toEqual({
-      date: '2026-10-04', updated: '2026-10-04T07:12:00Z', restingHR: 48, hrv: 62.5, hrvSDNN: 80, sleepSecs: 27000,
-      sleepScore: 84, sleepQuality: 2, avgSleepingHR: 52, readiness: 71, weight: 70.2, vo2max: 54, steps: 9876,
-      soreness: 1, fatigue: 2, stress: 3, mood: 2,
+    expect(
+      normalizeWellness({
+        id: '2026-10-04',
+        updated: '2026-10-04T07:12:00Z',
+        restingHR: 47.6,
+        hrv: 62.5,
+        hrvSDNN: 80,
+        sleepSecs: 27000.4,
+        sleepScore: 84,
+        sleepQuality: 2,
+        avgSleepingHR: 52,
+        readiness: 71,
+        weight: 70.2,
+        vo2max: 54,
+        steps: 9876,
+        soreness: 1,
+        fatigue: 2,
+        stress: 3,
+        mood: 2,
+      }),
+    ).toEqual({
+      date: '2026-10-04',
+      updated: '2026-10-04T07:12:00Z',
+      restingHR: 48,
+      hrv: 62.5,
+      hrvSDNN: 80,
+      sleepSecs: 27000,
+      sleepScore: 84,
+      sleepQuality: 2,
+      avgSleepingHR: 52,
+      readiness: 71,
+      weight: 70.2,
+      vo2max: 54,
+      steps: 9876,
+      soreness: 1,
+      fatigue: 2,
+      stress: 3,
+      mood: 2,
     });
   });
 
   it('drops 0/null placeholders, implausible values and values copied from settings', () => {
-    expect(normalizeWellness({
-      id: '2026-10-04', restingHR: 52, tempRestingHR: true, weight: 70, tempWeight: true,
-      hrv: 0, sleepSecs: null, sleepScore: 0, steps: 0, avgSleepingHR: 400, readiness: Number.NaN, sleepQuality: 9,
-    })).toBeNull();
-    expect(normalizeWellness({ id: '2026-10-04T00:00:00', restingHR: 300, hrv: 1000, sleepSecs: 30000 }))
-      .toEqual({ date: '2026-10-04', sleepSecs: 30000 });
+    expect(
+      normalizeWellness({
+        id: '2026-10-04',
+        restingHR: 52,
+        tempRestingHR: true,
+        weight: 70,
+        tempWeight: true,
+        hrv: 0,
+        sleepSecs: null,
+        sleepScore: 0,
+        steps: 0,
+        avgSleepingHR: 400,
+        readiness: Number.NaN,
+        sleepQuality: 9,
+      }),
+    ).toBeNull();
+    expect(normalizeWellness({ id: '2026-10-04T00:00:00', restingHR: 300, hrv: 1000, sleepSecs: 30000 })).toEqual({
+      date: '2026-10-04',
+      sleepSecs: 30000,
+    });
   });
 
   it('rejects records without a usable date', () => {
@@ -173,11 +229,13 @@ describe('syncWellness', () => {
   it('stores normalized records from a first sync of the last 365 days', async () => {
     await connect();
     const icu = mockIcu({
-      wellness: () => ({ body: [
-        row(-2, { restingHR: 48, hrv: 61.2, sleepSecs: 27300, sleepScore: 82, updated: '2026-10-03T07:00:00Z' }),
-        row(-1, { restingHR: 0, hrv: 0, sleepSecs: 0, weight: 0 }),
-        row(0, { restingHR: 46, tempRestingHR: true, hrv: 58, sleepSecs: 25200 }),
-      ] }),
+      wellness: () => ({
+        body: [
+          row(-2, { restingHR: 48, hrv: 61.2, sleepSecs: 27300, sleepScore: 82, updated: '2026-10-03T07:00:00Z' }),
+          row(-1, { restingHR: 0, hrv: 0, sleepSecs: 0, weight: 0 }),
+          row(0, { restingHR: 46, tempRestingHR: true, hrv: 58, sleepSecs: 25200 }),
+        ],
+      }),
     });
 
     expect(await syncWellness()).toEqual({ fetched: 2 });
@@ -187,14 +245,23 @@ describe('syncWellness', () => {
     expect(call.searchParams.get('oldest')).toBe(day(-364));
     expect(call.searchParams.get('newest')).toBe(TODAY);
     expect(getWellnessForDate(day(-2))).toEqual({
-      date: day(-2), restingHR: 48, hrv: 61.2, sleepSecs: 27300, sleepScore: 82, updated: '2026-10-03T07:00:00Z',
+      date: day(-2),
+      restingHR: 48,
+      hrv: 61.2,
+      sleepSecs: 27300,
+      sleepScore: 82,
+      updated: '2026-10-03T07:00:00Z',
     });
     expect(getWellnessForDate(day(-1))).toBeNull();
     expect(getWellnessForDate(TODAY)).toEqual({ date: TODAY, hrv: 58, sleepSecs: 25200 });
     expect(getWellnessRange(day(-30), TODAY).map((r) => r.date)).toEqual([day(-2), TODAY]);
     expect(getWellnessSyncState()).toEqual({
-      lastSyncAt: NOW.toISOString(), lastFullSyncAt: NOW.toISOString(), lastError: null, lastErrorAt: null,
-      days: 2, latestDate: TODAY,
+      lastSyncAt: NOW.toISOString(),
+      lastFullSyncAt: NOW.toISOString(),
+      lastError: null,
+      lastErrorAt: null,
+      days: 2,
+      latestDate: TODAY,
     });
     expect(getSuggestedSleepHours(TODAY)).toBe(7);
     expect(getSuggestedSleepHours(day(-2))).toBe(7.6);
@@ -232,11 +299,14 @@ describe('syncWellness', () => {
   });
 
   it('keeps about 400 days, trimming older records', async () => {
-    persistence.setItem('apollo_wellness', JSON.stringify({
-      [day(-401)]: { date: day(-401), restingHR: 50 },
-      [day(-399)]: { date: day(-399), restingHR: 51 },
-      [day(-200)]: { date: day(-200), restingHR: 52 },
-    }));
+    persistence.setItem(
+      'apollo_wellness',
+      JSON.stringify({
+        [day(-401)]: { date: day(-401), restingHR: 50 },
+        [day(-399)]: { date: day(-399), restingHR: 51 },
+        [day(-200)]: { date: day(-200), restingHR: 52 },
+      }),
+    );
     await connect();
     mockIcu({ wellness: () => ({ body: [row(-1, { restingHR: 49 })] }) });
     await syncWellness();
@@ -278,7 +348,10 @@ describe('syncWellness', () => {
     expect(icu.wellnessCalls()).toHaveLength(1);
     expect(icu.sportCalls()).toHaveLength(0);
     expect(getWellnessSyncState()).toMatchObject({
-      lastSyncAt: null, lastError: result.error, lastErrorAt: NOW.toISOString(), days: 0,
+      lastSyncAt: null,
+      lastError: result.error,
+      lastErrorAt: NOW.toISOString(),
+      days: 0,
     });
   });
 
@@ -303,7 +376,10 @@ describe('syncWellness', () => {
     const icu = mockIcu();
     const controller = new AbortController();
     controller.abort();
-    expect(await syncWellness({ signal: controller.signal })).toEqual({ fetched: 0, error: 'Wellness sync was cancelled.' });
+    expect(await syncWellness({ signal: controller.signal })).toEqual({
+      fetched: 0,
+      error: 'Wellness sync was cancelled.',
+    });
     expect(icu.calls).toHaveLength(0);
   });
 
@@ -348,10 +424,14 @@ describe('syncWellness', () => {
 
   it('feeds the stored data to getRecoverySnapshot', async () => {
     await connect();
-    mockIcu({ wellness: () => ({ body: [
-      row(-1, { hrv: 60, restingHR: 48, sleepSecs: 27000 }),
-      row(0, { hrv: 62, restingHR: 47, sleepSecs: 27500, sleepScore: 88 }),
-    ] }) });
+    mockIcu({
+      wellness: () => ({
+        body: [
+          row(-1, { hrv: 60, restingHR: 48, sleepSecs: 27000 }),
+          row(0, { hrv: 62, restingHR: 47, sleepSecs: 27500, sleepScore: 88 }),
+        ],
+      }),
+    });
     await syncWellness();
     const snap = getRecoverySnapshot();
     expect(snap).toMatchObject({ date: TODAY, status: 'unknown', daysWithData: 2 });
@@ -366,14 +446,25 @@ describe('HR profile from intervals.icu', () => {
   it('fills resting HR (14-day median), max HR and LTHR', async () => {
     await connect();
     mockIcu({
-      wellness: () => ({ body: [
-        row(-20, { restingHR: 40 }),
-        row(-4, { restingHR: 50 }), row(-3, { restingHR: 47 }), row(-2, { restingHR: 52 }),
-        row(-1, { restingHR: 48 }), row(0, { restingHR: 49 }),
-      ] }),
+      wellness: () => ({
+        body: [
+          row(-20, { restingHR: 40 }),
+          row(-4, { restingHR: 50 }),
+          row(-3, { restingHR: 47 }),
+          row(-2, { restingHR: 52 }),
+          row(-1, { restingHR: 48 }),
+          row(0, { restingHR: 49 }),
+        ],
+      }),
     });
     await syncWellness();
-    expect(getHRProfile()).toEqual({ maxHR: 188, restingHR: 49, lthr: 168, source: 'intervals', updatedAt: NOW.toISOString() });
+    expect(getHRProfile()).toEqual({
+      maxHR: 188,
+      restingHR: 49,
+      lthr: 168,
+      source: 'intervals',
+      updatedAt: NOW.toISOString(),
+    });
   });
 
   it('needs at least 3 resting HR readings', async () => {
@@ -387,10 +478,18 @@ describe('HR profile from intervals.icu', () => {
   });
 
   it('never changes a profile entered manually', async () => {
-    const manual: HRProfile = { maxHR: 201, restingHR: 41, lthr: 175, source: 'manual', updatedAt: '2026-01-01T00:00:00.000Z' };
+    const manual: HRProfile = {
+      maxHR: 201,
+      restingHR: 41,
+      lthr: 175,
+      source: 'manual',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
     setHRProfile(manual);
     await connect();
-    mockIcu({ wellness: () => ({ body: [row(-2, { restingHR: 50 }), row(-1, { restingHR: 50 }), row(0, { restingHR: 50 })] }) });
+    mockIcu({
+      wellness: () => ({ body: [row(-2, { restingHR: 50 }), row(-1, { restingHR: 50 }), row(0, { restingHR: 50 })] }),
+    });
     await syncWellness();
     expect(getHRProfile()).toEqual(manual);
   });
@@ -530,7 +629,10 @@ describe('computeRecoverySnapshot', () => {
     expect(none.reasons[0]).toMatch(/Need about a week/);
 
     // Very short sleep on day 3 is reported, but never rated "caution" on so little data.
-    const few = computeRecoverySnapshot(history(3, (o) => (o === 0 ? { sleepSecs: 4 * 3600 } : {})), TODAY);
+    const few = computeRecoverySnapshot(
+      history(3, (o) => (o === 0 ? { sleepSecs: 4 * 3600 } : {})),
+      TODAY,
+    );
     expect(few).toMatchObject({
       status: 'unknown',
       headline: 'Learning your normal ranges',
@@ -551,7 +653,11 @@ describe('computeRecoverySnapshot', () => {
   it('is good when HRV and resting HR are in their normal ranges', () => {
     const snap = computeRecoverySnapshot(history(60), TODAY);
     expect(snap).toMatchObject({
-      status: 'good', headline: 'Well recovered', suggestion: 'Train as planned.', date: TODAY, daysWithData: 60,
+      status: 'good',
+      headline: 'Well recovered',
+      suggestion: 'Train as planned.',
+      date: TODAY,
+      daysWithData: 60,
     });
     expect(snap.hrv).toMatchObject({ date: TODAY, latest: 60, position: 'within', baselineDays: 60, flagged: false });
     expect(snap.hrv!.low!).toBeLessThan(snap.hrv!.avg7!);
@@ -566,10 +672,13 @@ describe('computeRecoverySnapshot', () => {
   });
 
   it('suggests an easy day when HRV is below normal and resting HR is up', () => {
-    const snap = computeRecoverySnapshot(history(60, (o) => ({
-      ...(o >= -6 ? { hrv: 53 } : {}),
-      ...(o === 0 ? { restingHR: 54 } : {}),
-    })), TODAY);
+    const snap = computeRecoverySnapshot(
+      history(60, (o) => ({
+        ...(o >= -6 ? { hrv: 53 } : {}),
+        ...(o === 0 ? { restingHR: 54 } : {}),
+      })),
+      TODAY,
+    );
     expect(snap.status).toBe('caution');
     expect(snap.headline).toBe('Take it easy today');
     expect(snap.suggestion).toBe(
@@ -582,19 +691,29 @@ describe('computeRecoverySnapshot', () => {
   });
 
   it('rates one moderate signal "ok" and one strong signal "caution"', () => {
-    const hrvLow = computeRecoverySnapshot(history(60, (o) => (o >= -6 ? { hrv: 53 } : {})), TODAY);
+    const hrvLow = computeRecoverySnapshot(
+      history(60, (o) => (o >= -6 ? { hrv: 53 } : {})),
+      TODAY,
+    );
     expect(hrvLow).toMatchObject({ status: 'ok', headline: 'Mostly recovered' });
     expect(hrvLow.suggestion).toBe(
       'HRV is below your normal range: train as planned, but back off if your warm-up feels harder than usual.',
     );
 
-    const hrvVeryLow = computeRecoverySnapshot(history(60, (o) => (o >= -6 ? { hrv: 45 } : {})), TODAY);
+    const hrvVeryLow = computeRecoverySnapshot(
+      history(60, (o) => (o >= -6 ? { hrv: 45 } : {})),
+      TODAY,
+    );
     expect(hrvVeryLow.status).toBe('caution');
     expect(hrvVeryLow.suggestion).toBe(
       'HRV is well below your normal range: keep today easy or swap the workout with a rest day.',
     );
 
-    const rhrAt = (bpm: number) => computeRecoverySnapshot(history(60, (o) => (o === 0 ? { restingHR: bpm } : {})), TODAY);
+    const rhrAt = (bpm: number) =>
+      computeRecoverySnapshot(
+        history(60, (o) => (o === 0 ? { restingHR: bpm } : {})),
+        TODAY,
+      );
     expect(rhrAt(52).status).toBe('good');
     expect(rhrAt(52).reasons).toContain('Resting HR is 52 bpm, slightly above your 30-day average (48).');
     expect(rhrAt(53).status).toBe('ok');
@@ -605,7 +724,10 @@ describe('computeRecoverySnapshot', () => {
 
   it('explains short sleep against the 7 h floor and the 7-night average', () => {
     const sleptFor = (secs: number) =>
-      computeRecoverySnapshot(history(60, (o) => (o === 0 ? { sleepSecs: secs } : {})), TODAY);
+      computeRecoverySnapshot(
+        history(60, (o) => (o === 0 ? { sleepSecs: secs } : {})),
+        TODAY,
+      );
 
     const short = sleptFor(5 * 3600 + 40 * 60);
     expect(short.status).toBe('ok');
@@ -630,26 +752,39 @@ describe('computeRecoverySnapshot', () => {
   });
 
   it('lists strong signals first and counts high self-reported fatigue or soreness', () => {
-    const tired = computeRecoverySnapshot(history(60, (o) => (o === 0 ? { fatigue: 3 } : {})), TODAY);
+    const tired = computeRecoverySnapshot(
+      history(60, (o) => (o === 0 ? { fatigue: 3 } : {})),
+      TODAY,
+    );
     expect(tired.status).toBe('ok');
     expect(tired.suggestion).toBe(
       'You logged high fatigue: train as planned, but back off if your warm-up feels harder than usual.',
     );
 
-    const rough = computeRecoverySnapshot(history(60, (o) => ({
-      ...(o >= -6 ? { hrv: 53 } : {}),
-      ...(o === 0 ? { sleepSecs: 4 * 3600 + 15 * 60, fatigue: 3, soreness: 4, stress: 2 } : {}),
-    })), TODAY);
+    const rough = computeRecoverySnapshot(
+      history(60, (o) => ({
+        ...(o >= -6 ? { hrv: 53 } : {}),
+        ...(o === 0 ? { sleepSecs: 4 * 3600 + 15 * 60, fatigue: 3, soreness: 4, stress: 2 } : {}),
+      })),
+      TODAY,
+    );
     expect(rough.status).toBe('caution');
-    expect(rough.suggestion).toBe('You slept only 4h 15m, HRV is below your normal range and you logged high fatigue '
-      + 'and soreness: keep today easy or swap the workout with a rest day.');
+    expect(rough.suggestion).toBe(
+      'You slept only 4h 15m, HRV is below your normal range and you logged high fatigue ' +
+        'and soreness: keep today easy or swap the workout with a rest day.',
+    );
   });
 
   it('notes a single low HRV reading without acting on it', () => {
-    const snap = computeRecoverySnapshot(history(60, (o) => (o === 0 ? { hrv: 48 } : {})), TODAY);
+    const snap = computeRecoverySnapshot(
+      history(60, (o) => (o === 0 ? { hrv: 48 } : {})),
+      TODAY,
+    );
     expect(snap.status).toBe('good');
     expect(snap.hrv).toMatchObject({ latest: 48, position: 'within', flagged: false });
-    expect(snap.reasons).toContain("Your latest HRV reading (48 ms) was low, but one reading on its own isn't a concern.");
+    expect(snap.reasons).toContain(
+      "Your latest HRV reading (48 ms) was low, but one reading on its own isn't a concern.",
+    );
   });
 
   it('says "no warning signs" rather than "good" without an HRV or resting-HR baseline', () => {
@@ -667,7 +802,10 @@ describe('computeRecoverySnapshot', () => {
 
     expect(series.map((p) => p.date)).toEqual(Array.from({ length: 14 }, (_, i) => day(i - 13)));
     expect(series[0]).toEqual({
-      date: day(-13), hrv: cycle(HRV_CYCLE, -13, 2), restingHR: cycle(RHR_CYCLE, -13), sleepHours: 7.5,
+      date: day(-13),
+      hrv: cycle(HRV_CYCLE, -13, 2),
+      restingHR: cycle(RHR_CYCLE, -13),
+      sleepHours: 7.5,
     });
     expect(series[8]).toEqual({ date: day(-5) });
     expect(series[13]).toEqual({ date: TODAY, restingHR: 47, sleepHours: 7.5 });

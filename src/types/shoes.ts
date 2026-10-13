@@ -164,7 +164,15 @@ export const SHOE_CATEGORY_LABELS: Record<ShoeCategory, string> = {
 
 /** Well-known shoe brands for quick selection */
 export const SHOE_BRANDS = [
-  'Adidas', 'ASICS', 'Brooks', 'Hoka', 'New Balance',
-  'Nike', 'On', 'Puma', 'Saucony', 'Under Armour',
+  'Adidas',
+  'ASICS',
+  'Brooks',
+  'Hoka',
+  'New Balance',
+  'Nike',
+  'On',
+  'Puma',
+  'Saucony',
+  'Under Armour',
   'Other',
 ] as const;

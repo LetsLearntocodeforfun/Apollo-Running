@@ -50,7 +50,7 @@ function mockSplitSeries(paces: number[], unit: 'mi' | 'km' = 'mi'): StravaSplit
     moving_time: Math.round(paceMin * 60),
     average_speed: dist / (paceMin * 60),
     average_heartrate: 140 + i * 2,
-    elevation_difference: (i % 2 === 0 ? 3 : -2),
+    elevation_difference: i % 2 === 0 ? 3 : -2,
     split: i + 1,
     pace_zone: 3,
   }));
@@ -80,11 +80,13 @@ function mockLap(overrides: Partial<StravaLap> = {}): StravaLap {
 }
 
 /** Create a mock StravaActivity with splits. */
-function mockActivity(opts: {
-  splits_standard?: StravaSplit[];
-  splits_metric?: StravaSplit[];
-  laps?: StravaLap[];
-} = {}): StravaActivity {
+function mockActivity(
+  opts: {
+    splits_standard?: StravaSplit[];
+    splits_metric?: StravaSplit[];
+    laps?: StravaLap[];
+  } = {},
+): StravaActivity {
   return {
     id: 12345,
     name: 'Morning Run',
@@ -129,8 +131,8 @@ describe('processSplits', () => {
   it('marks fastest and slowest splits', () => {
     const splits = mockSplitSeries([8, 7, 9, 8], 'mi');
     const result = processSplits(splits, 'mi');
-    expect(result.find(s => s.isFastest)?.number).toBe(2);
-    expect(result.find(s => s.isSlowest)?.number).toBe(3);
+    expect(result.find((s) => s.isFastest)?.number).toBe(2);
+    expect(result.find((s) => s.isSlowest)?.number).toBe(3);
   });
 
   it('filters out very short partial splits', () => {
@@ -146,7 +148,7 @@ describe('processSplits', () => {
     const splits = mockSplitSeries([8, 8, 8], 'mi');
     const result = processSplits(splits, 'mi');
     // All same pace → deviation should be ~0
-    result.forEach(s => expect(Math.abs(s.paceDeviationPct)).toBeLessThan(1));
+    result.forEach((s) => expect(Math.abs(s.paceDeviationPct)).toBeLessThan(1));
   });
 
   it('works with km splits', () => {
@@ -251,10 +253,7 @@ describe('analyzePaceConsistency', () => {
 describe('detectSplitPattern', () => {
   it('detects negative split (2nd half faster)', () => {
     // Moderate negative split with 8 splits to avoid false surge trigger
-    const splits = processSplits(
-      mockSplitSeries([8.2, 8.2, 8.1, 8.1, 7.8, 7.8, 7.9, 7.9], 'mi'),
-      'mi',
-    );
+    const splits = processSplits(mockSplitSeries([8.2, 8.2, 8.1, 8.1, 7.8, 7.8, 7.9, 7.9], 'mi'), 'mi');
     const result = detectSplitPattern(splits, 'mi');
     expect(result.pattern).toBe('negative');
     expect(result.halfDiffPct).toBeLessThan(0);
@@ -262,10 +261,7 @@ describe('detectSplitPattern', () => {
   });
 
   it('detects positive split (1st half faster)', () => {
-    const splits = processSplits(
-      mockSplitSeries([7.8, 7.8, 7.9, 7.9, 8.2, 8.2, 8.1, 8.1], 'mi'),
-      'mi',
-    );
+    const splits = processSplits(mockSplitSeries([7.8, 7.8, 7.9, 7.9, 8.2, 8.2, 8.1, 8.1], 'mi'), 'mi');
     const result = detectSplitPattern(splits, 'mi');
     expect(result.pattern).toBe('positive');
     expect(result.halfDiffPct).toBeGreaterThan(0);
@@ -279,10 +275,7 @@ describe('detectSplitPattern', () => {
 
   it('detects fade pattern in last quarter', () => {
     // Strong fade: steady then sudden slowdown
-    const splits = processSplits(
-      mockSplitSeries([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 10], 'mi'),
-      'mi',
-    );
+    const splits = processSplits(mockSplitSeries([8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 10], 'mi'), 'mi');
     const result = detectSplitPattern(splits, 'mi');
     expect(result.pattern).toBe('fade');
     expect(result.description).toContain('fade');
@@ -304,14 +297,17 @@ describe('detectIntervals', () => {
   });
 
   it('detects interval workout from alternating fast/slow laps', () => {
-    const laps = processLaps([
-      mockLap({ lap_index: 0, name: 'Warmup', distance: MILE_M, moving_time: 600 }),
-      mockLap({ lap_index: 1, name: 'Interval 1', distance: MILE_M * 0.25, moving_time: 90 }),
-      mockLap({ lap_index: 2, name: 'Recovery 1', distance: MILE_M * 0.25, moving_time: 180 }),
-      mockLap({ lap_index: 3, name: 'Interval 2', distance: MILE_M * 0.25, moving_time: 88 }),
-      mockLap({ lap_index: 4, name: 'Recovery 2', distance: MILE_M * 0.25, moving_time: 175 }),
-      mockLap({ lap_index: 5, name: 'Cooldown', distance: MILE_M, moving_time: 600 }),
-    ], 'mi');
+    const laps = processLaps(
+      [
+        mockLap({ lap_index: 0, name: 'Warmup', distance: MILE_M, moving_time: 600 }),
+        mockLap({ lap_index: 1, name: 'Interval 1', distance: MILE_M * 0.25, moving_time: 90 }),
+        mockLap({ lap_index: 2, name: 'Recovery 1', distance: MILE_M * 0.25, moving_time: 180 }),
+        mockLap({ lap_index: 3, name: 'Interval 2', distance: MILE_M * 0.25, moving_time: 88 }),
+        mockLap({ lap_index: 4, name: 'Recovery 2', distance: MILE_M * 0.25, moving_time: 175 }),
+        mockLap({ lap_index: 5, name: 'Cooldown', distance: MILE_M, moving_time: 600 }),
+      ],
+      'mi',
+    );
 
     const result = detectIntervals(laps);
     expect(result).not.toBeNull();
@@ -321,12 +317,15 @@ describe('detectIntervals', () => {
 
   it('returns isInterval=false for steady-pace laps', () => {
     // All laps at same pace → no intervals
-    const laps = processLaps([
-      mockLap({ lap_index: 0, distance: MILE_M, moving_time: 480 }),
-      mockLap({ lap_index: 1, distance: MILE_M, moving_time: 478 }),
-      mockLap({ lap_index: 2, distance: MILE_M, moving_time: 482 }),
-      mockLap({ lap_index: 3, distance: MILE_M, moving_time: 480 }),
-    ], 'mi');
+    const laps = processLaps(
+      [
+        mockLap({ lap_index: 0, distance: MILE_M, moving_time: 480 }),
+        mockLap({ lap_index: 1, distance: MILE_M, moving_time: 478 }),
+        mockLap({ lap_index: 2, distance: MILE_M, moving_time: 482 }),
+        mockLap({ lap_index: 3, distance: MILE_M, moving_time: 480 }),
+      ],
+      'mi',
+    );
 
     const result = detectIntervals(laps);
     expect(result).not.toBeNull();
@@ -442,21 +441,33 @@ describe('hasSplitData', () => {
   });
 
   it('returns false for only 1 split', () => {
-    expect(hasSplitData(mockActivity({
-      splits_standard: [mockSplit()],
-    }))).toBe(false);
+    expect(
+      hasSplitData(
+        mockActivity({
+          splits_standard: [mockSplit()],
+        }),
+      ),
+    ).toBe(false);
   });
 
   it('returns true for 2+ standard splits', () => {
-    expect(hasSplitData(mockActivity({
-      splits_standard: mockSplitSeries([8, 8], 'mi'),
-    }))).toBe(true);
+    expect(
+      hasSplitData(
+        mockActivity({
+          splits_standard: mockSplitSeries([8, 8], 'mi'),
+        }),
+      ),
+    ).toBe(true);
   });
 
   it('returns true for 2+ metric splits', () => {
-    expect(hasSplitData(mockActivity({
-      splits_metric: mockSplitSeries([5, 5], 'km'),
-    }))).toBe(true);
+    expect(
+      hasSplitData(
+        mockActivity({
+          splits_metric: mockSplitSeries([5, 5], 'km'),
+        }),
+      ),
+    ).toBe(true);
   });
 });
 
@@ -472,9 +483,7 @@ describe('insight generation', () => {
       splits_standard: mockSplitSeries([8.0, 8.01, 7.99, 8.0, 8.0], 'mi'),
     });
     const result = analyzeSplits(activity);
-    const goldInsight = result?.insights.find(i =>
-      i.category === 'consistency' && i.message.includes('Metronomic'),
-    );
+    const goldInsight = result?.insights.find((i) => i.category === 'consistency' && i.message.includes('Metronomic'));
     expect(goldInsight).toBeDefined();
     expect(goldInsight!.sentiment).toBe('positive');
   });
@@ -484,8 +493,8 @@ describe('insight generation', () => {
       splits_standard: mockSplitSeries([8.2, 8.2, 8.1, 8.1, 7.8, 7.8, 7.9, 7.9], 'mi'),
     });
     const result = analyzeSplits(activity);
-    const patternInsight = result?.insights.find(i =>
-      i.category === 'pattern' && i.message.includes('Negative split'),
+    const patternInsight = result?.insights.find(
+      (i) => i.category === 'pattern' && i.message.includes('Negative split'),
     );
     expect(patternInsight).toBeDefined();
     expect(patternInsight!.sentiment).toBe('positive');
@@ -493,15 +502,17 @@ describe('insight generation', () => {
 
   it('generates HR drift insight for significant cardiac drift', () => {
     // Create splits with rising HR
-    const splits = Array.from({ length: 8 }, (_, i) => mockSplit({
-      split: i + 1,
-      distance: MILE_M,
-      moving_time: 480,
-      average_heartrate: 140 + i * 6, // 140 to 182
-    }));
+    const splits = Array.from({ length: 8 }, (_, i) =>
+      mockSplit({
+        split: i + 1,
+        distance: MILE_M,
+        moving_time: 480,
+        average_heartrate: 140 + i * 6, // 140 to 182
+      }),
+    );
     const activity = mockActivity({ splits_standard: splits });
     const result = analyzeSplits(activity);
-    const hrInsight = result?.insights.find(i => i.category === 'heartrate');
+    const hrInsight = result?.insights.find((i) => i.category === 'heartrate');
     expect(hrInsight).toBeDefined();
     expect(hrInsight!.message).toContain('drift');
   });

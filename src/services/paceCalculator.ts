@@ -93,7 +93,9 @@ function danielsPace(vdot: number, type: DanielsPaceType): number {
   if (!(vdot > 0) || !Number.isFinite(vdot)) return 0;
   switch (type) {
     case 'easy':
-      return Math.round((paceAtFraction(vdot, DANIELS_INTENSITY.easyFast) + paceAtFraction(vdot, DANIELS_INTENSITY.easySlow)) / 2);
+      return Math.round(
+        (paceAtFraction(vdot, DANIELS_INTENSITY.easyFast) + paceAtFraction(vdot, DANIELS_INTENSITY.easySlow)) / 2,
+      );
     case 'marathon':
       return Math.round(racePace(vdot, MARATHON_M));
     case 'threshold':
@@ -119,9 +121,9 @@ export function calculateTrainingPaces(vdot: number): TrainingPaces | null {
       min: Math.round(paceAtFraction(vdot, DANIELS_INTENSITY.easyFast)), // faster end
       max: Math.round(paceAtFraction(vdot, DANIELS_INTENSITY.easySlow)), // slower end
     },
-    marathon:   danielsPace(vdot, 'marathon'),
-    threshold:  danielsPace(vdot, 'threshold'),
-    interval:   danielsPace(vdot, 'interval'),
+    marathon: danielsPace(vdot, 'marathon'),
+    threshold: danielsPace(vdot, 'threshold'),
+    interval: danielsPace(vdot, 'interval'),
     repetition: danielsPace(vdot, 'repetition'),
     updatedAt: new Date().toISOString(),
   };
@@ -178,7 +180,9 @@ export function formatTrainingPacesSummary(paces: TrainingPaces): string {
 export function saveTrainingPaces(paces: TrainingPaces): void {
   try {
     persistence.setItem(PACE_CACHE_KEY, JSON.stringify(paces));
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
 }
 
 function isPositive(n: unknown): n is number {
@@ -189,8 +193,16 @@ function isPositive(n: unknown): n is number {
 export function isValidTrainingPaces(p: unknown): p is TrainingPaces {
   if (!p || typeof p !== 'object') return false;
   const x = p as Partial<TrainingPaces>;
-  return isPositive(x.vdot) && !!x.easy && isPositive(x.easy.min) && isPositive(x.easy.max) &&
-    isPositive(x.marathon) && isPositive(x.threshold) && isPositive(x.interval) && isPositive(x.repetition);
+  return (
+    isPositive(x.vdot) &&
+    !!x.easy &&
+    isPositive(x.easy.min) &&
+    isPositive(x.easy.max) &&
+    isPositive(x.marathon) &&
+    isPositive(x.threshold) &&
+    isPositive(x.interval) &&
+    isPositive(x.repetition)
+  );
 }
 
 /** Get cached training paces (validated; null when missing or malformed). */
@@ -244,7 +256,9 @@ export function getOrComputeTrainingPaces(): TrainingPaces | null {
   }
   try {
     persistence.removeItem(PACE_CACHE_KEY);
-  } catch { /* non-critical */ }
+  } catch {
+    /* non-critical */
+  }
   return null;
 }
 

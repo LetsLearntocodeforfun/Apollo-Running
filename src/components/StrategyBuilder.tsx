@@ -25,10 +25,22 @@ const M_PER_FT = 0.3048;
 
 /** Pacing styles offered in the builder. */
 export const PACING_STRATEGIES: { value: PacingStrategy; label: string; description: string }[] = [
-  { value: 'negative-split', label: 'Negative split', description: 'Start controlled and finish a little faster. A good default for experienced runners.' },
+  {
+    value: 'negative-split',
+    label: 'Negative split',
+    description: 'Start controlled and finish a little faster. A good default for experienced runners.',
+  },
   { value: 'even-split', label: 'Even split', description: 'Equal halves. Pace changes only for hills.' },
-  { value: 'effort-based', label: 'Effort-based', description: 'Even effort, not even pace: slower on climbs, with a little late-race fatigue built in.' },
-  { value: 'positive-split', label: 'Positive split', description: 'A slightly faster first half. Common for first-timers, rarely best for a PR.' },
+  {
+    value: 'effort-based',
+    label: 'Effort-based',
+    description: 'Even effort, not even pace: slower on climbs, with a little late-race fatigue built in.',
+  },
+  {
+    value: 'positive-split',
+    label: 'Positive split',
+    description: 'A slightly faster first half. Common for first-timers, rarely best for a PR.',
+  },
 ];
 
 /** Human label for a pacing style. */
@@ -109,7 +121,7 @@ export default function StrategyBuilder({
   const stale = preview !== null && sig !== previewSig;
   const ids = useMemo(() => `sb-${marathon.id.replace(/[^a-zA-Z0-9_-]/g, '')}`, [marathon.id]);
 
-  const viewing = viewingId ? existingStrategies.find((s) => s.id === viewingId) ?? null : null;
+  const viewing = viewingId ? (existingStrategies.find((s) => s.id === viewingId) ?? null) : null;
   const display = viewing ?? preview;
 
   const handlePreview = () => {
@@ -140,12 +152,13 @@ export default function StrategyBuilder({
     setStatus('This is now your race-day strategy.');
   };
 
-  const halvesPreview = splitPct !== null && goalSec > 0 && !goalError
-    ? (() => {
-        const first = goalSec / (2 + splitPct / 100);
-        return `First half ${formatDurationSec(first)}, second half ${formatDurationSec(Math.round(goalSec) - Math.round(first))}.`;
-      })()
-    : null;
+  const halvesPreview =
+    splitPct !== null && goalSec > 0 && !goalError
+      ? (() => {
+          const first = goalSec / (2 + splitPct / 100);
+          return `First half ${formatDurationSec(first)}, second half ${formatDurationSec(Math.round(goalSec) - Math.round(first))}.`;
+        })()
+      : null;
 
   return (
     <div className="rs-builder">
@@ -161,7 +174,9 @@ export default function StrategyBuilder({
 
       {existingStrategies.length > 0 && (
         <section className="card rs-section" aria-labelledby={`${ids}-saved`}>
-          <h4 id={`${ids}-saved`} className="rs-eyebrow">Your saved strategies for this race</h4>
+          <h4 id={`${ids}-saved`} className="rs-eyebrow">
+            Your saved strategies for this race
+          </h4>
           <div className="rs-chip-row">
             {existingStrategies.map((s) => (
               <button
@@ -169,7 +184,10 @@ export default function StrategyBuilder({
                 type="button"
                 className={`btn ${viewingId === s.id ? 'btn-primary' : 'btn-secondary'} rs-btn`}
                 aria-pressed={viewingId === s.id}
-                onClick={() => { setViewingId(viewingId === s.id ? null : s.id); setStatus(''); }}
+                onClick={() => {
+                  setViewingId(viewingId === s.id ? null : s.id);
+                  setStatus('');
+                }}
               >
                 {formatDurationSec(s.targetTimeSec)} · {pacingLabel(s.pacingStrategy)}
                 {activeStrategyId === s.id ? ' · race day' : ''}
@@ -180,7 +198,9 @@ export default function StrategyBuilder({
       )}
 
       <section className="card rs-section rs-form" aria-labelledby={`${ids}-build`}>
-        <h4 id={`${ids}-build`} className="rs-eyebrow rs-eyebrow-gold">Build a strategy</h4>
+        <h4 id={`${ids}-build`} className="rs-eyebrow rs-eyebrow-gold">
+          Build a strategy
+        </h4>
         <div className="rs-grid">
           <fieldset className="rs-fieldset">
             <legend className="rs-label">Goal finish time</legend>
@@ -188,7 +208,11 @@ export default function StrategyBuilder({
               <label>
                 <span className="sr-only">Hours</span>
                 <input
-                  type="number" inputMode="numeric" min={0} max={12} value={hours}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={12}
+                  value={hours}
                   aria-describedby={goalError ? `${ids}-goal-error` : `${ids}-goal-help`}
                   aria-invalid={goalError ? true : undefined}
                   onChange={(e) => setHours(clampInt(e.target.value, 0, 12))}
@@ -198,7 +222,11 @@ export default function StrategyBuilder({
               <label>
                 <span className="sr-only">Minutes</span>
                 <input
-                  type="number" inputMode="numeric" min={0} max={59} value={minutes}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={59}
+                  value={minutes}
                   aria-describedby={goalError ? `${ids}-goal-error` : `${ids}-goal-help`}
                   aria-invalid={goalError ? true : undefined}
                   onChange={(e) => setMinutes(clampInt(e.target.value, 0, 59))}
@@ -208,7 +236,11 @@ export default function StrategyBuilder({
               <label>
                 <span className="sr-only">Seconds</span>
                 <input
-                  type="number" inputMode="numeric" min={0} max={59} value={seconds}
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={59}
+                  value={seconds}
                   aria-describedby={goalError ? `${ids}-goal-error` : `${ids}-goal-help`}
                   aria-invalid={goalError ? true : undefined}
                   onChange={(e) => setSeconds(clampInt(e.target.value, 0, 59))}
@@ -217,16 +249,21 @@ export default function StrategyBuilder({
               </label>
             </div>
             {goalError ? (
-              <p id={`${ids}-goal-error`} role="alert" className="rs-error">{goalError}</p>
+              <p id={`${ids}-goal-error`} role="alert" className="rs-error">
+                {goalError}
+              </p>
             ) : (
               <p id={`${ids}-goal-help`} className="rs-help">
-                Average pace {formatPaceForUnit(goalSec / distanceMi, unit)}{paceLabel}
+                Average pace {formatPaceForUnit(goalSec / distanceMi, unit)}
+                {paceLabel}
               </p>
             )}
           </fieldset>
 
           <div>
-            <label className="rs-label" htmlFor={`${ids}-name`}>Strategy name (optional)</label>
+            <label className="rs-label" htmlFor={`${ids}-name`}>
+              Strategy name (optional)
+            </label>
             <input
               id={`${ids}-name`}
               type="text"
@@ -262,28 +299,41 @@ export default function StrategyBuilder({
 
         {(pacing === 'negative-split' || pacing === 'positive-split') && (
           <div className="rs-magnitude">
-            <label className="rs-label" htmlFor={`${ids}-mag`}>Split size (%)</label>
+            <label className="rs-label" htmlFor={`${ids}-mag`}>
+              Split size (%)
+            </label>
             <input
               id={`${ids}-mag`}
               type="number"
               className="rs-input rs-input-narrow"
-              min={0.5} max={5} step={0.5}
+              min={0.5}
+              max={5}
+              step={0.5}
               value={magnitude}
               aria-describedby={`${ids}-mag-help`}
               onChange={(e) => {
                 const n = Number(e.target.value);
-                setMagnitude(Number.isFinite(n) ? Math.min(5, Math.max(0.5, Math.round(n * 2) / 2)) : DEFAULT_SPLIT_MAGNITUDE_PCT);
+                setMagnitude(
+                  Number.isFinite(n) ? Math.min(5, Math.max(0.5, Math.round(n * 2) / 2)) : DEFAULT_SPLIT_MAGNITUDE_PCT,
+                );
               }}
             />
             <p id={`${ids}-mag-help`} className="rs-help">
-              {pacing === 'negative-split' ? 'Second half this much faster than the first.' : 'Second half this much slower than the first.'}
+              {pacing === 'negative-split'
+                ? 'Second half this much faster than the first.'
+                : 'Second half this much slower than the first.'}
               {halvesPreview ? ` ${halvesPreview}` : ''}
             </p>
           </div>
         )}
 
         <div className="rs-actions">
-          <button type="button" className="btn btn-primary rs-btn" onClick={handlePreview} disabled={goalError !== null}>
+          <button
+            type="button"
+            className="btn btn-primary rs-btn"
+            onClick={handlePreview}
+            disabled={goalError !== null}
+          >
             {preview ? 'Update preview' : 'Preview plan'}
           </button>
           {preview && !stale && savedId !== preview.id && !viewing && (
@@ -297,9 +347,15 @@ export default function StrategyBuilder({
             </button>
           )}
         </div>
-        {buildError && <p role="alert" className="rs-error">{buildError}</p>}
+        {buildError && (
+          <p role="alert" className="rs-error">
+            {buildError}
+          </p>
+        )}
         {stale && !viewing && <p className="rs-help">Inputs changed. Update the preview before saving.</p>}
-        <p role="status" className="rs-status">{status}</p>
+        <p role="status" className="rs-status">
+          {status}
+        </p>
       </section>
 
       {display && (
@@ -329,7 +385,16 @@ interface DetailsProps {
   idPrefix: string;
 }
 
-function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highlight, onHighlight, idPrefix }: DetailsProps) {
+function StrategyDetails({
+  strategy,
+  marathon,
+  unit,
+  isActive,
+  isPreview,
+  highlight,
+  onHighlight,
+  idPrefix,
+}: DetailsProps) {
   const distanceMi = getStrategyDistanceMi(strategy);
   const half = distanceMi / 2;
   const rows = buildUnitSplits(strategy.milePaces, unit, distanceMi);
@@ -363,19 +428,28 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
         <p className="rs-eyebrow rs-eyebrow-gold">
           {isPreview ? 'Preview (not saved)' : isActive ? 'Race-day strategy' : 'Saved strategy'}
         </p>
-        <h4 id={`${idPrefix}-plan`} className="rs-plan-name">{strategy.name}</h4>
+        <h4 id={`${idPrefix}-plan`} className="rs-plan-name">
+          {strategy.name}
+        </h4>
         <dl className="rs-stats">
           {summary.map(({ label, value, gold }) => (
             <div key={label} className="rs-stat">
               <dt>{label}</dt>
-              <dd className={gold ? 'rs-gold' : undefined} data-testid={`rs-stat-${label.toLowerCase().replace(/\s+/g, '-')}`}>{value}</dd>
+              <dd
+                className={gold ? 'rs-gold' : undefined}
+                data-testid={`rs-stat-${label.toLowerCase().replace(/\s+/g, '-')}`}
+              >
+                {value}
+              </dd>
             </div>
           ))}
         </dl>
       </section>
 
       <section className="card rs-section" aria-labelledby={`${idPrefix}-course`}>
-        <h4 id={`${idPrefix}-course`} className="rs-eyebrow">Course profile</h4>
+        <h4 id={`${idPrefix}-course`} className="rs-eyebrow">
+          Course profile
+        </h4>
         <div className="rs-chart">
           <ElevationChart
             points={marathon.course.elevationPoints}
@@ -387,10 +461,13 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
       </section>
 
       <section className="card rs-section rs-table-wrap" aria-labelledby={`${idPrefix}-splits`}>
-        <h4 id={`${idPrefix}-splits`} className="rs-eyebrow">{unit === 'km' ? 'Kilometre splits' : 'Mile splits'}</h4>
+        <h4 id={`${idPrefix}-splits`} className="rs-eyebrow">
+          {unit === 'km' ? 'Kilometre splits' : 'Mile splits'}
+        </h4>
         <table className="rs-table">
           <caption className="sr-only">
-            {unit === 'km' ? 'Kilometre' : 'Mile'} splits for {strategy.name}. Focus a row to highlight it on the course profile.
+            {unit === 'km' ? 'Kilometre' : 'Mile'} splits for {strategy.name}. Focus a row to highlight it on the course
+            profile.
           </caption>
           <thead>
             <tr>
@@ -399,7 +476,9 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
               <th scope="col">Split</th>
               <th scope="col">Elapsed</th>
               <th scope="col">Elevation</th>
-              <th scope="col" className="rs-left">Notes</th>
+              <th scope="col" className="rs-left">
+                Notes
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -408,9 +487,14 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
               const isHalf = prevEndMi < half - 1e-9 && half <= row.endMi + 1e-9;
               const partial = row.length < 0.999;
               const elevFt = courseElevationFtAt(marathon, row.endMi) - courseElevationFtAt(marathon, prevEndMi);
-              const notes = unit === 'mi'
-                ? strategy.milePaces.find((mp) => mp.mile >= row.endMi - 1e-6)?.notes ?? ''
-                : strategy.milePaces.filter((mp) => mp.mile > prevEndMi + 1e-9 && mp.mile <= row.endMi + 1e-9).map((mp) => mp.notes).filter(Boolean).join(' · ');
+              const notes =
+                unit === 'mi'
+                  ? (strategy.milePaces.find((mp) => mp.mile >= row.endMi - 1e-6)?.notes ?? '')
+                  : strategy.milePaces
+                      .filter((mp) => mp.mile > prevEndMi + 1e-9 && mp.mile <= row.endMi + 1e-9)
+                      .map((mp) => mp.notes)
+                      .filter(Boolean)
+                      .join(' · ');
               const select = () => onHighlight({ fromMi: prevEndMi, toMi: row.endMi });
               return (
                 <tr
@@ -439,10 +523,13 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
       </section>
 
       <section className="card rs-section" aria-labelledby={`${idPrefix}-fuel`}>
-        <h4 id={`${idPrefix}-fuel`} className="rs-eyebrow">Fuel plan</h4>
+        <h4 id={`${idPrefix}-fuel`} className="rs-eyebrow">
+          Fuel plan
+        </h4>
         {fuelUpdated && (
           <p className="rs-help" role="note">
-            Updated to your current carb target ({Math.round(Math.min(carbsPerHourG, CARB_TOLERANCE_MAX_G_PER_HOUR))} g/h) — it now matches the Fuel tab.
+            Updated to your current carb target ({Math.round(Math.min(carbsPerHourG, CARB_TOLERANCE_MAX_G_PER_HOUR))}{' '}
+            g/h) — it now matches the Fuel tab.
           </p>
         )}
         {nutritionPlan.length === 0 ? (
@@ -453,7 +540,9 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
               <li key={i} className="rs-fuel-item">
                 <span className="rs-fuel-when">
                   {typeof np.timeSec === 'number'
-                    ? (np.timeSec < 0 ? 'Before the start' : formatDurationSec(np.timeSec))
+                    ? np.timeSec < 0
+                      ? 'Before the start'
+                      : formatDurationSec(np.timeSec)
                     : '—'}
                   <span className="rs-muted">
                     {np.mile > 0 ? ` · ${(unit === 'km' ? np.mile * 1.609344 : np.mile).toFixed(1)} ${unit}` : ''}

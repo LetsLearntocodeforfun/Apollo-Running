@@ -25,12 +25,7 @@
  * - ACSM (2007) / EAH consensus: never plan to drink more than you sweat
  */
 
-import type {
-  AthleteProfile,
-  FuelingPlan,
-  FuelingItem,
-  CaffeineStrategy,
-} from '../types/nutrition';
+import type { AthleteProfile, FuelingPlan, FuelingItem, CaffeineStrategy } from '../types/nutrition';
 import type { AidStation } from '../types/raceStrategy';
 
 // ── Race-day fueling timeline (v1.0.6) ────────────────────────────────────────
@@ -179,7 +174,9 @@ export function planRaceFueling(input: RaceFuelingInput): RaceFuelingPlan {
     );
   }
   if (needsMultipleTransportable) {
-    notes.push('Above ~60 g/h use glucose+fructose products and a trained gut — practise this intake on long runs first.');
+    notes.push(
+      'Above ~60 g/h use glucose+fructose products and a trained gut — practise this intake on long runs first.',
+    );
   }
 
   const plan = (items: RaceFuelingItem[], intervalMin: number = gelIntervalMin): RaceFuelingPlan => {
@@ -304,13 +301,13 @@ export interface SweatTestInput {
 
 export type SweatTestResult =
   | {
-    ok: true;
-    /** Sweat rate (L/h), 2 dp. */
-    sweatRateLPerHour: number;
-    /** Body-mass change during the run (%), negative = lost weight. */
-    massChangePct: number;
-    warnings: string[];
-  }
+      ok: true;
+      /** Sweat rate (L/h), 2 dp. */
+      sweatRateLPerHour: number;
+      /** Body-mass change during the run (%), negative = lost weight. */
+      massChangePct: number;
+      warnings: string[];
+    }
   | { ok: false; error: string };
 
 /**
@@ -331,7 +328,11 @@ export function estimateSweatRate(input: SweatTestInput): SweatTestResult {
   if (!Number.isFinite(urineL) || urineL < 0 || urineL > SWEAT_TEST_MAX_FLUID_L) {
     return { ok: false, error: 'Enter a valid urine volume, or leave it empty.' };
   }
-  if (!Number.isFinite(durationMin) || durationMin < SWEAT_TEST_DURATION_MIN.min || durationMin > SWEAT_TEST_DURATION_MIN.max) {
+  if (
+    !Number.isFinite(durationMin) ||
+    durationMin < SWEAT_TEST_DURATION_MIN.min ||
+    durationMin > SWEAT_TEST_DURATION_MIN.max
+  ) {
     return { ok: false, error: `Use a run of ${SWEAT_TEST_DURATION_MIN.min}–${SWEAT_TEST_DURATION_MIN.max} minutes.` };
   }
   const lossL = preKg - postKg + fluidL - urineL;
@@ -345,9 +346,13 @@ export function estimateSweatRate(input: SweatTestInput): SweatTestResult {
   const massChangePct = Math.round(((postKg - preKg) / preKg) * 1000) / 10;
   const warnings: string[] = [];
   if (postKg > preKg) {
-    warnings.push('You finished heavier than you started: you drank more than you sweated. In a race, drink less than that — weight gain is how hyponatremia starts.');
+    warnings.push(
+      'You finished heavier than you started: you drank more than you sweated. In a race, drink less than that — weight gain is how hyponatremia starts.',
+    );
   } else if (massChangePct <= -3) {
-    warnings.push('You lost more than 3% of your body mass. Drinking a little more to thirst on long, hot runs is reasonable — but never aim to replace every drop.');
+    warnings.push(
+      'You lost more than 3% of your body mass. Drinking a little more to thirst on long, hot runs is reasonable — but never aim to replace every drop.',
+    );
   }
   return { ok: true, sweatRateLPerHour: Math.round(rate * 100) / 100, massChangePct, warnings };
 }
@@ -418,7 +423,7 @@ export function planCaffeine(input: CaffeinePlanInput): CaffeinePlan {
   const startHour = input.startTime ? Number(/^(\d{1,2}):/.exec(input.startTime)?.[1]) : NaN;
   const lateStart = Number.isFinite(startHour) && startHour >= CAFFEINE_LATE_START_HOUR;
   const warnings = [
-    'Optional. It helps most runners a little, but skip it if you don\'t already use caffeine in training.',
+    "Optional. It helps most runners a little, but skip it if you don't already use caffeine in training.",
     'Practise the exact dose and product on long runs first — nothing new on race day.',
     lateStart
       ? 'Your race starts in the afternoon or evening: caffeine lasts 5 hours or more and is likely to disrupt your sleep that night.'
@@ -432,13 +437,14 @@ export function planCaffeine(input: CaffeinePlanInput): CaffeinePlan {
   }
   const preMg = Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_PRE_RACE_MG_PER_KG * weightKg));
   const finishSec = isPositiveFinite(input.finishSec ?? undefined) ? (input.finishSec as number) : null;
-  const lateRace = finishSec !== null && finishSec < CAFFEINE_LATE_RACE_MIN_SEC
-    ? null
-    : {
-      minMg: Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_LATE_RACE_MG_PER_KG.min * weightKg)),
-      maxMg: Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_LATE_RACE_MG_PER_KG.max * weightKg)),
-      fromSec: finishSec !== null ? Math.round(Math.max(finishSec / 2, finishSec - CAFFEINE_LEAD_SEC)) : null,
-    };
+  const lateRace =
+    finishSec !== null && finishSec < CAFFEINE_LATE_RACE_MIN_SEC
+      ? null
+      : {
+          minMg: Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_LATE_RACE_MG_PER_KG.min * weightKg)),
+          maxMg: Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_LATE_RACE_MG_PER_KG.max * weightKg)),
+          fromSec: finishSec !== null ? Math.round(Math.max(finishSec / 2, finishSec - CAFFEINE_LEAD_SEC)) : null,
+        };
   return {
     enabled,
     preRace: {
@@ -500,13 +506,7 @@ export interface FuelingInput {
  * and tops up the rest with gels. Caffeine appears only when `caffeine` is true.
  */
 export function generateFuelingPlan(input: FuelingInput): FuelingPlan {
-  const {
-    athlete,
-    paceSecPerMi,
-    experience = 'intermediate',
-    gutTrained = false,
-    preferredProducts = ['gel'],
-  } = input;
+  const { athlete, paceSecPerMi, experience = 'intermediate', gutTrained = false, preferredProducts = ['gel'] } = input;
   const distanceMi = input.distanceMi ?? DEFAULT_DISTANCE_MI;
   const requestedRate = input.carbsPerHourG ?? DEFAULT_CARBS_PER_HOUR_G;
   const gelCarbsG = isPositiveFinite(input.gelCarbsG) ? input.gelCarbsG : DEFAULT_GEL_CARBS_G;
@@ -522,9 +522,8 @@ export function generateFuelingPlan(input: FuelingInput): FuelingPlan {
   const fueled = finishSec >= MIN_FUELED_RACE_SEC;
 
   // Drink mode: carbs come FROM a safe fluid volume (N-01), gels top up the rest.
-  const fluidMlPerHour = product === 'drink'
-    ? fluidCeilingMlPerHour(input.sweatRateLPerHour) ?? DEFAULT_DRINK_ML_PER_HOUR
-    : 0;
+  const fluidMlPerHour =
+    product === 'drink' ? (fluidCeilingMlPerHour(input.sweatRateLPerHour) ?? DEFAULT_DRINK_ML_PER_HOUR) : 0;
   const drinkCarbsPerHour = (fluidMlPerHour / 1000) * DRINK_CARBS_G_PER_L;
   const gelRate = Math.max(0, targetCarbRate - drinkCarbsPerHour);
   const solidProduct = product === 'drink' ? 'gel' : product;
@@ -541,15 +540,18 @@ export function generateFuelingPlan(input: FuelingInput): FuelingPlan {
       preRaceGel: false,
     });
     gelIntervalMin = timeline.gelIntervalMin;
-    timeline.items.forEach((g, i) => items.push({
-      mile: Math.round(g.distanceMi),
-      distanceMi: g.distanceMi,
-      raceTimeMin: Math.round(g.timeSec / 60),
-      item: getItemName(solidProduct),
-      carbsG: g.carbsG,
-      notes: [i === 0 ? 'First fuel — take with a few sips of water' : 'Take with a few sips of water', g.note]
-        .filter(Boolean).join('. '),
-    }));
+    timeline.items.forEach((g, i) =>
+      items.push({
+        mile: Math.round(g.distanceMi),
+        distanceMi: g.distanceMi,
+        raceTimeMin: Math.round(g.timeSec / 60),
+        item: getItemName(solidProduct),
+        carbsG: g.carbsG,
+        notes: [i === 0 ? 'First fuel — take with a few sips of water' : 'Take with a few sips of water', g.note]
+          .filter(Boolean)
+          .join('. '),
+      }),
+    );
   }
   if (fueled && fluidMlPerHour > 0) {
     items.push(...buildDrinkItems(finishSec, distanceMi, fluidMlPerHour));
@@ -609,9 +611,12 @@ function emptyFuelingPlan(summary: string): FuelingPlan {
 
 function getItemName(product: string): string {
   switch (product) {
-    case 'chews': return 'Energy Chews';
-    case 'real_food': return 'Energy Bar/Banana';
-    default: return 'Energy Gel';
+    case 'chews':
+      return 'Energy Chews';
+    case 'real_food':
+      return 'Energy Bar/Banana';
+    default:
+      return 'Energy Gel';
   }
 }
 
@@ -624,7 +629,7 @@ function buildDrinkItems(finishSec: number, distanceMi: number, mlPerHour: numbe
   const carbsPerServing = Math.round((DRINK_SERVING_ML / 1000) * DRINK_CARBS_G_PER_L);
   const items: FuelingItem[] = [];
   for (let t = intervalSec; t <= finishSec - NO_GEL_FINAL_SEC && items.length < 200; t += intervalSec) {
-    const mi = Math.round(((t / finishSec) * distanceMi) * 100) / 100;
+    const mi = Math.round((t / finishSec) * distanceMi * 100) / 100;
     items.push({
       mile: Math.round(mi),
       distanceMi: mi,
@@ -680,11 +685,7 @@ function applyCaffeine(items: FuelingItem[], athlete: AthleteProfile, finishSec:
 }
 
 /** GI-distress risk for a carb rate; every level is reachable (N-17). */
-export function assessGIRisk(
-  carbRateGHr: number,
-  experience: string,
-  gutTrained: boolean,
-): FuelingPlan['giRisk'] {
+export function assessGIRisk(carbRateGHr: number, experience: string, gutTrained: boolean): FuelingPlan['giRisk'] {
   if (carbRateGHr > 75 && !gutTrained) return 'high';
   if (carbRateGHr > 60 && experience === 'beginner') return 'high';
   if (carbRateGHr > 60 && !gutTrained) return 'moderate';
@@ -716,12 +717,14 @@ function buildFuelingSummary(s: SummaryInput): string {
     return parts.join(' ');
   }
 
-  const source = s.fluidMlPerHour > 0
-    ? `${Math.round(s.drinkCarbsPerHour)} g/h from ~${s.fluidMlPerHour} mL/h of sports drink${s.gelIntervalMin > 0 ? `, the rest from a ${s.gelCarbsG} g gel every ${Math.round(s.gelIntervalMin)} min` : ''}`
-    : `one ${s.gelCarbsG} g gel every ${Math.round(s.gelIntervalMin)} min`;
+  const source =
+    s.fluidMlPerHour > 0
+      ? `${Math.round(s.drinkCarbsPerHour)} g/h from ~${s.fluidMlPerHour} mL/h of sports drink${s.gelIntervalMin > 0 ? `, the rest from a ${s.gelCarbsG} g gel every ${Math.round(s.gelIntervalMin)} min` : ''}`
+      : `one ${s.gelCarbsG} g gel every ${Math.round(s.gelIntervalMin)} min`;
   parts.push(`Target: ${Math.round(s.carbRate)} g carbs/h (${source}); ${s.carbsPlanned} g planned.`);
   if (s.requestedRate > RACE_MAX_CARBS_PER_HOUR_G) parts.push('Capped at 90 g/h.');
-  if (s.carbRate < RACE_LOW_CARBS_PER_HOUR_G) parts.push('That is below the usual 30–60 g/h guidance — fine if it is what your gut tolerates.');
+  if (s.carbRate < RACE_LOW_CARBS_PER_HOUR_G)
+    parts.push('That is below the usual 30–60 g/h guidance — fine if it is what your gut tolerates.');
   if (s.carbRate > MULTIPLE_TRANSPORTABLE_ABOVE_G) {
     parts.push('Above ~60 g/h use glucose+fructose (multiple transportable carbohydrate) products and a trained gut.');
   }

@@ -16,8 +16,18 @@ import type { ParsedActivity } from '@/services/fileImport/types';
 
 /** Base types as written in definition messages (multi-byte types carry the 0x80 endian flag). */
 const BT = {
-  enum: 0x00, sint8: 0x01, uint8: 0x02, sint16: 0x83, uint16: 0x84, sint32: 0x85, uint32: 0x86,
-  string: 0x07, uint8z: 0x0a, uint16z: 0x8b, uint32z: 0x8c, byte: 0x0d,
+  enum: 0x00,
+  sint8: 0x01,
+  uint8: 0x02,
+  sint16: 0x83,
+  uint16: 0x84,
+  sint32: 0x85,
+  uint32: 0x86,
+  string: 0x07,
+  uint8z: 0x0a,
+  uint16z: 0x8b,
+  uint32z: 0x8c,
+  byte: 0x0d,
 } as const;
 
 /** Byte width by base type number (low 5 bits). */
@@ -25,7 +35,17 @@ const WIDTH: Record<number, number> = { 0: 1, 1: 1, 2: 1, 3: 2, 4: 2, 5: 4, 6: 4
 
 /** Invalid ("no value") marker by base type number. */
 const INVALID: Record<number, number> = {
-  0: 0xff, 1: 0x7f, 2: 0xff, 3: 0x7fff, 4: 0xffff, 5: 0x7fffffff, 6: 0xffffffff, 10: 0, 11: 0, 12: 0, 13: 0xff,
+  0: 0xff,
+  1: 0x7f,
+  2: 0xff,
+  3: 0x7fff,
+  4: 0xffff,
+  5: 0x7fffffff,
+  6: 0xffffffff,
+  10: 0,
+  11: 0,
+  12: 0,
+  13: 0xff,
 };
 
 /** A field definition: number, base type and, for arrays, strings and odd sizes, the byte size. */
@@ -34,8 +54,8 @@ type Field = [num: number, type: number, size?: number];
 type Values = Partial<Record<number, number | string>>;
 
 const CRC_TABLE = [
-  0x0000, 0xcc01, 0xd801, 0x1400, 0xf001, 0x3c00, 0x2800, 0xe401,
-  0xa001, 0x6c00, 0x7800, 0xb401, 0x5000, 0x9c01, 0x8801, 0x4400,
+  0x0000, 0xcc01, 0xd801, 0x1400, 0xf001, 0x3c00, 0x2800, 0xe401, 0xa001, 0x6c00, 0x7800, 0xb401, 0x5000, 0x9c01,
+  0x8801, 0x4400,
 ];
 
 /** FIT CRC-16. */
@@ -182,23 +202,73 @@ const range = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
 const MESG = { fileId: 0, sport: 12, session: 18, lap: 19, record: 20, deviceInfo: 23, activity: 34 } as const;
 
-const FILE_ID: Field[] = [[0, BT.enum], [1, BT.uint16], [2, BT.uint16], [4, BT.uint32], [8, BT.string, 20]];
+const FILE_ID: Field[] = [
+  [0, BT.enum],
+  [1, BT.uint16],
+  [2, BT.uint16],
+  [4, BT.uint32],
+  [8, BT.string, 20],
+];
 const RECORD: Field[] = [
-  [253, BT.uint32], [0, BT.sint32], [1, BT.sint32], [5, BT.uint32], [2, BT.uint16],
-  [3, BT.uint8], [4, BT.uint8], [6, BT.uint16], [7, BT.uint16],
+  [253, BT.uint32],
+  [0, BT.sint32],
+  [1, BT.sint32],
+  [5, BT.uint32],
+  [2, BT.uint16],
+  [3, BT.uint8],
+  [4, BT.uint8],
+  [6, BT.uint16],
+  [7, BT.uint16],
 ];
 const LAP: Field[] = [
-  [253, BT.uint32], [2, BT.uint32], [7, BT.uint32], [8, BT.uint32], [9, BT.uint32], [13, BT.uint16],
-  [14, BT.uint16], [15, BT.uint8], [16, BT.uint8], [17, BT.uint8], [21, BT.uint16], [25, BT.enum], [39, BT.enum],
+  [253, BT.uint32],
+  [2, BT.uint32],
+  [7, BT.uint32],
+  [8, BT.uint32],
+  [9, BT.uint32],
+  [13, BT.uint16],
+  [14, BT.uint16],
+  [15, BT.uint8],
+  [16, BT.uint8],
+  [17, BT.uint8],
+  [21, BT.uint16],
+  [25, BT.enum],
+  [39, BT.enum],
 ];
 const SESSION: Field[] = [
-  [253, BT.uint32], [2, BT.uint32], [5, BT.enum], [6, BT.enum], [7, BT.uint32], [8, BT.uint32], [9, BT.uint32],
-  [11, BT.uint16], [14, BT.uint16], [15, BT.uint16], [16, BT.uint8], [17, BT.uint8], [18, BT.uint8],
-  [20, BT.uint16], [22, BT.uint16], [34, BT.uint16], [35, BT.uint16],
+  [253, BT.uint32],
+  [2, BT.uint32],
+  [5, BT.enum],
+  [6, BT.enum],
+  [7, BT.uint32],
+  [8, BT.uint32],
+  [9, BT.uint32],
+  [11, BT.uint16],
+  [14, BT.uint16],
+  [15, BT.uint16],
+  [16, BT.uint8],
+  [17, BT.uint8],
+  [18, BT.uint8],
+  [20, BT.uint16],
+  [22, BT.uint16],
+  [34, BT.uint16],
+  [35, BT.uint16],
 ];
-const ACTIVITY: Field[] = [[253, BT.uint32], [5, BT.uint32]];
-const DEVICE_INFO: Field[] = [[253, BT.uint32], [0, BT.uint8], [2, BT.uint16], [4, BT.uint16], [27, BT.string, 20]];
-const SPORT: Field[] = [[0, BT.enum], [1, BT.enum]];
+const ACTIVITY: Field[] = [
+  [253, BT.uint32],
+  [5, BT.uint32],
+];
+const DEVICE_INFO: Field[] = [
+  [253, BT.uint32],
+  [0, BT.uint8],
+  [2, BT.uint16],
+  [4, BT.uint16],
+  [27, BT.string, 20],
+];
+const SPORT: Field[] = [
+  [0, BT.enum],
+  [1, BT.enum],
+];
 
 interface FileOptions {
   /** file_id.type; 4 (activity) by default. */
@@ -307,11 +377,18 @@ describe('parseFit: file structure', () => {
     const w = new FitWriter()
       .define(0, MESG.fileId, FILE_ID)
       .data(0, { 0: 4, 1: 1, 2: 4315 })
-      .define(0, MESG.record, [[253, BT.uint32], [5, BT.uint32]])
+      .define(0, MESG.record, [
+        [253, BT.uint32],
+        [5, BT.uint32],
+      ])
       .data(0, { 253: T0, 5: 0 })
       .define(15, MESG.lap, LAP)
       .data(0, { 253: T0 + 1, 5: 300 })
-      .define(0, MESG.record, [[253, BT.uint32], [3, BT.uint8], [5, BT.uint32]])
+      .define(0, MESG.record, [
+        [253, BT.uint32],
+        [3, BT.uint8],
+        [5, BT.uint32],
+      ])
       .data(0, { 253: T0 + 2, 3: 150, 5: 600 })
       .data(15, { 253: T0 + 2, 2: T0, 7: 2000, 9: 600 })
       .define(0, MESG.session, SESSION)
@@ -355,7 +432,10 @@ describe('parseFit: file structure', () => {
   it('resolves compressed-timestamp headers, including the 32-second rollover', () => {
     const base = T0 + 30; // low 5 bits: 30
     const w = fitFile()
-      .define(1, MESG.record, [[253, BT.uint32], [5, BT.uint32]])
+      .define(1, MESG.record, [
+        [253, BT.uint32],
+        [5, BT.uint32],
+      ])
       .data(1, { 253: base, 5: 0 })
       .define(2, MESG.record, [[5, BT.uint32]]) // no timestamp field
       .compressed(2, 31, { 5: 100 }) // base + 1
@@ -367,11 +447,33 @@ describe('parseFit: file structure', () => {
 
   it('skips developer fields and unknown messages', () => {
     const w = fitFile()
-      .define(5, 207, [[0, BT.byte, 16], [3, BT.uint8]]) // developer_data_id
+      .define(5, 207, [
+        [0, BT.byte, 16],
+        [3, BT.uint8],
+      ]) // developer_data_id
       .data(5, { 3: 0 })
-      .define(6, 206, [[0, BT.uint8], [1, BT.uint8], [2, BT.uint8], [3, BT.string, 16]]) // field_description
+      .define(6, 206, [
+        [0, BT.uint8],
+        [1, BT.uint8],
+        [2, BT.uint8],
+        [3, BT.string, 16],
+      ]) // field_description
       .data(6, { 0: 0, 1: 0, 2: 2, 3: 'Form Power' })
-      .define(1, MESG.record, [[253, BT.uint32], [5, BT.uint32], [3, BT.uint8]], { dev: [[0, 2, 0], [1, 4, 0]] });
+      .define(
+        1,
+        MESG.record,
+        [
+          [253, BT.uint32],
+          [5, BT.uint32],
+          [3, BT.uint8],
+        ],
+        {
+          dev: [
+            [0, 2, 0],
+            [1, 4, 0],
+          ],
+        },
+      );
     for (let i = 0; i < 3; i++) w.data(1, { 253: T0 + i, 5: i * 100, 3: 120 + i });
     const a = parseOne(withSession(w, T0, T0 + 2).build());
     expect(a.samples).toEqual(range(3).map((i) => ({ time: ms(T0 + i), distance: i, heartRate: 120 + i })));
@@ -380,7 +482,12 @@ describe('parseFit: file structure', () => {
   it('skips fields whose size does not fit their base type', () => {
     // Seen in COROS files: a 3-byte uint16. Its bytes are skipped and later fields still line up.
     const w = fitFile()
-      .define(1, MESG.record, [[253, BT.uint32], [6, BT.uint16, 3], [3, BT.uint8], [5, BT.uint32]])
+      .define(1, MESG.record, [
+        [253, BT.uint32],
+        [6, BT.uint16, 3],
+        [3, BT.uint8],
+        [5, BT.uint32],
+      ])
       .data(1, { 253: T0, 6: 3000, 3: 150, 5: 1000 })
       .data(1, { 253: T0 + 1, 6: 3000, 3: 151, 5: 1300 });
     expect(parseOne(withSession(w, T0, T0 + 1).build()).samples).toEqual([
@@ -391,7 +498,11 @@ describe('parseFit: file structure', () => {
 
   it('reads the first element of array fields', () => {
     const w = fitFile()
-      .define(1, MESG.record, [[253, BT.uint32], [3, BT.uint8, 4], [7, BT.uint16, 6]])
+      .define(1, MESG.record, [
+        [253, BT.uint32],
+        [3, BT.uint8, 4],
+        [7, BT.uint16, 6],
+      ])
       .data(1, { 253: T0, 3: 150, 7: 250 })
       .data(1, { 253: T0 + 1, 3: 151, 7: 251 });
     const [first] = parseOne(withSession(w, T0, T0 + 1).build()).samples;
@@ -445,7 +556,14 @@ describe('parseFit: records', () => {
     const [s, t] = parseOne(withSession(w, T0, T0 + 1).build()).samples;
     // 2^31 semicircles = 180°. Cadence keeps its 1/128 fraction, in device units (strides/min when running).
     expect(s).toEqual({
-      time: ms(T0), lat: 45, lng: -90, distance: 1234.56, altitude: 20, heartRate: 150, cadence: 85.5, speed: 3.456,
+      time: ms(T0),
+      lat: 45,
+      lng: -90,
+      distance: 1234.56,
+      altitude: 20,
+      heartRate: 150,
+      cadence: 85.5,
+      speed: 3.456,
       power: 250,
     });
     expect(t.lat).toBeCloseTo(45.5, 6);
@@ -466,9 +584,17 @@ describe('parseFit: records', () => {
 
   it('treats 0 as invalid only for the z base types', () => {
     const w = fitFile()
-      .define(1, MESG.record, [[253, BT.uint32], [4, BT.uint8z], [7, BT.uint16z]])
+      .define(1, MESG.record, [
+        [253, BT.uint32],
+        [4, BT.uint8z],
+        [7, BT.uint16z],
+      ])
       .data(1, { 253: T0, 4: 0, 7: 0 })
-      .define(2, MESG.record, [[253, BT.uint32], [4, BT.uint8], [7, BT.uint16]])
+      .define(2, MESG.record, [
+        [253, BT.uint32],
+        [4, BT.uint8],
+        [7, BT.uint16],
+      ])
       .data(2, { 253: T0 + 1, 4: 0, 7: 0 });
     expect(parseOne(withSession(w, T0, T0 + 1).build()).samples).toEqual([
       { time: ms(T0) },
@@ -478,7 +604,13 @@ describe('parseFit: records', () => {
 
   it('prefers enhanced speed and altitude over the plain fields', () => {
     const w = fitFile()
-      .define(1, MESG.record, [[253, BT.uint32], [6, BT.uint16], [73, BT.uint32], [2, BT.uint16], [78, BT.uint32]])
+      .define(1, MESG.record, [
+        [253, BT.uint32],
+        [6, BT.uint16],
+        [73, BT.uint32],
+        [2, BT.uint16],
+        [78, BT.uint32],
+      ])
       .data(1, { 253: T0, 6: 3000, 73: 3500, 2: 2600, 78: 3000 })
       .data(1, { 253: T0 + 1, 6: 3000, 2: 2600 }); // enhanced fields invalid
     expect(parseOne(withSession(w, T0, T0 + 1).build()).samples).toEqual([
@@ -552,12 +684,39 @@ describe('parseFit: activity metadata', () => {
     const w = recordsWriter()
       .define(3, MESG.session, [...SESSION, [124, BT.uint32], [125, BT.uint32]])
       .data(3, {
-        253: T0 + 3600, 2: T0, 5: 1, 6: 0, 7: 3600500, 8: 3500000, 9: 1000050, 11: 700, 14: 2778, 15: 4500,
-        124: 2857, 125: 5123, 16: 150, 17: 182, 18: 85, 20: 230, 22: 120, 34: 250, 35: 855,
+        253: T0 + 3600,
+        2: T0,
+        5: 1,
+        6: 0,
+        7: 3600500,
+        8: 3500000,
+        9: 1000050,
+        11: 700,
+        14: 2778,
+        15: 4500,
+        124: 2857,
+        125: 5123,
+        16: 150,
+        17: 182,
+        18: 85,
+        20: 230,
+        22: 120,
+        34: 250,
+        35: 855,
       });
     expect(parseOne(w.build()).totals).toEqual({
-      elapsedSec: 3600.5, movingSec: 3500, distance: 10000.5, calories: 700, avgSpeed: 2.857, maxSpeed: 5.123,
-      avgHeartRate: 150, maxHeartRate: 182, avgCadence: 85, avgPower: 230, ascent: 120, normalizedPower: 250,
+      elapsedSec: 3600.5,
+      movingSec: 3500,
+      distance: 10000.5,
+      calories: 700,
+      avgSpeed: 2.857,
+      maxSpeed: 5.123,
+      avgHeartRate: 150,
+      maxHeartRate: 182,
+      avgCadence: 85,
+      avgPower: 230,
+      ascent: 120,
+      normalizedPower: 250,
       trainingLoad: 85.5,
     });
   });
@@ -570,7 +729,9 @@ describe('parseFit: activity metadata', () => {
   });
 
   it('derives a missing session start from its timestamp and elapsed time', () => {
-    const w = recordsWriter().define(3, MESG.session, SESSION).data(3, { 253: T0 + 9, 5: 1, 7: 12000 });
+    const w = recordsWriter()
+      .define(3, MESG.session, SESSION)
+      .data(3, { 253: T0 + 9, 5: 1, 7: 12000 });
     expect(parseOne(w.build()).startTime).toBe(ms(T0 - 3));
   });
 
@@ -597,7 +758,10 @@ describe('parseFit: activity metadata', () => {
     expect(identify({ manufacturer: 1, product: 4315 })).toEqual({ device: 'Garmin Forerunner 965', origin: 'GARMIN' });
     expect(identify({ manufacturer: 1, product: 65534 })).toEqual({ device: 'Garmin', origin: 'GARMIN' });
     expect(identify({ manufacturer: 294, productName: 'PACE 3' })).toEqual({ device: 'COROS PACE 3', origin: 'COROS' });
-    expect(identify({ manufacturer: 294, productName: 'COROS PACE 2' })).toEqual({ device: 'COROS PACE 2', origin: 'COROS' });
+    expect(identify({ manufacturer: 294, productName: 'COROS PACE 2' })).toEqual({
+      device: 'COROS PACE 2',
+      origin: 'COROS',
+    });
     expect(identify({ manufacturer: 23 })).toEqual({ device: 'Suunto', origin: 'SUUNTO' });
     expect(identify({ manufacturer: 32 })).toEqual({ device: 'Wahoo', origin: 'WAHOO' });
     expect(identify({ manufacturer: 123 })).toEqual({ device: 'Polar', origin: 'POLAR' });
@@ -619,16 +783,48 @@ describe('parseFit: activity metadata', () => {
 describe('parseFit: sport mapping', () => {
   /** [sport, sub_sport, Apollo type, trainer] with FIT profile enum values. */
   const CASES: Array<[sport: number, subSport: number, type: string, trainer?: true]> = [
-    [1, 0, 'Run'], [1, 3, 'TrailRun'], [1, 1, 'Run', true], [1, 45, 'Run', true], [1, 58, 'VirtualRun', true],
-    [2, 0, 'Ride'], [2, 58, 'VirtualRide', true], [2, 6, 'Ride', true], [2, 5, 'Ride', true],
-    [2, 8, 'MountainBikeRide'], [2, 46, 'GravelRide'], [2, 13, 'TrackRide'], [2, 47, 'EMountainBikeRide'],
-    [21, 0, 'EBikeRide'], [5, 17, 'Swim'], [5, 18, 'OpenWaterSwim'], [11, 0, 'Walk'], [17, 0, 'Hike'],
-    [10, 20, 'WeightTraining'], [10, 43, 'Yoga'], [10, 44, 'Pilates'], [10, 0, 'Workout'],
-    [4, 14, 'Rowing', true], [4, 15, 'Elliptical'], [4, 16, 'StairStepper'], [4, 20, 'WeightTraining'],
-    [4, 0, 'Workout'], [15, 0, 'Rowing'], [12, 0, 'NordicSki'], [13, 0, 'AlpineSki'], [14, 0, 'Snowboard'],
-    [19, 0, 'Kayaking'], [41, 0, 'Kayaking'], [37, 0, 'StandUpPaddling'], [31, 0, 'RockClimbing'],
-    [30, 0, 'InlineSkate'], [33, 0, 'IceSkate'], [35, 0, 'Snowshoe'], [38, 0, 'Surfing'],
-    [62, 0, 'HighIntensityIntervalTraining'], [0, 0, 'Workout'], [200, 0, 'Workout'],
+    [1, 0, 'Run'],
+    [1, 3, 'TrailRun'],
+    [1, 1, 'Run', true],
+    [1, 45, 'Run', true],
+    [1, 58, 'VirtualRun', true],
+    [2, 0, 'Ride'],
+    [2, 58, 'VirtualRide', true],
+    [2, 6, 'Ride', true],
+    [2, 5, 'Ride', true],
+    [2, 8, 'MountainBikeRide'],
+    [2, 46, 'GravelRide'],
+    [2, 13, 'TrackRide'],
+    [2, 47, 'EMountainBikeRide'],
+    [21, 0, 'EBikeRide'],
+    [5, 17, 'Swim'],
+    [5, 18, 'OpenWaterSwim'],
+    [11, 0, 'Walk'],
+    [17, 0, 'Hike'],
+    [10, 20, 'WeightTraining'],
+    [10, 43, 'Yoga'],
+    [10, 44, 'Pilates'],
+    [10, 0, 'Workout'],
+    [4, 14, 'Rowing', true],
+    [4, 15, 'Elliptical'],
+    [4, 16, 'StairStepper'],
+    [4, 20, 'WeightTraining'],
+    [4, 0, 'Workout'],
+    [15, 0, 'Rowing'],
+    [12, 0, 'NordicSki'],
+    [13, 0, 'AlpineSki'],
+    [14, 0, 'Snowboard'],
+    [19, 0, 'Kayaking'],
+    [41, 0, 'Kayaking'],
+    [37, 0, 'StandUpPaddling'],
+    [31, 0, 'RockClimbing'],
+    [30, 0, 'InlineSkate'],
+    [33, 0, 'IceSkate'],
+    [35, 0, 'Snowshoe'],
+    [38, 0, 'Surfing'],
+    [62, 0, 'HighIntensityIntervalTraining'],
+    [0, 0, 'Workout'],
+    [200, 0, 'Workout'],
   ];
 
   for (const [sport, subSport, type, trainer] of CASES) {
@@ -662,14 +858,33 @@ describe('parseFit: laps', () => {
     const w = recordsWriter()
       .define(2, MESG.lap, [...LAP, [110, BT.uint32], [111, BT.uint32]])
       .data(2, {
-        253: T0 + 4, 2: T0, 7: 4500, 8: 4000, 9: 1234, 13: 2700, 14: 3100, 110: 2742, 111: 3200,
-        15: 141, 16: 155, 17: 86, 21: 7,
+        253: T0 + 4,
+        2: T0,
+        7: 4500,
+        8: 4000,
+        9: 1234,
+        13: 2700,
+        14: 3100,
+        110: 2742,
+        111: 3200,
+        15: 141,
+        16: 155,
+        17: 86,
+        21: 7,
       })
       .data(2, { 253: T0 + 9, 2: T0 + 5, 7: 4000, 9: 1500, 13: 3000 });
     expect(parseOne(withSession(w, T0, T0 + 9).build()).laps).toEqual([
       {
-        startTime: ms(T0), elapsedSec: 4.5, movingSec: 4, distance: 12.34, avgSpeed: 2.742, maxSpeed: 3.2,
-        avgHeartRate: 141, maxHeartRate: 155, avgCadence: 86, ascent: 7,
+        startTime: ms(T0),
+        elapsedSec: 4.5,
+        movingSec: 4,
+        distance: 12.34,
+        avgSpeed: 2.742,
+        maxSpeed: 3.2,
+        avgHeartRate: 141,
+        maxHeartRate: 155,
+        avgCadence: 86,
+        ascent: 7,
       },
       { startTime: ms(T0 + 5), elapsedSec: 4, distance: 15, avgSpeed: 3 },
     ]);
@@ -690,7 +905,10 @@ describe('parseFit: laps', () => {
 describe('parseFit: multisport', () => {
   /** Run 0–9 s, transition 10–14 s, ride 15–29 s; sessions are written at the end, as devices do. */
   function duathlon(runSessionStart: number = T0): Uint8Array {
-    const w = fitFile().define(1, MESG.record, [[253, BT.uint32], [5, BT.uint32]]);
+    const w = fitFile().define(1, MESG.record, [
+      [253, BT.uint32],
+      [5, BT.uint32],
+    ]);
     for (let i = 0; i < 30; i++) w.data(1, { 253: T0 + i, 5: i * 100 });
     return w
       .define(2, MESG.lap, LAP)
@@ -711,10 +929,20 @@ describe('parseFit: multisport', () => {
     const activities = parseFit(duathlon());
     expect(activities).toHaveLength(2);
     const [run, ride] = activities;
-    expect(run).toMatchObject({ type: 'Run', startTime: ms(T0), utcOffsetSec: 3600, totals: { elapsedSec: 9, distance: 9 } });
+    expect(run).toMatchObject({
+      type: 'Run',
+      startTime: ms(T0),
+      utcOffsetSec: 3600,
+      totals: { elapsedSec: 9, distance: 9 },
+    });
     expect(run.samples.map((s) => s.time)).toEqual(range(10).map((i) => ms(T0 + i)));
     expect(run.laps.map((l) => l.startTime)).toEqual([ms(T0)]);
-    expect(ride).toMatchObject({ type: 'Ride', startTime: ms(T0 + 15), utcOffsetSec: 3600, totals: { elapsedSec: 14, distance: 14 } });
+    expect(ride).toMatchObject({
+      type: 'Ride',
+      startTime: ms(T0 + 15),
+      utcOffsetSec: 3600,
+      totals: { elapsedSec: 14, distance: 14 },
+    });
     expect(ride.samples.map((s) => s.time)).toEqual(range(15).map((i) => ms(T0 + 15 + i)));
     expect(ride.laps.map((l) => l.startTime)).toEqual([ms(T0 + 15), ms(T0 + 22)]);
   });
@@ -734,8 +962,15 @@ describe('parseFit: performance', () => {
     const w = fitFile().define(1, MESG.record, RECORD);
     for (let i = 0; i < n; i++) {
       w.data(1, {
-        253: T0 + i, 0: semi(47 + i * 1e-5), 1: semi(8 + i * 1e-5), 5: i * 300, 2: 2600 + (i % 50),
-        3: 140 + (i % 20), 4: 85, 6: 3000, 7: 250,
+        253: T0 + i,
+        0: semi(47 + i * 1e-5),
+        1: semi(8 + i * 1e-5),
+        5: i * 300,
+        2: 2600 + (i % 50),
+        3: 140 + (i % 20),
+        4: 85,
+        6: 3000,
+        7: 250,
       });
     }
     const file = withSession(w, T0, T0 + n - 1, { 9: (n - 1) * 300 }).build();
@@ -745,7 +980,11 @@ describe('parseFit: performance', () => {
     expect(activities).toHaveLength(1);
     const { samples } = activities[0];
     expect(samples).toHaveLength(n);
-    expect(samples[n - 1]).toMatchObject({ time: ms(T0 + n - 1), distance: (n - 1) * 3, heartRate: 140 + ((n - 1) % 20) });
+    expect(samples[n - 1]).toMatchObject({
+      time: ms(T0 + n - 1),
+      distance: (n - 1) * 3,
+      heartRate: 140 + ((n - 1) % 20),
+    });
     expect(elapsedMs).toBeLessThan(500);
   });
 });

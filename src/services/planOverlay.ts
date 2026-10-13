@@ -107,7 +107,14 @@ function parseRefKey(k: string): DayRef {
 }
 
 function isValidRef(ref: DayRef | null | undefined): ref is DayRef {
-  return !!ref && Number.isInteger(ref.weekIndex) && Number.isInteger(ref.dayIndex) && ref.dayIndex >= 0 && ref.dayIndex < 7 && ref.weekIndex >= 0;
+  return (
+    !!ref &&
+    Number.isInteger(ref.weekIndex) &&
+    Number.isInteger(ref.dayIndex) &&
+    ref.dayIndex >= 0 &&
+    ref.dayIndex < 7 &&
+    ref.weekIndex >= 0
+  );
 }
 
 function roundTenth(n: number): number {
@@ -191,7 +198,10 @@ function unflatten(seq: PlanDay[], weekCount: number): PlanWeek[] {
 function buildPlacedPlan(active: ActivePlan, base: TrainingPlan): TrainingPlan {
   const plan = clone(base);
   // Built-in and stored plans should always have 7 days/week; be defensive.
-  plan.weeks = plan.weeks.map((w, i) => ({ weekNumber: i + 1, days: Array.from({ length: 7 }, (_, d) => w.days?.[d] ?? REST_DAY) }));
+  plan.weeks = plan.weeks.map((w, i) => ({
+    weekNumber: i + 1,
+    days: Array.from({ length: 7 }, (_, d) => w.days?.[d] ?? REST_DAY),
+  }));
   if (plan.weeks.length === 0) return plan;
 
   const ref = getRaceDayRef(plan);
@@ -283,7 +293,7 @@ let cache: { sig: string; plan: TrainingPlan | null } | null = null;
 function signature(active: ActivePlan | null): string {
   const activeRaw = persistence.getItem(ACTIVE_PLAN_KEY) ?? '';
   const overlayRaw = persistence.getItem(PLAN_OVERLAY_STORAGE_KEY) ?? '';
-  const customRaw = active?.planId === CUSTOM_PLAN_ID ? persistence.getItem(CUSTOM_PLAN_STORAGE_KEY) ?? '' : '';
+  const customRaw = active?.planId === CUSTOM_PLAN_ID ? (persistence.getItem(CUSTOM_PLAN_STORAGE_KEY) ?? '') : '';
   return `${activeRaw}\u0000${overlayRaw}\u0000${customRaw}`;
 }
 
@@ -367,12 +377,22 @@ function snapshot(rec: PlanOverlayRecord, keys: string[]): Record<string, UndoDa
   for (const k of keys) {
     if (out[k]) continue;
     const had = Object.prototype.hasOwnProperty.call(rec.dayOverrides, k);
-    out[k] = { had, ...(had ? { value: clone(rec.dayOverrides[k]) } : {}), ...(rec.swapPartners[k] ? { partner: rec.swapPartners[k] } : {}) };
+    out[k] = {
+      had,
+      ...(had ? { value: clone(rec.dayOverrides[k]) } : {}),
+      ...(rec.swapPartners[k] ? { partner: rec.swapPartners[k] } : {}),
+    };
   }
   return out;
 }
 
-function commit(ctx: Ctx, kind: OverlayChangeKind, source: OverlaySource, summary: string, before: Record<string, UndoDayState>): OverlayResult {
+function commit(
+  ctx: Ctx,
+  kind: OverlayChangeKind,
+  source: OverlaySource,
+  summary: string,
+  before: Record<string, UndoDayState>,
+): OverlayResult {
   const entry: OverlayLogEntry = { id: newLogId(), at: new Date().toISOString(), kind, source, summary };
   ctx.rec.log.push(entry);
   ctx.rec.undo.push({ logId: entry.id, days: before });
@@ -422,7 +442,13 @@ export function moveWorkout(from: DayRef, to: DayRef): OverlayResult {
   ctx.rec.dayOverrides[kb] = clone(a);
   ctx.rec.swapPartners[ka] = kb;
   ctx.rec.swapPartners[kb] = ka;
-  return commit(ctx, 'move', 'user', `Moved ${describe(a)} to week ${to.weekIndex + 1} day ${to.dayIndex + 1} (swapped with ${describe(b)})`, before);
+  return commit(
+    ctx,
+    'move',
+    'user',
+    `Moved ${describe(a)} to week ${to.weekIndex + 1} day ${to.dayIndex + 1} (swapped with ${describe(b)})`,
+    before,
+  );
 }
 
 /** Skip a planned workout (the day becomes a rest day flagged `skipped`). */
@@ -451,20 +477,34 @@ export function convertWorkout(ref: DayRef, to: 'easy' | 'rest'): OverlayResult 
     if (day.type === 'rest') return { ok: false, error: 'That day is already a rest day.' };
     next = { type: 'rest', label: 'Rest', note: 'Rest', originalLabel: day.label };
   } else {
-    if (day.type !== 'run' || !(day.distanceMi && day.distanceMi > 0)) return { ok: false, error: 'Only runs can be converted to easy runs.' };
-    next = { type: 'run', label: `${day.distanceMi} mi easy`, distanceMi: day.distanceMi, note: 'Easy', originalLabel: day.label };
+    if (day.type !== 'run' || !(day.distanceMi && day.distanceMi > 0))
+      return { ok: false, error: 'Only runs can be converted to easy runs.' };
+    next = {
+      type: 'run',
+      label: `${day.distanceMi} mi easy`,
+      distanceMi: day.distanceMi,
+      note: 'Easy',
+      originalLabel: day.label,
+    };
   }
   const k = refKey(ref);
   const before = snapshot(ctx.rec, [k]);
   ctx.rec.dayOverrides[k] = next;
-  return commit(ctx, 'convert', 'user', `Converted ${describe(day)} to ${to === 'rest' ? 'rest' : 'an easy run'}`, before);
+  return commit(
+    ctx,
+    'convert',
+    'user',
+    `Converted ${describe(day)} to ${to === 'rest' ? 'rest' : 'an easy run'}`,
+    before,
+  );
 }
 
 /** Restore a day to the plan (a swapped day restores its partner too). */
 export function restoreDay(ref: DayRef): OverlayResult {
   const ctx = context();
   if ('error' in ctx) return { ok: false, error: ctx.error };
-  if (!isValidRef(ref) || ref.weekIndex >= ctx.plan.weeks.length) return { ok: false, error: 'That day is outside the plan.' };
+  if (!isValidRef(ref) || ref.weekIndex >= ctx.plan.weeks.length)
+    return { ok: false, error: 'That day is outside the plan.' };
   const k = refKey(ref);
   const partner = ctx.rec.swapPartners[k];
   const keys = partner ? [k, partner] : [k];
@@ -473,14 +513,21 @@ export function restoreDay(ref: DayRef): OverlayResult {
   }
   for (const x of keys) {
     const r = parseRefKey(x);
-    if (isDayCompleted(ctx.active.planId, r.weekIndex, r.dayIndex)) return { ok: false, error: 'Completed days can’t be changed.' };
+    if (isDayCompleted(ctx.active.planId, r.weekIndex, r.dayIndex))
+      return { ok: false, error: 'Completed days can’t be changed.' };
   }
   const before = snapshot(ctx.rec, keys);
   for (const x of keys) {
     delete ctx.rec.dayOverrides[x];
     delete ctx.rec.swapPartners[x];
   }
-  return commit(ctx, 'restore', 'user', `Restored week ${ref.weekIndex + 1} day ${ref.dayIndex + 1}${partner ? ' (and the day it was swapped with)' : ''}`, before);
+  return commit(
+    ctx,
+    'restore',
+    'user',
+    `Restored week ${ref.weekIndex + 1} day ${ref.dayIndex + 1}${partner ? ' (and the day it was swapped with)' : ''}`,
+    before,
+  );
 }
 
 /**
@@ -488,11 +535,18 @@ export function restoreDay(ref: DayRef): OverlayResult {
  * applied to the current effective distances, so repeated calls compound. Race
  * days, rest and cross days are untouched.
  */
-export function scaleWeek(weekIndex: number, factor: number, source: OverlaySource = 'user', summary?: string): OverlayResult {
+export function scaleWeek(
+  weekIndex: number,
+  factor: number,
+  source: OverlaySource = 'user',
+  summary?: string,
+): OverlayResult {
   const ctx = context();
   if ('error' in ctx) return { ok: false, error: ctx.error };
-  if (!Number.isInteger(weekIndex) || weekIndex < 0 || weekIndex >= ctx.plan.weeks.length) return { ok: false, error: 'That week is outside the plan.' };
-  if (!Number.isFinite(factor) || factor < 0.3 || factor > 1.5) return { ok: false, error: 'Scale factor must be between 0.3 and 1.5.' };
+  if (!Number.isInteger(weekIndex) || weekIndex < 0 || weekIndex >= ctx.plan.weeks.length)
+    return { ok: false, error: 'That week is outside the plan.' };
+  if (!Number.isFinite(factor) || factor < 0.3 || factor > 1.5)
+    return { ok: false, error: 'Scale factor must be between 0.3 and 1.5.' };
   const targets: DayRef[] = [];
   for (let d = 0; d < 7; d++) {
     const ref = { weekIndex, dayIndex: d };
@@ -509,19 +563,31 @@ export function scaleWeek(weekIndex: number, factor: number, source: OverlaySour
     ctx.rec.dayOverrides[refKey(ref)] = { ...clone(day), distanceMi: mi, label: relabelDistance(day.label, mi) };
   }
   const pct = Math.round((factor - 1) * 100);
-  return commit(ctx, source === 'adaptive' ? 'adaptive' : 'week-scale', source, summary ?? `Week ${weekIndex + 1} runs ${pct >= 0 ? '+' : ''}${pct}%`, before);
+  return commit(
+    ctx,
+    source === 'adaptive' ? 'adaptive' : 'week-scale',
+    source,
+    summary ?? `Week ${weekIndex + 1} runs ${pct >= 0 ? '+' : ''}${pct}%`,
+    before,
+  );
 }
 
 /**
  * Generic day replacement (used by the adaptive engine). `day = null` skips the
  * day. Same guards as the other edits.
  */
-export function applyDayOverride(ref: DayRef, day: PlanDay | null, source: OverlaySource, summary: string): OverlayResult {
+export function applyDayOverride(
+  ref: DayRef,
+  day: PlanDay | null,
+  source: OverlaySource,
+  summary: string,
+): OverlayResult {
   const ctx = context();
   if ('error' in ctx) return { ok: false, error: ctx.error };
   const err = editError(ctx, ref);
   if (err) return { ok: false, error: err };
-  if (day && (day.type === 'marathon' || day.type === 'race')) return { ok: false, error: 'Races can’t be added through an override.' };
+  if (day && (day.type === 'marathon' || day.type === 'race'))
+    return { ok: false, error: 'Races can’t be added through an override.' };
   const k = refKey(ref);
   const before = snapshot(ctx.rec, [k]);
   ctx.rec.dayOverrides[k] = day ? clone(day) : null;
@@ -569,7 +635,8 @@ export function applyAdaptiveChanges(changes: AdaptiveWeekChange[], summary: str
     if (!Number.isInteger(ch.weekIndex) || ch.weekIndex < 0 || ch.weekIndex >= ctx.plan.weeks.length) continue;
     const mult = ch.mileageMultiplier;
     if (mult != null && mult !== 1) {
-      if (!Number.isFinite(mult) || mult < 0.3 || mult > 1.5) return { ok: false, error: 'Scale factor must be between 0.3 and 1.5.' };
+      if (!Number.isFinite(mult) || mult < 0.3 || mult > 1.5)
+        return { ok: false, error: 'Scale factor must be between 0.3 and 1.5.' };
       for (let d = 0; d < 7; d++) {
         const ref = { weekIndex: ch.weekIndex, dayIndex: d };
         const day = dayAt(ctx, ref);

@@ -118,7 +118,14 @@ describe('editions and estimated dates', () => {
   });
 
   it('sorts by next edition and finds the next major', () => {
-    expect(getWorldMajorsByDate(TODAY).map((r) => r.id)).toEqual(['chicago', 'nyc', 'tokyo', 'boston', 'london', 'berlin']);
+    expect(getWorldMajorsByDate(TODAY).map((r) => r.id)).toEqual([
+      'chicago',
+      'nyc',
+      'tokyo',
+      'boston',
+      'london',
+      'berlin',
+    ]);
     expect(getNextWorldMajor(TODAY)?.id).toBe('chicago');
   });
 });
@@ -181,7 +188,9 @@ describe('normalizeMarathonId', () => {
 
   it('leaves stable and custom ids unchanged', () => {
     expect(normalizeMarathonId('chicago')).toBe('chicago');
-    expect(normalizeMarathonId('custom-boston-run-half-1700000000000-x1y2z')).toBe('custom-boston-run-half-1700000000000-x1y2z');
+    expect(normalizeMarathonId('custom-boston-run-half-1700000000000-x1y2z')).toBe(
+      'custom-boston-run-half-1700000000000-x1y2z',
+    );
     expect(normalizeMarathonId('boston-marathon')).toBe('boston-marathon');
   });
 

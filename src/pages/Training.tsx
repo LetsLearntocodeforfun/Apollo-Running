@@ -29,9 +29,21 @@ import {
   PAGE_SYNC_FRESH_MS,
   type SyncSummary,
 } from '../services/activitySource';
-import { runSync, refreshPlanFromStoredActivities, onPlanRefreshed, getWeeklyMileageSummary, type SyncResult } from '../services/autoSync';
+import {
+  runSync,
+  refreshPlanFromStoredActivities,
+  onPlanRefreshed,
+  getWeeklyMileageSummary,
+  type SyncResult,
+} from '../services/autoSync';
 import { syncPlanCalendarIfChanged } from '../services/planCalendarSync';
-import { getSportIcon, getSportLabel, getSportCategoryIcon, SPORT_CATEGORIES, type SportCategory } from '../services/activity/sports';
+import {
+  getSportIcon,
+  getSportLabel,
+  getSportCategoryIcon,
+  SPORT_CATEGORIES,
+  type SportCategory,
+} from '../services/activity/sports';
 import { formatHoursMinutes } from '../services/crossTraining';
 import { RouteMapThumbnail } from '../components/RouteMap';
 import { getEffortRecognition } from '../services/effortService';
@@ -75,9 +87,12 @@ function formatLastSynced(iso: string): string {
   const now = new Date();
   const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   if (d.toDateString() === now.toDateString()) return `Today ${time}`;
-  const date = d.toLocaleDateString([], d.getFullYear() === now.getFullYear()
-    ? { month: 'short', day: 'numeric' }
-    : { month: 'short', day: 'numeric', year: 'numeric' });
+  const date = d.toLocaleDateString(
+    [],
+    d.getFullYear() === now.getFullYear()
+      ? { month: 'short', day: 'numeric' }
+      : { month: 'short', day: 'numeric', year: 'numeric' },
+  );
   return `${date}, ${time}`;
 }
 
@@ -165,7 +180,12 @@ const DayRow = memo(function DayRow({
   const whyId = `plan-day-why-${weekIndex}-${dayIndex}`;
   return (
     <>
-      <tr style={{ background: isToday ? 'rgba(212,165,55,0.08)' : isSynced ? 'rgba(212,165,55,0.03)' : undefined, transition: 'background 0.2s' }}>
+      <tr
+        style={{
+          background: isToday ? 'rgba(212,165,55,0.08)' : isSynced ? 'rgba(212,165,55,0.03)' : undefined,
+          transition: 'background 0.2s',
+        }}
+      >
         <td style={{ padding: '0.5rem', width: 36 }}>
           {isWorkoutDay(day) ? (
             <>
@@ -175,20 +195,44 @@ const DayRow = memo(function DayRow({
                 disabled={!toggleCheck.allowed}
                 title={toggleCheck.message}
                 aria-describedby={toggleCheck.message ? whyId : undefined}
-                onChange={() => { if (toggleCheck.allowed) onToggle(weekIndex, dayIndex); }}
+                onChange={() => {
+                  if (toggleCheck.allowed) onToggle(weekIndex, dayIndex);
+                }}
                 aria-label={`Mark ${title} on ${dayLabel} complete`}
                 style={{ accentColor: 'var(--apollo-gold)', width: 18, height: 18 }}
               />
-              {toggleCheck.message && <span id={whyId} className="sr-only">{toggleCheck.message}</span>}
+              {toggleCheck.message && (
+                <span id={whyId} className="sr-only">
+                  {toggleCheck.message}
+                </span>
+              )}
             </>
           ) : (
-            <span style={{ color: 'var(--text-muted)' }} aria-hidden="true">—</span>
+            <span style={{ color: 'var(--text-muted)' }} aria-hidden="true">
+              —
+            </span>
           )}
         </td>
-        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>{weekdayShort(dateKey)}</td>
-        <td style={{ padding: '0.5rem', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', whiteSpace: 'nowrap' }}>{formatMediumDate(dateKey)}</td>
+        <td style={{ padding: '0.5rem', color: 'var(--text-muted)', fontSize: 'var(--text-sm)' }}>
+          {weekdayShort(dateKey)}
+        </td>
+        <td
+          style={{
+            padding: '0.5rem',
+            fontSize: 'var(--text-sm)',
+            color: 'var(--text-secondary)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {formatMediumDate(dateKey)}
+        </td>
         <td style={{ padding: '0.5rem' }}>
-          <span className={`day-type-${day.type}`} style={{ fontFamily: 'var(--font-display)', fontWeight: completed ? 600 : 400 }}>{title}</span>
+          <span
+            className={`day-type-${day.type}`}
+            style={{ fontFamily: 'var(--font-display)', fontWeight: completed ? 600 : 400 }}
+          >
+            {title}
+          </span>
           {day.distanceMi != null && day.distanceMi > 0 && (
             <span style={{ color: 'var(--text-muted)', marginLeft: '0.5rem', fontSize: 'var(--text-sm)' }}>
               {formatMiles(day.distanceMi)}
@@ -200,56 +244,89 @@ const DayRow = memo(function DayRow({
             </span>
           )}
           {isSynced && (
-            <span style={{
-              marginLeft: '0.5rem',
-              fontSize: '0.75rem',
-              background: syncMeta?.crossTraining ? 'var(--apollo-teal-dim)' : 'var(--apollo-gold-dim)',
-              color: syncMeta?.crossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)',
-              padding: '0.12rem 0.5rem',
-              borderRadius: 'var(--radius-full)',
-              fontWeight: 600,
-              fontFamily: 'var(--font-display)',
-            }}>
+            <span
+              style={{
+                marginLeft: '0.5rem',
+                fontSize: '0.75rem',
+                background: syncMeta?.crossTraining ? 'var(--apollo-teal-dim)' : 'var(--apollo-gold-dim)',
+                color: syncMeta?.crossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)',
+                padding: '0.12rem 0.5rem',
+                borderRadius: 'var(--radius-full)',
+                fontWeight: 600,
+                fontFamily: 'var(--font-display)',
+              }}
+            >
               {syncMeta?.crossTraining ? (
                 <>
                   <span aria-hidden="true">{categoryIcon(syncMeta.crossTraining.category)} </span>
                   {syncMeta.crossTraining.label}
                 </>
-              ) : 'Synced'}
+              ) : (
+                'Synced'
+              )}
             </span>
           )}
-          {syncMeta && !syncMeta.crossTraining && (() => {
-            const rec = getEffortRecognition(syncMeta.activityId);
-            if (!rec?.paceTier) return null;
-            const tc = TIER_CONFIG[rec.paceTier];
-            return (
-              <span style={{
-                marginLeft: '0.35rem', fontSize: '0.75rem',
-                background: tc.bg, color: tc.color,
-                padding: '0.1rem 0.45rem', borderRadius: 'var(--radius-full)',
-                fontWeight: 600, fontFamily: 'var(--font-display)',
-              }}>{tc.label}</span>
-            );
-          })()}
+          {syncMeta &&
+            !syncMeta.crossTraining &&
+            (() => {
+              const rec = getEffortRecognition(syncMeta.activityId);
+              if (!rec?.paceTier) return null;
+              const tc = TIER_CONFIG[rec.paceTier];
+              return (
+                <span
+                  style={{
+                    marginLeft: '0.35rem',
+                    fontSize: '0.75rem',
+                    background: tc.bg,
+                    color: tc.color,
+                    padding: '0.1rem 0.45rem',
+                    borderRadius: 'var(--radius-full)',
+                    fontWeight: 600,
+                    fontFamily: 'var(--font-display)',
+                  }}
+                >
+                  {tc.label}
+                </span>
+              );
+            })()}
         </td>
         <td style={{ padding: '0.5rem' }}>
-          {isToday ? <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)', fontSize: 'var(--text-sm)' }}>Today</span> : null}
+          {isToday ? (
+            <span
+              style={{
+                color: 'var(--apollo-gold)',
+                fontWeight: 600,
+                fontFamily: 'var(--font-display)',
+                fontSize: 'var(--text-sm)',
+              }}
+            >
+              Today
+            </span>
+          ) : null}
         </td>
         <td style={{ padding: '0.25rem 0.5rem', textAlign: 'right' }}>
-          <DayActionsMenu plan={plan} weekIndex={weekIndex} dayIndex={dayIndex} dayLabel={dayLabel} onChanged={onChanged} />
+          <DayActionsMenu
+            plan={plan}
+            weekIndex={weekIndex}
+            dayIndex={dayIndex}
+            dayLabel={dayLabel}
+            onChanged={onChanged}
+          />
         </td>
       </tr>
       {isSynced && syncMeta && (
         <tr style={{ background: isToday ? 'rgba(212,165,55,0.05)' : 'rgba(212,165,55,0.02)' }}>
           <td colSpan={6} style={{ padding: '0.25rem 0.5rem 0.5rem 2.75rem' }}>
-            <div style={{
-              fontSize: '0.82rem',
-              color: 'var(--text-secondary)',
-              display: 'flex',
-              gap: '1rem',
-              flexWrap: 'wrap',
-              alignItems: 'center',
-            }}>
+            <div
+              style={{
+                fontSize: '0.82rem',
+                color: 'var(--text-secondary)',
+                display: 'flex',
+                gap: '1rem',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+              }}
+            >
               {/* Route thumbnail for synced activity (any sport with GPS) */}
               {(() => {
                 const matched = findSyncedActivity(syncMeta);
@@ -260,7 +337,16 @@ const DayRow = memo(function DayRow({
               })()}
               {syncMeta.crossTraining ? (
                 crossTrainingStats(syncMeta).map((s, i) => (
-                  <span key={i} style={i === 0 ? { color: 'var(--apollo-teal)', fontWeight: 600, fontFamily: 'var(--font-display)' } : undefined}>{s}</span>
+                  <span
+                    key={i}
+                    style={
+                      i === 0
+                        ? { color: 'var(--apollo-teal)', fontWeight: 600, fontFamily: 'var(--font-display)' }
+                        : undefined
+                    }
+                  >
+                    {s}
+                  </span>
                 ))
               ) : (
                 <>
@@ -268,17 +354,21 @@ const DayRow = memo(function DayRow({
                     {formatMiles(syncMeta.actualDistanceMi)}
                   </span>
                   <span>{formatPaceFromMinPerMi(syncMeta.actualPaceMinPerMi)} pace</span>
-                  <span>{Math.floor(syncMeta.movingTimeSec / 60)}m {syncMeta.movingTimeSec % 60}s</span>
+                  <span>
+                    {Math.floor(syncMeta.movingTimeSec / 60)}m {syncMeta.movingTimeSec % 60}s
+                  </span>
                 </>
               )}
             </div>
-            <div style={{
-              fontSize: '0.82rem',
-              color: 'var(--text)',
-              marginTop: '0.25rem',
-              lineHeight: 1.4,
-              fontStyle: 'italic',
-            }}>
+            <div
+              style={{
+                fontSize: '0.82rem',
+                color: 'var(--text)',
+                marginTop: '0.25rem',
+                lineHeight: 1.4,
+                fontStyle: 'italic',
+              }}
+            >
               {syncMeta.feedback}
             </div>
           </td>
@@ -338,39 +428,50 @@ export default function Training() {
     return () => clearTimeout(t);
   }, [announcement]);
 
-  const setViewMode = useCallback((mode: TrainingViewMode) => {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (mode === 'calendar') next.delete('view');
-      else next.set('view', mode);
-      return next;
-    }, { replace: true });
-  }, [setSearchParams]);
+  const setViewMode = useCallback(
+    (mode: TrainingViewMode) => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (mode === 'calendar') next.delete('view');
+          else next.set('view', mode);
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
+  );
 
-  const handleSync = useCallback(async (manual: boolean) => {
-    lastTrainingSyncAt = Date.now();
-    setSyncing(true);
-    setSyncProgress(null);
-    try {
-      // Imports new activities from every connected source, then matches plan days. Never throws for network errors.
-      const report = await runSync({
-        onProgress: (p) => { if (isMountedRef.current) setSyncProgress(p.message); },
-      });
-      if (!isMountedRef.current) return;
-      setSyncResults(report.results);
-      setSyncSummary(report.summary);
-      setSyncWasManual(manual);
-      setLastSync(getLastActivitySyncTime());
-      refresh();
-    } catch {
-      // unexpected failure — user can retry
-    } finally {
-      if (isMountedRef.current) {
-        setSyncing(false);
-        setSyncProgress(null);
+  const handleSync = useCallback(
+    async (manual: boolean) => {
+      lastTrainingSyncAt = Date.now();
+      setSyncing(true);
+      setSyncProgress(null);
+      try {
+        // Imports new activities from every connected source, then matches plan days. Never throws for network errors.
+        const report = await runSync({
+          onProgress: (p) => {
+            if (isMountedRef.current) setSyncProgress(p.message);
+          },
+        });
+        if (!isMountedRef.current) return;
+        setSyncResults(report.results);
+        setSyncSummary(report.summary);
+        setSyncWasManual(manual);
+        setLastSync(getLastActivitySyncTime());
+        refresh();
+      } catch {
+        // unexpected failure — user can retry
+      } finally {
+        if (isMountedRef.current) {
+          setSyncing(false);
+          setSyncProgress(null);
+        }
       }
-    }
-  }, [refresh]);
+    },
+    [refresh],
+  );
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -401,28 +502,39 @@ export default function Training() {
 
   // Plan days were re-matched (a sync anywhere, a file import or an offline re-match): re-read completed days,
   // sync feedback, weekly mileage and the last-synced time. Results of a sync started here are left as they are.
-  useEffect(() => onPlanRefreshed(() => {
-    setLastSync(getLastActivitySyncTime());
-    refresh();
-  }), [refresh]);
+  useEffect(
+    () =>
+      onPlanRefreshed(() => {
+        setLastSync(getLastActivitySyncTime());
+        refresh();
+      }),
+    [refresh],
+  );
 
   // Overlay edits (move/skip/convert/undo, also from Today or the adaptive engine), plan start/stop and completion toggles.
   useEffect(() => onPlanOverlayChanged(refresh), [refresh]);
   useEffect(() => onPlanEvent(PLAN_PROGRESS_CHANGED_EVENT, refresh), [refresh]);
 
-  const handleStarted = useCallback((next: ActivePlan) => {
-    // A connected source matches via the effect above (syncing first unless it synced recently); otherwise match activities already on this device.
-    if (!isActivitySourceConnected() && hasActivityData()) refreshPlanFromStoredActivities();
-    // New plan, race date or start date: refresh the intervals.icu calendar (no-op unless auto-update is on; never throws).
-    void syncPlanCalendarIfChanged();
-    setChooserOpen(false);
-    setChooserPlanId(null);
-    setShowBuilder(false);
-    refresh();
-    const p = getEffectivePlan();
-    setExpandedWeek(p ? getWeekDayForDate(next.startDate, p.weeks.length, getTodayKey())?.weekIndex ?? next.joinedWeekIndex ?? 0 : 0);
-    if (p) announce(`${p.name} is your active plan.`);
-  }, [refresh, announce]);
+  const handleStarted = useCallback(
+    (next: ActivePlan) => {
+      // A connected source matches via the effect above (syncing first unless it synced recently); otherwise match activities already on this device.
+      if (!isActivitySourceConnected() && hasActivityData()) refreshPlanFromStoredActivities();
+      // New plan, race date or start date: refresh the intervals.icu calendar (no-op unless auto-update is on; never throws).
+      void syncPlanCalendarIfChanged();
+      setChooserOpen(false);
+      setChooserPlanId(null);
+      setShowBuilder(false);
+      refresh();
+      const p = getEffectivePlan();
+      setExpandedWeek(
+        p
+          ? (getWeekDayForDate(next.startDate, p.weeks.length, getTodayKey())?.weekIndex ?? next.joinedWeekIndex ?? 0)
+          : 0,
+      );
+      if (p) announce(`${p.name} is your active plan.`);
+    },
+    [refresh, announce],
+  );
 
   const handleStopPlan = () => {
     setConfirmStop(false);
@@ -449,12 +561,15 @@ export default function Training() {
     void syncPlanCalendarIfChanged();
   };
 
-  const handleToggleDay = useCallback((weekIndex: number, dayIndex: number) => {
-    const a = getActivePlan();
-    if (!a) return;
-    toggleDayCompleted(a.planId, weekIndex, dayIndex);
-    refresh();
-  }, [refresh]);
+  const handleToggleDay = useCallback(
+    (weekIndex: number, dayIndex: number) => {
+      const a = getActivePlan();
+      if (!a) return;
+      toggleDayCompleted(a.planId, weekIndex, dayIndex);
+      refresh();
+    },
+    [refresh],
+  );
 
   const badges = useMemo(
     () => getDayBadges(plan),
@@ -465,7 +580,13 @@ export default function Training() {
   const renderDayActions = useCallback(
     (ref: CalendarDayRef) =>
       plan ? (
-        <DayActionsMenu plan={plan} weekIndex={ref.weekIndex} dayIndex={ref.dayIndex} dayLabel={formatDayLabel(ref.dateKey)} onChanged={announce} />
+        <DayActionsMenu
+          plan={plan}
+          weekIndex={ref.weekIndex}
+          dayIndex={ref.dayIndex}
+          dayLabel={formatDayLabel(ref.dateKey)}
+          onChanged={announce}
+        />
       ) : null,
     [plan, announce],
   );
@@ -504,20 +625,45 @@ export default function Training() {
           />
           {builderCard}
           <p className="plan-setup-muted">
-            Racing soon? The <Link to="/race">Race Day hub</Link> has pacing plans plus race-week and race-morning checklists.
+            Racing soon? The <Link to="/race">Race Day hub</Link> has pacing plans plus race-week and race-morning
+            checklists.
           </p>
         </>
       ) : (
         <>
           {/* Plan header card */}
-          <section className="card" aria-labelledby="plan-header-title" style={{
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem',
-            background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
-            position: 'relative', overflow: 'hidden',
-          }}>
-            <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 2, background: 'linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent)' }} />
+          <section
+            className="card"
+            aria-labelledby="plan-header-title"
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '1rem',
+              background: 'linear-gradient(135deg, rgba(212,165,55,0.06) 0%, var(--bg-card) 100%)',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: 2,
+                background:
+                  'linear-gradient(90deg, transparent, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-dark), transparent)',
+              }}
+            />
             <div style={{ flex: '1 1 16rem' }}>
-              <h2 id="plan-header-title" style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}>{plan.name}</h2>
+              <h2
+                id="plan-header-title"
+                style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: 'var(--text-lg)' }}
+              >
+                {plan.name}
+              </h2>
               <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
                 {planAttributionLine(plan)} · Week 1 began {formatMediumDate(active.startDate)}
                 {raceDate ? ` · Race day ${formatMediumDate(raceDate)}` : ''}
@@ -536,7 +682,14 @@ export default function Training() {
                   >
                     <span className="plan-progress-fill" style={{ width: `${progress.pct}%` }} />
                   </div>
-                  <p style={{ margin: '0.25rem 0 0', fontSize: 'var(--text-sm)', color: 'var(--apollo-gold)', fontWeight: 600 }}>
+                  <p
+                    style={{
+                      margin: '0.25rem 0 0',
+                      fontSize: 'var(--text-sm)',
+                      color: 'var(--apollo-gold)',
+                      fontWeight: 600,
+                    }}
+                  >
                     {progress.completed} / {progress.total} workouts · {progress.pct}%
                   </p>
                 </div>
@@ -547,12 +700,19 @@ export default function Training() {
                 type="button"
                 className="btn btn-secondary"
                 aria-expanded={chooserOpen}
-                onClick={() => { setChooserPlanId(null); setChooserOpen((o) => !o); }}
+                onClick={() => {
+                  setChooserPlanId(null);
+                  setChooserOpen((o) => !o);
+                }}
               >
                 Change plan or race date
               </button>
-              <button type="button" className="btn btn-ghost" onClick={() => setConfirmStop(true)}>Stop plan</button>
-              <Link to="/race" className="btn btn-ghost">Race Day hub</Link>
+              <button type="button" className="btn btn-ghost" onClick={() => setConfirmStop(true)}>
+                Stop plan
+              </button>
+              <Link to="/race" className="btn btn-ghost">
+                Race Day hub
+              </Link>
             </div>
           </section>
 
@@ -563,8 +723,14 @@ export default function Training() {
               activePlanId={active.planId}
               initialPlanId={chooserPlanId}
               onStarted={handleStarted}
-              onCancel={() => { setChooserOpen(false); setChooserPlanId(null); }}
-              onBuildCustom={() => { setChooserOpen(false); setShowBuilder(true); }}
+              onCancel={() => {
+                setChooserOpen(false);
+                setChooserPlanId(null);
+              }}
+              onBuildCustom={() => {
+                setChooserOpen(false);
+                setShowBuilder(true);
+              }}
             />
           )}
 
@@ -573,7 +739,9 @@ export default function Training() {
           <PhaseRibbon plan={plan} currentWeekIndex={todayPos?.weekIndex ?? null} />
 
           {/* View toggle (kept in the URL: ?view=checklist) */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+          <div
+            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}
+          >
             <div className="cal-view-toggle" role="group" aria-label="Plan view">
               <button
                 type="button"
@@ -611,9 +779,22 @@ export default function Training() {
           {/* Week-by-week checklist */}
           {viewMode === 'checklist' && (
             <section className="card" aria-labelledby="plan-checklist-title">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h2 id="plan-checklist-title" style={{ margin: 0, fontSize: 'var(--text-lg)' }}>Week-by-week checklist</h2>
-                <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-display)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}
+              >
+                <h2 id="plan-checklist-title" style={{ margin: 0, fontSize: 'var(--text-lg)' }}>
+                  Week-by-week checklist
+                </h2>
+                <span
+                  style={{
+                    fontSize: '0.75rem',
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 600,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em',
+                    color: 'var(--text-muted)',
+                  }}
+                >
                   {plan.weeks.length} weeks
                 </span>
               </div>
@@ -625,10 +806,15 @@ export default function Training() {
                   const panelId = `plan-week-panel-${wi}`;
                   const wm = getWeeklyMileageSummary(active.planId, wi);
                   return (
-                    <div key={wi} style={{
-                      border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', overflow: 'visible',
-                      ...(isExpanded ? { borderColor: 'var(--border-strong)' } : {}),
-                    }}>
+                    <div
+                      key={wi}
+                      style={{
+                        border: '1px solid var(--border)',
+                        borderRadius: 'var(--radius-md)',
+                        overflow: 'visible',
+                        ...(isExpanded ? { borderColor: 'var(--border-strong)' } : {}),
+                      }}
+                    >
                       <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>
                         <button
                           type="button"
@@ -636,23 +822,43 @@ export default function Training() {
                           aria-expanded={isExpanded}
                           aria-controls={isExpanded ? panelId : undefined}
                           onClick={() => setExpandedWeek(isExpanded ? null : wi)}
-                          style={{ background: isExpanded ? 'var(--bg-hover)' : 'var(--bg)', fontFamily: 'var(--font-display)' }}
+                          style={{
+                            background: isExpanded ? 'var(--bg-hover)' : 'var(--bg)',
+                            fontFamily: 'var(--font-display)',
+                          }}
                         >
                           <span style={{ minWidth: '5rem', fontWeight: 600 }}>
                             Week {wi + 1}
-                            {todayPos?.weekIndex === wi ? <span style={{ color: 'var(--apollo-gold)' }}> · this week</span> : null}
+                            {todayPos?.weekIndex === wi ? (
+                              <span style={{ color: 'var(--apollo-gold)' }}> · this week</span>
+                            ) : null}
                           </span>
                           {wm && wm.actualMi > 0 ? (
                             <span style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <span aria-hidden="true" style={{ flex: 1, height: 6, borderRadius: 3, background: 'rgba(255,255,255,0.06)', overflow: 'hidden' }}>
-                                <span style={{
-                                  display: 'block', height: '100%',
-                                  width: `${wm.plannedMi > 0 ? Math.min((wm.actualMi / wm.plannedMi) * 100, 100) : 0}%`,
+                              <span
+                                aria-hidden="true"
+                                style={{
+                                  flex: 1,
+                                  height: 6,
                                   borderRadius: 3,
-                                  background: wm.status === 'on_track' || wm.status === 'ahead'
-                                    ? 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold))'
-                                    : wm.status === 'behind' ? 'var(--color-warning)' : 'var(--color-error)',
-                                }} />
+                                  background: 'rgba(255,255,255,0.06)',
+                                  overflow: 'hidden',
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    display: 'block',
+                                    height: '100%',
+                                    width: `${wm.plannedMi > 0 ? Math.min((wm.actualMi / wm.plannedMi) * 100, 100) : 0}%`,
+                                    borderRadius: 3,
+                                    background:
+                                      wm.status === 'on_track' || wm.status === 'ahead'
+                                        ? 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold))'
+                                        : wm.status === 'behind'
+                                          ? 'var(--color-warning)'
+                                          : 'var(--color-error)',
+                                  }}
+                                />
                               </span>
                               <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                                 {formatMiles(wm.actualMi)} of {formatMiles(wm.plannedMi)}
@@ -661,13 +867,26 @@ export default function Training() {
                           ) : (
                             <span style={{ flex: 1 }} />
                           )}
-                          <span style={{
-                            fontSize: '0.78rem', color: weekDone ? 'var(--color-success)' : 'var(--text-muted)',
-                            whiteSpace: 'nowrap', fontWeight: weekDone ? 600 : 400,
-                          }}>
+                          <span
+                            style={{
+                              fontSize: '0.78rem',
+                              color: weekDone ? 'var(--color-success)' : 'var(--text-muted)',
+                              whiteSpace: 'nowrap',
+                              fontWeight: weekDone ? 600 : 400,
+                            }}
+                          >
                             {weekDone ? '✓ Complete' : `${wp.completed}/${wp.total} workouts`}
                           </span>
-                          <span aria-hidden="true" style={{ color: 'var(--apollo-gold)', fontSize: '0.8rem', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)' }}>▾</span>
+                          <span
+                            aria-hidden="true"
+                            style={{
+                              color: 'var(--apollo-gold)',
+                              fontSize: '0.8rem',
+                              transform: isExpanded ? 'rotate(180deg)' : 'rotate(0)',
+                            }}
+                          >
+                            ▾
+                          </span>
                         </button>
                       </h3>
                       {isExpanded && (
@@ -677,12 +896,57 @@ export default function Training() {
                               <caption className="plan-live">Week {wi + 1} workouts</caption>
                               <thead>
                                 <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', width: 36 }}><span className="plan-live">Done</span></th>
-                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Day</th>
-                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Date</th>
-                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', fontSize: 'var(--text-xs)', textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text-muted)', fontWeight: 500 }}>Workout</th>
-                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', width: 64 }}><span className="plan-live">Status</span></th>
-                                  <th scope="col" style={{ textAlign: 'right', padding: '0.5rem', width: 48 }}><span className="plan-live">Actions</span></th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', width: 36 }}>
+                                    <span className="plan-live">Done</span>
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '0.5rem',
+                                      fontSize: 'var(--text-xs)',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.06em',
+                                      color: 'var(--text-muted)',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Day
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '0.5rem',
+                                      fontSize: 'var(--text-xs)',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.06em',
+                                      color: 'var(--text-muted)',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Date
+                                  </th>
+                                  <th
+                                    scope="col"
+                                    style={{
+                                      textAlign: 'left',
+                                      padding: '0.5rem',
+                                      fontSize: 'var(--text-xs)',
+                                      textTransform: 'uppercase',
+                                      letterSpacing: '0.06em',
+                                      color: 'var(--text-muted)',
+                                      fontWeight: 500,
+                                    }}
+                                  >
+                                    Workout
+                                  </th>
+                                  <th scope="col" style={{ textAlign: 'left', padding: '0.5rem', width: 64 }}>
+                                    <span className="plan-live">Status</span>
+                                  </th>
+                                  <th scope="col" style={{ textAlign: 'right', padding: '0.5rem', width: 48 }}>
+                                    <span className="plan-live">Actions</span>
+                                  </th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -720,7 +984,9 @@ export default function Training() {
 
           {/* Export: send the plan to the watch via intervals.icu, or download an .ics calendar */}
           <section aria-labelledby="plan-export-title">
-            <h2 id="plan-export-title" className="plan-section-title">Export</h2>
+            <h2 id="plan-export-title" className="plan-section-title">
+              Export
+            </h2>
             <div className="plan-export">
               <PlanCalendarPush />
               <PlanCalendarExport headingLevel={3} />
@@ -730,33 +996,57 @@ export default function Training() {
       )}
 
       {/* Smart Auto-Sync Card */}
-      <section className="card" aria-labelledby="plan-sync-title" style={{
-        background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
-        borderColor: connected ? 'var(--apollo-teal-dark)' : 'var(--border)',
-        borderLeftWidth: 3, borderLeftStyle: 'solid',
-        borderLeftColor: connected ? 'var(--apollo-teal)' : 'var(--border)',
-      }}>
-        <h2 id="plan-sync-title" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: 'var(--text-lg)' }}>
+      <section
+        className="card"
+        aria-labelledby="plan-sync-title"
+        style={{
+          background: 'linear-gradient(135deg, rgba(91,181,181,0.06) 0%, var(--bg-card) 100%)',
+          borderColor: connected ? 'var(--apollo-teal-dark)' : 'var(--border)',
+          borderLeftWidth: 3,
+          borderLeftStyle: 'solid',
+          borderLeftColor: connected ? 'var(--apollo-teal)' : 'var(--border)',
+        }}
+      >
+        <h2
+          id="plan-sync-title"
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontSize: 'var(--text-lg)' }}
+        >
           <span style={{ color: 'var(--apollo-teal)' }}>Smart Auto-Sync</span>
           {connected && (
-            <span style={{
-              fontSize: '0.75rem', background: 'var(--apollo-teal-dim)',
-              color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
-              borderRadius: 'var(--radius-full)', fontWeight: 600,
-              fontFamily: 'var(--font-display)',
-            }}>Active · {sourceName}</span>
+            <span
+              style={{
+                fontSize: '0.75rem',
+                background: 'var(--apollo-teal-dim)',
+                color: 'var(--apollo-teal)',
+                padding: '0.15rem 0.6rem',
+                borderRadius: 'var(--radius-full)',
+                fontWeight: 600,
+                fontFamily: 'var(--font-display)',
+              }}
+            >
+              Active · {sourceName}
+            </span>
           )}
         </h2>
         {!connected ? (
           <p style={{ color: 'var(--text-secondary)', margin: 0, fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-            <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>Connect a data source</Link> (intervals.icu or Strava) to automatically
-            match your runs and cross-training to the training plan.
+            <Link to="/settings?tab=connections" style={{ fontWeight: 600 }}>
+              Connect a data source
+            </Link>{' '}
+            (intervals.icu or Strava) to automatically match your runs and cross-training to the training plan.
           </p>
         ) : (
           <div>
-            <p style={{ color: 'var(--text-secondary)', margin: '0 0 0.75rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-              Activities from {sourceName} are automatically matched to plan days — runs by distance and pace,
-              rides, swims and strength sessions on cross-training days. Weekly mileage is analyzed after every sync.
+            <p
+              style={{
+                color: 'var(--text-secondary)',
+                margin: '0 0 0.75rem',
+                fontSize: 'var(--text-sm)',
+                lineHeight: 1.5,
+              }}
+            >
+              Activities from {sourceName} are automatically matched to plan days — runs by distance and pace, rides,
+              swims and strength sessions on cross-training days. Weekly mileage is analyzed after every sync.
               {lastSync && (
                 <span style={{ marginLeft: '0.5rem', color: 'var(--text-muted)' }}>
                   Last synced: {formatLastSynced(lastSync)}
@@ -773,26 +1063,35 @@ export default function Training() {
               >
                 {syncing ? 'Syncing…' : 'Sync activities'}
               </button>
-              <span role="status" style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>{syncing ? syncProgress : null}</span>
+              <span role="status" style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
+                {syncing ? syncProgress : null}
+              </span>
             </div>
-            {!syncing && syncSummary && (syncWasManual || syncSummary.added > 0 || syncSummary.errors.length > 0 || syncResults.length > 0) && (
-              <div style={{ marginTop: '0.6rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
-                <div style={{ color: 'var(--text-secondary)' }}>
-                  {[
-                    syncSummary.added > 0
-                      ? `${syncSummary.added} new activit${syncSummary.added === 1 ? 'y' : 'ies'} imported`
-                      : 'No new activities',
-                    syncSummary.updated > 0 ? `${syncSummary.updated} updated` : null,
-                    syncResults.length > 0 ? `${syncResults.length} plan day${syncResults.length === 1 ? '' : 's'} updated` : null,
-                  ].filter(Boolean).join(' · ')}
-                </div>
-                {syncSummary.errors.map((e, i) => (
-                  <div key={i} role="alert" style={{ color: 'var(--color-error)', marginTop: '0.2rem' }}>
-                    <span aria-hidden="true">⚠ </span>{getSourceDisplayName(e.source)}: {e.message}
+            {!syncing &&
+              syncSummary &&
+              (syncWasManual || syncSummary.added > 0 || syncSummary.errors.length > 0 || syncResults.length > 0) && (
+                <div style={{ marginTop: '0.6rem', fontSize: 'var(--text-sm)', lineHeight: 1.5 }}>
+                  <div style={{ color: 'var(--text-secondary)' }}>
+                    {[
+                      syncSummary.added > 0
+                        ? `${syncSummary.added} new activit${syncSummary.added === 1 ? 'y' : 'ies'} imported`
+                        : 'No new activities',
+                      syncSummary.updated > 0 ? `${syncSummary.updated} updated` : null,
+                      syncResults.length > 0
+                        ? `${syncResults.length} plan day${syncResults.length === 1 ? '' : 's'} updated`
+                        : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </div>
-                ))}
-              </div>
-            )}
+                  {syncSummary.errors.map((e, i) => (
+                    <div key={i} role="alert" style={{ color: 'var(--color-error)', marginTop: '0.2rem' }}>
+                      <span aria-hidden="true">⚠ </span>
+                      {getSourceDisplayName(e.source)}: {e.message}
+                    </div>
+                  ))}
+                </div>
+              )}
             {syncResults.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginTop: '0.75rem' }}>
                 {syncResults.map((r, i) => (
@@ -806,9 +1105,19 @@ export default function Training() {
                       lineHeight: 1.5,
                     }}
                   >
-                    <div style={{ fontWeight: 600, color: r.isCrossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)', marginBottom: '0.15rem', fontFamily: 'var(--font-display)' }}>
+                    <div
+                      style={{
+                        fontWeight: 600,
+                        color: r.isCrossTraining ? 'var(--apollo-teal)' : 'var(--apollo-gold)',
+                        marginBottom: '0.15rem',
+                        fontFamily: 'var(--font-display)',
+                      }}
+                    >
                       {r.isNew ? 'Auto-completed' : 'Updated'}: Week {r.weekIndex + 1},{' '}
-                      {active ? formatDayLabel(getDateKeyForDay(active.startDate, r.weekIndex, r.dayIndex)) : `day ${r.dayIndex + 1}`} — {dayTitle(r.plannedDay)}
+                      {active
+                        ? formatDayLabel(getDateKeyForDay(active.startDate, r.weekIndex, r.dayIndex))
+                        : `day ${r.dayIndex + 1}`}{' '}
+                      — {dayTitle(r.plannedDay)}
                       {r.isCrossTraining && (
                         <>
                           {' · '}

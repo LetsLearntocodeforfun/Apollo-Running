@@ -36,7 +36,15 @@ import { getStoredActivities } from '../services/analyticsService';
 import { isRunActivity } from '../services/activity/sports';
 import { getDistanceUnit, type DistanceUnit } from '../services/unitPreferences';
 import { getRaceDate } from '../services/journey';
-import { addDays, dateKeyFromLocalIso, daysBetween, isDateKey, parseDateKey, toDateKey, todayKey } from '../utils/localDate';
+import {
+  addDays,
+  dateKeyFromLocalIso,
+  daysBetween,
+  isDateKey,
+  parseDateKey,
+  toDateKey,
+  todayKey,
+} from '../utils/localDate';
 
 const SHOES_KEY = 'apollo_shoes';
 /** v1.0.6 explicit per-run choices. */
@@ -87,7 +95,9 @@ function localDateOfIso(iso: string | undefined, fallback: string): string {
 function emitChanged(): void {
   try {
     if (typeof window !== 'undefined') window.dispatchEvent(new Event(SHOES_CHANGED_EVENT));
-  } catch { /* events are best-effort */ }
+  } catch {
+    /* events are best-effort */
+  }
 }
 
 /** Subscribe to shoe/assignment changes (any component or tab of the app). Returns an unsubscribe function. */
@@ -261,7 +271,12 @@ function storedActivityRefs(): StoredActivityRef[] {
   for (const a of Array.isArray(list) ? list : []) {
     const date = dateKeyFromLocalIso(a.start_date_local);
     if (!date || a.id === undefined || a.id === null) continue;
-    refs.push({ key: String(a.id), date, distanceM: isFiniteNumber(a.distance) ? Math.max(0, a.distance) : 0, isRun: isRunActivity(a) });
+    refs.push({
+      key: String(a.id),
+      date,
+      distanceM: isFiniteNumber(a.distance) ? Math.max(0, a.distance) : 0,
+      isRun: isRunActivity(a),
+    });
   }
   activityCache = { source: list, refs };
   return refs;
@@ -400,7 +415,8 @@ export interface ShoeInput {
   notes?: string;
 }
 
-export type ShoeField = 'name' | 'brand' | 'model' | 'category' | 'purchaseDate' | 'startDate' | 'maxMileage' | 'initialMileage' | 'notes';
+export type ShoeField =
+  'name' | 'brand' | 'model' | 'category' | 'purchaseDate' | 'startDate' | 'maxMileage' | 'initialMileage' | 'notes';
 export type ShoeFieldErrors = Partial<Record<ShoeField, string>>;
 
 /** Thrown by addShoe/updateShoe when the input is invalid. */
@@ -425,21 +441,29 @@ export function validateShoeInput(input: Partial<ShoeInput>, options: { partial?
   if (has('name') || has('brand') || has('model')) {
     const label = (input.name ?? '').trim() || `${input.brand ?? ''} ${input.model ?? ''}`.trim();
     if (!partial && !label) errors.name = 'Give the shoe a name, or a brand and model.';
-    if (partial && has('name') && input.name !== undefined && !input.name.trim()) errors.name = 'The name can’t be empty.';
-    if ((input.name ?? '').trim().length > MAX_NAME_LENGTH) errors.name = `Keep the name under ${MAX_NAME_LENGTH} characters.`;
+    if (partial && has('name') && input.name !== undefined && !input.name.trim())
+      errors.name = 'The name can’t be empty.';
+    if ((input.name ?? '').trim().length > MAX_NAME_LENGTH)
+      errors.name = `Keep the name under ${MAX_NAME_LENGTH} characters.`;
   }
   if (has('category') && !isCategory(input.category)) errors.category = 'Choose training, racing or both.';
   if (has('maxMileage') && input.maxMileage !== undefined) {
-    if (!isFiniteNumber(input.maxMileage) || input.maxMileage <= 0) errors.maxMileage = 'Enter a retirement distance greater than 0.';
+    if (!isFiniteNumber(input.maxMileage) || input.maxMileage <= 0)
+      errors.maxMileage = 'Enter a retirement distance greater than 0.';
     else if (input.maxMileage > MAX_LIMIT_MILES) errors.maxMileage = 'That retirement distance looks too large.';
   }
   if (has('initialMileage') && input.initialMileage !== undefined) {
-    if (!isFiniteNumber(input.initialMileage) || input.initialMileage < 0) errors.initialMileage = 'The starting distance can’t be negative.';
-    else if (input.initialMileage > MAX_INITIAL_MILES) errors.initialMileage = 'That starting distance looks too large.';
+    if (!isFiniteNumber(input.initialMileage) || input.initialMileage < 0)
+      errors.initialMileage = 'The starting distance can’t be negative.';
+    else if (input.initialMileage > MAX_INITIAL_MILES)
+      errors.initialMileage = 'That starting distance looks too large.';
   }
-  if (has('purchaseDate') && input.purchaseDate && !isDateKey(input.purchaseDate)) errors.purchaseDate = 'Enter a valid date.';
-  if (has('startDate') && input.startDate !== undefined && !isDateKey(input.startDate)) errors.startDate = 'Enter a valid date.';
-  if (has('notes') && (input.notes ?? '').length > MAX_NOTES_LENGTH) errors.notes = `Keep notes under ${MAX_NOTES_LENGTH} characters.`;
+  if (has('purchaseDate') && input.purchaseDate && !isDateKey(input.purchaseDate))
+    errors.purchaseDate = 'Enter a valid date.';
+  if (has('startDate') && input.startDate !== undefined && !isDateKey(input.startDate))
+    errors.startDate = 'Enter a valid date.';
+  if (has('notes') && (input.notes ?? '').length > MAX_NOTES_LENGTH)
+    errors.notes = `Keep notes under ${MAX_NOTES_LENGTH} characters.`;
   return errors;
 }
 
@@ -507,8 +531,21 @@ export function addShoe(shoe: ShoeInput): Shoe {
 }
 
 /** Fields `updateShoe` can change. */
-export type ShoeUpdate = Partial<Pick<Shoe,
-  'name' | 'brand' | 'model' | 'category' | 'purchaseDate' | 'maxMileage' | 'initialMileage' | 'startDate' | 'isDefault' | 'notes'>>;
+export type ShoeUpdate = Partial<
+  Pick<
+    Shoe,
+    | 'name'
+    | 'brand'
+    | 'model'
+    | 'category'
+    | 'purchaseDate'
+    | 'maxMileage'
+    | 'initialMileage'
+    | 'startDate'
+    | 'isDefault'
+    | 'notes'
+  >
+>;
 
 /**
  * Update an existing shoe's editable fields. Throws ShoeValidationError for
@@ -701,7 +738,7 @@ export function setActivityShoe(
   const key = keyOf(activityKey);
   if (!key) return false;
   if (shoeId !== null && !readShoes().some((s) => s.id === shoeId)) return false;
-  const date = isDateKey(run.date) ? run.date : dateKeyFromLocalIso(run.date) ?? '';
+  const date = isDateKey(run.date) ? run.date : (dateKeyFromLocalIso(run.date) ?? '');
   const list = readAssignments().filter((a) => a.activityKey !== key);
   list.push({
     activityKey: key,
@@ -757,12 +794,12 @@ export function getActivityShoeInfo(activityKey: string | number, date?: string 
   const state = loadState();
   const assignment = state.assignments.get(keyOf(activityKey));
   if (assignment) {
-    const shoe = assignment.shoeId ? state.byId.get(assignment.shoeId) ?? null : null;
+    const shoe = assignment.shoeId ? (state.byId.get(assignment.shoeId) ?? null) : null;
     return { shoe: shoe ? cloneShoe(shoe) : null, source: shoe ? 'explicit' : 'none', isExplicit: true };
   }
   const day = date ? (isDateKey(date) ? date : dateKeyFromLocalIso(date)) : null;
   const shoeId = day ? defaultShoeIdOn(day, state.periods, state.byId) : null;
-  const shoe = shoeId ? state.byId.get(shoeId) ?? null : null;
+  const shoe = shoeId ? (state.byId.get(shoeId) ?? null) : null;
   return { shoe: shoe ? cloneShoe(shoe) : null, source: shoe ? 'default' : 'none', isExplicit: false };
 }
 
@@ -785,7 +822,13 @@ export interface ShoeAlertOptions {
   today?: string;
 }
 
-function degradationFor(shoe: Shoe, usage: ShoeUsage | undefined, today: string, unit: DistanceUnit, raceDate?: string): ShoeDegradation {
+function degradationFor(
+  shoe: Shoe,
+  usage: ShoeUsage | undefined,
+  today: string,
+  unit: DistanceUnit,
+  raceDate?: string,
+): ShoeDegradation {
   const current = shoe.currentMileage;
   const max = shoe.maxMileage > 0 ? shoe.maxMileage : DEFAULT_MAX_MILEAGE[shoe.category];
   const usagePct = Math.round((current / max) * 100);
@@ -796,9 +839,12 @@ function degradationFor(shoe: Shoe, usage: ShoeUsage | undefined, today: string,
 
   // Project weeks until retirement
   const weeksUntilRetirement = milesPerWeek > 0 ? round1(remainingMiles / milesPerWeek) : null;
-  const projectedLimitDate = remainingMiles <= 0
-    ? today
-    : milesPerWeek > 0 ? addDays(today, Math.ceil(remainingMiles / (milesPerWeek / 7))) : null;
+  const projectedLimitDate =
+    remainingMiles <= 0
+      ? today
+      : milesPerWeek > 0
+        ? addDays(today, Math.ceil(remainingMiles / (milesPerWeek / 7)))
+        : null;
 
   // Check if shoe will exceed limit before race day
   let exceedsBeforeRace = false;
@@ -821,8 +867,9 @@ function degradationFor(shoe: Shoe, usage: ShoeUsage | undefined, today: string,
   } else if (usagePct >= 100) {
     statusMessage = `${shoe.name} has exceeded its ${fmt(max)} limit (${fmt(current)}). Time to retire.`;
   } else if (exceedsBeforeRace && race) {
-    statusMessage = `${shoe.name} — ${fmt(current)} of ${fmt(max)}. At your recent ${fmt(milesPerWeek)} a week it will pass `
-      + `its limit before race day (${formatShortDate(race)}). Consider breaking in a new pair.`;
+    statusMessage =
+      `${shoe.name} — ${fmt(current)} of ${fmt(max)}. At your recent ${fmt(milesPerWeek)} a week it will pass ` +
+      `its limit before race day (${formatShortDate(race)}). Consider breaking in a new pair.`;
   } else if (usagePct >= 80) {
     statusMessage = `${shoe.name} — ${fmt(current)} of ${fmt(max)} (${usagePct}%). Approaching retirement.`;
   } else {
@@ -849,7 +896,11 @@ function degradationFor(shoe: Shoe, usage: ShoeUsage | undefined, today: string,
  * @param shoeId The shoe to analyze
  * @param raceDate Optional race date (YYYY-MM-DD) for projection alerts
  */
-export function calculateDegradation(shoeId: string, raceDate?: string, options: ShoeAlertOptions = {}): ShoeDegradation | null {
+export function calculateDegradation(
+  shoeId: string,
+  raceDate?: string,
+  options: ShoeAlertOptions = {},
+): ShoeDegradation | null {
   const state = loadState(options.today ?? todayKey());
   const shoe = state.byId.get(shoeId);
   if (!shoe) return null;

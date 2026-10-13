@@ -137,7 +137,11 @@ describe('syncPlanWithActivities (match + save)', () => {
     const results = syncPlanWithActivities([sunday, extra], day(2, 0));
     expect(results.some((r) => r.weekIndex === 1 && r.dayIndex === 5)).toBe(true);
     expect(isDayCompleted(planId, 1, 5)).toBe(true);
-    expect(getSyncMeta(planId, 1, 5)).toMatchObject({ activityId: sunday.id, activityDate: day(1, 6), autoCompleted: true });
+    expect(getSyncMeta(planId, 1, 5)).toMatchObject({
+      activityId: sunday.id,
+      activityDate: day(1, 6),
+      autoCompleted: true,
+    });
     const wm = getWeeklyMileageSummary(planId, 1)!;
     expect(wm.actualMi).toBeCloseTo(sat.distanceMi! + 2, 1);
     expect(getAllWeeklyMileage(planId)).toHaveLength(plan.weeks.length);

@@ -107,13 +107,21 @@ function toParsedLaps(laps: LapState[], start: number): ParsedLap[] {
     else elapsed = l.totalTime ?? 0;
     if (finite(l.totalTime) && l.totalTime > elapsed) elapsed = l.totalTime;
 
-    const sampleDistance = finite(l.firstDistance) && finite(l.lastDistance) ? l.lastDistance - l.firstDistance : undefined;
-    const distance = finite(l.distance) ? l.distance : sampleDistance !== undefined && sampleDistance > 0 ? sampleDistance : 0;
+    const sampleDistance =
+      finite(l.firstDistance) && finite(l.lastDistance) ? l.lastDistance - l.firstDistance : undefined;
+    const distance = finite(l.distance)
+      ? l.distance
+      : sampleDistance !== undefined && sampleDistance > 0
+        ? sampleDistance
+        : 0;
     const lap: ParsedLap = { startTime: lapStart, elapsedSec: elapsed, distance };
     if (finite(l.totalTime)) lap.movingSec = l.totalTime;
-    const avgSpeed = finite(l.avgSpeed) && l.avgSpeed > 0
-      ? l.avgSpeed
-      : finite(l.totalTime) && l.totalTime > 0 && distance > 0 ? distance / l.totalTime : undefined;
+    const avgSpeed =
+      finite(l.avgSpeed) && l.avgSpeed > 0
+        ? l.avgSpeed
+        : finite(l.totalTime) && l.totalTime > 0 && distance > 0
+          ? distance / l.totalTime
+          : undefined;
     if (avgSpeed !== undefined) lap.avgSpeed = avgSpeed;
     if (finite(l.maxSpeed) && l.maxSpeed > 0) lap.maxSpeed = l.maxSpeed;
     if (finite(l.avgHeartRate) && l.avgHeartRate > 0) lap.avgHeartRate = l.avgHeartRate;
@@ -159,7 +167,9 @@ export function parseTcx(text: string): ParsedActivity[] {
     if (avgHr !== undefined) totals.avgHeartRate = Math.round(avgHr * 10) / 10;
     const maxHr = maxOf(a.laps, (l) => l.maxHeartRate);
     if (maxHr !== undefined) totals.maxHeartRate = maxHr;
-    const cadence = weightedByTime(a.laps, (l) => (finite(l.avgRunCadence) && l.avgRunCadence > 0 ? l.avgRunCadence : l.cadence));
+    const cadence = weightedByTime(a.laps, (l) =>
+      finite(l.avgRunCadence) && l.avgRunCadence > 0 ? l.avgRunCadence : l.cadence,
+    );
     if (cadence !== undefined) totals.avgCadence = Math.round(cadence * 10) / 10;
     const watts = weightedByTime(a.laps, (l) => l.avgWatts);
     if (watts !== undefined) totals.avgPower = Math.round(watts);
@@ -207,15 +217,33 @@ export function parseTcx(text: string): ParsedActivity[] {
         const v = parseXmlNumber(value);
         if (v === undefined) return;
         switch (name) {
-          case 'latitudedegrees': point.lat = v; break;
-          case 'longitudedegrees': point.lng = v; break;
-          case 'altitudemeters': point.altitude = v; break;
-          case 'distancemeters': if (parent === 'trackpoint' && v >= 0) point.distance = v; break;
-          case 'value': if (parent === 'heartratebpm' && v > 0) point.heartRate = v; break;
-          case 'cadence': if (parent === 'trackpoint' && v >= 0) point.cadence = v; break;
-          case 'runcadence': if (v >= 0) point.runCadence = v; break;
-          case 'speed': if (v >= 0) point.speed = v; break;
-          case 'watts': if (v >= 0) point.power = v; break;
+          case 'latitudedegrees':
+            point.lat = v;
+            break;
+          case 'longitudedegrees':
+            point.lng = v;
+            break;
+          case 'altitudemeters':
+            point.altitude = v;
+            break;
+          case 'distancemeters':
+            if (parent === 'trackpoint' && v >= 0) point.distance = v;
+            break;
+          case 'value':
+            if (parent === 'heartratebpm' && v > 0) point.heartRate = v;
+            break;
+          case 'cadence':
+            if (parent === 'trackpoint' && v >= 0) point.cadence = v;
+            break;
+          case 'runcadence':
+            if (v >= 0) point.runCadence = v;
+            break;
+          case 'speed':
+            if (v >= 0) point.speed = v;
+            break;
+          case 'watts':
+            if (v >= 0) point.power = v;
+            break;
         }
         return;
       }
@@ -224,11 +252,21 @@ export function parseTcx(text: string): ParsedActivity[] {
         if (v === undefined) return;
         if (parent === 'lap') {
           switch (name) {
-            case 'totaltimeseconds': lap.totalTime = v; break;
-            case 'distancemeters': lap.distance = v; break;
-            case 'maximumspeed': lap.maxSpeed = v; break;
-            case 'calories': lap.calories = v; break;
-            case 'cadence': lap.cadence = v; break;
+            case 'totaltimeseconds':
+              lap.totalTime = v;
+              break;
+            case 'distancemeters':
+              lap.distance = v;
+              break;
+            case 'maximumspeed':
+              lap.maxSpeed = v;
+              break;
+            case 'calories':
+              lap.calories = v;
+              break;
+            case 'cadence':
+              lap.cadence = v;
+              break;
           }
         } else if (name === 'value' && parent === 'averageheartratebpm') {
           lap.avgHeartRate = v;

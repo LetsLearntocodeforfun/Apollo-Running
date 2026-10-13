@@ -51,11 +51,13 @@ const DEVICE_STATE_KEYS = new Set([
  * - v1.0.7 (PX-14): quarantined damaged copies (`apollo_quarantine_*`).
  */
 export function isExcludedFromExport(key: string): boolean {
-  return CREDENTIAL_KEYS.has(key)
-    || key.startsWith(BACKUP_KEY_PREFIX)
-    || key.startsWith(QUARANTINE_KEY_PREFIX)
-    || key.endsWith('_cache')
-    || DEVICE_STATE_KEYS.has(key);
+  return (
+    CREDENTIAL_KEYS.has(key) ||
+    key.startsWith(BACKUP_KEY_PREFIX) ||
+    key.startsWith(QUARANTINE_KEY_PREFIX) ||
+    key.endsWith('_cache') ||
+    DEVICE_STATE_KEYS.has(key)
+  );
 }
 
 /**
@@ -65,11 +67,13 @@ export function isExcludedFromExport(key: string): boolean {
  * v1.0.7 (PX-14): quarantined copies are kept too.
  */
 export function isPreservedOnRestore(key: string): boolean {
-  return CREDENTIAL_KEYS.has(key)
-    || key.startsWith(BACKUP_KEY_PREFIX)
-    || key.startsWith(QUARANTINE_KEY_PREFIX)
-    || DEVICE_STATE_KEYS.has(key)
-    || !isApolloKey(key);
+  return (
+    CREDENTIAL_KEYS.has(key) ||
+    key.startsWith(BACKUP_KEY_PREFIX) ||
+    key.startsWith(QUARANTINE_KEY_PREFIX) ||
+    DEVICE_STATE_KEYS.has(key) ||
+    !isApolloKey(key)
+  );
 }
 
 /**
@@ -187,15 +191,19 @@ export async function deleteAllLocalData(): Promise<void> {
       if (key && (isApolloKey(key) || key.startsWith('__apollo_'))) doomed.push(key);
     }
     for (const key of doomed) localStorage.removeItem(key);
-  } catch { /* localStorage unavailable */ }
+  } catch {
+    /* localStorage unavailable */
+  }
   if (failedCredentials.length > 0) {
-    throw new Error(`Some saved credentials could not be removed from the desktop keychain store (${failedCredentials.join(', ')}). Try again, or disconnect the services in Settings.`);
+    throw new Error(
+      `Some saved credentials could not be removed from the desktop keychain store (${failedCredentials.join(', ')}). Try again, or disconnect the services in Settings.`,
+    );
   }
 }
 
 /**
  * Trigger a browser download of a JSON file.
- * 
+ *
  * @param data - The data object to download
  * @param filename - The filename for the download
  */
@@ -203,14 +211,14 @@ export function downloadJson(data: unknown, filename: string): void {
   const json = JSON.stringify(data, null, 2);
   const blob = new Blob([json], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
-  
+
   const link = document.createElement('a');
   link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
-  
+
   // Clean up the object URL
   URL.revokeObjectURL(url);
 }
@@ -227,6 +235,6 @@ export function generateBackupFilename(): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
-  
+
   return `apollo-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.json`;
 }

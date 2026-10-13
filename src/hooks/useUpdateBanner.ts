@@ -38,7 +38,12 @@ export function bannerForUpdateState(
         };
       }
       if (opts.autoDownload) return null; // the download starts by itself; progress follows
-      return { tone: 'info', message: `${version} is available.`, action: { label: 'Download', run: opts.download }, showDownloadPage: false };
+      return {
+        tone: 'info',
+        message: `${version} is available.`,
+        action: { label: 'Download', run: opts.download },
+        showDownloadPage: false,
+      };
     case 'downloading':
       return {
         tone: 'info',
@@ -46,7 +51,12 @@ export function bannerForUpdateState(
         showDownloadPage: false,
       };
     case 'downloaded':
-      return { tone: 'success', message: `${version} is ready. Restart to install it.`, action: { label: 'Restart now', run: opts.install }, showDownloadPage: false };
+      return {
+        tone: 'success',
+        message: `${version} is ready. Restart to install it.`,
+        action: { label: 'Restart now', run: opts.install },
+        showDownloadPage: false,
+      };
     case 'error':
       return {
         tone: 'error',
@@ -75,8 +85,12 @@ export function useUpdateBanner(): { banner: UpdateBanner | null; dismiss: () =>
 
     const mac = isMacPlatform();
     const autoDownload = prefs.autoDownloadUpdates && !mac;
-    const download = () => { void api.updater.download(); };
-    const install = () => { void api.updater.install(); };
+    const download = () => {
+      void api.updater.download();
+    };
+    const install = () => {
+      void api.updater.install();
+    };
 
     // Subscribe on every run (StrictMode mounts twice); configure only once.
     const unsubscribe = api.updater.onStateChanged((state) => {
@@ -84,7 +98,9 @@ export function useUpdateBanner(): { banner: UpdateBanner | null; dismiss: () =>
     });
     if (!configuredRef.current) {
       configuredRef.current = true;
-      void api.updater.configure({ autoCheck: true, autoDownload }).catch(() => { /* reported via state */ });
+      void api.updater.configure({ autoCheck: true, autoDownload }).catch(() => {
+        /* reported via state */
+      });
     }
     return unsubscribe;
   }, []);

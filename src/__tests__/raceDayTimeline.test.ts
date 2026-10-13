@@ -59,7 +59,9 @@ describe('generateRaceDayTimeline', () => {
 
   it('should include alarm event', () => {
     const timeline = generateRaceDayTimeline(baseInput);
-    const alarm = timeline.events.find((e) => e.title.toLowerCase().includes('alarm') || e.title.toLowerCase().includes('wake'));
+    const alarm = timeline.events.find(
+      (e) => e.title.toLowerCase().includes('alarm') || e.title.toLowerCase().includes('wake'),
+    );
     expect(alarm).toBeDefined();
     expect(alarm!.minutesBeforeStart).toBeGreaterThan(180);
   });
@@ -293,7 +295,9 @@ describe('morning sequence (L-16)', () => {
     expect(breakfast.minutesBeforeStart - 20).toBeGreaterThanOrEqual(leave.minutesBeforeStart + 15);
     expect(alarm.minutesBeforeStart).toBeGreaterThan(breakfast.minutesBeforeStart);
     // Nothing from the morning routine happens after leaving.
-    const morning = timeline.events.filter((e) => ['wake', 'nutrition'].includes(e.category) && e.offsetSec < -leave.minutesBeforeStart * 60);
+    const morning = timeline.events.filter(
+      (e) => ['wake', 'nutrition'].includes(e.category) && e.offsetSec < -leave.minutesBeforeStart * 60,
+    );
     expect(morning.length).toBeGreaterThanOrEqual(3);
     expect(leave.minutesBeforeStart).toBe(60 + 150);
   });
@@ -326,7 +330,9 @@ describe('fuel items (L-17)', () => {
   it('uses a pre-race fuel item instead of the default gel', () => {
     const timeline = generateRaceDayTimeline({
       ...baseInput,
-      fuelItems: [{ timeSec: -20 * 60, distanceMi: 0, label: 'Pre-race gel', carbsG: 25, note: 'With a few sips of water.' }],
+      fuelItems: [
+        { timeSec: -20 * 60, distanceMi: 0, label: 'Pre-race gel', carbsG: 25, note: 'With a few sips of water.' },
+      ],
     });
     const gels = timeline.events.filter((e) => /pre-race gel/i.test(e.title));
     expect(gels).toHaveLength(1);
@@ -381,7 +387,8 @@ describe('arrival lead and start area (L-20)', () => {
 // ── L-21: body-mass scaling ──────────────────────────────────────────────────
 
 describe('fluids and carbs scale with body mass (L-21)', () => {
-  const fluids = (weightKg?: number) => find(generateRaceDayTimeline({ ...baseInput, weightKg }), /fluids/i)!.description;
+  const fluids = (weightKg?: number) =>
+    find(generateRaceDayTimeline({ ...baseInput, weightKg }), /fluids/i)!.description;
 
   it('uses 5–7 mL/kg, in mL and oz', () => {
     expect(fluids(50)).toContain('250–350 mL (8–12 oz)');

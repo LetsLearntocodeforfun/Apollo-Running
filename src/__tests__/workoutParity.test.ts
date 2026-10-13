@@ -58,9 +58,11 @@ const PLANS: TrainingPlan[] = [...BUILT_IN_PLANS, customWithMp];
 
 function pacedDays(plan: TrainingPlan): Array<{ day: PlanDay; week: number; index: number }> {
   const out: Array<{ day: PlanDay; week: number; index: number }> = [];
-  plan.weeks.forEach((w, week) => w.days.forEach((day, index) => {
-    if (day.type === 'run' || day.type === 'race' || day.type === 'marathon') out.push({ day, week, index });
-  }));
+  plan.weeks.forEach((w, week) =>
+    w.days.forEach((day, index) => {
+      if (day.type === 'run' || day.type === 'race' || day.type === 'marathon') out.push({ day, week, index });
+    }),
+  );
   return out;
 }
 
@@ -133,13 +135,14 @@ function watchRange(minSecPerMi: number, maxSecPerMi: number): string {
   return `${clock(maxSecPerMi)}-${clock(minSecPerMi)}/mi`;
 }
 
-describe('workout parity keeps each coach\'s structure (v1.0.7 T-4 / T-10 / T-17)', () => {
+describe("workout parity keeps each coach's structure (v1.0.7 T-4 / T-10 / T-17)", () => {
   const paces = calculateTrainingPaces(VDOT)!;
   const first = BUILT_IN_PLANS.find((p) => p.id === 'first')!;
   const hansons = BUILT_IN_PLANS.find((p) => p.id === 'hansons-beginner')!;
   const watchFor = (plan: TrainingPlan, week: number, index: number) =>
-    buildPlanWorkouts(plan, START, { from: START, unit: 'mi', paces, vdot: VDOT })
-      .find((w) => w.external_id === `apollo:${plan.id}:${START}:w${week + 1}d${index + 1}`)!;
+    buildPlanWorkouts(plan, START, { from: START, unit: 'mi', paces, vdot: VDOT }).find(
+      (w) => w.external_id === `apollo:${plan.id}:${START}:w${week + 1}d${index + 1}`,
+    )!;
 
   beforeEach(() => {
     persistence.clear();
@@ -156,7 +159,9 @@ describe('workout parity keeps each coach\'s structure (v1.0.7 T-4 / T-10 / T-17
 
     // Watch: the short-tempo block carries the same range.
     const watch = watchFor(first, 0, 3);
-    expect(watch.description).toContain(`Short tempo\n- 3mi ${watchRange(today.targetPaceRange!.minSecPerMi, today.targetPaceRange!.maxSecPerMi)} Pace`);
+    expect(watch.description).toContain(
+      `Short tempo\n- 3mi ${watchRange(today.targetPaceRange!.minSecPerMi, today.targetPaceRange!.maxSecPerMi)} Pace`,
+    );
 
     // Compliance (the real analyzeCompliance path autoSync uses): on target at the FIRST pace…
     const mid = (today.targetPaceRange!.minSecPerMi + today.targetPaceRange!.maxSecPerMi) / 2;
@@ -176,7 +181,10 @@ describe('workout parity keeps each coach\'s structure (v1.0.7 T-4 / T-10 / T-17
   });
 
   it('FIRST and Hansons speed days keep their own reps on Today and the watch (T-10)', () => {
-    for (const [plan, week] of [[first, 2], [hansons, 5]] as const) {
+    for (const [plan, week] of [
+      [first, 2],
+      [hansons, 5],
+    ] as const) {
       const day = plan.weeks[week].days[1];
       const reps = parsePlanReps(day.label)!;
       expect(targetForDay(day, VDOT)!.intervals![0].repeats).toBe(reps.repeats);

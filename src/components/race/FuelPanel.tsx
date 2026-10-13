@@ -163,13 +163,15 @@ function FuelTimelineSection({ ctx, profile, unit }: SectionProps) {
         <>
           <ul className="fuel-chips" aria-label="Fueling summary">
             <li className="fuel-chip">Target {Math.round(plan.targetCarbsPerHourG)} g/h</li>
-            {plan.gelIntervalMin > 0 && <li className="fuel-chip">A gel every {Math.round(plan.gelIntervalMin)} min</li>}
+            {plan.gelIntervalMin > 0 && (
+              <li className="fuel-chip">A gel every {Math.round(plan.gelIntervalMin)} min</li>
+            )}
             <li className="fuel-chip">{plan.totalCarbsG} g during the race</li>
             {/* v1.0.7 (R-5): what the plan really delivers over the whole race. */}
-            {plan.totalCarbsG > 0 && <li className="fuel-chip">≈ {Math.round(plan.deliveredCarbsPerHourG)} g/h delivered</li>}
-            {plan.needsMultipleTransportable && (
-              <li className="fuel-chip fuel-chip--warn">Needs glucose + fructose</li>
+            {plan.totalCarbsG > 0 && (
+              <li className="fuel-chip">≈ {Math.round(plan.deliveredCarbsPerHourG)} g/h delivered</li>
             )}
+            {plan.needsMultipleTransportable && <li className="fuel-chip fuel-chip--warn">Needs glucose + fructose</li>}
           </ul>
           <div className="fuel-table-wrap">
             <table className="fuel-table">
@@ -185,7 +187,11 @@ function FuelTimelineSection({ ctx, profile, unit }: SectionProps) {
               <tbody>
                 {plan.items.map((item) => (
                   <tr key={`${item.kind}-${item.timeSec}`}>
-                    <td>{item.kind === 'pre-race' ? `${Math.round(-item.timeSec / 60)} min before start` : formatRaceClock(item.timeSec)}</td>
+                    <td>
+                      {item.kind === 'pre-race'
+                        ? `${Math.round(-item.timeSec / 60)} min before start`
+                        : formatRaceClock(item.timeSec)}
+                    </td>
                     <td>{item.kind === 'pre-race' ? 'Start' : formatDistanceMi(item.distanceMi, unit)}</td>
                     <td>
                       {item.label}
@@ -199,7 +205,9 @@ function FuelTimelineSection({ ctx, profile, unit }: SectionProps) {
           </div>
           {plan.notes.length > 0 && (
             <ul className="fuel-notes">
-              {plan.notes.map((note) => <li key={note}>{note}</li>)}
+              {plan.notes.map((note) => (
+                <li key={note}>{note}</li>
+              ))}
             </ul>
           )}
         </>
@@ -216,7 +224,9 @@ function CarbToleranceForm({ current }: { current: number }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
-  useEffect(() => { setValue(String(current)); }, [current]);
+  useEffect(() => {
+    setValue(String(current));
+  }, [current]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -245,15 +255,29 @@ function CarbToleranceForm({ current }: { current: number }) {
           value={value}
           aria-describedby={helpId}
           aria-invalid={error ? true : undefined}
-          onChange={(e) => { setValue(e.target.value); setSaved(false); }}
+          onChange={(e) => {
+            setValue(e.target.value);
+            setSaved(false);
+          }}
         />
-        <button type="submit" className="fuel-button">Save</button>
+        <button type="submit" className="fuel-button">
+          Save
+        </button>
       </div>
       <p id={helpId} className="fuel-help">
-        Most runners handle 30–60 g per hour. Up to {CARB_TOLERANCE_MAX} g works with glucose + fructose products and a trained gut.
+        Most runners handle 30–60 g per hour. Up to {CARB_TOLERANCE_MAX} g works with glucose + fructose products and a
+        trained gut.
       </p>
-      {error && <p className="fuel-error" role="alert">{error}</p>}
-      {saved && <p className="fuel-saved" role="status">Saved.</p>}
+      {error && (
+        <p className="fuel-error" role="alert">
+          {error}
+        </p>
+      )}
+      {saved && (
+        <p className="fuel-saved" role="status">
+          Saved.
+        </p>
+      )}
     </form>
   );
 }
@@ -287,13 +311,16 @@ function CaffeineSection({ ctx, profile }: SectionProps) {
               <li>
                 <strong>Before the start:</strong> about {plan.preRace.mg} mg ({plan.preRace.mgPerKg} mg/kg) roughly{' '}
                 {plan.preRace.minutesBefore} minutes before the gun
-                {plan.preRace.clockTime ? ` (around ${plan.preRace.clockTime})` : ''} — coffee, a tablet or a caffeinated gel.
+                {plan.preRace.clockTime ? ` (around ${plan.preRace.clockTime})` : ''} — coffee, a tablet or a
+                caffeinated gel.
               </li>
               {plan.lateRace && (
                 <li>
                   <strong>Or late in the race:</strong> {plan.lateRace.minMg}–{plan.lateRace.maxMg} mg (1–3 mg/kg)
-                  {plan.lateRace.fromSec !== null ? ` from about ${formatRaceClock(plan.lateRace.fromSec)} into the race` : ' in the final hour'},
-                  e.g. a caffeinated gel in place of a regular one. If you also took some before the start, keep this
+                  {plan.lateRace.fromSec !== null
+                    ? ` from about ${formatRaceClock(plan.lateRace.fromSec)} into the race`
+                    : ' in the final hour'}
+                  , e.g. a caffeinated gel in place of a regular one. If you also took some before the start, keep this
                   to the low end.
                 </li>
               )}
@@ -303,7 +330,9 @@ function CaffeineSection({ ctx, profile }: SectionProps) {
           )}
           <aside className="fuel-caution" aria-label="Caffeine cautions">
             <ul className="fuel-notes">
-              {plan.warnings.map((w) => <li key={w}>{w}</li>)}
+              {plan.warnings.map((w) => (
+                <li key={w}>{w}</li>
+              ))}
             </ul>
           </aside>
         </>
@@ -324,9 +353,10 @@ function CarbLoadSection({ ctx, profile }: Omit<SectionProps, 'unit'>) {
   const sex = profile.sex === 'female' || profile.sex === 'male' ? profile.sex : undefined;
 
   const protocol = useMemo(
-    () => (weightKg
-      ? generateCarbLoadingProtocol({ weightKg, sex }, ctx.raceDate ?? '', { carbsPerKg, includeDay3, breakfastSize })
-      : null),
+    () =>
+      weightKg
+        ? generateCarbLoadingProtocol({ weightKg, sex }, ctx.raceDate ?? '', { carbsPerKg, includeDay3, breakfastSize })
+        : null,
     [weightKg, sex, ctx.raceDate, carbsPerKg, includeDay3, breakfastSize],
   );
   const breakfastAt = breakfastTime(ctx.startTime);
@@ -353,13 +383,14 @@ function CarbLoadSection({ ctx, profile }: Omit<SectionProps, 'unit'>) {
             </label>
           </div>
           <div className="fuel-day-grid">
-            {protocol.days.map((day) => <CarbDayCard key={day.daysBefore} day={day} raceDate={ctx.raceDate} />)}
+            {protocol.days.map((day) => (
+              <CarbDayCard key={day.daysBefore} day={day} raceDate={ctx.raceDate} />
+            ))}
             <RaceMorningCard day={protocol.raceMorning} breakfastAt={breakfastAt} />
           </div>
           <p className="fuel-info">
             Expect the scale to go up by about {formatMassKg(1).split(' ')[0]}–{formatMassKg(2)}: glycogen is stored
-            with water.
-            That&apos;s fuel, not fat.
+            with water. That&apos;s fuel, not fat.
           </p>
           {protocol.massCapped && (
             <p className="fuel-help">
@@ -367,7 +398,11 @@ function CarbLoadSection({ ctx, profile }: Omit<SectionProps, 'unit'>) {
               mass rather than body weight.
             </p>
           )}
-          {protocol.notes?.map((note) => <p key={note} className="fuel-help">{note}</p>)}
+          {protocol.notes?.map((note) => (
+            <p key={note} className="fuel-help">
+              {note}
+            </p>
+          ))}
         </>
       )}
     </section>
@@ -409,7 +444,9 @@ function RaceMorningCard({ day, breakfastAt }: { day: CarbLoadingDay; breakfastA
       <p className="fuel-help">
         Rule of thumb: {RACE_BREAKFAST_RULE_TEXT}. Breakfast size is set on the Race Morning tab.
       </p>
-      {day.meals.map((meal) => <p key={meal.name}>{meal.description}</p>)}
+      {day.meals.map((meal) => (
+        <p key={meal.name}>{meal.description}</p>
+      ))}
       {day.warning && <p className="fuel-warning">{day.warning}</p>}
       <p className="fuel-help">{day.fiberGuidance}</p>
     </article>
@@ -449,9 +486,15 @@ function BodyMassForm() {
           aria-invalid={error ? true : undefined}
           onChange={(e) => setValue(e.target.value)}
         />
-        <button type="submit" className="fuel-button">Save</button>
+        <button type="submit" className="fuel-button">
+          Save
+        </button>
       </div>
-      {error && <p className="fuel-error" role="alert">{error}</p>}
+      {error && (
+        <p className="fuel-error" role="alert">
+          {error}
+        </p>
+      )}
     </form>
   );
 }
@@ -463,9 +506,10 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
   const ceiling = fluidCeilingMlPerHour(profile.sweatRateLPerHour);
   const temps = ctx.race?.typicalTempF;
   const sodium = sodiumGuidanceMgPerHour(profile.saltySweater);
-  const sweatTip = getMassUnit() === 'lb'
-    ? 'each pound lost is about 16 oz (450 mL) of sweat'
-    : 'each kilogram lost is about 1 litre of sweat';
+  const sweatTip =
+    getMassUnit() === 'lb'
+      ? 'each pound lost is about 16 oz (450 mL) of sweat'
+      : 'each kilogram lost is about 1 litre of sweat';
 
   return (
     <section className="fuel-section" aria-labelledby={headingId}>
@@ -477,14 +521,14 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
       </p>
       {ceiling !== null ? (
         <p>
-          Your upper limit: <strong>{formatFluidMl(ceiling, unit)} per hour</strong> (80% of your measured sweat rate
-          of {profile.sweatRateLPerHour} L/h, never more than {formatFluidMl(MAX_PLANNED_FLUID_ML_PER_HOUR, unit)}).
+          Your upper limit: <strong>{formatFluidMl(ceiling, unit)} per hour</strong> (80% of your measured sweat rate of{' '}
+          {profile.sweatRateLPerHour} L/h, never more than {formatFluidMl(MAX_PLANNED_FLUID_ML_PER_HOUR, unit)}).
           It&apos;s a limit, not a target.
         </p>
       ) : (
         <p className="fuel-help">
-          Know your sweat rate: weigh yourself before and after a 60-minute run and add what you drank — {sweatTip}.
-          Use the sweat test below to get a personal upper limit.
+          Know your sweat rate: weigh yourself before and after a 60-minute run and add what you drank — {sweatTip}. Use
+          the sweat test below to get a personal upper limit.
         </p>
       )}
       <SweatTestForm hasRate={ceiling !== null} />
@@ -498,13 +542,13 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
         Sodium: about {sodium.min}–{sodium.max} mg per hour helps in long or hot races
         {profile.saltySweater
           ? ' — you marked yourself as a salty sweater, so aim for the upper part of that. Needs vary a lot: test it on long runs.'
-          : ', or more if you\'re a salty sweater (white streaks on your kit).'}
+          : ", or more if you're a salty sweater (white streaks on your kit)."}
       </p>
       <SaltySweaterToggle checked={profile.saltySweater === true} />
       <aside className="fuel-caution" aria-label="Over-drinking warning">
         <p>
-          <strong>Don&apos;t over-drink.</strong> You shouldn&apos;t gain weight during a race. Drinking far more than you
-          sweat can cause exercise-associated hyponatremia (low blood sodium). Warning signs: headache, nausea,
+          <strong>Don&apos;t over-drink.</strong> You shouldn&apos;t gain weight during a race. Drinking far more than
+          you sweat can cause exercise-associated hyponatremia (low blood sodium). Warning signs: headache, nausea,
           bloating, confusion, swollen hands or feet. If you notice them, stop drinking water and get medical help.
         </p>
       </aside>
@@ -540,7 +584,12 @@ function SweatTestForm({ hasRate }: { hasRate: boolean }) {
       setResult(null);
       return;
     }
-    const r = estimateSweatRate({ preKg: toKg(pre), postKg: toKg(post), fluidL: toL(fluid), durationMin: Number(minutes) });
+    const r = estimateSweatRate({
+      preKg: toKg(pre),
+      postKg: toKg(post),
+      fluidL: toL(fluid),
+      durationMin: Number(minutes),
+    });
     if (!r.ok) {
       setError(r.error);
       setResult(null);
@@ -567,30 +616,68 @@ function SweatTestForm({ hasRate }: { hasRate: boolean }) {
       </p>
       <div className="fuel-controls">
         <label htmlFor={`${baseId}-pre`}>Before ({massUnit})</label>
-        <input id={`${baseId}-pre`} type="number" inputMode="decimal" min={1} step="0.1" value={pre}
-          onChange={(e) => setPre(e.target.value)} />
+        <input
+          id={`${baseId}-pre`}
+          type="number"
+          inputMode="decimal"
+          min={1}
+          step="0.1"
+          value={pre}
+          onChange={(e) => setPre(e.target.value)}
+        />
         <label htmlFor={`${baseId}-post`}>After ({massUnit})</label>
-        <input id={`${baseId}-post`} type="number" inputMode="decimal" min={1} step="0.1" value={post}
-          onChange={(e) => setPost(e.target.value)} />
+        <input
+          id={`${baseId}-post`}
+          type="number"
+          inputMode="decimal"
+          min={1}
+          step="0.1"
+          value={post}
+          onChange={(e) => setPost(e.target.value)}
+        />
         <label htmlFor={`${baseId}-fluid`}>Drank during the run ({fluidUnit})</label>
-        <input id={`${baseId}-fluid`} type="number" inputMode="decimal" min={0} value={fluid}
-          onChange={(e) => setFluid(e.target.value)} />
+        <input
+          id={`${baseId}-fluid`}
+          type="number"
+          inputMode="decimal"
+          min={0}
+          value={fluid}
+          onChange={(e) => setFluid(e.target.value)}
+        />
         <label htmlFor={`${baseId}-min`}>Run duration (min)</label>
-        <input id={`${baseId}-min`} type="number" inputMode="numeric" min={30} max={300} value={minutes}
-          onChange={(e) => setMinutes(e.target.value)} />
+        <input
+          id={`${baseId}-min`}
+          type="number"
+          inputMode="numeric"
+          min={30}
+          max={300}
+          value={minutes}
+          onChange={(e) => setMinutes(e.target.value)}
+        />
       </div>
-      <button type="submit" className="fuel-button">Work out my sweat rate</button>
-      {error && <p className="fuel-error" role="alert">{error}</p>}
+      <button type="submit" className="fuel-button">
+        Work out my sweat rate
+      </button>
+      {error && (
+        <p className="fuel-error" role="alert">
+          {error}
+        </p>
+      )}
       {result && (
         <div role="status">
           <p className="fuel-saved">
             Sweat rate: about <strong>{result.rate} L/h</strong> — saved to your profile.
           </p>
-          {result.warnings.map((w) => <p key={w} className="fuel-warning">{w}</p>)}
+          {result.warnings.map((w) => (
+            <p key={w} className="fuel-warning">
+              {w}
+            </p>
+          ))}
         </div>
       )}
       <p className="fuel-help">
-        This sets an upper limit only. On race day still drink to thirst, and don&apos;t finish heavier than you started.
+        This sets an upper limit only. On race day still drink to thirst, and don&apos;t finish heavier than you
+        started.
       </p>
     </form>
   );

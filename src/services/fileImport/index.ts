@@ -132,7 +132,11 @@ type ActivityFormat = 'fit' | 'gpx' | 'tcx';
 type FileKind = ActivityFormat | 'zip' | 'gzip';
 
 const EXTENSION_KINDS: Record<string, FileKind | undefined> = {
-  fit: 'fit', gpx: 'gpx', tcx: 'tcx', zip: 'zip', gz: 'gzip',
+  fit: 'fit',
+  gpx: 'gpx',
+  tcx: 'tcx',
+  zip: 'zip',
+  gz: 'gzip',
 };
 /** Activity files inside archives: .fit / .gpx / .tcx, optionally gzipped (Strava). */
 const ACTIVITY_ENTRY = /\.(?:fit|gpx|tcx)(?:\.gz)?$/i;
@@ -442,7 +446,13 @@ class ImportSession {
     if (garminLayout && !context.origin) context.origin = 'GARMIN';
     for (const { entry, kind } of metadata) {
       if (this.shouldStop()) return;
-      await this.loadMetadata(kind, `${label} › ${entry.name}`, entry.size, () => zip.read(entry, MAX_METADATA_BYTES), context);
+      await this.loadMetadata(
+        kind,
+        `${label} › ${entry.name}`,
+        entry.size,
+        () => zip.read(entry, MAX_METADATA_BYTES),
+        context,
+      );
     }
 
     this.filesTotal += activityEntries.length;
@@ -458,9 +468,12 @@ class ImportSession {
       const nestedLabel = `${label} › ${entry.name}`;
       if (entry.method !== ZIP_STORED && entry.size > MAX_NESTED_ARCHIVE_BYTES) {
         const outer = baseName(label);
-        this.fail(nestedLabel, new FileImportError(
-          `This archive is too large to read inside ${outer}. Unzip ${outer} and import ${baseName(entry.name)} directly.`,
-        ));
+        this.fail(
+          nestedLabel,
+          new FileImportError(
+            `This archive is too large to read inside ${outer}. Unzip ${outer} and import ${baseName(entry.name)} directly.`,
+          ),
+        );
         continue;
       }
       await this.importArchive(() => zip.openNested(entry, MAX_NESTED_ARCHIVE_BYTES), nestedLabel, context, depth + 1);
@@ -488,7 +501,10 @@ class ImportSession {
         for (const [key, row] of index.byFile) rows.set(key, row);
         context.strava = rows;
         if (index.withoutFile > 0) {
-          this.skip(label, `${plural(index.withoutFile, 'activity was', 'activities were')} entered manually on Strava without a recording file, so there's nothing to import for them.`);
+          this.skip(
+            label,
+            `${plural(index.withoutFile, 'activity was', 'activities were')} entered manually on Strava without a recording file, so there's nothing to import for them.`,
+          );
         }
         return true;
       }
@@ -513,9 +529,8 @@ class ImportSession {
     context: ImportContext,
     direct: boolean,
   ): Promise<void> {
-    const position = this.filesTotal > 1
-      ? ` (${(this.filesDone + 1).toLocaleString()} of ${this.filesTotal.toLocaleString()})`
-      : '';
+    const position =
+      this.filesTotal > 1 ? ` (${(this.filesDone + 1).toLocaleString()} of ${this.filesTotal.toLocaleString()})` : '';
     this.progress('parsing', `Reading ${baseName(path)}${position}…`);
     try {
       const decoded = await decodeActivityFile(await read(), path);
@@ -524,7 +539,8 @@ class ImportSession {
       } else {
         this.result.filesRead++;
         const found = this.collect(decoded.activities, label, path, context);
-        if (found === 0 && direct) this.skip(label, decoded.activities.length ? TOO_SHORT : emptyReason(decoded.format));
+        if (found === 0 && direct)
+          this.skip(label, decoded.activities.length ? TOO_SHORT : emptyReason(decoded.format));
       }
     } catch (err) {
       this.fail(label, err);
@@ -550,9 +566,8 @@ class ImportSession {
         opts.origin = p.origin || 'STRAVA';
       } else {
         // A multisport file's legs would all match the parent's summary, so only single workouts use it.
-        const summary = parsed.length === 1 && context.garmin?.length
-          ? findGarminSummary(context.garmin, p.startTime)
-          : undefined;
+        const summary =
+          parsed.length === 1 && context.garmin?.length ? findGarminSummary(context.garmin, p.startTime) : undefined;
         if (summary) {
           opts.name = summary.name;
           opts.type = specificSport(summary.type);

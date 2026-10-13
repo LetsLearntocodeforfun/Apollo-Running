@@ -16,7 +16,11 @@ function fakeLocks() {
       };
       if (!held) return run();
       if (options.ifAvailable) return Promise.resolve(cb(null));
-      return new Promise((resolve) => queue.push(() => { void run().then(resolve); }));
+      return new Promise((resolve) =>
+        queue.push(() => {
+          void run().then(resolve);
+        }),
+      );
     },
   };
 }
@@ -33,7 +37,10 @@ function fakeBus() {
           if (other !== ch && !other.closed) queueMicrotask(() => other.onmessage?.({ data } as MessageEvent));
         }
       },
-      close() { ch.closed = true; channels.delete(ch); },
+      close() {
+        ch.closed = true;
+        channels.delete(ch);
+      },
     };
     channels.add(ch);
     return ch as unknown as BroadcastChannel;

@@ -35,7 +35,7 @@ describe('external URL allow-list', () => {
     expect(isAllowedExternalUrl('https://connect.garmin.com/modern')).toBe(true);
   });
 
-  it('allows only this project\'s GitHub releases pages', () => {
+  it("allows only this project's GitHub releases pages", () => {
     expect(getAllowedExternalUrl(`${RELEASES_URL}/latest`)).toBe(`${RELEASES_URL}/latest`);
     expect(isAllowedExternalUrl(RELEASES_URL)).toBe(true);
     expect(isAllowedExternalUrl('https://github.com/LetsLearntocodeforfun/Apollo-Running')).toBe(false);
@@ -140,8 +140,11 @@ describe('OAuth loopback callback', () => {
   const STATE = 'a'.repeat(64);
 
   it('accepts a code only with the expected state', () => {
-    expect(checkOAuthCallback(`/callback?code=abc&scope=read&state=${STATE}`, STATE))
-      .toEqual({ kind: 'code', code: 'abc', scope: 'read' });
+    expect(checkOAuthCallback(`/callback?code=abc&scope=read&state=${STATE}`, STATE)).toEqual({
+      kind: 'code',
+      code: 'abc',
+      scope: 'read',
+    });
     expect(checkOAuthCallback('/callback?code=abc&state=wrong', STATE)).toEqual({ kind: 'bad-state' });
     expect(checkOAuthCallback(`/callback?code=abc&state=${STATE}`, null)).toEqual({ kind: 'bad-state' });
   });
@@ -159,7 +162,8 @@ describe('OAuth loopback callback', () => {
 
 describe('corrupt credential store backup name', () => {
   it('is a sibling name with a filesystem-safe timestamp', () => {
-    expect(corruptStoreBackupName('secure-credentials.json', new Date('2026-10-08T12:34:56.789Z')))
-      .toBe('secure-credentials.json.corrupt-2026-10-08T12-34-56-789Z');
+    expect(corruptStoreBackupName('secure-credentials.json', new Date('2026-10-08T12:34:56.789Z'))).toBe(
+      'secure-credentials.json.corrupt-2026-10-08T12-34-56-789Z',
+    );
   });
 });

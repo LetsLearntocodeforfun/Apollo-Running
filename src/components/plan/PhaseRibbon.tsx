@@ -30,7 +30,9 @@ export function PhaseRibbon({ plan, currentWeekIndex, headingLevel = 2 }: PhaseR
   if (phases.length === 0) return null;
 
   const current =
-    currentWeekIndex == null ? null : phases.find((p) => currentWeekIndex >= p.startWeek && currentWeekIndex <= p.endWeek) ?? null;
+    currentWeekIndex == null
+      ? null
+      : (phases.find((p) => currentWeekIndex >= p.startWeek && currentWeekIndex <= p.endWeek) ?? null);
   const Heading = headingLevel === 3 ? 'h3' : 'h2';
 
   return (

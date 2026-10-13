@@ -6,11 +6,7 @@
  * original one click away.
  */
 
-import {
-  PLAN_FIDELITY_LABEL,
-  PLAN_INDEPENDENCE_NOTICE,
-  type TrainingPlan,
-} from '../../data/plans';
+import { PLAN_FIDELITY_LABEL, PLAN_INDEPENDENCE_NOTICE, type TrainingPlan } from '../../data/plans';
 import './plan.css';
 
 export interface PlanSourceNoteProps {

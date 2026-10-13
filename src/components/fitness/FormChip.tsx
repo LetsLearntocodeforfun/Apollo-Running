@@ -45,15 +45,23 @@ export default function FormChip({ compact = false }: FormChipProps) {
         role="group"
         aria-label={`Form: building your baseline, ${days} of ${FORM_SEED_DAYS} days of history.`}
       >
-        <span className="form-chip-label" aria-hidden="true">Form</span>
-        <span className="form-chip-note" aria-hidden="true">Building baseline · {days}/{FORM_SEED_DAYS} days</span>
+        <span className="form-chip-label" aria-hidden="true">
+          Form
+        </span>
+        <span className="form-chip-note" aria-hidden="true">
+          Building baseline · {days}/{FORM_SEED_DAYS} days
+        </span>
       </div>
     );
   }
 
   if (!current) {
     return (
-      <div className={`form-chip form-chip--empty${compact ? ' form-chip--compact' : ''}`} role="group" aria-label="Form">
+      <div
+        className={`form-chip form-chip--empty${compact ? ' form-chip--compact' : ''}`}
+        role="group"
+        aria-label="Form"
+      >
         <span className="form-chip-label">Form</span>
         <span className="form-chip-note">Log a few runs to see your form</span>
       </div>
@@ -71,8 +79,12 @@ export default function FormChip({ compact = false }: FormChipProps) {
       aria-label={summary}
       title={`Fitness (CTL) ${Math.round(current.ctl)} · Fatigue (ATL) ${Math.round(current.atl)} · Form (TSB) ${tsbText}`}
     >
-      <span className="form-chip-label" aria-hidden="true">Form</span>
-      <span className="form-chip-value" aria-hidden="true">{tsbText}</span>
+      <span className="form-chip-label" aria-hidden="true">
+        Form
+      </span>
+      <span className="form-chip-value" aria-hidden="true">
+        {tsbText}
+      </span>
       <span className="form-chip-zone" aria-hidden="true">
         <span className="form-chip-dot" />
         {zoneName}
@@ -83,7 +95,9 @@ export default function FormChip({ compact = false }: FormChipProps) {
         </span>
       )}
       {!compact && data.warmingUp && (
-        <span className="form-chip-note" aria-hidden="true">Estimate · building 6-week history</span>
+        <span className="form-chip-note" aria-hidden="true">
+          Estimate · building 6-week history
+        </span>
       )}
     </div>
   );

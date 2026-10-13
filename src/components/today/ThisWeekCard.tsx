@@ -24,7 +24,9 @@ export default function ThisWeekCard({ weeklyMileage, planProgress, adherence, r
   if (!showMileage && !planProgress && !adherence && !readiness) return null;
   return (
     <section className="card" aria-labelledby="today-week-title">
-      <h2 id="today-week-title" className="today-section-title">This week</h2>
+      <h2 id="today-week-title" className="today-section-title">
+        This week
+      </h2>
       {showMileage && weeklyMileage && (
         <ProgressBar
           label="Weekly distance"
@@ -46,13 +48,17 @@ export default function ThisWeekCard({ weeklyMileage, planProgress, adherence, r
           {adherence && (
             <div className="today-stat">
               <dt>Adherence</dt>
-              <dd>{adherence.score}% · {adherence.rating}</dd>
+              <dd>
+                {adherence.score}% · {adherence.rating}
+              </dd>
             </div>
           )}
           {readiness && (
             <div className="today-stat">
               <dt>Readiness wk {readiness.weekNumber}</dt>
-              <dd>{readiness.grade} · {readiness.score}/100</dd>
+              <dd>
+                {readiness.grade} · {readiness.score}/100
+              </dd>
             </div>
           )}
         </dl>

@@ -13,11 +13,7 @@
  */
 
 import { persistence } from './db/persistence';
-import {
-  getStorageHealthState,
-  subscribeStorageHealth,
-  type StorageHealth,
-} from './db/storageHealthState';
+import { getStorageHealthState, subscribeStorageHealth, type StorageHealth } from './db/storageHealthState';
 
 export type { StorageHealth } from './db/storageHealthState';
 export {
@@ -85,7 +81,9 @@ export async function isStoragePersisted(): Promise<boolean | null> {
   try {
     const storage = typeof navigator !== 'undefined' ? navigator.storage : undefined;
     if (storage && typeof storage.persisted === 'function') return await storage.persisted();
-  } catch { /* unsupported */ }
+  } catch {
+    /* unsupported */
+  }
   return null;
 }
 
@@ -98,7 +96,7 @@ export async function requestPersistentStorage(): Promise<boolean> {
   try {
     const storage = typeof navigator !== 'undefined' ? navigator.storage : undefined;
     if (!storage || typeof storage.persist !== 'function') return false;
-    if (typeof storage.persisted === 'function' && await storage.persisted()) return true;
+    if (typeof storage.persisted === 'function' && (await storage.persisted())) return true;
     return await storage.persist();
   } catch {
     return false;

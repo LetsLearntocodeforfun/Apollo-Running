@@ -32,7 +32,9 @@ a:hover {
   color: var(--apollo-gold-light);
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
   font: inherit;
 }
 
@@ -72,7 +74,12 @@ textarea:focus-visible {
   outline: none;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-display);
   letter-spacing: -0.01em;
 }
@@ -102,11 +109,15 @@ h1, h2, h3, h4, h5, h6 {
 .btn-primary {
   background: linear-gradient(135deg, var(--apollo-gold) 0%, var(--apollo-gold-dark) 100%);
   color: var(--apollo-navy);
-  box-shadow: var(--shadow-sm), 0 0 12px rgba(212, 165, 55, 0.15);
+  box-shadow:
+    var(--shadow-sm),
+    0 0 12px rgba(212, 165, 55, 0.15);
 }
 .btn-primary:hover:not(:disabled) {
   background: linear-gradient(135deg, var(--apollo-gold-light) 0%, var(--apollo-gold) 100%);
-  box-shadow: var(--shadow-md), 0 0 20px rgba(212, 165, 55, 0.25);
+  box-shadow:
+    var(--shadow-md),
+    0 0 20px rgba(212, 165, 55, 0.25);
   transform: translateY(-1px);
 }
 
@@ -142,10 +153,20 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Day type labels ── */
-.day-type-rest { color: var(--text-muted); }
-.day-type-run { color: var(--text); }
-.day-type-cross { color: var(--apollo-teal); }
-.day-type-race, .day-type-marathon { font-weight: 700; color: var(--apollo-gold); }
+.day-type-rest {
+  color: var(--text-muted);
+}
+.day-type-run {
+  color: var(--text);
+}
+.day-type-cross {
+  color: var(--apollo-teal);
+}
+.day-type-race,
+.day-type-marathon {
+  font-weight: 700;
+  color: var(--apollo-gold);
+}
 
 /* Welcome / first-boot flow */
 .welcome-flow {
@@ -349,7 +370,9 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 /* ── Global input focus styles ── (the visible ring comes from :focus-visible above) */
-input:focus, select:focus, textarea:focus {
+input:focus,
+select:focus,
+textarea:focus {
   border-color: var(--apollo-gold) !important;
 }
 
@@ -360,8 +383,14 @@ select {
 
 /* Card entrance animation — opt-in with .card--animate (one .card definition lives in App.css) */
 @keyframes cardFadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .card--animate {
@@ -616,7 +645,9 @@ select {
   width: 100%;
   min-width: 8px;
   border-radius: 2px 2px 0 0;
-  transition: height 0.3s ease, background 0.2s ease;
+  transition:
+    height 0.3s ease,
+    background 0.2s ease;
 }
 
 .plan-builder-chart-bar-wrap:hover .plan-builder-chart-bar {

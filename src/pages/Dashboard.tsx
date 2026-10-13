@@ -37,7 +37,12 @@ import {
 } from '../services/racePrediction';
 import { getLatestReadinessScore, type ReadinessScore } from '../services/weeklyReadiness';
 import { generateTodayRecap, type DailyRecap } from '../services/dailyRecap';
-import { isDailyRecapDue, markDailyRecapShown, isWeeklyRecapDue, markWeeklyRecapShown } from '../services/coachingPreferences';
+import {
+  isDailyRecapDue,
+  markDailyRecapShown,
+  isWeeklyRecapDue,
+  markWeeklyRecapShown,
+} from '../services/coachingPreferences';
 import { onAthleteProfileChanged } from '../services/athleteProfile';
 import AdaptiveRecommendations from '../components/AdaptiveRecommendations';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -113,7 +118,9 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [syncResults, setSyncResults] = useState<SyncResult[]>([]);
-  const [syncProgress, setSyncProgress] = useState<string | null>(() => (isSyncRunning() ? SYNC_RUNNING_MESSAGE : null));
+  const [syncProgress, setSyncProgress] = useState<string | null>(() =>
+    isSyncRunning() ? SYNC_RUNNING_MESSAGE : null,
+  );
   /** Bumped when the effective plan or a day's completion changes (overlay edits, toggles, syncs). */
   const [planVersion, setPlanVersion] = useState(0);
   /** Bumped when activities or the athlete profile change (VDOT and targets depend on them). */
@@ -170,8 +177,12 @@ export default function Dashboard() {
 
         setLoading(true);
         getAthlete()
-          .then((a) => { if (!cancelled) setAthlete(a); })
-          .catch(() => { /* non-critical */ });
+          .then((a) => {
+            if (!cancelled) setAthlete(a);
+          })
+          .catch(() => {
+            /* non-critical */
+          });
 
         if (activePlanKey) {
           let pass = autoSyncedPlanRef.current;
@@ -213,23 +224,33 @@ export default function Dashboard() {
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [connected, activePlanKey, bumpPlan, refreshInsights]);
 
   // Any source (intervals.icu, Strava or a file import) added/updated activities → refresh local views
-  useEffect(() => onActivitiesUpdated(() => {
-    setRecent(queryStoredActivities({ per_page: RECENT_COUNT }));
-    setWeekCross(loadWeekCrossTraining());
-    setDataVersion((n) => n + 1);
-  }), []);
+  useEffect(
+    () =>
+      onActivitiesUpdated(() => {
+        setRecent(queryStoredActivities({ per_page: RECENT_COUNT }));
+        setWeekCross(loadWeekCrossTraining());
+        setDataVersion((n) => n + 1);
+      }),
+    [],
+  );
 
   // Plan days were re-matched (a sync anywhere, a file import or an offline re-match) and prediction,
   // readiness and recap recomputed → re-read them. An empty pass keeps the last matches on screen.
-  useEffect(() => onPlanRefreshed((results) => {
-    if (results.length > 0) setSyncResults(results);
-    refreshInsights();
-    bumpPlan();
-  }), [bumpPlan, refreshInsights]);
+  useEffect(
+    () =>
+      onPlanRefreshed((results) => {
+        if (results.length > 0) setSyncResults(results);
+        refreshInsights();
+        bumpPlan();
+      }),
+    [bumpPlan, refreshInsights],
+  );
 
   // Overlay edits (move/skip/convert/undo, new plan, race date) and completion toggles → re-render the plan views.
   useEffect(() => {
@@ -242,15 +263,23 @@ export default function Dashboard() {
   }, [bumpPlan]);
 
   // A new recent race or goal changes the VDOT, the targets and the prediction.
-  useEffect(() => onAthleteProfileChanged(() => {
-    setDataVersion((n) => n + 1);
-    setPrediction(safely(calculateRacePrediction, null));
-  }), []);
+  useEffect(
+    () =>
+      onAthleteProfileChanged(() => {
+        setDataVersion((n) => n + 1);
+        setPrediction(safely(calculateRacePrediction, null));
+      }),
+    [],
+  );
 
   // Progress for the first sync, which imports the full history and can take a while.
-  useEffect(() => onSyncStatus((status) => {
-    setSyncProgress(status.running ? (status.progress?.message ?? SYNC_RUNNING_MESSAGE) : null);
-  }), []);
+  useEffect(
+    () =>
+      onSyncStatus((status) => {
+        setSyncProgress(status.running ? (status.progress?.message ?? SYNC_RUNNING_MESSAGE) : null);
+      }),
+    [],
+  );
 
   const { journey, plan } = useMemo(() => {
     void planVersion;
@@ -290,7 +319,8 @@ export default function Dashboard() {
       syncResults,
     };
   }
-  const weeklyMileage = plan && planId && weekIndex != null ? safely(() => getWeeklyMileageSummary(planId, weekIndex), null) : null;
+  const weeklyMileage =
+    plan && planId && weekIndex != null ? safely(() => getWeeklyMileageSummary(planId, weekIndex), null) : null;
 
   const dismissDailyRecap = () => {
     setShowDailyRecap(false);
@@ -333,7 +363,9 @@ export default function Dashboard() {
           <ErrorBoundary>
             <FormChip />
           </ErrorBoundary>
-          <Link to="/progress?tab=fitness" className="today-link">Fitness &amp; form</Link>
+          <Link to="/progress?tab=fitness" className="today-link">
+            Fitness &amp; form
+          </Link>
         </div>
       )}
 
@@ -365,7 +397,10 @@ export default function Dashboard() {
       <CrossTrainingCard summaries={weekCross} />
 
       {hasData && (
-        <RecentActivities activities={recent} busyMessage={loading || syncProgress !== null ? (syncProgress ?? 'Loading…') : null} />
+        <RecentActivities
+          activities={recent}
+          busyMessage={loading || syncProgress !== null ? (syncProgress ?? 'Loading…') : null}
+        />
       )}
 
       {!connected && <ConnectDataSourceCTA />}

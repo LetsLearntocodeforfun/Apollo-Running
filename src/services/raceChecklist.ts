@@ -34,13 +34,7 @@ export interface ChecklistItem {
   isCourse?: boolean;
 }
 
-export type ChecklistCategory =
-  | 'gear'
-  | 'nutrition'
-  | 'logistics'
-  | 'morning_of'
-  | 'mental'
-  | 'post_race';
+export type ChecklistCategory = 'gear' | 'nutrition' | 'logistics' | 'morning_of' | 'mental' | 'post_race';
 
 export interface RaceChecklist {
   id: string;
@@ -85,7 +79,12 @@ function newId(prefix: string): string {
 const STORAGE_KEY = 'apollo_race_checklists';
 
 const CATEGORY_KEYS: readonly ChecklistCategory[] = [
-  'gear', 'nutrition', 'logistics', 'morning_of', 'mental', 'post_race',
+  'gear',
+  'nutrition',
+  'logistics',
+  'morning_of',
+  'mental',
+  'post_race',
 ];
 
 function isCategory(v: unknown): v is ChecklistCategory {
@@ -120,7 +119,11 @@ function loadChecklists(): RaceChecklist[] {
   const raw = persistence.getItem(STORAGE_KEY);
   if (!raw) return [];
   let parsed: unknown;
-  try { parsed = JSON.parse(raw); } catch { return []; }
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return [];
+  }
   if (!Array.isArray(parsed)) return [];
   const lists: RaceChecklist[] = [];
   for (const l of parsed as Array<Partial<RaceChecklist> | null>) {
@@ -204,7 +207,10 @@ const DEFAULT_TEMPLATES: readonly ItemTemplate[] = [
   { text: 'Gels / chews packed and counted', category: 'nutrition' },
   { text: 'Pre-race breakfast food ready', category: 'nutrition' },
   { text: 'Electrolyte drink for morning', category: 'nutrition' },
-  { text: 'Optional caffeine plan (30–60 min before the start) — only if you have practised it in training', category: 'nutrition' },
+  {
+    text: 'Optional caffeine plan (30–60 min before the start) — only if you have practised it in training',
+    category: 'nutrition',
+  },
   { text: 'Post-race recovery snack', category: 'nutrition' },
   { text: 'Water bottle for pre-race hydration', category: 'nutrition' },
 
@@ -212,7 +218,10 @@ const DEFAULT_TEMPLATES: readonly ItemTemplate[] = [
   { text: 'Know your wave/corral start time and when the corral closes', category: 'logistics' },
   { text: 'Plan transportation to start line', category: 'logistics' },
   { text: 'Gear check / bag drop plan', category: 'logistics' },
-  { text: 'Travelling across time zones? Shift your sleep a few days early and set alarms in race-local time', category: 'logistics' },
+  {
+    text: 'Travelling across time zones? Shift your sleep a few days early and set alarms in race-local time',
+    category: 'logistics',
+  },
   { text: 'Phone charged (for tracking / photos)', category: 'logistics' },
   { text: 'Cash / credit card for emergencies', category: 'logistics' },
   { text: 'ID (required by some races)', category: 'logistics' },
@@ -222,7 +231,7 @@ const DEFAULT_TEMPLATES: readonly ItemTemplate[] = [
   // Morning of
   { text: 'Set alarm (3.5-4 hours before start)', category: 'morning_of' },
   { text: 'Eat pre-race meal (3 hours before)', category: 'morning_of' },
-  { text: 'Begin hydration (sip, don\'t chug)', category: 'morning_of' },
+  { text: "Begin hydration (sip, don't chug)", category: 'morning_of' },
   { text: 'Apply anti-chafe and sunscreen', category: 'morning_of' },
   { text: 'Pin race bib to singlet', category: 'morning_of' },
   { text: 'Build in a buffer for porta-potty queues (20–30 min at big races)', category: 'morning_of' },
@@ -253,7 +262,10 @@ const DEFAULT_TEMPLATES: readonly ItemTemplate[] = [
  */
 const COURSE_TEMPLATES: Readonly<Record<WorldMajorId, readonly ItemTemplate[]>> = {
   boston: [
-    { text: 'Warm throwaway layers for the Athletes\' Village wait in Hopkinton (donated to charity)', category: 'gear' },
+    {
+      text: "Warm throwaway layers for the Athletes' Village wait in Hopkinton (donated to charity)",
+      category: 'gear',
+    },
     { text: 'Know your bus loading time to Hopkinton — buses leave early, by wave', category: 'logistics' },
     { text: 'Save energy for the Newton hills — the last one is Heartbreak Hill', category: 'mental' },
   ],
@@ -262,7 +274,10 @@ const COURSE_TEMPLATES: Readonly<Record<WorldMajorId, readonly ItemTemplate[]>> 
     { text: 'Ferry / bus time to the Staten Island start', category: 'logistics' },
     { text: 'Know whether you chose baggage or the no-baggage poncho exit', category: 'logistics' },
     { text: 'Prepare for 5 bridge climbs — run them by effort, not pace', category: 'mental' },
-    { text: 'Wind is mainly a Verrazzano Bridge issue at the start — tuck in behind other runners', category: 'mental' },
+    {
+      text: 'Wind is mainly a Verrazzano Bridge issue at the start — tuck in behind other runners',
+      category: 'mental',
+    },
     { text: 'The Queensboro Bridge lower deck is quiet with no crowds — have a mantra ready', category: 'mental' },
   ],
   chicago: [
@@ -277,8 +292,8 @@ const COURSE_TEMPLATES: Readonly<Record<WorldMajorId, readonly ItemTemplate[]>> 
     { text: 'Check the official race guide for which drinks are offered where', category: 'nutrition' },
   ],
   berlin: [
-    { text: 'Flat and fast — pace yourself, don\'t go out too hard', category: 'mental' },
-    { text: 'The finish is just past the Brandenburg Gate — don\'t start your kick too early', category: 'mental' },
+    { text: "Flat and fast — pace yourself, don't go out too hard", category: 'mental' },
+    { text: "The finish is just past the Brandenburg Gate — don't start your kick too early", category: 'mental' },
     { text: 'German beer at finish — earned!', category: 'post_race' },
   ],
   tokyo: [
@@ -385,57 +400,69 @@ export function getChecklistById(id: string): RaceChecklist | undefined {
  * Toggle a checklist item's checked state.
  */
 export function toggleChecklistItem(checklistId: string, itemId: string): boolean {
-  return updateList(checklistId, (list) => {
-    const item = list.items.find((i) => i.id === itemId);
-    if (!item) return { changed: false, result: false };
-    item.checked = !item.checked;
-    return { changed: true, result: item.checked };
-  }, false);
+  return updateList(
+    checklistId,
+    (list) => {
+      const item = list.items.find((i) => i.id === itemId);
+      if (!item) return { changed: false, result: false };
+      item.checked = !item.checked;
+      return { changed: true, result: item.checked };
+    },
+    false,
+  );
 }
 
 /**
  * Add a custom item to a checklist. Empty text is rejected (null).
  */
-export function addCustomItem(
-  checklistId: string,
-  text: string,
-  category: ChecklistCategory,
-): ChecklistItem | null {
+export function addCustomItem(checklistId: string, text: string, category: ChecklistCategory): ChecklistItem | null {
   const trimmed = text.trim();
   if (!trimmed || !isCategory(category)) return null;
-  return updateList<ChecklistItem | null>(checklistId, (list) => {
-    const item: ChecklistItem = {
-      id: newId('custom'),
-      text: trimmed,
-      checked: false,
-      category,
-      isCustom: true,
-    };
-    list.items.push(item);
-    return { changed: true, result: item };
-  }, null);
+  return updateList<ChecklistItem | null>(
+    checklistId,
+    (list) => {
+      const item: ChecklistItem = {
+        id: newId('custom'),
+        text: trimmed,
+        checked: false,
+        category,
+        isCustom: true,
+      };
+      list.items.push(item);
+      return { changed: true, result: item };
+    },
+    null,
+  );
 }
 
 /**
  * Remove an item from a checklist (only custom items can be removed; hide defaults instead).
  */
 export function removeChecklistItem(checklistId: string, itemId: string): boolean {
-  return updateList(checklistId, (list) => {
-    const idx = list.items.findIndex((i) => i.id === itemId && i.isCustom);
-    if (idx < 0) return { changed: false, result: false };
-    list.items.splice(idx, 1);
-    return { changed: true, result: true };
-  }, false);
+  return updateList(
+    checklistId,
+    (list) => {
+      const idx = list.items.findIndex((i) => i.id === itemId && i.isCustom);
+      if (idx < 0) return { changed: false, result: false };
+      list.items.splice(idx, 1);
+      return { changed: true, result: true };
+    },
+    false,
+  );
 }
 
 function setHidden(checklistId: string, itemId: string, hidden: boolean): boolean {
-  return updateList(checklistId, (list) => {
-    const item = list.items.find((i) => i.id === itemId && !i.isCustom);
-    if (!item) return { changed: false, result: false };
-    if (hidden) item.hidden = true;
-    else delete item.hidden;
-    return { changed: true, result: true };
-  }, false);
+  return updateList(
+    checklistId,
+    (list) => {
+      const item = list.items.find((i) => i.id === itemId && !i.isCustom);
+      if (!item) return { changed: false, result: false };
+      if (hidden) item.hidden = true;
+      else delete item.hidden;
+      return { changed: true, result: true };
+    },
+    false,
+  );
 }
 
 /**
@@ -484,12 +511,16 @@ export function getChecklistProgress(checklistId: string): ChecklistProgress {
  * Reset all items in a checklist to unchecked (custom and hidden items are kept).
  */
 export function resetChecklist(checklistId: string): boolean {
-  return updateList(checklistId, (list) => {
-    for (const item of list.items) {
-      item.checked = false;
-    }
-    return { changed: true, result: true };
-  }, false);
+  return updateList(
+    checklistId,
+    (list) => {
+      for (const item of list.items) {
+        item.checked = false;
+      }
+      return { changed: true, result: true };
+    },
+    false,
+  );
 }
 
 /**
@@ -502,7 +533,12 @@ export function getItemsByCategory(
 ): Record<ChecklistCategory, ChecklistItem[]> {
   const checklist = getChecklistById(checklistId);
   const result: Record<ChecklistCategory, ChecklistItem[]> = {
-    gear: [], nutrition: [], logistics: [], morning_of: [], mental: [], post_race: [],
+    gear: [],
+    nutrition: [],
+    logistics: [],
+    morning_of: [],
+    mental: [],
+    post_race: [],
   };
   if (!checklist) return result;
 

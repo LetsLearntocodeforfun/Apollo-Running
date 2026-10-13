@@ -27,11 +27,16 @@ const TAB_ITEMS = SETTINGS_TABS.map((t) => ({ id: t.id, label: t.label }));
 
 function ActiveTab({ tab }: { tab: SettingsTabId }) {
   switch (tab) {
-    case 'sync': return <SyncTab />;
-    case 'profile': return <ProfileTab />;
-    case 'coaching': return <CoachingTab />;
-    case 'data': return <DataTab />;
-    case 'about': return <AboutTab />;
+    case 'sync':
+      return <SyncTab />;
+    case 'profile':
+      return <ProfileTab />;
+    case 'coaching':
+      return <CoachingTab />;
+    case 'data':
+      return <DataTab />;
+    case 'about':
+      return <AboutTab />;
     case 'connections':
     default:
       return <ConnectionsTab />;
@@ -47,23 +52,28 @@ export default function Settings() {
   /** Keep the selected tab in `?tab=` (replacing history, preserving other params). */
   const selectTab = (id: string) => {
     if (!isSettingsTabId(id)) return;
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      next.set('tab', id);
-      return next;
-    }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('tab', id);
+        return next;
+      },
+      { replace: true },
+    );
   };
 
   return (
     <div className="settings-page">
-      <h1 className="page-title" tabIndex={-1}>Settings</h1>
+      <h1 className="page-title" tabIndex={-1}>
+        Settings
+      </h1>
       {keychainError && window.electronAPI && (
         <div className="card settings-card settings-card--gold settings-keychain" role="alert">
           <p className="settings-keychain-text">
-            <strong className="settings-keychain-title">Sign-in not saved:</strong>{' '}
-            your system keychain isn&apos;t available, so Apollo can&apos;t store your connection details securely.
-            You&apos;re connected for this session, but you&apos;ll need to reconnect after restarting Apollo.
-            On Linux, install or unlock a keyring such as GNOME Keyring or KWallet.
+            <strong className="settings-keychain-title">Sign-in not saved:</strong> your system keychain isn&apos;t
+            available, so Apollo can&apos;t store your connection details securely. You&apos;re connected for this
+            session, but you&apos;ll need to reconnect after restarting Apollo. On Linux, install or unlock a keyring
+            such as GNOME Keyring or KWallet.
           </p>
           <p className="settings-hint">Details: {keychainError}</p>
         </div>

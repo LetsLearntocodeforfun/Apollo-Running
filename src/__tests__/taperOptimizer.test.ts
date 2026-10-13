@@ -111,9 +111,7 @@ describe('generateTaperPlan', () => {
     const history = generateTrainingHistory(60);
     const taper = generateTaperPlan(history, '2025-04-15');
     for (let i = 1; i < taper.weeklyReductions.length; i++) {
-      expect(taper.weeklyReductions[i].volumePct).toBeLessThanOrEqual(
-        taper.weeklyReductions[i - 1].volumePct,
-      );
+      expect(taper.weeklyReductions[i].volumePct).toBeLessThanOrEqual(taper.weeklyReductions[i - 1].volumePct);
     }
   });
 

@@ -168,10 +168,7 @@ function activeInstanceId(): string | null {
  * survives a reload, doesn't leak into plan previews or other instances, lands
  * on the right week after a late join, and works for custom plans.
  */
-export function applyRecommendation(
-  recommendationId: string,
-  optionKey: string,
-): PlanModification | null {
+export function applyRecommendation(recommendationId: string, optionKey: string): PlanModification | null {
   const all = getStoredRecommendations();
   const rec = all.find((r) => r.id === recommendationId);
   if (!rec) return null;
@@ -250,7 +247,8 @@ export function undoRecommendation(modificationId: string): boolean {
 }
 
 /** Message shown when an adaptive change can't be undone because later edits touched the same days. */
-export const UNDO_BLOCKED_MESSAGE = 'Can\u2019t undo: a later change edited the same days. Undo it from the Plan screen first.';
+export const UNDO_BLOCKED_MESSAGE =
+  'Can\u2019t undo: a later change edited the same days. Undo it from the Plan screen first.';
 
 /**
  * Same as {@link undoRecommendation}, with a user-facing reason when the undo
@@ -379,20 +377,23 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   const dataSourceConnected = isActivitySourceConnected();
 
   // Build synced run data (cross-training days have no run pace to analyze)
-  const syncedRuns: SyncedRunData[] = allMeta.filter((m) => !m.meta.crossTraining).map((m) => {
-    const day = plan.weeks[m.weekIndex]?.days[m.dayIndex];
-    return {
-      weekIndex: m.weekIndex,
-      dayIndex: m.dayIndex,
-      actualDistanceMi: m.meta.actualDistanceMi,
-      actualPaceMinPerMi: m.meta.actualPaceMinPerMi,
-      plannedDistanceMi: day?.distanceMi ?? 0,
-      plannedNote: day?.note ?? '',
-      movingTimeSec: m.meta.movingTimeSec,
-      // Syncs backfill the whole plan, so prefer the activity's own date.
-      date: m.meta.activityDate ?? getDateKeyForDay(activePlan.startDate, m.weekIndex, m.dayIndex),
-    };
-  }).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const syncedRuns: SyncedRunData[] = allMeta
+    .filter((m) => !m.meta.crossTraining)
+    .map((m) => {
+      const day = plan.weeks[m.weekIndex]?.days[m.dayIndex];
+      return {
+        weekIndex: m.weekIndex,
+        dayIndex: m.dayIndex,
+        actualDistanceMi: m.meta.actualDistanceMi,
+        actualPaceMinPerMi: m.meta.actualPaceMinPerMi,
+        plannedDistanceMi: day?.distanceMi ?? 0,
+        plannedNote: day?.note ?? '',
+        movingTimeSec: m.meta.movingTimeSec,
+        // Syncs backfill the whole plan, so prefer the activity's own date.
+        date: m.meta.activityDate ?? getDateKeyForDay(activePlan.startDate, m.weekIndex, m.dayIndex),
+      };
+    })
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
 
   // Weekly mileage
   const weeklyMileage = allMileage.map((wm) => ({
@@ -404,7 +405,8 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   // V5: only days that are due count — dated before today, or already done.
   // Weeks skipped when joining the plan late don't count either.
   const joined = activePlan.joinedWeekIndex;
-  const firstWeek = typeof joined === 'number' && Number.isInteger(joined) && joined > 0 ? Math.min(joined, pos.weekIndex) : 0;
+  const firstWeek =
+    typeof joined === 'number' && Number.isInteger(joined) && joined > 0 ? Math.min(joined, pos.weekIndex) : 0;
   const recentWeekStart = Math.max(firstWeek, pos.weekIndex - 1);
   let recentScheduled = 0;
   let recentCompleted = 0;
@@ -430,9 +432,7 @@ function gatherAnalysisInput(): TrainingAnalysisInput | null {
   // Days since last sync
   let daysSinceLastSync = 999;
   if (lastSync) {
-    daysSinceLastSync = Math.floor(
-      (Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60 * 24),
-    );
+    daysSinceLastSync = Math.floor((Date.now() - new Date(lastSync).getTime()) / (1000 * 60 * 60 * 24));
   }
 
   return {
@@ -599,9 +599,17 @@ export function raceWeekPaceRange(
 ): RacePaceRange | null {
   const miles = MARATHON_M / METERS_PER_MILE;
   if (prediction && prediction.marathonTimeSec > 0) {
-    const lo = prediction.rangeLowSec && prediction.rangeLowSec > 0 ? prediction.rangeLowSec : prediction.marathonTimeSec * 0.98;
-    const hi = prediction.rangeHighSec && prediction.rangeHighSec > 0 ? prediction.rangeHighSec : prediction.marathonTimeSec * 1.02;
-    return { fastMinPerMi: Math.min(lo, hi) / 60 / miles, slowMinPerMi: Math.max(lo, hi) / 60 / miles, basis: 'prediction' };
+    const lo =
+      prediction.rangeLowSec && prediction.rangeLowSec > 0 ? prediction.rangeLowSec : prediction.marathonTimeSec * 0.98;
+    const hi =
+      prediction.rangeHighSec && prediction.rangeHighSec > 0
+        ? prediction.rangeHighSec
+        : prediction.marathonTimeSec * 1.02;
+    return {
+      fastMinPerMi: Math.min(lo, hi) / 60 / miles,
+      slowMinPerMi: Math.max(lo, hi) / 60 / miles,
+      basis: 'prediction',
+    };
   }
   if (bands && bands.marathonMinPerMi > 0) {
     return { fastMinPerMi: bands.marathonMinPerMi * 0.98, slowMinPerMi: bands.marathonMinPerMi * 1.02, basis: 'vdot' };
@@ -621,18 +629,14 @@ type AdaptiveStats = AnalysisStats & {
 
 /** Compute summary statistics from the input data. */
 function computeStats(input: TrainingAnalysisInput): AdaptiveStats {
-  const longRuns = input.syncedRuns.filter(
-    (r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0,
-  );
+  const longRuns = input.syncedRuns.filter((r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0);
   const recentLongRuns = longRuns.slice(-4);
   const avgLongRunPace =
     recentLongRuns.length > 0
       ? recentLongRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentLongRuns.length
       : 0;
 
-  const easyRuns = input.syncedRuns.filter(
-    (r) => r.plannedNote.toLowerCase() === 'easy' && r.actualPaceMinPerMi > 0,
-  );
+  const easyRuns = input.syncedRuns.filter((r) => r.plannedNote.toLowerCase() === 'easy' && r.actualPaceMinPerMi > 0);
   const recentEasyRuns = easyRuns.slice(-4);
   const avgEasyPace =
     recentEasyRuns.length > 0
@@ -643,9 +647,7 @@ function computeStats(input: TrainingAnalysisInput): AdaptiveStats {
   const currWeek = input.weeklyMileage.find((w) => w.weekIndex === input.currentWeekIndex);
   const prevWeek = input.weeklyMileage.find((w) => w.weekIndex === input.currentWeekIndex - 1);
   const weeklyMileageChangePct =
-    prevWeek && prevWeek.actualMi > 0
-      ? ((currWeek?.actualMi ?? 0) - prevWeek.actualMi) / prevWeek.actualMi
-      : 0;
+    prevWeek && prevWeek.actualMi > 0 ? ((currWeek?.actualMi ?? 0) - prevWeek.actualMi) / prevWeek.actualMi : 0;
 
   // Consecutive days without rest — completed days only (V6: planned runs that
   // haven't happened yet are not training).
@@ -693,16 +695,12 @@ function computeStats(input: TrainingAnalysisInput): AdaptiveStats {
   const easyDaysTooFast = isEasyPaceTooFast(avgEasyPace, input.paces);
 
   // Hard days too slow? Compare tempo/speed runs to easy pace
-  const hardRuns = input.syncedRuns.filter(
-    (r) => {
-      const note = r.plannedNote.toLowerCase();
-      return (note === 'tempo' || note === 'speed') && r.actualPaceMinPerMi > 0;
-    },
-  );
+  const hardRuns = input.syncedRuns.filter((r) => {
+    const note = r.plannedNote.toLowerCase();
+    return (note === 'tempo' || note === 'speed') && r.actualPaceMinPerMi > 0;
+  });
   const avgHardPace =
-    hardRuns.length > 0
-      ? hardRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / hardRuns.length
-      : 0;
+    hardRuns.length > 0 ? hardRuns.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / hardRuns.length : 0;
   const hardDaysTooSlow = avgEasyPace > 0 && avgHardPace > 0 && avgHardPace >= avgEasyPace * 0.95;
 
   return {
@@ -720,16 +718,11 @@ function computeStats(input: TrainingAnalysisInput): AdaptiveStats {
   };
 }
 
-function detectAheadOfSchedule(
-  input: TrainingAnalysisInput,
-  aggrFactor: number,
-): DetectedScenario | null {
+function detectAheadOfSchedule(input: TrainingAnalysisInput, aggrFactor: number): DetectedScenario | null {
   const triggers: string[] = [];
   let confidence = 0;
 
-  const longRuns = input.syncedRuns.filter(
-    (r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0,
-  );
+  const longRuns = input.syncedRuns.filter((r) => r.plannedNote.toLowerCase() === 'long' && r.actualPaceMinPerMi > 0);
   if (longRuns.length >= 4) {
     const recentLong = longRuns.slice(-4);
     const avgPace = recentLong.reduce((s, r) => s + r.actualPaceMinPerMi, 0) / recentLong.length;
@@ -777,10 +770,8 @@ function detectBehindSchedule(
     confidence += 35;
   }
 
-  if (stats.last2WeeksCompletionRate < 0.70 * aggrFactor) {
-    triggers.push(
-      `Completion rate is ${Math.round(stats.last2WeeksCompletionRate * 100)}% over the last 2 weeks`,
-    );
+  if (stats.last2WeeksCompletionRate < 0.7 * aggrFactor) {
+    triggers.push(`Completion rate is ${Math.round(stats.last2WeeksCompletionRate * 100)}% over the last 2 weeks`);
     confidence += 30;
   }
 
@@ -844,10 +835,7 @@ function detectOvertraining(input: TrainingAnalysisInput, stats: AdaptiveStats):
   return { scenario: 'overtraining', confidence: Math.min(confidence, 100), triggers };
 }
 
-function detectInconsistentExecution(
-  input: TrainingAnalysisInput,
-  stats: AnalysisStats,
-): DetectedScenario | null {
+function detectInconsistentExecution(input: TrainingAnalysisInput, stats: AnalysisStats): DetectedScenario | null {
   const triggers: string[] = [];
   let confidence = 0;
 
@@ -864,9 +852,7 @@ function detectInconsistentExecution(
   }
 
   const offTarget = input.syncedRuns.filter(
-    (r) =>
-      r.plannedDistanceMi > 0 &&
-      Math.abs(r.actualDistanceMi - r.plannedDistanceMi) / r.plannedDistanceMi > 0.2,
+    (r) => r.plannedDistanceMi > 0 && Math.abs(r.actualDistanceMi - r.plannedDistanceMi) / r.plannedDistanceMi > 0.2,
   );
   if (offTarget.length >= 4) {
     triggers.push(`${offTarget.length} workouts were 20%+ off planned distance`);
@@ -901,14 +887,10 @@ function detectRaceWeekOptimization(input: TrainingAnalysisInput): DetectedScena
 }
 
 /** Detect which training scenarios are present. */
-function detectScenarios(
-  input: TrainingAnalysisInput,
-  stats: AdaptiveStats,
-): DetectedScenario[] {
+function detectScenarios(input: TrainingAnalysisInput, stats: AdaptiveStats): DetectedScenario[] {
   const scenarios: DetectedScenario[] = [];
   const prefs = getAdaptivePreferences();
-  const aggrFactor =
-    prefs.aggressiveness === 'aggressive' ? 0.8 : prefs.aggressiveness === 'conservative' ? 1.2 : 1.0;
+  const aggrFactor = prefs.aggressiveness === 'aggressive' ? 0.8 : prefs.aggressiveness === 'conservative' ? 1.2 : 1.0;
 
   const ahead = detectAheadOfSchedule(input, aggrFactor);
   if (ahead) scenarios.push(ahead);
@@ -942,7 +924,7 @@ function buildAheadRecommendation(
   const longRunPaceStr = stats.avgLongRunPace > 0 ? formatPaceFromMinPerMi(stats.avgLongRunPace) : 'a strong pace';
 
   // v1.0.7 (L-6): never offer more mileage inside the taper (last 3 weeks before race week).
-  const modification = buildMileageModification(input, 1.10, 4, 'Increased mileage 10% — you earned it!');
+  const modification = buildMileageModification(input, 1.1, 4, 'Increased mileage 10% — you earned it!');
   const weeksBoosted = modification.weekAdjustments.length;
   if (weeksBoosted === 0) return null;
 
@@ -958,7 +940,7 @@ function buildAheadRecommendation(
     {
       key: 'keep_crushing',
       label: 'Keep current plan',
-      description: 'Stay the course — you\'re doing great. No changes needed.',
+      description: "Stay the course — you're doing great. No changes needed.",
       impact: 'No changes to your plan',
       actionType: 'dismiss',
     },
@@ -989,10 +971,10 @@ function buildBehindRecommendation(
     {
       key: 'reduce_20',
       label: 'Reduce mileage 20% for 2 weeks',
-      description: 'Take the pressure off. We\'ll dial back your next 2 weeks to help you rebuild momentum.',
+      description: "Take the pressure off. We'll dial back your next 2 weeks to help you rebuild momentum.",
       impact: 'Next 2 weeks reduced by 20%',
       actionType: 'apply_modification',
-      actionPayload: buildMileageModification(input, 0.80, 2, 'Reduced mileage 20% — rebuilding momentum.'),
+      actionPayload: buildMileageModification(input, 0.8, 2, 'Reduced mileage 20% — rebuilding momentum.'),
     },
     {
       key: 'add_recovery',
@@ -1000,12 +982,12 @@ function buildBehindRecommendation(
       description: 'Insert an easy recovery week with reduced volume before resuming your plan.',
       impact: 'Next week becomes a recovery week (50% mileage)',
       actionType: 'apply_modification',
-      actionPayload: buildMileageModification(input, 0.50, 1, 'Recovery week added — rest and recharge.'),
+      actionPayload: buildMileageModification(input, 0.5, 1, 'Recovery week added — rest and recharge.'),
     },
     {
       key: 'keep_going',
-      label: 'I\'ll catch up on my own',
-      description: 'No plan changes — you\'ll handle it.',
+      label: "I'll catch up on my own",
+      description: "No plan changes — you'll handle it.",
       impact: 'No changes to your plan',
       actionType: 'dismiss',
     },
@@ -1048,10 +1030,10 @@ function buildOvertrainingRecommendation(
     {
       key: 'force_rest',
       label: 'Take a recovery week (30% reduction)',
-      description: 'Your body needs to absorb this training. We\'ll reduce next week by 30%.',
-      impact: 'Next week\'s mileage reduced by 30%',
+      description: "Your body needs to absorb this training. We'll reduce next week by 30%.",
+      impact: "Next week's mileage reduced by 30%",
       actionType: 'apply_modification',
-      actionPayload: buildMileageModification(input, 0.70, 1, 'Recovery week — your body will thank you.'),
+      actionPayload: buildMileageModification(input, 0.7, 1, 'Recovery week — your body will thank you.'),
     },
     {
       key: 'moderate_reduction',
@@ -1088,7 +1070,7 @@ function buildInconsistentRecommendation(
   const options: RecommendationOption[] = [
     {
       key: 'learn_more',
-      label: 'Got it — I\'ll pace smarter',
+      label: "Got it — I'll pace smarter",
       description: 'Acknowledge this tip and focus on differentiating easy vs. hard efforts.',
       impact: 'No plan changes — just a mindset shift',
       actionType: 'dismiss',
@@ -1130,7 +1112,11 @@ function buildRaceWeekRecommendation(
   // v1.0.7 (L-8): race pace from the predicted marathon time (or VDOT marathon
   // pace) as a range, never average training pace × 1.03.
   let prediction: RacePrediction | null = null;
-  try { prediction = getSavedPrediction(); } catch { prediction = null; }
+  try {
+    prediction = getSavedPrediction();
+  } catch {
+    prediction = null;
+  }
   const range = raceWeekPaceRange(input.paces, prediction);
   const paceAdvice = range
     ? `Based on your ${range.basis === 'prediction' ? 'predicted marathon time' : 'current fitness (VDOT)'}, goal pace is around ${formatPaceFromMinPerMi(range.fastMinPerMi)}–${formatPaceFromMinPerMi(range.slowMinPerMi)}. Start at the slower end. `
@@ -1153,7 +1139,8 @@ function buildRaceWeekRecommendation(
     priority: 'high',
     status: 'active',
     title: `Race Week! ${input.weeksRemaining} Week${input.weeksRemaining !== 1 ? 's' : ''} to Go`,
-    message: `The finish line is near! Your readiness score is ${input.readinessScore}% — ${input.readinessScore >= 80 ? "you're in great shape" : 'solid preparation'}. ` +
+    message:
+      `The finish line is near! Your readiness score is ${input.readinessScore}% — ${input.readinessScore >= 80 ? "you're in great shape" : 'solid preparation'}. ` +
       paceAdvice +
       `Remember: the taper is sacred. Trust your training, don't try anything new on race day, and start conservative — you can always speed up in the second half.`,
     reasoning: scenario.triggers.join('. ') + '.',
@@ -1194,7 +1181,7 @@ function buildMileageModification(
     // L-6: increases never reach into the taper or race week.
     if (multiplier > 1 && targetWeek > increaseLimit) break;
     // Safety: never increase more than 10%
-    const safeMult = multiplier > 1 ? Math.min(multiplier, 1.10) : multiplier;
+    const safeMult = multiplier > 1 ? Math.min(multiplier, 1.1) : multiplier;
     weekAdjustments.push({
       weekIndex: targetWeek,
       mileageMultiplier: safeMult,

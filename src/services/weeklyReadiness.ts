@@ -42,11 +42,11 @@ export interface ReadinessScore {
   /** Week number this score is for */
   weekNumber: number;
   /** Sub-scores */
-  volumeScore: number;       // Did they hit the planned mileage?
-  consistencyScore: number;  // Did they run on scheduled days?
-  longRunScore: number;      // Did they complete the long run?
-  intensityScore: number;    // Was effort appropriate for each workout type?
-  recoveryScore: number;     // Are they taking rest days? HR trending down on easy days?
+  volumeScore: number; // Did they hit the planned mileage?
+  consistencyScore: number; // Did they run on scheduled days?
+  longRunScore: number; // Did they complete the long run?
+  intensityScore: number; // Was effort appropriate for each workout type?
+  recoveryScore: number; // Are they taking rest days? HR trending down on easy days?
   /** What went well */
   strengths: string[];
   /** What could improve */
@@ -171,8 +171,8 @@ function isAppropriateEffort(kind: PlanWorkoutKind, pct: number): boolean {
 function volumeScoreFor(ratio: number): number {
   if (ratio >= 0.95) return 100;
   if (ratio >= 0.85) return 85;
-  if (ratio >= 0.70) return 70;
-  if (ratio >= 0.50) return 50;
+  if (ratio >= 0.7) return 70;
+  if (ratio >= 0.5) return 50;
   return 30;
 }
 
@@ -218,7 +218,7 @@ export function computeReadinessScore(weekNumber: number, opts: ReadinessOptions
   const consistencyScore = Math.round((completedDue / dueWorkouts) * 100);
 
   // ─── 1. Volume Score (planned miles of the due days) ───
-  const plannedToDate = week.days.reduce((sum, day, d) => sum + (due[d] ? day.distanceMi ?? 0 : 0), 0);
+  const plannedToDate = week.days.reduce((sum, day, d) => sum + (due[d] ? (day.distanceMi ?? 0) : 0), 0);
   const actualMi = getAllWeeklyMileage(planId)[weekIndex]?.actualMi ?? 0;
   const volumeScore = plannedToDate > 0 ? volumeScoreFor(actualMi / plannedToDate) : 100;
 
@@ -272,15 +272,16 @@ export function computeReadinessScore(weekNumber: number, opts: ReadinessOptions
     if (day.type === 'rest') restDaysPlanned++;
     if (!done[d]) restDaysTaken++;
   });
-  const recoveryScore = restDaysPlanned > 0
-    ? Math.min(Math.round((Math.min(restDaysTaken, restDaysPlanned) / restDaysPlanned) * 100), 100)
-    : 80;
+  const recoveryScore =
+    restDaysPlanned > 0
+      ? Math.min(Math.round((Math.min(restDaysTaken, restDaysPlanned) / restDaysPlanned) * 100), 100)
+      : 80;
 
   // ─── Overall Score (weights renormalised while the long run is still ahead) ───
   const parts: Array<[number, number]> = [
     [volumeScore, 0.25],
     [consistencyScore, 0.25],
-    ...(longRunPending ? [] : [[longRunScore, 0.20] as [number, number]]),
+    ...(longRunPending ? [] : [[longRunScore, 0.2] as [number, number]]),
     [intensityScore, 0.15],
     [recoveryScore, 0.15],
   ];
@@ -293,18 +294,23 @@ export function computeReadinessScore(weekNumber: number, opts: ReadinessOptions
   const nextWeekTips: string[] = [];
 
   if (volumeScore >= 90) strengths.push('Hit your planned mileage — volume is on point.');
-  else if (volumeScore < 70) improvements.push('Fell short on total mileage this week. Try to schedule runs earlier in the day.');
+  else if (volumeScore < 70)
+    improvements.push('Fell short on total mileage this week. Try to schedule runs earlier in the day.');
 
   if (consistencyScore >= 90) strengths.push('Great consistency — showed up for nearly every workout.');
   else if (consistencyScore < 70) improvements.push('Missed several scheduled runs. Consistency is key to adaptation.');
 
   if (!longRunPending) {
     if (longRunScore >= 90) strengths.push('Nailed the long run — building that endurance engine.');
-    else if (longRunScore < 50) improvements.push('The long run was missed or cut short. This is the most important weekly workout for marathon prep.');
+    else if (longRunScore < 50)
+      improvements.push(
+        'The long run was missed or cut short. This is the most important weekly workout for marathon prep.',
+      );
   }
 
   if (intensityScore >= 85) strengths.push('Effort levels matched the workout types well.');
-  else if (intensityScore < 60) improvements.push('Effort levels didn\'t match workout types. Keep easy days easy and hard days hard.');
+  else if (intensityScore < 60)
+    improvements.push("Effort levels didn't match workout types. Keep easy days easy and hard days hard.");
 
   if (recoveryScore >= 80) strengths.push('Good recovery balance — rest days are fueling your progress.');
   else improvements.push('Consider taking your rest days more seriously to avoid burnout.');

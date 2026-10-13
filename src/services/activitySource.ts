@@ -279,7 +279,11 @@ export function onSyncStatus(listener: (status: SyncStatus) => void): () => void
 
 function emitStatus(status: SyncStatus): void {
   for (const l of statusListeners) {
-    try { l(status); } catch { /* listener errors must not break sync */ }
+    try {
+      l(status);
+    } catch {
+      /* listener errors must not break sync */
+    }
   }
 }
 
@@ -295,7 +299,11 @@ export function getLastSyncSummary(): SyncSummary | null {
 export function notifyActivitiesUpdated(summary: SyncSummary): void {
   if (summary.added === 0 && summary.updated === 0) return;
   for (const l of updateListeners) {
-    try { l(summary); } catch { /* ignore */ }
+    try {
+      l(summary);
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -489,7 +497,11 @@ function progressReporter(run: SyncRun, source: ActivitySource): ProgressReporte
   return (message, fetched) => {
     if (run.signal.aborted) return;
     const progress: SyncProgress = { source, message, fetched };
-    try { run.onProgress?.(progress); } catch { /* ignore */ }
+    try {
+      run.onProgress?.(progress);
+    } catch {
+      /* ignore */
+    }
     emitStatus({ running: true, progress });
   };
 }
@@ -532,12 +544,20 @@ function finishRun(run: SyncRun): SyncSummary {
   const changed = summary.added > 0 || summary.updated > 0 || (summary.removed ?? 0) > 0;
   if (changed) {
     for (const l of updateListeners) {
-      try { l(summary); } catch { /* ignore */ }
+      try {
+        l(summary);
+      } catch {
+        /* ignore */
+      }
     }
   }
   if (changed || summary.full) {
     // Effort recognitions depend on the whole run history (debounced, fire-and-forget).
-    try { scheduleEffortRebuild(); } catch { /* non-critical */ }
+    try {
+      scheduleEffortRebuild();
+    } catch {
+      /* non-critical */
+    }
   }
   if (summary.added > 0) {
     // Browsers grant persistent storage more readily once the site holds real data (web only, asked once).
@@ -571,7 +591,12 @@ async function runSync(run: SyncRun, full: boolean, plan: SyncPlan): Promise<Syn
     const state = getSourceSyncState(source);
     const doFull = full || !state.lastFullSyncAt;
     const result: SourceSyncResult = {
-      fetched: 0, added: 0, updated: 0, removed: 0, newestStart: null, storeFull: false,
+      fetched: 0,
+      added: 0,
+      updated: 0,
+      removed: 0,
+      newestStart: null,
+      storeFull: false,
     };
     const report = progressReporter(run, source);
     run.current = { source, result };
@@ -707,11 +732,7 @@ async function syncFromIntervals(
  * Survivors keep their local flags. No tombstone is written, so an activity
  * that reappears remotely is imported again. Returns how many were removed.
  */
-function reconcileIntervalsDeletions(
-  oldest: string,
-  newest: string,
-  list: intervalsApi.IntervalsActivityList,
-): number {
+function reconcileIntervalsDeletions(oldest: string, newest: string, list: intervalsApi.IntervalsActivityList): number {
   if (!list.rawIds || list.rawCount === 0) return 0;
   const remote = new Set(list.rawIds);
   const all = getAllStoredActivities();
@@ -728,8 +749,8 @@ function reconcileIntervalsDeletions(
   const limit = Math.max(RECONCILE_ALWAYS_ALLOWED, Math.floor(inWindow * RECONCILE_MAX_SHARE));
   if (gone.size > limit) {
     console.warn(
-      `[Apollo] intervals.icu no longer lists ${gone.size} of ${inWindow} recent activities; `
-      + 'keeping them because the reply looks incomplete.',
+      `[Apollo] intervals.icu no longer lists ${gone.size} of ${inWindow} recent activities; ` +
+        'keeping them because the reply looks incomplete.',
     );
     return 0;
   }
@@ -773,13 +794,15 @@ async function syncFromStrava(
 async function enrichIntervalsRoutes(report: ProgressReporter, signal: AbortSignal): Promise<number> {
   const cutoff = Date.now() - ROUTE_ENRICH_WINDOW_DAYS * DAY_MS;
   const candidates = getStoredActivities()
-    .filter((a) =>
-      a.source === 'intervals'
-      && !!a.source_id
-      && isRunActivity(a)
-      && !a.trainer
-      && (a.map?.summary_polyline === undefined || a.map?.summary_polyline === null)
-      && Date.parse(a.start_date) >= cutoff)
+    .filter(
+      (a) =>
+        a.source === 'intervals' &&
+        !!a.source_id &&
+        isRunActivity(a) &&
+        !a.trainer &&
+        (a.map?.summary_polyline === undefined || a.map?.summary_polyline === null) &&
+        Date.parse(a.start_date) >= cutoff,
+    )
     .slice(0, ROUTE_ENRICH_PER_SYNC);
   if (candidates.length === 0) return 0;
 
@@ -868,9 +891,8 @@ const DETAIL_CACHE_MAX = 50;
  */
 export async function getActivityDetail(activityOrId: Activity | number): Promise<Activity> {
   // Includes hidden records, so a hidden activity can still be opened and unhidden.
-  const base = typeof activityOrId === 'number'
-    ? getAllStoredActivities().find((a) => a.id === activityOrId)
-    : activityOrId;
+  const base =
+    typeof activityOrId === 'number' ? getAllStoredActivities().find((a) => a.id === activityOrId) : activityOrId;
   if (!base) throw new Error('Activity not found. Try syncing again.');
 
   const cached = detailCache.get(base.id);
@@ -896,7 +918,9 @@ export async function getActivityDetail(activityOrId: Activity | number): Promis
   if (poly && !base.map?.summary_polyline) {
     try {
       storeActivities([{ ...base, map: { id: detail.map?.id ?? `route-${base.id}`, summary_polyline: poly } }]);
-    } catch { /* non-critical */ }
+    } catch {
+      /* non-critical */
+    }
   }
 
   if (detailCache.size >= DETAIL_CACHE_MAX) {

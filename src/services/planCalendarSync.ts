@@ -46,7 +46,12 @@
 import { getWorkoutKind, type PlanDay, type PlanWorkoutKind, type TrainingPlan } from '../data/plans';
 import { getActivePlan, getDateForDay, formatDateKey } from './planProgress';
 import { getEffectivePlan } from './planOverlay';
-import { calculateTrainingPaces, getCurrentTrainingPaces, getSavedTrainingPaces, type TrainingPaces } from './paceCalculator';
+import {
+  calculateTrainingPaces,
+  getCurrentTrainingPaces,
+  getSavedTrainingPaces,
+  type TrainingPaces,
+} from './paceCalculator';
 import {
   FIRST_TEMPO_OFFSET_SEC,
   getSpeedStructure,
@@ -409,7 +414,12 @@ function fillBookend(plannedMi: number, mainMi: number, unit: DistanceUnit): num
  * v1.0.7 (T-10): a speed session with the plan's own reps ("8 × 400 m", "3 × 1600 m",
  * "6 × hill repeats"), from `getSpeedStructure` — the structure Today shows.
  */
-function planRepsSpec(plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined, s: SpeedStructure): WorkoutSpec {
+function planRepsSpec(
+  plannedMi: number,
+  ctx: BuildContext,
+  easy: PaceTarget | undefined,
+  s: SpeedStructure,
+): WorkoutSpec {
   const { unit, paces } = ctx;
   const reps = s.planReps!;
   const jogPace = paces ? paces.easy.max + 30 : DEFAULT_JOG_SEC_PER_MI;
@@ -423,7 +433,11 @@ function planRepsSpec(plannedMi: number, ctx: BuildContext, easy: PaceTarget | u
     : { seconds: s.workSec, prompt: 'Hill hard' };
   const sections: Section[] = [];
   if (e > 0) sections.push({ header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] });
-  sections.push({ header: 'Main set', repeats: s.repeats, steps: [work, { seconds: restSec, prompt: 'Recovery jog' }] });
+  sections.push({
+    header: 'Main set',
+    repeats: s.repeats,
+    steps: [work, { seconds: restSec, prompt: 'Recovery jog' }],
+  });
   if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
   const repName = reps.hill ? 'Hill' : reps.repLabel.replace(/\s+/g, '');
   const note = reps.hill
@@ -452,7 +466,9 @@ function speedSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: Pac
   const repPace = paces?.interval ?? block?.targetPaceSecPerMi;
   const restSec = repPace
     ? Math.max(30, Math.round(((repMeters / METERS_PER_MILE) * repPace * restRatio) / 15) * 15)
-    : repMeters === 800 ? 150 : 90;
+    : repMeters === 800
+      ? 150
+      : 90;
   const jogPace = paces ? paces.easy.max + 30 : DEFAULT_JOG_SEC_PER_MI;
   const perRepM = repMeters + (restSec / jogPace) * METERS_PER_MILE;
   const reps = clamp(Math.round(availableM / perRepM), 3, 12);
@@ -468,7 +484,11 @@ function speedSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: Pac
     ],
   });
   if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
-  return { name: `${reps} × ${repMeters}m Intervals`, note: 'Speed. Run the reps hard but even; jog the recoveries.', sections };
+  return {
+    name: `${reps} × ${repMeters}m Intervals`,
+    note: 'Speed. Run the reps hard but even; jog the recoveries.',
+    sections,
+  };
 }
 
 /**
@@ -476,7 +496,13 @@ function speedSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: Pac
  * short / mid tempos at FIRST's intensities; long tempos as cruise intervals
  * instead of a long continuous run at threshold.
  */
-function tempoSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined, withDistance: (t: string) => string): WorkoutSpec | null {
+function tempoSpec(
+  day: PlanDay,
+  plannedMi: number,
+  ctx: BuildContext,
+  easy: PaceTarget | undefined,
+  withDistance: (t: string) => string,
+): WorkoutSpec | null {
   const { unit, paces } = ctx;
   const t = getTempoStructure(day, plannedMi, paces);
   if (t.style === 'progressive' && t.minutes && plannedMi > 0) {
@@ -501,10 +527,20 @@ function tempoSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: Pac
     const e = bookend(toUnit(plannedMi, unit));
     const sections: Section[] = [];
     if (e > 0) sections.push({ header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] });
-    sections.push({ header: 'Marathon pace', steps: [{ distance: toUnit(t.mpMi!, unit), unit, pace: paces ? around(paces.marathon, 5) : undefined }] });
-    sections.push({ header: 'Tempo', steps: [{ distance: toUnit(t.workMi, unit), unit, pace: t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined }] });
+    sections.push({
+      header: 'Marathon pace',
+      steps: [{ distance: toUnit(t.mpMi!, unit), unit, pace: paces ? around(paces.marathon, 5) : undefined }],
+    });
+    sections.push({
+      header: 'Tempo',
+      steps: [{ distance: toUnit(t.workMi, unit), unit, pace: t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined }],
+    });
     if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
-    return { name: withDistance('Tempo'), note: 'Tempo. Steady at marathon pace, then comfortably hard to the finish.', sections };
+    return {
+      name: withDistance('Tempo'),
+      note: 'Tempo. Steady at marathon pace, then comfortably hard to the finish.',
+      sections,
+    };
   }
   if (plannedMi <= 0 || t.workMi == null || t.style === 'threshold' || t.style === 'continuous') return null;
   const pace = t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined;
@@ -517,7 +553,14 @@ function tempoSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: Pac
       note: 'Tempo as cruise intervals. Comfortably hard reps with short jogs.',
       sections: [
         { header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] },
-        { header: 'Cruise intervals', repeats: t.repeats, steps: [{ distance: repU, unit, pace }, { seconds: t.restSec, prompt: 'Easy jog' }] },
+        {
+          header: 'Cruise intervals',
+          repeats: t.repeats,
+          steps: [
+            { distance: repU, unit, pace },
+            { seconds: t.restSec, prompt: 'Easy jog' },
+          ],
+        },
         { header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] },
       ],
     };
@@ -547,16 +590,26 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
   }
 
   const easy = paces ? { fast: paces.easy.min, slow: paces.easy.max } : undefined;
-  const plannedMi = day.distanceMi && day.distanceMi > 0 ? day.distanceMi
-    : kind === 'marathon' ? 26.2 : kind === 'race' ? 13.1 : kind === 'speed' ? 5 : 0;
+  const plannedMi =
+    day.distanceMi && day.distanceMi > 0
+      ? day.distanceMi
+      : kind === 'marathon'
+        ? 26.2
+        : kind === 'race'
+          ? 13.1
+          : kind === 'speed'
+            ? 5
+            : 0;
   if (kind === 'speed') return speedSpec(day, plannedMi, ctx, easy);
 
   const totalU = toUnit(plannedMi, unit);
   const withDistance = (title: string) => (plannedMi > 0 ? `${title} · ${fmtNumber(totalU)} ${unit}` : title);
   const step = (distance: number, pace?: PaceTarget): Step => ({ distance: round1(distance), unit, pace });
-  const single = (pace?: PaceTarget): Section[] => [{
-    steps: [plannedMi > 0 ? step(totalU, pace) : { seconds: UNTIMED_RUN_MIN * 60, pace }],
-  }];
+  const single = (pace?: PaceTarget): Section[] => [
+    {
+      steps: [plannedMi > 0 ? step(totalU, pace) : { seconds: UNTIMED_RUN_MIN * 60, pace }],
+    },
+  ];
   /** Easy warm-up, main block, easy cool-down (tempo, strength, marathon pace). */
   const sandwich = (header: string, pace: PaceTarget | undefined, warmup: number, cooldown: number): Section[] => {
     if (plannedMi <= 0) return single(pace);
@@ -581,16 +634,23 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
         sections: single(paces ? { fast: paces.easy.min - 10, slow: paces.easy.max - 5 } : undefined),
       };
     case 'tempo':
-      return tempoSpec(day, plannedMi, ctx, easy, withDistance) ?? {
-        name: withDistance('Tempo'),
-        note: 'Tempo. Comfortably hard: short phrases only.',
-        sections: sandwich('Tempo', paces ? around(paces.threshold, 5) : undefined, e, e),
-      };
+      return (
+        tempoSpec(day, plannedMi, ctx, easy, withDistance) ?? {
+          name: withDistance('Tempo'),
+          note: 'Tempo. Comfortably hard: short phrases only.',
+          sections: sandwich('Tempo', paces ? around(paces.threshold, 5) : undefined, e, e),
+        }
+      );
     case 'strength':
       return {
         name: withDistance('Strength Run'),
         note: 'Strength. Between marathon and tempo effort; hold your form.',
-        sections: sandwich('Strength', paces ? around(Math.round((paces.threshold + paces.marathon) / 2), 8) : undefined, e, e),
+        sections: sandwich(
+          'Strength',
+          paces ? around(Math.round((paces.threshold + paces.marathon) / 2), 8) : undefined,
+          e,
+          e,
+        ),
       };
     case 'marathon_pace': {
       // v1.0.7 (T-17): keep the plan's miles at marathon pace (Hansons 1 + 8 at MP + 1, not 2 + 7 + 1).
@@ -606,7 +666,8 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
     }
     case 'race': {
       const label = String(day.label || '').trim();
-      const name = !label || /^race$/i.test(label) ? withDistance('Race') : /\brace\b/i.test(label) ? label : `${label} Race`;
+      const name =
+        !label || /^race$/i.test(label) ? withDistance('Race') : /\brace\b/i.test(label) ? label : `${label} Race`;
       return {
         name,
         note: 'Race day. Trust your training: start controlled, finish strong.',
@@ -620,7 +681,11 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
         sections: single(paces ? around(racePace(paces, plannedMi), 5) : undefined),
       };
     default:
-      return { name: withDistance('Easy Run'), note: 'Easy run. Relaxed, conversational effort.', sections: single(easy) };
+      return {
+        name: withDistance('Easy Run'),
+        note: 'Easy run. Relaxed, conversational effort.',
+        sections: single(easy),
+      };
   }
 }
 
@@ -630,12 +695,16 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
  * reads nothing from storage. Pace targets are absolute ranges in
  * `opts.unit`; without paces/VDOT the steps are plain distances.
  */
-export function buildPlanWorkouts(plan: TrainingPlan, startDate: string, opts: BuildPlanWorkoutsOptions): PlannedWorkout[] {
+export function buildPlanWorkouts(
+  plan: TrainingPlan,
+  startDate: string,
+  opts: BuildPlanWorkoutsOptions,
+): PlannedWorkout[] {
   const from = opts.from ?? todayKey();
   const weeks = normalizeWeeks(opts.weeks);
   if (weeks === 0) return [];
   const until = weeks !== null ? addDaysKey(from, weeks * 7 - 1) : null;
-  const vdot = opts.vdot && opts.vdot > 0 ? opts.vdot : opts.paces?.vdot ?? null;
+  const vdot = opts.vdot && opts.vdot > 0 ? opts.vdot : (opts.paces?.vdot ?? null);
   const paces = opts.paces ?? (vdot ? calculateTrainingPaces(vdot) : null);
   const ctx: BuildContext = { unit: opts.unit, paces, vdot };
 
@@ -705,8 +774,16 @@ const stateListeners = new Set<(state: PlanPushState) => void>();
 
 function emptyState(): PlanPushState {
   return {
-    enabled: false, lastPushAt: null, lastHash: null, planKey: null,
-    pushedIds: [], pushedHashes: {}, lastStatus: null, lastError: null, lastErrorAt: null, lastResult: null,
+    enabled: false,
+    lastPushAt: null,
+    lastHash: null,
+    planKey: null,
+    pushedIds: [],
+    pushedHashes: {},
+    lastStatus: null,
+    lastError: null,
+    lastErrorAt: null,
+    lastResult: null,
   };
 }
 
@@ -763,7 +840,11 @@ function updateState(patch: Partial<PlanPushState>): PlanPushState {
   const next = { ...readState(), ...patch };
   persistence.setItem(STATE_KEY, JSON.stringify(next));
   for (const listener of stateListeners) {
-    try { listener({ ...next }); } catch { /* listener errors must not break a push */ }
+    try {
+      listener({ ...next });
+    } catch {
+      /* listener errors must not break a push */
+    }
   }
   return next;
 }
@@ -828,7 +909,10 @@ let running = 0;
 function exclusive<T>(task: () => Promise<T>): Promise<T> {
   running++;
   const run = queue.then(task, task);
-  queue = run.then(() => undefined, () => undefined);
+  queue = run.then(
+    () => undefined,
+    () => undefined,
+  );
   return run.finally(() => {
     running--;
   });
@@ -847,9 +931,18 @@ function coveredRange(ctx: PlanContext, today: string, windowEnd: string | null)
   return { from, to };
 }
 
-async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: PushOptions, onlyChanged = false): Promise<PushResult> {
+async function runPush(
+  ctx: PlanContext,
+  creds: IntervalsCredentials,
+  opts: PushOptions,
+  onlyChanged = false,
+): Promise<PushResult> {
   const report = (message: string) => {
-    try { opts.onProgress?.(message); } catch { /* UI errors must not break the push */ }
+    try {
+      opts.onProgress?.(message);
+    } catch {
+      /* UI errors must not break the push */
+    }
   };
   const today = todayKey();
   const all = buildPlanWorkouts(ctx.plan, ctx.startDate, currentBuildOptions(today));
@@ -860,7 +953,9 @@ async function runPush(ctx: PlanContext, creds: IntervalsCredentials, opts: Push
   const hashes = new Map(inWindow.map((w) => [w.external_id, hashPlannedWorkout(w)]));
   // Auto mode sends only what changed since Apollo last sent it, so workouts the
   // athlete edited or deleted in intervals.icu stay as they are.
-  const toSend = onlyChanged ? inWindow.filter((w) => state.pushedHashes[w.external_id] !== hashes.get(w.external_id)) : inWindow;
+  const toSend = onlyChanged
+    ? inWindow.filter((w) => state.pushedHashes[w.external_id] !== hashes.get(w.external_id))
+    : inWindow;
   // Stale = Apollo workouts from today on that the remaining plan no longer has
   // (plan switched, start date moved, day became rest). Past events stay.
   const wanted = new Set(all.map((w) => w.external_id));
@@ -970,8 +1065,15 @@ export async function removePlanFromIntervals(): Promise<number> {
       }
       const deleted = await deleteIntervalsEventsByExternalId([...ids], creds);
       updateState({
-        pushedIds: [], pushedHashes: {}, planKey: null, lastHash: null, lastPushAt: null,
-        lastResult: null, lastStatus: null, lastError: null, lastErrorAt: null,
+        pushedIds: [],
+        pushedHashes: {},
+        planKey: null,
+        lastHash: null,
+        lastPushAt: null,
+        lastResult: null,
+        lastStatus: null,
+        lastError: null,
+        lastErrorAt: null,
       });
       return deleted;
     } catch (err) {
@@ -1034,7 +1136,9 @@ export async function syncPlanCalendarIfChanged(): Promise<PlanSyncOutcome | nul
     const message = errorMessage(err);
     try {
       updateState({ lastError: message, lastErrorAt: new Date().toISOString(), lastStatus: 'error' });
-    } catch { /* storage unavailable — nothing more to record */ }
+    } catch {
+      /* storage unavailable — nothing more to record */
+    }
     return { status: 'error', result: null, error: message };
   }
 }

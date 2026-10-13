@@ -28,7 +28,7 @@ export const RACE_PRESETS = [
   { id: 'marathon', label: 'Marathon', meters: 42195 },
 ] as const;
 
-export type RacePresetId = typeof RACE_PRESETS[number]['id'];
+export type RacePresetId = (typeof RACE_PRESETS)[number]['id'];
 /** '' = no recent race. */
 export type RaceDistanceChoice = '' | RacePresetId | 'custom';
 
@@ -218,7 +218,12 @@ export function validateProfileDraft(
 
   // Recent race: all-or-nothing.
   let recentRace: RecentRace | undefined;
-  const raceTouched = !!(draft.raceTime.trim() || draft.raceDate.trim() || draft.raceName.trim() || draft.raceCustom.trim());
+  const raceTouched = !!(
+    draft.raceTime.trim() ||
+    draft.raceDate.trim() ||
+    draft.raceName.trim() ||
+    draft.raceCustom.trim()
+  );
   if (draft.raceDistance === '') {
     if (raceTouched) errors.raceDistance = 'Choose the race distance, or clear the race fields.';
   } else {
@@ -280,7 +285,8 @@ export function validateProfileDraft(
   if (patch.weightKg !== undefined && clean.weightKg === undefined) errors.weight ??= 'Enter a valid weight.';
   if (patch.birthYear !== undefined && clean.birthYear === undefined) errors.birthYear ??= 'Enter a valid year.';
   if (patch.recentRace && !clean.recentRace) errors.raceTime ??= 'Check the race distance, time and date.';
-  if (patch.goalMarathonSec !== undefined && clean.goalMarathonSec === undefined) errors.goalTime ??= 'Enter a valid goal time.';
+  if (patch.goalMarathonSec !== undefined && clean.goalMarathonSec === undefined)
+    errors.goalTime ??= 'Enter a valid goal time.';
   if (patch.carbToleranceGPerHour !== undefined && clean.carbToleranceGPerHour === undefined) {
     errors.carbTolerance ??= 'Enter a valid number.';
   }
@@ -291,7 +297,17 @@ export function validateProfileDraft(
 
 /** Field order for focusing the first invalid input. */
 export const PROFILE_FIELD_ORDER: readonly ProfileField[] = [
-  'maxHR', 'restingHR', 'weight', 'birthYear', 'sex',
-  'raceDistance', 'raceCustom', 'raceTime', 'raceDate', 'raceName',
-  'goalTime', 'carbTolerance', 'caffeine',
+  'maxHR',
+  'restingHR',
+  'weight',
+  'birthYear',
+  'sex',
+  'raceDistance',
+  'raceCustom',
+  'raceTime',
+  'raceDate',
+  'raceName',
+  'goalTime',
+  'carbTolerance',
+  'caffeine',
 ];

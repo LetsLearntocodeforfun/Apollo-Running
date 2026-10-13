@@ -25,13 +25,19 @@ const listeners = new Set<(health: StorageHealth) => void>();
 function emit(): void {
   const snapshot = { ...health };
   for (const listener of listeners) {
-    try { listener(snapshot); } catch { /* listener errors must not break storage */ }
+    try {
+      listener(snapshot);
+    } catch {
+      /* listener errors must not break storage */
+    }
   }
   try {
     if (typeof window !== 'undefined' && typeof window.dispatchEvent === 'function') {
       window.dispatchEvent(new CustomEvent(STORAGE_HEALTH_CHANGED_EVENT, { detail: snapshot }));
     }
-  } catch { /* no DOM (tests / SSR) */ }
+  } catch {
+    /* no DOM (tests / SSR) */
+  }
 }
 
 /** Current storage health (a copy). */

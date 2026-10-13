@@ -89,14 +89,30 @@
 }
 
 /* Workout-type colours (design tokens; tempo matches CalendarView) */
-.pb-type-rest { --pb-type-color: var(--text-muted); }
-.pb-type-easy { --pb-type-color: var(--color-success); }
-.pb-type-long { --pb-type-color: var(--apollo-gold); }
-.pb-type-tempo { --pb-type-color: var(--apollo-orange); }
-.pb-type-speed { --pb-type-color: var(--color-error); }
-.pb-type-marathon_pace { --pb-type-color: var(--apollo-teal); }
-.pb-type-medium_long { --pb-type-color: var(--apollo-gold-light); }
-.pb-type-cross { --pb-type-color: var(--text-secondary); }
+.pb-type-rest {
+  --pb-type-color: var(--text-muted);
+}
+.pb-type-easy {
+  --pb-type-color: var(--color-success);
+}
+.pb-type-long {
+  --pb-type-color: var(--apollo-gold);
+}
+.pb-type-tempo {
+  --pb-type-color: var(--apollo-orange);
+}
+.pb-type-speed {
+  --pb-type-color: var(--color-error);
+}
+.pb-type-marathon_pace {
+  --pb-type-color: var(--apollo-teal);
+}
+.pb-type-medium_long {
+  --pb-type-color: var(--apollo-gold-light);
+}
+.pb-type-cross {
+  --pb-type-color: var(--text-secondary);
+}
 
 .plan-builder-day-card .plan-builder-day-select {
   border-color: var(--pb-type-color, var(--border-input));
@@ -170,11 +186,21 @@
 }
 
 /* Phase colours (design tokens), shared by chart bars, legend swatches and week badges */
-.pb-phase--base { --pb-phase-color: var(--apollo-teal); }
-.pb-phase--build { --pb-phase-color: var(--color-success); }
-.pb-phase--peak { --pb-phase-color: var(--apollo-orange); }
-.pb-phase--taper { --pb-phase-color: var(--apollo-cream); }
-.pb-phase--race { --pb-phase-color: var(--apollo-gold); }
+.pb-phase--base {
+  --pb-phase-color: var(--apollo-teal);
+}
+.pb-phase--build {
+  --pb-phase-color: var(--color-success);
+}
+.pb-phase--peak {
+  --pb-phase-color: var(--apollo-orange);
+}
+.pb-phase--taper {
+  --pb-phase-color: var(--apollo-cream);
+}
+.pb-phase--race {
+  --pb-phase-color: var(--apollo-gold);
+}
 
 /* Weekly distance chart: each week is a real button (≥ 32px wide, full column height) */
 .pb-chart {

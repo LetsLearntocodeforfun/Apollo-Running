@@ -57,7 +57,8 @@
   right: -1px;
   width: 1px;
   height: 100%;
-  background: linear-gradient(180deg,
+  background: linear-gradient(
+    180deg,
     var(--apollo-gold) 0%,
     rgba(212, 165, 55, 0.3) 30%,
     rgba(212, 165, 55, 0.05) 100%
@@ -86,11 +87,7 @@
   left: 10%;
   right: 10%;
   height: 1px;
-  background: linear-gradient(90deg,
-    transparent,
-    var(--apollo-gold-dark) 50%,
-    transparent
-  );
+  background: linear-gradient(90deg, transparent, var(--apollo-gold-dark) 50%, transparent);
 }
 
 .nav-brand-logo {
@@ -131,7 +128,9 @@
   min-height: 40px;
   padding: 0.6rem 1rem;
   border-radius: var(--radius-md);
-  transition: color var(--transition-base), background var(--transition-base);
+  transition:
+    color var(--transition-base),
+    background var(--transition-base);
   font-family: var(--font-display);
   font-weight: var(--weight-medium);
   font-size: 0.9rem;
@@ -245,7 +244,9 @@
   padding: 1.5rem;
   margin-bottom: 1.25rem;
   box-shadow: var(--shadow-sm);
-  transition: border-color var(--transition-base), box-shadow var(--transition-base);
+  transition:
+    border-color var(--transition-base),
+    box-shadow var(--transition-base);
 }
 
 .card:hover {

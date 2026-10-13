@@ -57,9 +57,21 @@
   font-size: var(--text-xs, 0.75rem);
 }
 
-.form-chip--overreaching { --form-zone-color: #ef5350; }
-.form-chip--productive { --form-zone-color: #66bb6a; }
-.form-chip--fresh { --form-zone-color: #4fc3f7; }
-.form-chip--peak { --form-zone-color: #ffd700; }
-.form-chip--transition { --form-zone-color: #ffa726; }
-.form-chip--very_fresh { --form-zone-color: #78909c; }
+.form-chip--overreaching {
+  --form-zone-color: #ef5350;
+}
+.form-chip--productive {
+  --form-zone-color: #66bb6a;
+}
+.form-chip--fresh {
+  --form-zone-color: #4fc3f7;
+}
+.form-chip--peak {
+  --form-zone-color: #ffd700;
+}
+.form-chip--transition {
+  --form-zone-color: #ffa726;
+}
+.form-chip--very_fresh {
+  --form-zone-color: #78909c;
+}

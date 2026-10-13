@@ -18,12 +18,7 @@ import {
   CAFFEINE_DAILY_MAX_MG,
 } from '@/services/fuelingCalculator';
 import { getCarbToleranceGPerHour } from '@/services/athleteProfile';
-import {
-  buildRaceStrategy,
-  distanceAtTime,
-  getMarathon,
-  getStrategyDistanceMi,
-} from '@/services/raceStrategy';
+import { buildRaceStrategy, distanceAtTime, getMarathon, getStrategyDistanceMi } from '@/services/raceStrategy';
 
 const baseAthlete = { weightKg: 70, vo2max: 50, sex: 'male' as const };
 const MARATHON_MI = 26.21875;
@@ -181,7 +176,10 @@ describe('generateFuelingPlan', () => {
     expect(plan.gelIntervalMin).toBeGreaterThanOrEqual(20);
     expect(plan.gelIntervalMin).toBeLessThanOrEqual(25);
     const race = planRaceFueling({
-      finishSec: 480 * MARATHON_MI, distanceMi: MARATHON_MI, carbsPerHourG: 60, preRaceGel: false,
+      finishSec: 480 * MARATHON_MI,
+      distanceMi: MARATHON_MI,
+      carbsPerHourG: 60,
+      preRaceGel: false,
     });
     expect(plan.items.map((i) => i.raceTimeMin)).toEqual(race.items.map((i) => Math.round(i.timeSec / 60)));
 
@@ -304,8 +302,9 @@ describe('planRaceFueling', () => {
   it('never bunches gels: in-window rate ≤ min(1.2 × target, 90 g/h) (R-5)', () => {
     for (const carbs of [20, 45, 60, 75, 90]) {
       for (const finishSec of [65 * 60, 1.75 * 3600, 3 * 3600, 5.5 * 3600]) {
-        const gels = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: carbs })
-          .items.filter((i) => i.kind === 'gel');
+        const gels = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: carbs }).items.filter(
+          (i) => i.kind === 'gel',
+        );
         const minGap = ((60 * 25) / Math.min(1.2 * Math.min(carbs, 90), RACE_MAX_CARBS_PER_HOUR_G)) * 60;
         for (let i = 1; i < gels.length; i++) {
           expect(gels[i].timeSec - gels[i - 1].timeSec).toBeGreaterThanOrEqual(minGap - 1);
@@ -340,8 +339,9 @@ describe('planRaceFueling', () => {
   it('starts at 20–45 min and never fuels in the final 15 min', () => {
     for (const carbs of [20, 45, 60, 90]) {
       for (const finishSec of [75 * 60, 3 * 3600, 5.5 * 3600]) {
-        const gels = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: carbs })
-          .items.filter((i) => i.kind === 'gel');
+        const gels = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: carbs }).items.filter(
+          (i) => i.kind === 'gel',
+        );
         if (gels.length === 0) continue;
         expect(gels[0].timeSec).toBeGreaterThanOrEqual(20 * 60);
         expect(gels[0].timeSec).toBeLessThanOrEqual(45 * 60);
@@ -356,7 +356,10 @@ describe('planRaceFueling', () => {
     const gels = plan.items.filter((i) => i.kind === 'gel');
     expect(plan.totalCarbsG).toBe(gels.length * 25);
     const without = planRaceFueling({
-      finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: 60, preRaceGel: false,
+      finishSec: 4 * 3600,
+      distanceMi: MARATHON_MI,
+      carbsPerHourG: 60,
+      preRaceGel: false,
     });
     expect(without.items.some((i) => i.kind === 'pre-race')).toBe(false);
     expect(without.totalCarbsG).toBe(plan.totalCarbsG);
@@ -409,7 +412,10 @@ describe('planRaceFueling', () => {
     for (const bad of bads) {
       for (const field of ['finishSec', 'distanceMi', 'carbsPerHourG'] as const) {
         const plan = planRaceFueling({
-          finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: 60, [field]: bad,
+          finishSec: 4 * 3600,
+          distanceMi: MARATHON_MI,
+          carbsPerHourG: 60,
+          [field]: bad,
         });
         expect(plan.items).toEqual([]);
         expect(plan.notes.length).toBeGreaterThan(0);
@@ -420,7 +426,10 @@ describe('planRaceFueling', () => {
       }
     }
     const nanDistance = planRaceFueling({
-      finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: 60, distanceAtTimeSec: () => Number.NaN,
+      finishSec: 4 * 3600,
+      distanceMi: MARATHON_MI,
+      carbsPerHourG: 60,
+      distanceAtTimeSec: () => Number.NaN,
     });
     expect(nanDistance.items.every((i) => Number.isFinite(i.distanceMi))).toBe(true);
   });

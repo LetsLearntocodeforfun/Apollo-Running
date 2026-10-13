@@ -42,16 +42,22 @@ const ACCEPT = '.fit,.gpx,.tcx,.zip,.gz';
 const MAX_LISTED_ISSUES = 200;
 
 const badgeStyle = {
-  fontSize: '0.72rem', background: 'var(--apollo-teal-dim)',
-  color: 'var(--apollo-teal)', padding: '0.15rem 0.6rem',
-  borderRadius: 'var(--radius-full)', fontWeight: 600,
+  fontSize: '0.72rem',
+  background: 'var(--apollo-teal-dim)',
+  color: 'var(--apollo-teal)',
+  padding: '0.15rem 0.6rem',
+  borderRadius: 'var(--radius-full)',
+  fontWeight: 600,
   fontFamily: 'var(--font-display)',
 } as const;
 const textStyle = { color: 'var(--text-secondary)', fontSize: 'var(--text-sm)', lineHeight: 1.5 } as const;
 const hintStyle = { color: 'var(--text-muted)', fontSize: '0.82rem', lineHeight: 1.4 } as const;
 const summaryStyle = {
-  cursor: 'pointer', color: 'var(--apollo-gold)', fontSize: 'var(--text-sm)',
-  fontFamily: 'var(--font-display)', fontWeight: 600,
+  cursor: 'pointer',
+  color: 'var(--apollo-gold)',
+  fontSize: 'var(--text-sm)',
+  fontFamily: 'var(--font-display)',
+  fontWeight: 600,
 } as const;
 
 function plural(n: number, one: string, many: string): string {
@@ -170,19 +176,25 @@ export default function ImportActivities({ compact = false, onImported }: Import
   const result = busy ? null : current.result;
   const fraction = progress?.filesTotal ? Math.min(1, progress.filesDone / progress.filesTotal) : undefined;
   const statusText = busy
-    ? current.cancelling ? 'Stopping after the current file…' : progress?.message ?? 'Starting the import…'
-    : result ? describeImportResult(result) : '';
+    ? current.cancelling
+      ? 'Stopping after the current file…'
+      : (progress?.message ?? 'Starting the import…')
+    : result
+      ? describeImportResult(result)
+      : '';
   const issues = result
     ? [
-      ...result.errors.map((e) => ({ name: e.name, text: e.message, error: true })),
-      ...result.skipped.map((s) => ({ name: s.name, text: s.reason, error: false })),
-    ]
+        ...result.errors.map((e) => ({ name: e.name, text: e.message, error: true })),
+        ...result.skipped.map((s) => ({ name: s.name, text: s.reason, error: false })),
+      ]
     : [];
   const issuesLabel = result
     ? [
-      result.errors.length ? plural(result.errors.length, 'error', 'errors') : '',
-      result.skipped.length ? plural(result.skipped.length, 'skipped file', 'skipped files') : '',
-    ].filter(Boolean).join(' and ')
+        result.errors.length ? plural(result.errors.length, 'error', 'errors') : '',
+        result.skipped.length ? plural(result.skipped.length, 'skipped file', 'skipped files') : '',
+      ]
+        .filter(Boolean)
+        .join(' and ')
     : '';
 
   const howTo = (
@@ -203,24 +215,39 @@ export default function ImportActivities({ compact = false, onImported }: Import
   );
 
   return (
-    <div className="card" style={{
-      borderLeftWidth: 3, borderLeftStyle: 'solid', borderLeftColor: 'var(--apollo-teal)',
-      ...(compact ? { padding: '1.1rem 1.25rem' } : {}),
-    }}>
-      <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', ...(compact ? { marginBottom: '0.6rem' } : {}) }}>
+    <div
+      className="card"
+      style={{
+        borderLeftWidth: 3,
+        borderLeftStyle: 'solid',
+        borderLeftColor: 'var(--apollo-teal)',
+        ...(compact ? { padding: '1.1rem 1.25rem' } : {}),
+      }}
+    >
+      <h3
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.5rem',
+          flexWrap: 'wrap',
+          ...(compact ? { marginBottom: '0.6rem' } : {}),
+        }}
+      >
         <span style={{ color: 'var(--apollo-teal)' }}>Import activity files</span>
         <span style={badgeStyle}>No account needed</span>
       </h3>
       <p style={{ ...textStyle, margin: '0 0 0.75rem' }}>
-        Works without an account. Add FIT, GPX or TCX files from any watch or app (Garmin, COROS, Suunto, Polar,
-        Wahoo, Apple Watch, Zwift…), or move your full history over with a Strava or Garmin export.
+        Works without an account. Add FIT, GPX or TCX files from any watch or app (Garmin, COROS, Suunto, Polar, Wahoo,
+        Apple Watch, Zwift…), or move your full history over with a Strava or Garmin export.
       </p>
       {compact ? (
         <details style={{ margin: '0 0 0.75rem' }}>
           <summary style={summaryStyle}>How to export your full history</summary>
           {howTo}
         </details>
-      ) : howTo}
+      ) : (
+        howTo
+      )}
 
       <div
         role="button"
@@ -245,10 +272,16 @@ export default function ImportActivities({ compact = false, onImported }: Import
           textAlign: 'center',
           cursor: busy ? 'default' : 'pointer',
           opacity: busy ? 0.6 : 1,
-          transition: 'border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast)',
+          transition:
+            'border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast)',
         }}
       >
-        <div aria-hidden="true" style={{ fontSize: compact ? '1.4rem' : '1.75rem', lineHeight: 1, marginBottom: '0.5rem' }}>📂</div>
+        <div
+          aria-hidden="true"
+          style={{ fontSize: compact ? '1.4rem' : '1.75rem', lineHeight: 1, marginBottom: '0.5rem' }}
+        >
+          📂
+        </div>
         <div style={{ fontFamily: 'var(--font-display)', fontWeight: 600, color: 'var(--text)' }}>
           {busy ? 'Importing…' : dragging ? 'Drop to import' : 'Drop files, folders or a ZIP export here'}
         </div>
@@ -273,14 +306,26 @@ export default function ImportActivities({ compact = false, onImported }: Import
         />
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginTop: statusText ? '0.75rem' : 0 }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+          marginTop: statusText ? '0.75rem' : 0,
+        }}
+      >
         <div
           role="status"
           aria-live="polite"
           aria-atomic="true"
           style={{
-            ...textStyle, flex: '1 1 16rem', minWidth: 0, overflowWrap: 'anywhere',
-            color: 'var(--text)', fontWeight: result ? 600 : 400,
+            ...textStyle,
+            flex: '1 1 16rem',
+            minWidth: 0,
+            overflowWrap: 'anywhere',
+            color: 'var(--text)',
+            fontWeight: result ? 600 : 400,
           }}
         >
           {statusText}
@@ -305,16 +350,26 @@ export default function ImportActivities({ compact = false, onImported }: Import
 
       {busy && (
         <>
-          <div aria-hidden="true" style={{
-            height: 6, marginTop: '0.6rem', overflow: 'hidden',
-            background: 'var(--bg-elevated)', borderRadius: 'var(--radius-full)',
-          }}>
-            <div style={{
-              height: '100%', borderRadius: 'var(--radius-full)', background: 'var(--apollo-teal)',
-              width: fraction === undefined ? '100%' : `${Math.max(2, Math.round(fraction * 100))}%`,
-              opacity: fraction === undefined ? 0.3 : 1,
-              transition: 'width var(--transition-base)',
-            }} />
+          <div
+            aria-hidden="true"
+            style={{
+              height: 6,
+              marginTop: '0.6rem',
+              overflow: 'hidden',
+              background: 'var(--bg-elevated)',
+              borderRadius: 'var(--radius-full)',
+            }}
+          >
+            <div
+              style={{
+                height: '100%',
+                borderRadius: 'var(--radius-full)',
+                background: 'var(--apollo-teal)',
+                width: fraction === undefined ? '100%' : `${Math.max(2, Math.round(fraction * 100))}%`,
+                opacity: fraction === undefined ? 0.3 : 1,
+                transition: 'width var(--transition-base)',
+              }}
+            />
           </div>
           <p style={{ ...hintStyle, margin: '0.5rem 0 0' }}>
             {progress && progress.activitiesFound > 0
@@ -332,16 +387,28 @@ export default function ImportActivities({ compact = false, onImported }: Import
               { label: 'Added', value: result.added, color: 'var(--color-success)' },
               { label: 'Updated', value: result.updated, color: 'var(--apollo-teal)' },
               // The headline explains these: the store keeps the most recent MAX_STORED_ACTIVITIES.
-              ...(result.dropped > 0 ? [{ label: 'Not kept', value: result.dropped, color: 'var(--color-warning)' }] : []),
+              ...(result.dropped > 0
+                ? [{ label: 'Not kept', value: result.dropped, color: 'var(--color-warning)' }]
+                : []),
               { label: 'Skipped', value: result.skipped.length, color: 'var(--text-secondary)' },
-              { label: 'Errors', value: result.errors.length, color: result.errors.length ? 'var(--color-error)' : 'var(--text-secondary)' },
+              {
+                label: 'Errors',
+                value: result.errors.length,
+                color: result.errors.length ? 'var(--color-error)' : 'var(--text-secondary)',
+              },
             ].map((stat) => (
               <div key={stat.label}>
                 <dt className="label-micro">{stat.label}</dt>
-                <dd style={{
-                  margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-lg)',
-                  color: stat.color, fontVariantNumeric: 'tabular-nums',
-                }}>
+                <dd
+                  style={{
+                    margin: 0,
+                    fontFamily: 'var(--font-display)',
+                    fontWeight: 700,
+                    fontSize: 'var(--text-lg)',
+                    color: stat.color,
+                    fontVariantNumeric: 'tabular-nums',
+                  }}
+                >
                   {stat.value.toLocaleString()}
                 </dd>
               </div>
@@ -350,10 +417,20 @@ export default function ImportActivities({ compact = false, onImported }: Import
           {issues.length > 0 && (
             <details style={{ marginTop: '0.75rem' }}>
               <summary style={summaryStyle}>Show {issuesLabel}</summary>
-              <ul style={{ ...textStyle, margin: '0.5rem 0 0', paddingLeft: '1.25rem', maxHeight: '16rem', overflowY: 'auto' }}>
+              <ul
+                style={{
+                  ...textStyle,
+                  margin: '0.5rem 0 0',
+                  paddingLeft: '1.25rem',
+                  maxHeight: '16rem',
+                  overflowY: 'auto',
+                }}
+              >
                 {issues.slice(0, MAX_LISTED_ISSUES).map((issue, i) => (
                   <li key={i} style={{ marginBottom: '0.3rem', overflowWrap: 'anywhere' }}>
-                    <span style={{ fontWeight: 600, color: issue.error ? 'var(--color-error)' : 'var(--text)' }}>{issue.name}</span>
+                    <span style={{ fontWeight: 600, color: issue.error ? 'var(--color-error)' : 'var(--text)' }}>
+                      {issue.name}
+                    </span>
                     {': '}
                     {issue.text}
                   </li>
@@ -380,8 +457,8 @@ export default function ImportActivities({ compact = false, onImported }: Import
       <p style={{ ...hintStyle, margin: '1rem 0 0' }}>
         {compact
           ? 'Files are read on this device and never uploaded.'
-          : 'Files are read on this device and never uploaded. Importing the same files again won\'t create duplicates, '
-            + 'and activities already synced from intervals.icu or Strava are matched rather than copied.'}
+          : "Files are read on this device and never uploaded. Importing the same files again won't create duplicates, " +
+            'and activities already synced from intervals.icu or Strava are matched rather than copied.'}
       </p>
     </div>
   );

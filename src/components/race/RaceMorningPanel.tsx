@@ -121,8 +121,9 @@ function zoneShortLabel(timeZone: string | null | undefined, dateKey: string | n
   if (!timeZone || !dateKey || !/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return undefined;
   const [y, m, d] = dateKey.split('-').map(Number);
   try {
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' })
-      .formatToParts(new Date(Date.UTC(y, m - 1, d, 12)));
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' }).formatToParts(
+      new Date(Date.UTC(y, m - 1, d, 12)),
+    );
     return parts.find((p) => p.type === 'timeZoneName')?.value;
   } catch {
     return undefined;
@@ -167,16 +168,31 @@ function buildFuel(ctx: RaceDayContext, race: MarathonRace, carbsPerHourG: numbe
   if (plan.items.length > 0) {
     const gels = plan.items.filter((i) => i.kind === 'gel').length;
     return {
-      items: plan.items.map(({ timeSec, distanceMi, label, carbsG, note }) => ({ timeSec, distanceMi, label, carbsG, note })),
-      summary: gels > 0
-        ? `${gels} gels, one every ${Math.round(plan.gelIntervalMin)} min (${Math.round(plan.targetCarbsPerHourG)} g carbs per hour)`
-        : null,
+      items: plan.items.map(({ timeSec, distanceMi, label, carbsG, note }) => ({
+        timeSec,
+        distanceMi,
+        label,
+        carbsG,
+        note,
+      })),
+      summary:
+        gels > 0
+          ? `${gels} gels, one every ${Math.round(plan.gelIntervalMin)} min (${Math.round(plan.targetCarbsPerHourG)} g carbs per hour)`
+          : null,
     };
   }
-  const timed = (strategy?.nutritionPlan ?? []).filter((n) => typeof n.timeSec === 'number' && Number.isFinite(n.timeSec));
+  const timed = (strategy?.nutritionPlan ?? []).filter(
+    (n) => typeof n.timeSec === 'number' && Number.isFinite(n.timeSec),
+  );
   if (timed.length > 0) {
     return {
-      items: timed.map((n) => ({ timeSec: n.timeSec as number, distanceMi: n.mile, label: n.item, carbsG: n.carbsG, note: n.notes || undefined })),
+      items: timed.map((n) => ({
+        timeSec: n.timeSec as number,
+        distanceMi: n.mile,
+        label: n.item,
+        carbsG: n.carbsG,
+        note: n.notes || undefined,
+      })),
       summary: null,
     };
   }
@@ -255,9 +271,12 @@ export default function RaceMorningPanel({ ctx }: RacePanelProps) {
   if (!ctx.race) {
     return (
       <section className="rm-panel" aria-labelledby={headingId}>
-        <h2 id={headingId} className="rm-heading">Race morning</h2>
+        <h2 id={headingId} className="rm-heading">
+          Race morning
+        </h2>
         <EmptyState icon="⏰" title="Pick your race first">
-          Choose your race in My Race to plan race morning: alarm, breakfast, travel, the start area and your race milestones.
+          Choose your race in My Race to plan race morning: alarm, breakfast, travel, the start area and your race
+          milestones.
         </EmptyState>
       </section>
     );
@@ -320,7 +339,9 @@ function RaceMorningBody({ ctx, race, headingId }: { ctx: RaceDayContext; race: 
   const handleCopy = async () => {
     if (!result.timeline) return;
     const ok = await copyToClipboard(result.timeline.textExport);
-    setCopyStatus(ok ? 'Timeline copied to the clipboard.' : "Couldn't copy automatically — select the text below and copy it.");
+    setCopyStatus(
+      ok ? 'Timeline copied to the clipboard.' : "Couldn't copy automatically — select the text below and copy it.",
+    );
     setShowManualCopy(!ok);
   };
 
@@ -331,7 +352,9 @@ function RaceMorningBody({ ctx, race, headingId }: { ctx: RaceDayContext; race: 
   return (
     <section className="rm-panel" aria-labelledby={headingId}>
       <div className="rm-header">
-        <h2 id={headingId} className="rm-heading">Race morning</h2>
+        <h2 id={headingId} className="rm-heading">
+          Race morning
+        </h2>
         <p className="rm-subtitle">
           {race.name}
           {ctx.raceDate ? ` · ${ctx.raceDate}` : ''}
@@ -348,7 +371,9 @@ function RaceMorningBody({ ctx, race, headingId }: { ctx: RaceDayContext; race: 
             aria-controls={fieldId('setup')}
             onClick={() => setSetupOpen((open) => !open)}
           >
-            <span className="rm-chevron" aria-hidden="true">{setupOpen ? '▾' : '▸'}</span>
+            <span className="rm-chevron" aria-hidden="true">
+              {setupOpen ? '▾' : '▸'}
+            </span>
             Race-morning setup
           </button>
         </h3>
@@ -408,7 +433,9 @@ function RaceMorningBody({ ctx, race, headingId }: { ctx: RaceDayContext; race: 
               value={setup.arrivalLeadMin}
               onChange={(e) => update('arrivalLeadMin', e.target.value)}
             />
-            <p id={fieldId('lead-hint')} className="rm-hint">{leadHint}</p>
+            <p id={fieldId('lead-hint')} className="rm-hint">
+              {leadHint}
+            </p>
           </div>
           <div className="rm-field">
             <label htmlFor={fieldId('meal')}>Breakfast size</label>
@@ -418,7 +445,9 @@ function RaceMorningBody({ ctx, race, headingId }: { ctx: RaceDayContext; race: 
               onChange={(e) => update('mealSize', e.target.value as MealSize)}
             >
               {MEAL_OPTIONS.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
               ))}
             </select>
             <p className="rm-hint">
@@ -437,13 +466,21 @@ function RaceMorningBody({ ctx, race, headingId }: { ctx: RaceDayContext; race: 
             <label htmlFor={fieldId('warmup')}>Include a short warm-up (ends ~10 min before the gun)</label>
           </div>
           <div className="rm-actions">
-            <button type="submit" className="btn btn-primary rm-button">Save setup</button>
-            <p className="rm-status" role="status">{saveStatus || (dirty ? 'Unsaved changes' : '')}</p>
+            <button type="submit" className="btn btn-primary rm-button">
+              Save setup
+            </button>
+            <p className="rm-status" role="status">
+              {saveStatus || (dirty ? 'Unsaved changes' : '')}
+            </p>
           </div>
         </form>
       </div>
 
-      {result.error && <p className="rm-error" role="alert">{result.error}</p>}
+      {result.error && (
+        <p className="rm-error" role="alert">
+          {result.error}
+        </p>
+      )}
 
       {!result.timeline && !result.error && (
         <EmptyState icon="🕖" title="Add your start time">
@@ -513,11 +550,21 @@ function TimelineCard({
         );
       })}
       <div className="rm-actions">
-        <button type="button" className="btn btn-secondary rm-button" onClick={onCopy}>Copy as text</button>
-        <p className="rm-status" role="status">{copyStatus}</p>
+        <button type="button" className="btn btn-secondary rm-button" onClick={onCopy}>
+          Copy as text
+        </button>
+        <p className="rm-status" role="status">
+          {copyStatus}
+        </p>
       </div>
       {showManualCopy && (
-        <textarea className="rm-manual-copy" readOnly rows={10} aria-label="Timeline as text" value={timeline.textExport} />
+        <textarea
+          className="rm-manual-copy"
+          readOnly
+          rows={10}
+          aria-label="Timeline as text"
+          value={timeline.textExport}
+        />
       )}
     </div>
   );
@@ -527,10 +574,14 @@ function TimelineRow({ event }: { event: TimelineEvent }) {
   const meta = CATEGORY_META[event.category];
   return (
     <li className={`rm-event rm-event--${event.category}`}>
-      <time className="rm-time" dateTime={clockToHHmm(event.clockMinutes)}>{event.time}</time>
+      <time className="rm-time" dateTime={clockToHHmm(event.clockMinutes)}>
+        {event.time}
+      </time>
       <div className="rm-event-body">
         <p className="rm-event-title">
-          <span className="rm-icon" aria-hidden="true">{meta.icon}</span>
+          <span className="rm-icon" aria-hidden="true">
+            {meta.icon}
+          </span>
           <span>{event.title}</span>
           <span className="rm-tag">{meta.label}</span>
         </p>

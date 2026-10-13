@@ -19,12 +19,7 @@
  * per hour before the start), the same rule the race-morning timeline uses.
  */
 
-import type {
-  AthleteProfile,
-  CarbLoadingProtocol,
-  CarbLoadingDay,
-  MealSuggestion,
-} from '../types/nutrition';
+import type { AthleteProfile, CarbLoadingProtocol, CarbLoadingDay, MealSuggestion } from '../types/nutrition';
 
 // ── Food Database ─────────────────────────────────────────────────────────────
 
@@ -39,24 +34,150 @@ interface FoodItem {
 }
 
 const FOOD_DATABASE: FoodItem[] = [
-  { name: 'Pasta (white, cooked)', carbsPerServing: 75, servingDescription: '2 cups', category: 'grain', mealTime: ['lunch', 'dinner'], lowFiber: true },
-  { name: 'White rice (cooked)', carbsPerServing: 45, servingDescription: '1 cup', category: 'grain', mealTime: ['lunch', 'dinner'], lowFiber: true },
-  { name: 'Oatmeal', carbsPerServing: 54, servingDescription: '1 cup dry', category: 'grain', mealTime: ['breakfast'], lowFiber: false },
-  { name: 'Bagel (white)', carbsPerServing: 48, servingDescription: '1 large', category: 'grain', mealTime: ['breakfast', 'snack'], lowFiber: true },
-  { name: 'Banana', carbsPerServing: 27, servingDescription: '1 medium', category: 'fruit', mealTime: ['breakfast', 'snack'], lowFiber: true },
-  { name: 'Bread (white)', carbsPerServing: 26, servingDescription: '2 slices', category: 'grain', mealTime: ['breakfast', 'lunch'], lowFiber: true },
-  { name: 'Pancakes', carbsPerServing: 58, servingDescription: '3 medium', category: 'grain', mealTime: ['breakfast'], lowFiber: true },
-  { name: 'Honey', carbsPerServing: 17, servingDescription: '1 tbsp', category: 'snack', mealTime: ['breakfast', 'snack'], lowFiber: true },
-  { name: 'Sports drink', carbsPerServing: 35, servingDescription: '500 ml', category: 'drink', mealTime: ['snack'], lowFiber: true },
-  { name: 'Orange juice', carbsPerServing: 26, servingDescription: '250 ml', category: 'drink', mealTime: ['breakfast', 'lunch', 'dinner'], lowFiber: true },
-  { name: 'Pretzels', carbsPerServing: 45, servingDescription: '60 g', category: 'snack', mealTime: ['snack'], lowFiber: true },
-  { name: 'Sweet potato (baked)', carbsPerServing: 37, servingDescription: '1 medium', category: 'grain', mealTime: ['lunch', 'dinner'], lowFiber: false },
-  { name: 'Energy bar', carbsPerServing: 40, servingDescription: '1 bar', category: 'snack', mealTime: ['snack'], lowFiber: false },
-  { name: 'Jam/jelly', carbsPerServing: 13, servingDescription: '1 tbsp', category: 'snack', mealTime: ['breakfast', 'snack'], lowFiber: true },
-  { name: 'Granola', carbsPerServing: 30, servingDescription: '1/2 cup', category: 'grain', mealTime: ['breakfast', 'snack'], lowFiber: false },
-  { name: 'Dried fruit mix', carbsPerServing: 33, servingDescription: '1/4 cup', category: 'fruit', mealTime: ['snack'], lowFiber: false },
-  { name: 'Toast with honey', carbsPerServing: 40, servingDescription: '2 slices + honey', category: 'grain', mealTime: ['breakfast'], lowFiber: true },
-  { name: 'Rice cakes', carbsPerServing: 14, servingDescription: '2 cakes', category: 'snack', mealTime: ['snack'], lowFiber: true },
+  {
+    name: 'Pasta (white, cooked)',
+    carbsPerServing: 75,
+    servingDescription: '2 cups',
+    category: 'grain',
+    mealTime: ['lunch', 'dinner'],
+    lowFiber: true,
+  },
+  {
+    name: 'White rice (cooked)',
+    carbsPerServing: 45,
+    servingDescription: '1 cup',
+    category: 'grain',
+    mealTime: ['lunch', 'dinner'],
+    lowFiber: true,
+  },
+  {
+    name: 'Oatmeal',
+    carbsPerServing: 54,
+    servingDescription: '1 cup dry',
+    category: 'grain',
+    mealTime: ['breakfast'],
+    lowFiber: false,
+  },
+  {
+    name: 'Bagel (white)',
+    carbsPerServing: 48,
+    servingDescription: '1 large',
+    category: 'grain',
+    mealTime: ['breakfast', 'snack'],
+    lowFiber: true,
+  },
+  {
+    name: 'Banana',
+    carbsPerServing: 27,
+    servingDescription: '1 medium',
+    category: 'fruit',
+    mealTime: ['breakfast', 'snack'],
+    lowFiber: true,
+  },
+  {
+    name: 'Bread (white)',
+    carbsPerServing: 26,
+    servingDescription: '2 slices',
+    category: 'grain',
+    mealTime: ['breakfast', 'lunch'],
+    lowFiber: true,
+  },
+  {
+    name: 'Pancakes',
+    carbsPerServing: 58,
+    servingDescription: '3 medium',
+    category: 'grain',
+    mealTime: ['breakfast'],
+    lowFiber: true,
+  },
+  {
+    name: 'Honey',
+    carbsPerServing: 17,
+    servingDescription: '1 tbsp',
+    category: 'snack',
+    mealTime: ['breakfast', 'snack'],
+    lowFiber: true,
+  },
+  {
+    name: 'Sports drink',
+    carbsPerServing: 35,
+    servingDescription: '500 ml',
+    category: 'drink',
+    mealTime: ['snack'],
+    lowFiber: true,
+  },
+  {
+    name: 'Orange juice',
+    carbsPerServing: 26,
+    servingDescription: '250 ml',
+    category: 'drink',
+    mealTime: ['breakfast', 'lunch', 'dinner'],
+    lowFiber: true,
+  },
+  {
+    name: 'Pretzels',
+    carbsPerServing: 45,
+    servingDescription: '60 g',
+    category: 'snack',
+    mealTime: ['snack'],
+    lowFiber: true,
+  },
+  {
+    name: 'Sweet potato (baked)',
+    carbsPerServing: 37,
+    servingDescription: '1 medium',
+    category: 'grain',
+    mealTime: ['lunch', 'dinner'],
+    lowFiber: false,
+  },
+  {
+    name: 'Energy bar',
+    carbsPerServing: 40,
+    servingDescription: '1 bar',
+    category: 'snack',
+    mealTime: ['snack'],
+    lowFiber: false,
+  },
+  {
+    name: 'Jam/jelly',
+    carbsPerServing: 13,
+    servingDescription: '1 tbsp',
+    category: 'snack',
+    mealTime: ['breakfast', 'snack'],
+    lowFiber: true,
+  },
+  {
+    name: 'Granola',
+    carbsPerServing: 30,
+    servingDescription: '1/2 cup',
+    category: 'grain',
+    mealTime: ['breakfast', 'snack'],
+    lowFiber: false,
+  },
+  {
+    name: 'Dried fruit mix',
+    carbsPerServing: 33,
+    servingDescription: '1/4 cup',
+    category: 'fruit',
+    mealTime: ['snack'],
+    lowFiber: false,
+  },
+  {
+    name: 'Toast with honey',
+    carbsPerServing: 40,
+    servingDescription: '2 slices + honey',
+    category: 'grain',
+    mealTime: ['breakfast'],
+    lowFiber: true,
+  },
+  {
+    name: 'Rice cakes',
+    carbsPerServing: 14,
+    servingDescription: '2 cakes',
+    category: 'snack',
+    mealTime: ['snack'],
+    lowFiber: true,
+  },
 ];
 
 const FOOD_BY_NAME = new Map(FOOD_DATABASE.map((f) => [f.name, f]));
@@ -109,7 +230,8 @@ export const RACE_BREAKFAST_RANGE = { minGPerKg: 1, maxGPerKg: 4, minHoursBefore
 /** Default timing: about 3 h before the start. */
 export const RACE_BREAKFAST_DEFAULT_MIN_BEFORE = 180;
 /** One-line statement of the rule for UI copy. */
-export const RACE_BREAKFAST_RULE_TEXT = '1–4 g of carbs per kg of body weight, 1–4 hours before the start — about 1 g/kg for each hour';
+export const RACE_BREAKFAST_RULE_TEXT =
+  '1–4 g of carbs per kg of body weight, 1–4 hours before the start — about 1 g/kg for each hour';
 /**
  * Food guidance shared by every race-breakfast surface. Oatmeal is NOT
  * low-fibre: it is offered only for runners already used to it.
@@ -219,12 +341,15 @@ export function generateCarbLoadingProtocol(
     'Burke et al. 2011 / ACSM 2016: 10–12 g carbs per kg per day for the final 36–48 h before races longer than ~90 min.',
   ];
   if (athlete.sex === 'female') {
-    notes.push('Eat enough total energy as well as carbs — glycogen supercompensation is smaller when overall intake is low.');
+    notes.push(
+      'Eat enough total energy as well as carbs — glycogen supercompensation is smaller when overall intake is low.',
+    );
   }
 
-  const summary = `${days.length}-day carb loading protocol at ${carbsPerKg} g/kg/day. `
-    + `Daily targets: ${days.map((d) => `D-${d.daysBefore}: ${d.targetCarbsG}g`).join(', ')}. `
-    + `Race morning: ${raceMorning.targetCarbsG}g (about 3 h before the start). Total: ${totalCarbTarget}g.`;
+  const summary =
+    `${days.length}-day carb loading protocol at ${carbsPerKg} g/kg/day. ` +
+    `Daily targets: ${days.map((d) => `D-${d.daysBefore}: ${d.targetCarbsG}g`).join(', ')}. ` +
+    `Race morning: ${raceMorning.targetCarbsG}g (about 3 h before the start). Total: ${totalCarbTarget}g.`;
 
   return {
     weightKg,
@@ -245,8 +370,8 @@ function buildDayMeals(targetCarbsG: number, lowFiberOnly: boolean): MealSuggest
   let remaining = targetCarbsG;
   const plan: { name: string; timing: string; mealTime: FoodItem['mealTime'][number]; share: number }[] = [
     { name: 'Breakfast', timing: 'Morning', mealTime: 'breakfast', share: 0.25 },
-    { name: 'Lunch', timing: 'Midday', mealTime: 'lunch', share: 0.30 },
-    { name: 'Dinner', timing: 'Evening', mealTime: 'dinner', share: 0.30 },
+    { name: 'Lunch', timing: 'Midday', mealTime: 'lunch', share: 0.3 },
+    { name: 'Dinner', timing: 'Evening', mealTime: 'dinner', share: 0.3 },
   ];
 
   for (const slot of plan) {
@@ -293,9 +418,7 @@ function selectFoods(
   targetCarbs: number,
   lowFiberOnly: boolean,
 ): { totalCarbs: number; description: string } {
-  const eligible = FOOD_DATABASE.filter((f) =>
-    f.mealTime.includes(mealTime) && (!lowFiberOnly || f.lowFiber === true),
-  );
+  const eligible = FOOD_DATABASE.filter((f) => f.mealTime.includes(mealTime) && (!lowFiberOnly || f.lowFiber === true));
 
   const servings = new Map<FoodItem, number>();
   let totalCarbs = 0;
@@ -363,15 +486,23 @@ function buildRaceMorningDay(massKg: number, size?: RaceBreakfastSize): CarbLoad
     targetCarbsG,
     carbsPerKg: perKg,
     targetCalories: Math.round(targetCarbsG * 4 * 1.2),
-    meals: carbs > 0
-      ? [{ name: 'Pre-Race Meal', timing: '3 hours before start', carbsG: carbs, description: describeSelection(servings) }]
-      : [],
+    meals:
+      carbs > 0
+        ? [
+            {
+              name: 'Pre-Race Meal',
+              timing: '3 hours before start',
+              carbsG: carbs,
+              description: describeSelection(servings),
+            },
+          ]
+        : [],
     fiberGuidance: RACE_BREAKFAST_FOODS,
     ...(hasShortfall
       ? {
-        shortfallG,
-        warning: `These foods reach ${carbs} g of your ${targetCarbsG} g target — top up with a sports drink or a gel in the hour before the start.`,
-      }
+          shortfallG,
+          warning: `These foods reach ${carbs} g of your ${targetCarbsG} g target — top up with a sports drink or a gel in the hour before the start.`,
+        }
       : {}),
   };
 }

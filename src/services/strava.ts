@@ -11,8 +11,8 @@ const STRAVA_API = 'https://www.strava.com/api/v3';
 // Strava enforces: 100 requests / 15 min, 1 000 requests / day.
 // We track timestamps of each request and reject before hitting limits.
 
-const RATE_LIMIT_15MIN = 95;   // leave 5-request buffer
-const RATE_LIMIT_DAILY = 950;  // leave 50-request buffer
+const RATE_LIMIT_15MIN = 95; // leave 5-request buffer
+const RATE_LIMIT_DAILY = 950; // leave 50-request buffer
 const FIFTEEN_MIN_MS = 15 * 60 * 1000;
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -33,7 +33,9 @@ function checkRateLimit(): void {
   const now = Date.now();
   const recentCount = requestTimestamps.filter((t) => t > now - FIFTEEN_MIN_MS).length;
   if (recentCount >= RATE_LIMIT_15MIN) {
-    throw new Error('Approaching Strava rate limit (100 requests / 15 min). Please wait a few minutes before syncing again.');
+    throw new Error(
+      'Approaching Strava rate limit (100 requests / 15 min). Please wait a few minutes before syncing again.',
+    );
   }
   if (requestTimestamps.length >= RATE_LIMIT_DAILY) {
     throw new Error('Approaching Strava daily rate limit (1,000 requests / day). Try again tomorrow.');
@@ -75,7 +77,11 @@ const REQUEST_TIMEOUT_MS = 30_000;
 /** Flag Strava as needing reconnect and build the error to throw. */
 function rejectedTokens(message?: string): StravaAuthError {
   const err = new StravaAuthError(message);
-  try { setNeedsReconnect('strava', err.message); } catch { /* best-effort */ }
+  try {
+    setNeedsReconnect('strava', err.message);
+  } catch {
+    /* best-effort */
+  }
   return err;
 }
 
@@ -205,14 +211,17 @@ export async function fetchStrava<T>(path: string, options: RequestInit = {}): P
   else external?.addEventListener('abort', onExternalAbort, { once: true });
 
   try {
-    const res = await untilAborted(fetch(`${STRAVA_API}${path}`, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        ...(options.headers as Record<string, string>),
-      },
-    }), controller.signal);
+    const res = await untilAborted(
+      fetch(`${STRAVA_API}${path}`, {
+        ...options,
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          ...(options.headers as Record<string, string>),
+        },
+      }),
+      controller.signal,
+    );
 
     // Read Strava's rate limit headers for observability
     const usage15 = res.headers.get('X-RateLimit-Usage');
@@ -277,7 +286,10 @@ export function getActivities(
   if (params.per_page != null) search.set('per_page', String(params.per_page));
   if (params.after != null) search.set('after', String(params.after));
   const qs = search.toString();
-  return fetchStrava<StravaActivity[]>(`/athlete/activities${qs ? `?${qs}` : ''}`, opts.signal ? { signal: opts.signal } : {});
+  return fetchStrava<StravaActivity[]>(
+    `/athlete/activities${qs ? `?${qs}` : ''}`,
+    opts.signal ? { signal: opts.signal } : {},
+  );
 }
 
 /** Fetch the authenticated athlete's profile. */

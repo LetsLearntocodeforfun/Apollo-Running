@@ -32,15 +32,7 @@ export interface WeatherForecast {
 }
 
 export type WeatherCondition =
-  | 'clear'
-  | 'partly_cloudy'
-  | 'cloudy'
-  | 'fog'
-  | 'drizzle'
-  | 'rain'
-  | 'heavy_rain'
-  | 'snow'
-  | 'thunderstorm';
+  'clear' | 'partly_cloudy' | 'cloudy' | 'fog' | 'drizzle' | 'rain' | 'heavy_rain' | 'snow' | 'thunderstorm';
 
 export interface WeatherPreferences {
   enabled: boolean;
@@ -76,16 +68,34 @@ const IDEAL_HUMIDITY = 40;
 
 // WMO weather codes → our conditions
 const WMO_CODE_MAP: Record<number, WeatherCondition> = {
-  0: 'clear', 1: 'clear', 2: 'partly_cloudy', 3: 'cloudy',
-  45: 'fog', 48: 'fog',
-  51: 'drizzle', 53: 'drizzle', 55: 'drizzle',
-  56: 'drizzle', 57: 'drizzle',
-  61: 'rain', 63: 'rain', 65: 'heavy_rain',
-  66: 'rain', 67: 'heavy_rain',
-  71: 'snow', 73: 'snow', 75: 'snow', 77: 'snow',
-  80: 'rain', 81: 'rain', 82: 'heavy_rain',
-  85: 'snow', 86: 'snow',
-  95: 'thunderstorm', 96: 'thunderstorm', 99: 'thunderstorm',
+  0: 'clear',
+  1: 'clear',
+  2: 'partly_cloudy',
+  3: 'cloudy',
+  45: 'fog',
+  48: 'fog',
+  51: 'drizzle',
+  53: 'drizzle',
+  55: 'drizzle',
+  56: 'drizzle',
+  57: 'drizzle',
+  61: 'rain',
+  63: 'rain',
+  65: 'heavy_rain',
+  66: 'rain',
+  67: 'heavy_rain',
+  71: 'snow',
+  73: 'snow',
+  75: 'snow',
+  77: 'snow',
+  80: 'rain',
+  81: 'rain',
+  82: 'heavy_rain',
+  85: 'snow',
+  86: 'snow',
+  95: 'thunderstorm',
+  96: 'thunderstorm',
+  99: 'thunderstorm',
 };
 
 // ── Preferences ───────────────────────────────────────────────────────────────
@@ -93,7 +103,11 @@ const WMO_CODE_MAP: Record<number, WeatherCondition> = {
 export function getWeatherPrefs(): WeatherPreferences {
   const raw = persistence.getItem(STORAGE_KEY);
   if (!raw) return { enabled: false };
-  try { return JSON.parse(raw); } catch { return { enabled: false }; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return { enabled: false };
+  }
 }
 
 export function setWeatherPrefs(prefs: WeatherPreferences): void {
@@ -133,7 +147,9 @@ function getCachedForecasts(lat: number, lon: number): WeatherForecast[] | null 
     if (cache.key !== key) return null;
     if (Date.now() - cache.fetchedAt > CACHE_DURATION_MS) return null;
     return cache.forecasts;
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 function setCachedForecasts(lat: number, lon: number, forecasts: WeatherForecast[]): void {
@@ -180,15 +196,24 @@ export async function fetchForecast(coords: LocationCoords): Promise<WeatherFore
   const url = new URL('https://api.open-meteo.com/v1/forecast');
   url.searchParams.set('latitude', coords.latitude.toFixed(4));
   url.searchParams.set('longitude', coords.longitude.toFixed(4));
-  url.searchParams.set('daily', [
-    'temperature_2m_max', 'temperature_2m_min',
-    'apparent_temperature_max', 'apparent_temperature_min',
-    'relative_humidity_2m_mean',
-    'wind_speed_10m_max', 'wind_gusts_10m_max',
-    'precipitation_sum', 'precipitation_probability_max',
-    'uv_index_max', 'weather_code',
-    'sunrise', 'sunset',
-  ].join(','));
+  url.searchParams.set(
+    'daily',
+    [
+      'temperature_2m_max',
+      'temperature_2m_min',
+      'apparent_temperature_max',
+      'apparent_temperature_min',
+      'relative_humidity_2m_mean',
+      'wind_speed_10m_max',
+      'wind_gusts_10m_max',
+      'precipitation_sum',
+      'precipitation_probability_max',
+      'uv_index_max',
+      'weather_code',
+      'sunrise',
+      'sunset',
+    ].join(','),
+  );
   url.searchParams.set('temperature_unit', 'fahrenheit');
   url.searchParams.set('wind_speed_unit', 'mph');
   url.searchParams.set('precipitation_unit', 'inch');
@@ -246,7 +271,11 @@ export function calculateHeatAdjustment(tempF: number, humidityPct: number): num
 /**
  * Determine weather risk level for racing.
  */
-export function getWeatherRiskLevel(tempF: number, humidityPct: number, windMph: number): RaceWeatherAssessment['riskLevel'] {
+export function getWeatherRiskLevel(
+  tempF: number,
+  humidityPct: number,
+  windMph: number,
+): RaceWeatherAssessment['riskLevel'] {
   const heatIndex = tempF + (humidityPct > 50 ? (humidityPct - 50) * 0.15 : 0);
 
   if (heatIndex >= 90 || tempF >= 85) return 'danger';
@@ -259,10 +288,7 @@ export function getWeatherRiskLevel(tempF: number, humidityPct: number, windMph:
 /**
  * Assess race day weather impact on marathon performance.
  */
-export function assessRaceWeather(
-  forecast: WeatherForecast,
-  targetTimeSec: number,
-): RaceWeatherAssessment {
+export function assessRaceWeather(forecast: WeatherForecast, targetTimeSec: number): RaceWeatherAssessment {
   // Use the average temp during race hours (approximated by avg of high/low)
   const raceTemp = forecast.tempAvgF;
   const humidity = forecast.humidityPct;
@@ -281,7 +307,7 @@ export function assessRaceWeather(
     tips.push('Wear light-colored, moisture-wicking clothing. Apply sunscreen before the race.');
   } else if (raceTemp >= 65) {
     tips.push('Warm conditions — dress lightly and consider starting 3-5 sec/mi slower.');
-    tips.push('Extra hydration will be important. Don\'t skip aid stations.');
+    tips.push("Extra hydration will be important. Don't skip aid stations.");
   } else if (raceTemp <= 35) {
     tips.push('Cold weather — wear throwaway layers for the start. Keep extremities covered.');
     tips.push('Warm up thoroughly before the start. Cold muscles are injury-prone.');
@@ -336,12 +362,12 @@ export function assessRaceWeather(
 
 /** Known coords for World Major Marathons, keyed by stable race id. */
 const MARATHON_COORDS: Record<string, LocationCoords> = {
-  tokyo:   { latitude: 35.6895, longitude: 139.6917 },
-  boston:  { latitude: 42.3601, longitude: -71.0589 },
-  london:  { latitude: 51.5074, longitude: -0.1278 },
-  berlin:  { latitude: 52.5200, longitude: 13.4050 },
+  tokyo: { latitude: 35.6895, longitude: 139.6917 },
+  boston: { latitude: 42.3601, longitude: -71.0589 },
+  london: { latitude: 51.5074, longitude: -0.1278 },
+  berlin: { latitude: 52.52, longitude: 13.405 },
   chicago: { latitude: 41.8781, longitude: -87.6298 },
-  nyc:     { latitude: 40.7128, longitude: -74.0060 },
+  nyc: { latitude: 40.7128, longitude: -74.006 },
 };
 
 /**

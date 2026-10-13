@@ -19,7 +19,18 @@
  * (DST-safe). At ≤640 px the cells collapse to dots (see CalendarView.css).
  */
 
-import { Fragment, useState, useMemo, useCallback, useEffect, useId, useRef, memo, type KeyboardEvent, type ReactNode } from 'react';
+import {
+  Fragment,
+  useState,
+  useMemo,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  memo,
+  type KeyboardEvent,
+  type ReactNode,
+} from 'react';
 import type { TrainingPlan, PlanDay } from '../data/plans';
 import type { ActivePlan, SyncMeta } from '../services/planProgress';
 import { isDayCompleted, getSyncMeta, canToggleDayCompletion } from '../services/planProgress';
@@ -31,7 +42,17 @@ import { getEffortRecognition } from '../services/effortService';
 import { TIER_CONFIG } from './TierBadge';
 import RouteMap from './RouteMap';
 import { formatMiles, formatPaceFromMinPerMi, formatDistanceShort } from '../services/unitPreferences';
-import { addDays, daysBetween, eachDay, isDateKey, mondayOf, parseDateKey, toDateKey, todayKey as getTodayKey, weekdayMon0 } from '../utils/localDate';
+import {
+  addDays,
+  daysBetween,
+  eachDay,
+  isDateKey,
+  mondayOf,
+  parseDateKey,
+  toDateKey,
+  todayKey as getTodayKey,
+  weekdayMon0,
+} from '../utils/localDate';
 import { formatLongDate, workoutSummary, workoutTitle } from './plan/planDisplay';
 import './CalendarView.css';
 
@@ -77,7 +98,8 @@ function planDayIcon(day: PlanDay): string | null {
 /** Intensity bar colors by workout note */
 function getIntensityColor(day: PlanDay): string {
   if (day.type === 'rest') return 'transparent';
-  if (day.type === 'marathon') return 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-light))';
+  if (day.type === 'marathon')
+    return 'linear-gradient(90deg, var(--apollo-gold-dark), var(--apollo-gold), var(--apollo-gold-light))';
   if (day.type === 'race') return 'linear-gradient(90deg, var(--apollo-orange), var(--apollo-orange-light))';
   if (day.type === 'cross') return 'var(--apollo-teal)';
   const note = (day.note || '').toLowerCase();
@@ -232,9 +254,11 @@ function dayAriaLabel(day: CalendarDay, badge: string | null): string {
   else if (!day.inPlan) parts.push('outside your plan');
   if (badge) parts.push(badge.toLowerCase());
   if (day.syncMeta) {
-    parts.push(day.syncMeta.crossTraining
-      ? `synced: ${day.syncMeta.crossTraining.label}`
-      : `synced: ${formatMiles(day.syncMeta.actualDistanceMi)}`);
+    parts.push(
+      day.syncMeta.crossTraining
+        ? `synced: ${day.syncMeta.crossTraining.label}`
+        : `synced: ${formatMiles(day.syncMeta.actualDistanceMi)}`,
+    );
   } else if (day.completed) {
     parts.push('completed');
   }
@@ -263,7 +287,9 @@ const DayCell = memo(function DayCell({
   if (!day.isCurrentMonth) {
     return (
       <div className="cal-day cal-day--outside" aria-hidden="true">
-        <span className="cal-day-num"><span className="cal-day-num-badge">{day.dayOfMonth}</span></span>
+        <span className="cal-day-num">
+          <span className="cal-day-num-badge">{day.dayOfMonth}</span>
+        </span>
       </div>
     );
   }
@@ -274,7 +300,9 @@ const DayCell = memo(function DayCell({
     day.isToday && 'cal-day--today',
     !day.inPlan && 'cal-day--outside-plan',
     badge && 'cal-day--modified',
-  ].filter(Boolean).join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const intensityColor = day.planDay ? getIntensityColor(day.planDay) : 'transparent';
   const hasSync = !!day.syncMeta;
@@ -317,18 +345,21 @@ const DayCell = memo(function DayCell({
                 {categoryIcon(cross.category)} {formatHoursMinutes(day.syncMeta.movingTimeSec)}
               </span>
             </span>
-          ) : day.planDay.distanceMi != null && day.planDay.distanceMi > 0 && (
-            <span className="cal-day-distance">
-              {hasSync ? (
-                <>
-                  <span style={{ color: 'var(--apollo-gold)' }}>{formatMiles(day.syncMeta!.actualDistanceMi)}</span>
-                  <span style={{ opacity: 0.5 }}>/</span>
+          ) : (
+            day.planDay.distanceMi != null &&
+            day.planDay.distanceMi > 0 && (
+              <span className="cal-day-distance">
+                {hasSync ? (
+                  <>
+                    <span style={{ color: 'var(--apollo-gold)' }}>{formatMiles(day.syncMeta!.actualDistanceMi)}</span>
+                    <span style={{ opacity: 0.5 }}>/</span>
+                    <span>{formatMiles(day.planDay.distanceMi)}</span>
+                  </>
+                ) : (
                   <span>{formatMiles(day.planDay.distanceMi)}</span>
-                </>
-              ) : (
-                <span>{formatMiles(day.planDay.distanceMi)}</span>
-              )}
-            </span>
+                )}
+              </span>
+            )
           )}
           {/* Progress bar: actual vs planned (runs only) */}
           {hasSync && !cross && day.planDay.distanceMi != null && day.planDay.distanceMi > 0 && (
@@ -337,9 +368,10 @@ const DayCell = memo(function DayCell({
                 className="cal-day-progress-fill"
                 style={{
                   width: `${Math.min((day.syncMeta!.actualDistanceMi / day.planDay.distanceMi) * 100, 100)}%`,
-                  background: day.syncMeta!.actualDistanceMi >= day.planDay.distanceMi * 0.95
-                    ? 'var(--color-success)'
-                    : 'var(--color-warning)',
+                  background:
+                    day.syncMeta!.actualDistanceMi >= day.planDay.distanceMi * 0.95
+                      ? 'var(--color-success)'
+                      : 'var(--color-warning)',
                 }}
               />
             </span>
@@ -367,13 +399,13 @@ const DayCell = memo(function DayCell({
 
 // ─── WeekSummary Component ───────────────────────────────────
 
-const WeekSummary = memo(function WeekSummary({
-  row,
-}: {
-  row: CalendarWeekRow;
-}) {
+const WeekSummary = memo(function WeekSummary({ row }: { row: CalendarWeekRow }) {
   if (!row.planWeekNum) {
-    return <div className="cal-week-summary cal-week-summary--empty" aria-hidden="true"><span className="cal-week-label">—</span></div>;
+    return (
+      <div className="cal-week-summary cal-week-summary--empty" aria-hidden="true">
+        <span className="cal-week-label">—</span>
+      </div>
+    );
   }
   const pct = row.plannedMi > 0 ? Math.min((row.actualMi / row.plannedMi) * 100, 100) : 0;
   return (
@@ -413,17 +445,18 @@ function DayDetail({
   onToggle: () => void;
 }) {
   const { planDay, syncMeta, completed, weekIndex, dayIndex } = day;
-  const toggleCheck = planDay && weekIndex != null && dayIndex != null
-    ? canToggleDayCompletion(startDate, weekIndex, dayIndex, { completed, dayType: planDay.type })
-    : null;
+  const toggleCheck =
+    planDay && weekIndex != null && dayIndex != null
+      ? canToggleDayCompletion(startDate, weekIndex, dayIndex, { completed, dayType: planDay.type })
+      : null;
   const dayName = WEEKDAYS_LONG[weekdayMon0(day.dateKey)];
 
   // Find matching stored activity for route map (source-aware when the meta records its source)
   const matchedActivity = useMemo(() => {
     if (!syncMeta) return null;
-    const matches = getStoredActivities().filter(a => a.id === syncMeta.activityId);
+    const matches = getStoredActivities().filter((a) => a.id === syncMeta.activityId);
     if (matches.length <= 1 || !syncMeta.activitySource) return matches[0] ?? null;
-    return matches.find(a => (a.source ?? 'strava') === syncMeta.activitySource) ?? matches[0];
+    return matches.find((a) => (a.source ?? 'strava') === syncMeta.activitySource) ?? matches[0];
   }, [syncMeta]);
 
   // Effort recognition (runs only)
@@ -461,10 +494,17 @@ function DayDetail({
           </h3>
           <div className="cal-detail-subtitle">
             {dateFormatted}
-            {weekIndex != null && <> · Week {weekIndex + 1}, {dayName}</>}
+            {weekIndex != null && (
+              <>
+                {' '}
+                · Week {weekIndex + 1}, {dayName}
+              </>
+            )}
           </div>
         </div>
-        <button type="button" className="cal-detail-close" onClick={onClose} aria-label="Close day details">×</button>
+        <button type="button" className="cal-detail-close" onClick={onClose} aria-label="Close day details">
+          ×
+        </button>
       </div>
 
       {/* Plan vs Actual comparison */}
@@ -472,7 +512,9 @@ function DayDetail({
         <div className="cal-detail-compare">
           {/* Planned column */}
           <div className="cal-detail-col">
-            <div className="cal-detail-col-label"><span aria-hidden="true">📋 </span>Planned</div>
+            <div className="cal-detail-col-label">
+              <span aria-hidden="true">📋 </span>Planned
+            </div>
             <div className="cal-detail-stat">
               <span className="cal-detail-stat-label">Workout</span>
               <span className="cal-detail-stat-value">{workoutTitle(planDay)}</span>
@@ -487,33 +529,49 @@ function DayDetail({
               <div className="cal-detail-stat">
                 <span className="cal-detail-stat-label">Type</span>
                 <span className="cal-detail-stat-value">
-                  <span aria-hidden="true">{planDayIcon(planDay) || ''} </span>{planDay.note}
+                  <span aria-hidden="true">{planDayIcon(planDay) || ''} </span>
+                  {planDay.note}
                 </span>
               </div>
             )}
             <div className="cal-detail-stat">
               <span className="cal-detail-stat-label">Status</span>
-              <span className="cal-detail-stat-value" style={{
-                color: completed ? 'var(--color-success)' : 'var(--text-muted)',
-              }}>
+              <span
+                className="cal-detail-stat-value"
+                style={{
+                  color: completed ? 'var(--color-success)' : 'var(--text-muted)',
+                }}
+              >
                 {completed ? '✓ Complete' : 'Not done'}
               </span>
             </div>
           </div>
 
           {/* Actual column */}
-          <div className="cal-detail-col" style={{
-            borderColor: syncMeta ? 'rgba(212, 165, 55, 0.2)' : undefined,
-          }}>
+          <div
+            className="cal-detail-col"
+            style={{
+              borderColor: syncMeta ? 'rgba(212, 165, 55, 0.2)' : undefined,
+            }}
+          >
             <div className="cal-detail-col-label">
-              {syncMeta ? <><span aria-hidden="true">⚡ </span>Actual ({sourceLabel})</> : <><span aria-hidden="true">⏳ </span>Actual</>}
+              {syncMeta ? (
+                <>
+                  <span aria-hidden="true">⚡ </span>Actual ({sourceLabel})
+                </>
+              ) : (
+                <>
+                  <span aria-hidden="true">⏳ </span>Actual
+                </>
+              )}
             </div>
             {syncMeta?.crossTraining ? (
               <>
                 <div className="cal-detail-stat">
                   <span className="cal-detail-stat-label">Sport</span>
                   <span className="cal-detail-stat-value" style={{ color: 'var(--apollo-teal)' }}>
-                    <span aria-hidden="true">{categoryIcon(syncMeta.crossTraining.category)} </span>{syncMeta.crossTraining.label}
+                    <span aria-hidden="true">{categoryIcon(syncMeta.crossTraining.category)} </span>
+                    {syncMeta.crossTraining.label}
                   </span>
                 </div>
                 <div className="cal-detail-stat">
@@ -523,7 +581,9 @@ function DayDetail({
                 {syncMeta.crossTraining.distanceMeters > 0 && (
                   <div className="cal-detail-stat">
                     <span className="cal-detail-stat-label">Distance</span>
-                    <span className="cal-detail-stat-value">{formatDistanceShort(syncMeta.crossTraining.distanceMeters)}</span>
+                    <span className="cal-detail-stat-value">
+                      {formatDistanceShort(syncMeta.crossTraining.distanceMeters)}
+                    </span>
                   </div>
                 )}
                 {!!syncMeta.crossTraining.averageWatts && (
@@ -568,11 +628,13 @@ function DayDetail({
                 {planDay.distanceMi != null && planDay.distanceMi > 0 && (
                   <div className="cal-detail-stat">
                     <span className="cal-detail-stat-label">vs Plan</span>
-                    <span className={`cal-detail-stat-value ${
-                      syncMeta.actualDistanceMi >= planDay.distanceMi * 0.95
-                        ? 'cal-detail-stat-value--success'
-                        : 'cal-detail-stat-value--warning'
-                    }`}>
+                    <span
+                      className={`cal-detail-stat-value ${
+                        syncMeta.actualDistanceMi >= planDay.distanceMi * 0.95
+                          ? 'cal-detail-stat-value--success'
+                          : 'cal-detail-stat-value--warning'
+                      }`}
+                    >
                       {syncMeta.actualDistanceMi >= planDay.distanceMi
                         ? `+${formatMiles(syncMeta.actualDistanceMi - planDay.distanceMi)}`
                         : `-${formatMiles(planDay.distanceMi - syncMeta.actualDistanceMi)}`}
@@ -581,9 +643,7 @@ function DayDetail({
                 )}
               </>
             ) : (
-              <div className="cal-detail-empty">
-                {day.inPlan ? 'No synced activity yet' : 'Outside plan range'}
-              </div>
+              <div className="cal-detail-empty">{day.inPlan ? 'No synced activity yet' : 'Outside plan range'}</div>
             )}
           </div>
         </div>
@@ -592,27 +652,34 @@ function DayDetail({
       {/* Effort tier + tags */}
       {(effortRec?.paceTier || syncMeta || (completed && !syncMeta)) && (
         <div className="cal-detail-tags">
-          {effortRec?.paceTier && (() => {
-            const tc = TIER_CONFIG[effortRec.paceTier];
-            return (
-              <span className="cal-detail-tag" style={{ background: tc.bg, color: tc.color }}>
-                {tc.label}
-              </span>
-            );
-          })()}
+          {effortRec?.paceTier &&
+            (() => {
+              const tc = TIER_CONFIG[effortRec.paceTier];
+              return (
+                <span className="cal-detail-tag" style={{ background: tc.bg, color: tc.color }}>
+                  {tc.label}
+                </span>
+              );
+            })()}
           {syncMeta && (
-            <span className="cal-detail-tag" style={{
-              background: 'var(--apollo-gold-dim)',
-              color: 'var(--apollo-gold)',
-            }}>
+            <span
+              className="cal-detail-tag"
+              style={{
+                background: 'var(--apollo-gold-dim)',
+                color: 'var(--apollo-gold)',
+              }}
+            >
               {sourceKey === 'file' ? 'Imported from a file' : `Synced via ${sourceLabel}`}
             </span>
           )}
           {completed && !syncMeta && (
-            <span className="cal-detail-tag" style={{
-              background: 'var(--color-success-dim)',
-              color: 'var(--color-success)',
-            }}>
+            <span
+              className="cal-detail-tag"
+              style={{
+                background: 'var(--color-success-dim)',
+                color: 'var(--color-success)',
+              }}
+            >
               Manually completed
             </span>
           )}
@@ -658,7 +725,9 @@ function DayDetail({
             </button>
           )}
           {planDay.type !== 'rest' && toggleCheck?.message && (
-            <span id={`${id}-toggle-why`} className="cal-detail-hint">{toggleCheck.message}</span>
+            <span id={`${id}-toggle-why`} className="cal-detail-hint">
+              {toggleCheck.message}
+            </span>
           )}
           {actions}
         </div>
@@ -695,7 +764,7 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
 
   // Find selected day
   const selectedDay = useMemo(
-    () => (selectedDateKey ? monthDays.find((d) => d.dateKey === selectedDateKey) ?? null : null),
+    () => (selectedDateKey ? (monthDays.find((d) => d.dateKey === selectedDateKey) ?? null) : null),
     [selectedDateKey, monthDays],
   );
 
@@ -717,18 +786,24 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
 
   const showMonthOf = useCallback((key: string) => {
     const d = parseDateKey(key);
-    setView((v) => (v.viewYear === d.getFullYear() && v.viewMonth === d.getMonth()
-      ? v
-      : { viewYear: d.getFullYear(), viewMonth: d.getMonth() }));
+    setView((v) =>
+      v.viewYear === d.getFullYear() && v.viewMonth === d.getMonth()
+        ? v
+        : { viewYear: d.getFullYear(), viewMonth: d.getMonth() },
+    );
   }, []);
 
   // Month navigation
   const goToPrevMonth = useCallback(() => {
-    setView(({ viewYear: y, viewMonth: m }) => (m === 0 ? { viewYear: y - 1, viewMonth: 11 } : { viewYear: y, viewMonth: m - 1 }));
+    setView(({ viewYear: y, viewMonth: m }) =>
+      m === 0 ? { viewYear: y - 1, viewMonth: 11 } : { viewYear: y, viewMonth: m - 1 },
+    );
   }, []);
 
   const goToNextMonth = useCallback(() => {
-    setView(({ viewYear: y, viewMonth: m }) => (m === 11 ? { viewYear: y + 1, viewMonth: 0 } : { viewYear: y, viewMonth: m + 1 }));
+    setView(({ viewYear: y, viewMonth: m }) =>
+      m === 11 ? { viewYear: y + 1, viewMonth: 0 } : { viewYear: y, viewMonth: m + 1 },
+    );
   }, []);
 
   const goToToday = useCallback(() => {
@@ -758,31 +833,34 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
   }, [selectedDay, onToggleDay]);
 
   /** Arrow keys move between days (crossing into the next/previous month); Home/End go to the week's ends. */
-  const onGridKeyDown = useCallback((e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'Escape') {
-      handleClose();
-      return;
-    }
-    const target = e.target as HTMLElement;
-    const from = target.getAttribute?.('data-date');
-    if (!from || target.tagName !== 'BUTTON') return;
-    if (e.key === 'Enter') {
-      // Handled here (not via the native button click) so it toggles exactly once everywhere.
+  const onGridKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Escape') {
+        handleClose();
+        return;
+      }
+      const target = e.target as HTMLElement;
+      const from = target.getAttribute?.('data-date');
+      if (!from || target.tagName !== 'BUTTON') return;
+      if (e.key === 'Enter') {
+        // Handled here (not via the native button click) so it toggles exactly once everywhere.
+        e.preventDefault();
+        handleSelect(from);
+        return;
+      }
+      const deltas: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+      let next: string | null = null;
+      if (e.key in deltas) next = addDays(from, deltas[e.key]);
+      else if (e.key === 'Home') next = mondayOf(from);
+      else if (e.key === 'End') next = addDays(mondayOf(from), 6);
+      if (!next) return;
       e.preventDefault();
-      handleSelect(from);
-      return;
-    }
-    const deltas: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
-    let next: string | null = null;
-    if (e.key in deltas) next = addDays(from, deltas[e.key]);
-    else if (e.key === 'Home') next = mondayOf(from);
-    else if (e.key === 'End') next = addDays(mondayOf(from), 6);
-    if (!next) return;
-    e.preventDefault();
-    pendingFocusRef.current = next;
-    setFocusKey(next);
-    showMonthOf(next);
-  }, [showMonthOf, handleClose, handleSelect]);
+      pendingFocusRef.current = next;
+      setFocusKey(next);
+      showMonthOf(next);
+    },
+    [showMonthOf, handleClose, handleSelect],
+  );
 
   const monthLabel = new Date(viewYear, viewMonth).toLocaleDateString(undefined, {
     month: 'long',
@@ -791,22 +869,36 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
 
   const detailId = `${baseId}-detail`;
   const monthKey = `${viewYear}-${viewMonth}`;
-  const selectedBadge = selectedDay && selectedDay.weekIndex != null && selectedDay.dayIndex != null
-    ? getDayBadge?.(selectedDay.weekIndex, selectedDay.dayIndex) ?? null
-    : null;
-  const selectedActions = selectedDay && selectedDay.weekIndex != null && selectedDay.dayIndex != null && renderDayActions
-    ? renderDayActions({ weekIndex: selectedDay.weekIndex, dayIndex: selectedDay.dayIndex, dateKey: selectedDay.dateKey })
-    : null;
+  const selectedBadge =
+    selectedDay && selectedDay.weekIndex != null && selectedDay.dayIndex != null
+      ? (getDayBadge?.(selectedDay.weekIndex, selectedDay.dayIndex) ?? null)
+      : null;
+  const selectedActions =
+    selectedDay && selectedDay.weekIndex != null && selectedDay.dayIndex != null && renderDayActions
+      ? renderDayActions({
+          weekIndex: selectedDay.weekIndex,
+          dayIndex: selectedDay.dayIndex,
+          dateKey: selectedDay.dateKey,
+        })
+      : null;
 
   return (
     <div className="cal">
       {/* Month navigation */}
       <div className="cal-nav">
-        <h3 className="cal-nav-title" id={`${baseId}-month`} aria-live="polite">{monthLabel}</h3>
+        <h3 className="cal-nav-title" id={`${baseId}-month`} aria-live="polite">
+          {monthLabel}
+        </h3>
         <div className="cal-nav-btns">
-          <button type="button" className="cal-nav-today" onClick={goToToday}>Today</button>
-          <button type="button" className="cal-nav-btn" onClick={goToPrevMonth} aria-label="Previous month">‹</button>
-          <button type="button" className="cal-nav-btn" onClick={goToNextMonth} aria-label="Next month">›</button>
+          <button type="button" className="cal-nav-today" onClick={goToToday}>
+            Today
+          </button>
+          <button type="button" className="cal-nav-btn" onClick={goToPrevMonth} aria-label="Previous month">
+            ‹
+          </button>
+          <button type="button" className="cal-nav-btn" onClick={goToNextMonth} aria-label="Next month">
+            ›
+          </button>
         </div>
       </div>
       <p className="cal-sr-only" id={`${baseId}-hint`}>
@@ -815,8 +907,10 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
 
       {/* Weekday headers */}
       <div className="cal-header" aria-hidden="true">
-        {WEEKDAYS.map(d => (
-          <div key={d} className="cal-header-day">{d}</div>
+        {WEEKDAYS.map((d) => (
+          <div key={d} className="cal-header-day">
+            {d}
+          </div>
         ))}
         <div className="cal-header-summary">Week</div>
       </div>
@@ -839,7 +933,11 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
                 day={day}
                 isSelected={day.dateKey === selectedDateKey}
                 isFocusTarget={day.dateKey === rovingKey}
-                badge={day.weekIndex != null && day.dayIndex != null ? getDayBadge?.(day.weekIndex, day.dayIndex) ?? null : null}
+                badge={
+                  day.weekIndex != null && day.dayIndex != null
+                    ? (getDayBadge?.(day.weekIndex, day.dayIndex) ?? null)
+                    : null
+                }
                 detailId={detailId}
                 onSelect={handleSelect}
               />
@@ -886,11 +984,15 @@ export default function CalendarView({ plan, active, onToggleDay, version = 0, r
           Cross Training
         </div>
         <div className="cal-legend-item">
-          <span className="cal-day-check cal-day-check--synced cal-legend-check" aria-hidden="true">✓</span>
+          <span className="cal-day-check cal-day-check--synced cal-legend-check" aria-hidden="true">
+            ✓
+          </span>
           Synced
         </div>
         <div className="cal-legend-item">
-          <span className="cal-day-check cal-day-check--done cal-legend-check" aria-hidden="true">✓</span>
+          <span className="cal-day-check cal-day-check--done cal-legend-check" aria-hidden="true">
+            ✓
+          </span>
           Completed
         </div>
       </div>

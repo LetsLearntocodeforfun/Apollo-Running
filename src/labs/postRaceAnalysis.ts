@@ -24,7 +24,7 @@ export interface MileComparison {
   mile: number;
   plannedPaceSec: number;
   actualPaceSec: number;
-  deltaSec: number;           // positive = slower than plan
+  deltaSec: number; // positive = slower than plan
   plannedCumSec: number;
   actualCumSec: number;
   cumDeltaSec: number;
@@ -37,7 +37,7 @@ export interface SplitAnalysis {
   secondHalfActualSec: number;
   firstHalfPlannedSec: number;
   secondHalfPlannedSec: number;
-  actualSplitDiff: number;     // positive = positive split
+  actualSplitDiff: number; // positive = positive split
   plannedSplitDiff: number;
   splitType: 'negative' | 'even' | 'positive';
 }
@@ -80,7 +80,11 @@ const STORAGE_KEY = 'apollo_post_race_reports';
 function loadReports(): PostRaceReport[] {
   const raw = persistence.getItem(STORAGE_KEY);
   if (!raw) return [];
-  try { return JSON.parse(raw); } catch { return []; }
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return [];
+  }
 }
 
 function saveReports(reports: PostRaceReport[]): void {
@@ -242,7 +246,8 @@ export function analyzeRace(
     const segPlanned = planned.filter((p) => p.mile >= seg.startMile && p.mile <= seg.endMile);
 
     const avgActual = segActual.length > 0 ? segActual.reduce((s, m) => s + m.paceSec, 0) / segActual.length : 0;
-    const avgPlanned = segPlanned.length > 0 ? segPlanned.reduce((s, m) => s + m.targetPaceSec, 0) / segPlanned.length : 0;
+    const avgPlanned =
+      segPlanned.length > 0 ? segPlanned.reduce((s, m) => s + m.targetPaceSec, 0) / segPlanned.length : 0;
 
     return {
       label: seg.label,
@@ -301,30 +306,42 @@ function generateInsights(
   if (Math.abs(finishDelta) <= 60) {
     insights.push(`Finished within 1 minute of target — excellent pacing discipline.`);
   } else if (finishDelta > 0) {
-    insights.push(`Finished ${formatTime(finishDelta)} slower than target. ${finishDelta > 300 ? 'Significant deviation — review contributing factors.' : 'Minor deviation — adjustable with small pacing tweaks.'}`);
+    insights.push(
+      `Finished ${formatTime(finishDelta)} slower than target. ${finishDelta > 300 ? 'Significant deviation — review contributing factors.' : 'Minor deviation — adjustable with small pacing tweaks.'}`,
+    );
   } else {
-    insights.push(`Finished ${formatTime(Math.abs(finishDelta))} faster than target — you may be undertargeting. Consider a more aggressive goal next time.`);
+    insights.push(
+      `Finished ${formatTime(Math.abs(finishDelta))} faster than target — you may be undertargeting. Consider a more aggressive goal next time.`,
+    );
   }
 
   // Split type
   if (splits.splitType === 'negative') {
-    insights.push(`Negative split by ${formatTime(Math.abs(splits.actualSplitDiff))} — strong execution. Running the second half faster demonstrates excellent fatigue resistance.`);
+    insights.push(
+      `Negative split by ${formatTime(Math.abs(splits.actualSplitDiff))} — strong execution. Running the second half faster demonstrates excellent fatigue resistance.`,
+    );
   } else if (splits.splitType === 'positive' && splits.actualSplitDiff > 180) {
-    insights.push(`Positive split by ${formatTime(splits.actualSplitDiff)}. A conservative first half saves ~${Math.round(splits.actualSplitDiff * 0.3)}s overall by preventing late-race fade.`);
+    insights.push(
+      `Positive split by ${formatTime(splits.actualSplitDiff)}. A conservative first half saves ~${Math.round(splits.actualSplitDiff * 0.3)}s overall by preventing late-race fade.`,
+    );
   }
 
   // Early miles
   const earlyFast = miles.filter((m) => m.mile <= 5 && m.deltaSec < -10);
   if (earlyFast.length >= 3) {
     const avgFast = Math.round(earlyFast.reduce((s, m) => s + Math.abs(m.deltaSec), 0) / earlyFast.length);
-    insights.push(`You went out ${avgFast}s/mi faster than planned in the first 5 miles. This is the #1 correlator of late-race slowdown.`);
+    insights.push(
+      `You went out ${avgFast}s/mi faster than planned in the first 5 miles. This is the #1 correlator of late-race slowdown.`,
+    );
   }
 
   // The wall check (miles 20-26)
   const wallMiles = miles.filter((m) => m.mile >= 20 && m.deltaSec > 20);
   if (wallMiles.length >= 3) {
     const avgSlow = Math.round(wallMiles.reduce((s, m) => s + m.deltaSec, 0) / wallMiles.length);
-    insights.push(`Significant slowdown of +${avgSlow}s/mi after mile 20 — classic "wall" pattern. Focus on fueling, more long runs at MP, and conservative early pacing.`);
+    insights.push(
+      `Significant slowdown of +${avgSlow}s/mi after mile 20 — classic "wall" pattern. Focus on fueling, more long runs at MP, and conservative early pacing.`,
+    );
   }
 
   // Consistency
@@ -333,14 +350,18 @@ function generateInsights(
   if (pct >= 70) {
     insights.push(`${pct}% of miles were within ±5s of target — exceptional pacing consistency.`);
   } else if (pct < 40) {
-    insights.push(`Only ${pct}% of miles were within ±5s of target. Practice running by effort and checking pace less frequently to build internal pacing sense.`);
+    insights.push(
+      `Only ${pct}% of miles were within ±5s of target. Practice running by effort and checking pace less frequently to build internal pacing sense.`,
+    );
   }
 
   // Best/worst segments
-  const bestSeg = segments.reduce((best, seg) => Math.abs(seg.deltaSec) < Math.abs(best.deltaSec) ? seg : best);
-  const worstSeg = segments.reduce((worst, seg) => Math.abs(seg.deltaSec) > Math.abs(worst.deltaSec) ? seg : worst);
+  const bestSeg = segments.reduce((best, seg) => (Math.abs(seg.deltaSec) < Math.abs(best.deltaSec) ? seg : best));
+  const worstSeg = segments.reduce((worst, seg) => (Math.abs(seg.deltaSec) > Math.abs(worst.deltaSec) ? seg : worst));
   if (Math.abs(worstSeg.deltaSec) > 15) {
-    insights.push(`Strongest execution: ${bestSeg.label} (${formatPace(bestSeg.avgPaceSec)}/mi, Δ${bestSeg.deltaSec > 0 ? '+' : ''}${bestSeg.deltaSec}s). Weakest: ${worstSeg.label} (${formatPace(worstSeg.avgPaceSec)}/mi, Δ+${Math.abs(worstSeg.deltaSec)}s).`);
+    insights.push(
+      `Strongest execution: ${bestSeg.label} (${formatPace(bestSeg.avgPaceSec)}/mi, Δ${bestSeg.deltaSec > 0 ? '+' : ''}${bestSeg.deltaSec}s). Weakest: ${worstSeg.label} (${formatPace(worstSeg.avgPaceSec)}/mi, Δ+${Math.abs(worstSeg.deltaSec)}s).`,
+    );
   }
 
   return insights;

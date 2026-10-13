@@ -11,7 +11,12 @@ import { startPlan, getActivePlan, getDateKeyForDay, getRaceDayRef, getWeekDayFo
 import { getEffectivePlan, getEffectiveDay } from '../services/planOverlay';
 import CalendarView from '../components/CalendarView';
 import { DayActionsMenu, getDayBadges } from '../components/plan/DayActionsMenu';
-import { RaceDatePlanSetup, planSetupToStartInput, planSetupError, type PlanSetupValue } from '../components/plan/RaceDatePlanSetup';
+import {
+  RaceDatePlanSetup,
+  planSetupToStartInput,
+  planSetupError,
+  type PlanSetupValue,
+} from '../components/plan/RaceDatePlanSetup';
 import PhaseRibbon from '../components/plan/PhaseRibbon';
 import { computePlanProgress, workoutTitle, workoutSummary, formatDayLabel } from '../components/plan/planDisplay';
 import { describePushStatus } from '../components/PlanCalendarPush';
@@ -118,7 +123,15 @@ describe('DayActionsMenu (plan overlay)', () => {
     expect(ref).not.toBeNull();
     const label = formatDayLabel(getDateKeyForDay(active.startDate, ref.weekIndex, ref.dayIndex));
     const onChanged = vi.fn();
-    const { rerender } = render(<DayActionsMenu plan={plan} weekIndex={ref.weekIndex} dayIndex={ref.dayIndex} dayLabel={label} onChanged={onChanged} />);
+    const { rerender } = render(
+      <DayActionsMenu
+        plan={plan}
+        weekIndex={ref.weekIndex}
+        dayIndex={ref.dayIndex}
+        dayLabel={label}
+        onChanged={onChanged}
+      />,
+    );
 
     const trigger = screen.getByRole('button', { name: new RegExp(`^Change ${label}`) });
     expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
@@ -134,7 +147,15 @@ describe('DayActionsMenu (plan overlay)', () => {
     const updated = getEffectivePlan()!;
     expect(getDayBadges(updated).get(`${ref.weekIndex}:${ref.dayIndex}`)).toBe('Skipped');
 
-    rerender(<DayActionsMenu plan={updated} weekIndex={ref.weekIndex} dayIndex={ref.dayIndex} dayLabel={label} onChanged={onChanged} />);
+    rerender(
+      <DayActionsMenu
+        plan={updated}
+        weekIndex={ref.weekIndex}
+        dayIndex={ref.dayIndex}
+        dayLabel={label}
+        onChanged={onChanged}
+      />,
+    );
     fireEvent.click(screen.getByRole('button', { name: new RegExp(`^Change ${label}`) }));
     expect(screen.queryByRole('menuitem', { name: 'Skip' })).toBeNull();
     fireEvent.click(screen.getByRole('menuitem', { name: /Undo last change/ }));
@@ -166,19 +187,34 @@ describe('DayActionsMenu (plan overlay)', () => {
   it('renders nothing for race day (it cannot be changed) when there is nothing to undo', () => {
     const { plan } = startTestPlan();
     const race = getRaceDayRef(plan);
-    const { container } = render(<DayActionsMenu plan={plan} weekIndex={race.weekIndex} dayIndex={race.dayIndex} dayLabel="Race day" />);
+    const { container } = render(
+      <DayActionsMenu plan={plan} weekIndex={race.weekIndex} dayIndex={race.dayIndex} dayLabel="Race day" />,
+    );
     expect(container.innerHTML).toBe('');
   });
 });
 
 describe('RaceDatePlanSetup', () => {
   const plan = getPlanById(PLAN_ID)!;
-  const value = (v: Partial<PlanSetupValue>): PlanSetupValue => ({ raceDate: '', useStartDate: false, startDate: '', ...v });
+  const value = (v: Partial<PlanSetupValue>): PlanSetupValue => ({
+    raceDate: '',
+    useStartDate: false,
+    startDate: '',
+    ...v,
+  });
 
   it('previews a plan that fits, with the Monday start date', () => {
     // 18 weeks from the Monday of TODAY (2026-10-05) through race week → the full plan fits.
     const fitsRace = '2027-02-07';
-    render(<RaceDatePlanSetup plan={plan} value={value({ raceDate: fitsRace })} onChange={vi.fn()} idPrefix="t" today={TODAY} />);
+    render(
+      <RaceDatePlanSetup
+        plan={plan}
+        value={value({ raceDate: fitsRace })}
+        onChange={vi.fn()}
+        idPrefix="t"
+        today={TODAY}
+      />,
+    );
     const status = screen.getByRole('status');
     expect(status.textContent).toMatch(/fit — week 1 starts/);
     expect(status.textContent).toMatch(/Monday, October 5, 2026/);
@@ -186,24 +222,48 @@ describe('RaceDatePlanSetup', () => {
   });
 
   it('says which week a late starter joins at', () => {
-    render(<RaceDatePlanSetup plan={plan} value={value({ raceDate: '2026-11-15' })} onChange={vi.fn()} idPrefix="t" today={TODAY} />);
+    render(
+      <RaceDatePlanSetup
+        plan={plan}
+        value={value({ raceDate: '2026-11-15' })}
+        onChange={vi.fn()}
+        idPrefix="t"
+        today={TODAY}
+      />,
+    );
     expect(screen.getByRole('status').textContent).toMatch(/You join at week \d+ of \d+/);
   });
 
   it('advanced start date snaps to Monday with a visible note', () => {
     const onChange = vi.fn();
-    const { rerender } = render(<RaceDatePlanSetup plan={plan} value={value({})} onChange={onChange} idPrefix="t" today={TODAY} />);
+    const { rerender } = render(
+      <RaceDatePlanSetup plan={plan} value={value({})} onChange={onChange} idPrefix="t" today={TODAY} />,
+    );
     fireEvent.click(screen.getByLabelText('Advanced: choose a start date instead'));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ useStartDate: true }));
-    rerender(<RaceDatePlanSetup plan={plan} value={value({ useStartDate: true, startDate: '2026-10-14' })} onChange={onChange} idPrefix="t" today={TODAY} />);
+    rerender(
+      <RaceDatePlanSetup
+        plan={plan}
+        value={value({ useStartDate: true, startDate: '2026-10-14' })}
+        onChange={onChange}
+        idPrefix="t"
+        today={TODAY}
+      />,
+    );
     expect(screen.getByRole('status').textContent).toMatch(/snaps to Monday, October 12, 2026/);
   });
 
   it('planSetupToStartInput validates the value', () => {
     expect(planSetupToStartInput(PLAN_ID, value({}), TODAY)).toBeNull();
     expect(planSetupError(value({ raceDate: '2026-01-01' }), TODAY)).toMatch(/past/);
-    expect(planSetupToStartInput(PLAN_ID, value({ raceDate: RACE }), TODAY)).toEqual({ planId: PLAN_ID, raceDate: RACE });
-    expect(planSetupToStartInput(PLAN_ID, value({ useStartDate: true, startDate: '2026-10-14' }), TODAY)).toEqual({ planId: PLAN_ID, startDate: '2026-10-14' });
+    expect(planSetupToStartInput(PLAN_ID, value({ raceDate: RACE }), TODAY)).toEqual({
+      planId: PLAN_ID,
+      raceDate: RACE,
+    });
+    expect(planSetupToStartInput(PLAN_ID, value({ useStartDate: true, startDate: '2026-10-14' }), TODAY)).toEqual({
+      planId: PLAN_ID,
+      startDate: '2026-10-14',
+    });
   });
 });
 
@@ -235,9 +295,13 @@ describe('plan display helpers', () => {
     setDistanceUnit('km');
     expect(workoutTitle({ type: 'run', label: '5 mi tempo', distanceMi: 5, note: 'Tempo' })).toBe('Tempo run');
     expect(workoutSummary({ type: 'run', label: '5 mi tempo', distanceMi: 5 })).not.toMatch(/\bmi\b/);
-    expect(workoutTitle({ type: 'rest', label: 'Skipped: 5 mi tempo', skipped: true, originalLabel: '5 mi tempo' })).toBe('Skipped');
+    expect(
+      workoutTitle({ type: 'rest', label: 'Skipped: 5 mi tempo', skipped: true, originalLabel: '5 mi tempo' }),
+    ).toBe('Skipped');
     // V11 race-week shakeout labels use a distance range.
-    expect(workoutTitle({ type: 'run', label: '2–3 mi shakeout + strides', distanceMi: 2.5, note: 'Easy' })).toBe('Shakeout + strides');
+    expect(workoutTitle({ type: 'run', label: '2–3 mi shakeout + strides', distanceMi: 2.5, note: 'Easy' })).toBe(
+      'Shakeout + strides',
+    );
     setDistanceUnit('mi');
   });
 });
@@ -267,9 +331,17 @@ describe('push status and restart confirmation copy', () => {
 
   it('asks before clearing stored progress of a new plan instance', () => {
     const base = { active: { planId: PLAN_ID, startDate: '2026-09-28' }, instanceId: 'x', placement: null };
-    expect(startNeedsConfirm({ ...base, isNewInstance: true, clears: { completions: 3, syncMeta: 0, overlay: false } })).toBe(true);
-    expect(startNeedsConfirm({ ...base, isNewInstance: true, clears: { completions: 0, syncMeta: 0, overlay: false } })).toBe(false);
-    expect(startNeedsConfirm({ ...base, isNewInstance: false, clears: { completions: 3, syncMeta: 0, overlay: true } })).toBe(false);
-    expect(describeClears({ completions: 1, syncMeta: 2, overlay: true })).toBe('1 completed day, your moves and skips, 2 activity matches');
+    expect(
+      startNeedsConfirm({ ...base, isNewInstance: true, clears: { completions: 3, syncMeta: 0, overlay: false } }),
+    ).toBe(true);
+    expect(
+      startNeedsConfirm({ ...base, isNewInstance: true, clears: { completions: 0, syncMeta: 0, overlay: false } }),
+    ).toBe(false);
+    expect(
+      startNeedsConfirm({ ...base, isNewInstance: false, clears: { completions: 3, syncMeta: 0, overlay: true } }),
+    ).toBe(false);
+    expect(describeClears({ completions: 1, syncMeta: 2, overlay: true })).toBe(
+      '1 completed day, your moves and skips, 2 activity matches',
+    );
   });
 });

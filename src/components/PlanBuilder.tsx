@@ -55,7 +55,7 @@ const WORKOUT_TYPE_OPTIONS: { value: CustomDayType; label: string }[] = [
 ];
 
 /** Types offered in the per-day selects. The long run has its own radio group, so there is always exactly one. */
-const DAY_TYPE_OPTIONS = WORKOUT_TYPE_OPTIONS.filter(o => o.value !== 'long');
+const DAY_TYPE_OPTIONS = WORKOUT_TYPE_OPTIONS.filter((o) => o.value !== 'long');
 
 /** Short phase names for the week badges (the legend uses the full labels). */
 const PHASE_SHORT: Record<PhaseName, string> = {
@@ -107,25 +107,25 @@ function getDefaultAssignments(runningDays: number): Record<number, CustomDayTyp
       assignments[6] = 'long'; // Sun
       break;
     case 4:
-      assignments[1] = 'easy';  // Tue
+      assignments[1] = 'easy'; // Tue
       assignments[2] = 'tempo'; // Wed
-      assignments[4] = 'easy';  // Fri
-      assignments[6] = 'long';  // Sun
+      assignments[4] = 'easy'; // Fri
+      assignments[6] = 'long'; // Sun
       break;
     case 5:
-      assignments[1] = 'easy';  // Tue
+      assignments[1] = 'easy'; // Tue
       assignments[2] = 'tempo'; // Wed
-      assignments[3] = 'easy';  // Thu
-      assignments[5] = 'easy';  // Sat
-      assignments[6] = 'long';  // Sun
+      assignments[3] = 'easy'; // Thu
+      assignments[5] = 'easy'; // Sat
+      assignments[6] = 'long'; // Sun
       break;
     case 6:
-      assignments[0] = 'easy';        // Mon
-      assignments[1] = 'tempo';       // Tue
-      assignments[2] = 'easy';        // Wed
+      assignments[0] = 'easy'; // Mon
+      assignments[1] = 'tempo'; // Tue
+      assignments[2] = 'easy'; // Wed
       assignments[3] = 'marathon_pace'; // Thu
       assignments[5] = 'medium_long'; // Sat
-      assignments[6] = 'long';        // Sun
+      assignments[6] = 'long'; // Sun
       break;
     default:
       assignments[1] = 'easy';
@@ -208,7 +208,7 @@ function getConfigIssues({ totalWeeks, currentMiles, peakMiles }: ConfigDraft, u
   if (!(peakMiles >= currentMiles + PEAK_GAP_MI - EPS)) {
     issues.push(
       `Peak weekly distance must be at least ${ceilUnit(currentMiles + PEAK_GAP_MI, unit)} ${u} ` +
-      `(${formatWhole(PEAK_GAP_MI, unit)} above your current weekly distance).`,
+        `(${formatWhole(PEAK_GAP_MI, unit)} above your current weekly distance).`,
     );
   }
   if (!(peakMiles <= PEAK_MAX_MI + EPS)) {
@@ -219,7 +219,7 @@ function getConfigIssues({ totalWeeks, currentMiles, peakMiles }: ConfigDraft, u
 
 /** Running days: every day that isn't rest or cross-training (the long run counts). */
 function countRunDays(assignments: Record<number, CustomDayType>): number {
-  return Object.values(assignments).filter(v => v !== 'rest' && v !== 'cross').length;
+  return Object.values(assignments).filter((v) => v !== 'rest' && v !== 'cross').length;
 }
 
 /** Day index (0 = Mon) of the long run, or -1. */
@@ -247,16 +247,18 @@ function getAssignIssues(assignments: Record<number, CustomDayType>): string[] {
     issues.push(`Assign at least ${RUN_DAYS_MIN} running days (you have ${runDays}).`);
   }
   if (runDays > RUN_DAYS_MAX) {
-    issues.push(`Assign at most ${RUN_DAYS_MAX} running days (you have ${runDays}). Make one a rest or cross-training day.`);
+    issues.push(
+      `Assign at most ${RUN_DAYS_MAX} running days (you have ${runDays}). Make one a rest or cross-training day.`,
+    );
   }
-  if (Object.values(assignments).filter(v => v === 'long').length !== 1) {
+  if (Object.values(assignments).filter((v) => v === 'long').length !== 1) {
     issues.push('Choose exactly one long-run day.');
   }
   return issues;
 }
 
 function phaseForWeek(phases: TrainingPhase[], weekIndex: number): TrainingPhase | undefined {
-  return phases.find(p => weekIndex >= p.startWeek && weekIndex <= p.endWeek);
+  return phases.find((p) => weekIndex >= p.startWeek && weekIndex <= p.endWeek);
 }
 
 /** "week 18" / "weeks 1–6" (1-based). */
@@ -315,7 +317,9 @@ interface RangeFieldProps {
 function RangeField({ id, label, min, max, value, valueText, onChange, describedBy, children }: RangeFieldProps) {
   return (
     <div className="plan-builder-field">
-      <label htmlFor={id} className="plan-builder-label">{label}</label>
+      <label htmlFor={id} className="plan-builder-label">
+        {label}
+      </label>
       <div className="plan-builder-range-row">
         <input
           id={id}
@@ -326,10 +330,12 @@ function RangeField({ id, label, min, max, value, valueText, onChange, described
           value={value}
           aria-valuetext={valueText}
           aria-describedby={describedBy}
-          onChange={e => onChange(Number(e.target.value))}
+          onChange={(e) => onChange(Number(e.target.value))}
           className="plan-builder-slider"
         />
-        <span className="plan-builder-range-value" aria-hidden="true">{valueText}</span>
+        <span className="plan-builder-range-value" aria-hidden="true">
+          {valueText}
+        </span>
       </div>
       {children}
     </div>
@@ -342,7 +348,9 @@ function IssueList({ id, issues }: { id: string; issues: string[] }) {
     <div id={id} role="alert" className="pb-issues">
       {issues.length > 0 && (
         <ul>
-          {issues.map(message => <li key={message}>{message}</li>)}
+          {issues.map((message) => (
+            <li key={message}>{message}</li>
+          ))}
         </ul>
       )}
     </div>
@@ -367,8 +375,8 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
   const [peakNote, setPeakNote] = useState('');
 
   // Day assignment state
-  const [assignments, setAssignments] = useState<Record<number, CustomDayType>>(
-    () => getDefaultAssignments(initial.runningDays),
+  const [assignments, setAssignments] = useState<Record<number, CustomDayType>>(() =>
+    getDefaultAssignments(initial.runningDays),
   );
 
   // Preview state
@@ -430,11 +438,11 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
   const handleAssignmentChange = (dayIndex: number, value: CustomDayType) => {
     // The long run is moved only through the radio group, which keeps exactly one.
     if (value === 'long') return;
-    setAssignments(prev => (prev[dayIndex] === 'long' ? prev : { ...prev, [dayIndex]: value }));
+    setAssignments((prev) => (prev[dayIndex] === 'long' ? prev : { ...prev, [dayIndex]: value }));
   };
 
   const handleLongDayChange = (dayIndex: number) => {
-    setAssignments(prev => moveLongRun(prev, dayIndex));
+    setAssignments((prev) => moveLongRun(prev, dayIndex));
   };
 
   const handleRunningDaysChange = (newDays: number) => {
@@ -476,19 +484,21 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
         <div className="plan-builder-header">
           <h2 className="plan-builder-title">Build Your Marathon Plan</h2>
           <p className="plan-builder-subtitle">
-            Configure your plan parameters. Apollo will generate a progressive training plan
-            with cutback weeks and a race-week taper.
+            Configure your plan parameters. Apollo will generate a progressive training plan with cutback weeks and a
+            race-week taper.
           </p>
         </div>
 
         <div className="plan-builder-form">
           <div className="plan-builder-field">
-            <label htmlFor={ids.name} className="plan-builder-label">Plan Name</label>
+            <label htmlFor={ids.name} className="plan-builder-label">
+              Plan Name
+            </label>
             <input
               id={ids.name}
               type="text"
               value={name}
-              onChange={e => setName(e.target.value)}
+              onChange={(e) => setName(e.target.value)}
               className="plan-builder-input"
               placeholder="My Custom Marathon Plan"
               maxLength={60}
@@ -537,9 +547,12 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
               describedBy={ids.peakHint}
             >
               <p id={ids.peakHint} className="pb-hint">
-                At least {peakMin} {unitLabel(unit)}: {formatWhole(PEAK_GAP_MI, unit)} above your current weekly distance.
+                At least {peakMin} {unitLabel(unit)}: {formatWhole(PEAK_GAP_MI, unit)} above your current weekly
+                distance.
               </p>
-              <p className="pb-hint pb-hint--status" role="status">{peakNote}</p>
+              <p className="pb-hint pb-hint--status" role="status">
+                {peakNote}
+              </p>
             </RangeField>
           </div>
         </div>
@@ -613,16 +626,19 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                 ) : (
                   <>
                     <label htmlFor={dayId(idx)} className="plan-builder-day-name">
-                      {dayName}<span className="sr-only"> workout</span>
+                      {dayName}
+                      <span className="sr-only"> workout</span>
                     </label>
                     <select
                       id={dayId(idx)}
                       value={assigned}
-                      onChange={e => handleAssignmentChange(idx, e.target.value as CustomDayType)}
+                      onChange={(e) => handleAssignmentChange(idx, e.target.value as CustomDayType)}
                       className="plan-builder-day-select"
                     >
-                      {DAY_TYPE_OPTIONS.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
+                      {DAY_TYPE_OPTIONS.map((o) => (
+                        <option key={o.value} value={o.value}>
+                          {o.label}
+                        </option>
                       ))}
                     </select>
                   </>
@@ -639,7 +655,9 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
             <span aria-hidden="true">{runDaysOk ? '✓ ' : '✗ '}</span>
             {assignedRunDays} running day{assignedRunDays !== 1 ? 's' : ''} assigned
           </span>
-          <span className="pb-summary-sep" aria-hidden="true">·</span>
+          <span className="pb-summary-sep" aria-hidden="true">
+            ·
+          </span>
           <span className={longDay >= 0 ? 'pb-status-ok' : 'pb-status-error'}>
             {longDay >= 0 ? `Long run: ${DAY_FULL_NAMES[longDay]}` : 'Need a long run day'}
           </span>
@@ -650,10 +668,24 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
           <div className="plan-builder-pace-card">
             <div className="plan-builder-pace-title">Your VDOT Pace Targets (VDOT {savedPaces.vdot})</div>
             <div className="plan-builder-pace-grid">
-              <div><span className="plan-builder-pace-label">Easy</span> <span className="plan-builder-pace-value">{formatPaceRangeForUnit(savedPaces.easy.min, savedPaces.easy.max, unit)}</span></div>
-              <div><span className="plan-builder-pace-label">Marathon</span> <span className="plan-builder-pace-value">{formatPaceForUnit(savedPaces.marathon, unit)}</span></div>
-              <div><span className="plan-builder-pace-label">Threshold</span> <span className="plan-builder-pace-value">{formatPaceForUnit(savedPaces.threshold, unit)}</span></div>
-              <div><span className="plan-builder-pace-label">Interval</span> <span className="plan-builder-pace-value">{formatPaceForUnit(savedPaces.interval, unit)}</span></div>
+              <div>
+                <span className="plan-builder-pace-label">Easy</span>{' '}
+                <span className="plan-builder-pace-value">
+                  {formatPaceRangeForUnit(savedPaces.easy.min, savedPaces.easy.max, unit)}
+                </span>
+              </div>
+              <div>
+                <span className="plan-builder-pace-label">Marathon</span>{' '}
+                <span className="plan-builder-pace-value">{formatPaceForUnit(savedPaces.marathon, unit)}</span>
+              </div>
+              <div>
+                <span className="plan-builder-pace-label">Threshold</span>{' '}
+                <span className="plan-builder-pace-value">{formatPaceForUnit(savedPaces.threshold, unit)}</span>
+              </div>
+              <div>
+                <span className="plan-builder-pace-label">Interval</span>{' '}
+                <span className="plan-builder-pace-value">{formatPaceForUnit(savedPaces.interval, unit)}</span>
+              </div>
             </div>
           </div>
         )}
@@ -666,7 +698,10 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
             className="btn btn-primary"
             disabled={!assignValid}
             aria-describedby={assignValid ? undefined : ids.assignIssues}
-            onClick={() => { setExpandedWeek(null); setStep('preview'); }}
+            onClick={() => {
+              setExpandedWeek(null);
+              setStep('preview');
+            }}
           >
             Next: Preview Plan <span aria-hidden="true">→</span>
           </button>
@@ -681,16 +716,16 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
   // ── Preview Step ───────────────────────────────────────────────────────────
 
   if (step === 'preview' && previewPlan) {
-    const peakWeekMiles = Math.max(0, ...overview.map(o => o.totalMiles));
+    const peakWeekMiles = Math.max(0, ...overview.map((o) => o.totalMiles));
 
     return (
       <div className="plan-builder">
         <div className="plan-builder-header">
           <h2 className="plan-builder-title">Preview: {previewPlan.name}</h2>
           <p className="plan-builder-subtitle">
-            {previewPlan.totalWeeks} weeks · {assignedRunDays} run days/week ·
-            {' '}{Math.round(toUnit(currentMiles, unit))}→{Math.round(toUnit(peakMiles, unit))} {unitLabel(unit)}/week ·
-            {' '}Peak: {formatMiles(peakWeekMiles, 1, unit)}/week
+            {previewPlan.totalWeeks} weeks · {assignedRunDays} run days/week · {Math.round(toUnit(currentMiles, unit))}→
+            {Math.round(toUnit(peakMiles, unit))} {unitLabel(unit)}/week · Peak: {formatMiles(peakWeekMiles, 1, unit)}
+            /week
           </p>
         </div>
 
@@ -699,7 +734,10 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
           <div className="pb-warnings" role="note" aria-label="Plan safety notes">
             <ul>
               {previewPlan.buildNotices.map((n) => {
-                const text = describeCustomPlanNotice(n, (mi) => `${Math.round(toUnit(mi, unit) * 10) / 10} ${unitLabel(unit)}`);
+                const text = describeCustomPlanNotice(
+                  n,
+                  (mi) => `${Math.round(toUnit(mi, unit) * 10) / 10} ${unitLabel(unit)}`,
+                );
                 return <li key={text}>{text}</li>;
               })}
             </ul>
@@ -707,15 +745,22 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
         )}
 
         {/* Weekly distance chart, coloured by periodization phase */}
-        <div className="pb-chart" role="group" aria-label="Weekly distance by week. Select a week to show its workouts.">
+        <div
+          className="pb-chart"
+          role="group"
+          aria-label="Weekly distance by week. Select a week to show its workouts."
+        >
           {overview.map((week, i) => {
             const phase = phaseForWeek(phases, i);
             const heightPct = peakWeekMiles > 0 ? (week.totalMiles / peakWeekMiles) * 100 : 0;
-            const isCutback = week.totalMiles < (overview[Math.max(0, i - 1)]?.totalMiles ?? 0) * 0.9
-              && i > 0 && i < overview.length - 2;
+            const isCutback =
+              week.totalMiles < (overview[Math.max(0, i - 1)]?.totalMiles ?? 0) * 0.9 &&
+              i > 0 &&
+              i < overview.length - 2;
             const isExpanded = expandedWeek === i;
-            const label = `Week ${week.weekNumber}: ${formatMiles(week.totalMiles, 1, unit)}, ${phase?.label ?? 'Training'}`
-              + (isCutback ? ', cutback week' : '');
+            const label =
+              `Week ${week.weekNumber}: ${formatMiles(week.totalMiles, 1, unit)}, ${phase?.label ?? 'Training'}` +
+              (isCutback ? ', cutback week' : '');
             return (
               <button
                 key={week.weekNumber}
@@ -730,7 +775,9 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                 <span className="pb-chart-bar-track" aria-hidden="true">
                   <span className="pb-chart-bar" style={{ height: `${Math.max(heightPct, 4)}%` }} />
                 </span>
-                <span className="pb-chart-label" aria-hidden="true">{week.weekNumber}</span>
+                <span className="pb-chart-label" aria-hidden="true">
+                  {week.weekNumber}
+                </span>
               </button>
             );
           })}
@@ -738,7 +785,7 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
 
         {/* Text legend: colour is never the only cue */}
         <ul className="pb-legend" aria-label="Training phases">
-          {phases.map(phase => (
+          {phases.map((phase) => (
             <li key={phase.name} className={`pb-legend-item pb-phase--${phase.name}`}>
               <span className="pb-legend-swatch" aria-hidden="true" />
               <span className="pb-legend-name">{phase.label}</span>
@@ -779,9 +826,12 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                     )}
                   </span>
                   <span className="plan-builder-week-miles">
-                    {formatMiles(weekSummary.totalMiles, 1, unit)} · Long: {formatMiles(weekSummary.longRunMiles, 1, unit)}
+                    {formatMiles(weekSummary.totalMiles, 1, unit)} · Long:{' '}
+                    {formatMiles(weekSummary.longRunMiles, 1, unit)}
                   </span>
-                  <span className="plan-builder-week-chevron" aria-hidden="true">{isExpanded ? '▼' : '▶'}</span>
+                  <span className="plan-builder-week-chevron" aria-hidden="true">
+                    {isExpanded ? '▼' : '▶'}
+                  </span>
                 </button>
                 <div id={weekBodyId(weekIdx)} className="plan-builder-week-body" hidden={!isExpanded}>
                   {isExpanded && (
@@ -799,7 +849,11 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                         {week.days.map((day, dayIdx) => {
                           const target = vdot > 0 && day.note ? getWorkoutTargetForDay(day, vdot) : null;
                           const paceStr = target?.targetPaceRange
-                            ? formatPaceRangeForUnit(target.targetPaceRange.minSecPerMi, target.targetPaceRange.maxSecPerMi, unit)
+                            ? formatPaceRangeForUnit(
+                                target.targetPaceRange.minSecPerMi,
+                                target.targetPaceRange.maxSecPerMi,
+                                unit,
+                              )
                             : '';
                           return (
                             <tr key={dayIdx}>
@@ -808,9 +862,7 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                               <td className="plan-builder-cell-dist">
                                 {day.distanceMi != null ? formatMiles(day.distanceMi, 1, unit) : '—'}
                               </td>
-                              {vdot > 0 && (
-                                <td className="plan-builder-cell-pace">{paceStr || '—'}</td>
-                              )}
+                              {vdot > 0 && <td className="plan-builder-cell-pace">{paceStr || '—'}</td>}
                             </tr>
                           );
                         })}

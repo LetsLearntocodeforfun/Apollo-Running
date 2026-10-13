@@ -11,11 +11,7 @@ import { useId, useMemo, useState } from 'react';
 import { EmptyState } from '../ui';
 import type { RacePanelProps } from './types';
 import type { MarathonRace } from '../../types/raceStrategy';
-import {
-  generateCourseTraining,
-  getCourseFacts,
-  groupWorkoutsByWindow,
-} from '../../services/courseTraining';
+import { generateCourseTraining, getCourseFacts, groupWorkoutsByWindow } from '../../services/courseTraining';
 import type { CourseWorkout, WorkoutWindows } from '../../services/courseTraining';
 import { formatElevation, formatMiles, getDistanceUnit } from '../../services/unitPreferences';
 import type { DistanceUnit } from '../../services/unitPreferences';
@@ -81,7 +77,9 @@ export default function CourseTrainingCard({ ctx }: RacePanelProps) {
   if (!ctx.race) {
     return (
       <section className="ct-card" aria-labelledby={headingId}>
-        <h2 id={headingId} className="ct-title">Course training</h2>
+        <h2 id={headingId} className="ct-title">
+          Course training
+        </h2>
         <EmptyState icon="⛰️" title="No race selected">
           Choose your race to see course-specific workouts, taper notes and race-day tips.
         </EmptyState>
@@ -100,28 +98,29 @@ interface ContentProps {
 function CourseTrainingContent({ race, daysToRace, headingId }: ContentProps) {
   const unit = getDistanceUnit();
   const temperatureUnit = getTemperatureUnit();
-  const plan = useMemo(
-    () => generateCourseTraining(race, { unit, temperatureUnit }),
-    [race, unit, temperatureUnit],
-  );
+  const plan = useMemo(() => generateCourseTraining(race, { unit, temperatureUnit }), [race, unit, temperatureUnit]);
   const facts = useMemo(() => getCourseFacts(race), [race]);
   const weeksToRace = typeof daysToRace === 'number' && Number.isFinite(daysToRace) ? Math.floor(daysToRace / 7) : null;
   const groups: WorkoutWindows = useMemo(
-    () => (weeksToRace === null
-      ? { now: [], upcoming: [...plan.keyWorkouts].sort((a, b) => a.priority - b.priority), passed: [] }
-      : groupWorkoutsByWindow(plan.keyWorkouts, weeksToRace)),
+    () =>
+      weeksToRace === null
+        ? { now: [], upcoming: [...plan.keyWorkouts].sort((a, b) => a.priority - b.priority), passed: [] }
+        : groupWorkoutsByWindow(plan.keyWorkouts, weeksToRace),
     [plan, weeksToRace],
   );
 
   const tone = difficultyTone(plan.difficulty);
-  const net = facts.netDropFt === 0
-    ? elevationText(0, unit)
-    : `${facts.netDropFt > 0 ? '−' : '+'}${elevationText(Math.abs(facts.netDropFt), unit)}`;
+  const net =
+    facts.netDropFt === 0
+      ? elevationText(0, unit)
+      : `${facts.netDropFt > 0 ? '−' : '+'}${elevationText(Math.abs(facts.netDropFt), unit)}`;
 
   return (
     <section className="ct-card" aria-labelledby={headingId}>
       <header className="ct-header">
-        <h2 id={headingId} className="ct-title">Course training</h2>
+        <h2 id={headingId} className="ct-title">
+          Course training
+        </h2>
         <p className="ct-subtitle">
           {plan.source === 'generic'
             ? `Based on the ${race.name} course profile`
@@ -133,7 +132,9 @@ function CourseTrainingContent({ race, daysToRace, headingId }: ContentProps) {
         <div className="ct-fact ct-fact--difficulty">
           <dt>Course difficulty</dt>
           <dd>
-            <span className="ct-difficulty-text">{plan.difficulty}/10 · {DIFFICULTY_LABEL[tone]}</span>
+            <span className="ct-difficulty-text">
+              {plan.difficulty}/10 · {DIFFICULTY_LABEL[tone]}
+            </span>
             <DifficultyMeter value={plan.difficulty} tone={tone} />
           </dd>
         </div>
@@ -161,7 +162,8 @@ function CourseTrainingContent({ race, daysToRace, headingId }: ContentProps) {
 
       {weeksToRace === null && (
         <p className="ct-note">
-          <span aria-hidden="true">📅 </span>Set a race date to see which workouts are due now. All workouts are listed as upcoming.
+          <span aria-hidden="true">📅 </span>Set a race date to see which workouts are due now. All workouts are listed
+          as upcoming.
         </p>
       )}
       {weeksToRace !== null && daysToRace !== null && daysToRace < 0 && (
@@ -270,7 +272,9 @@ function Disclosure({ title, icon, items }: DisclosureProps) {
           <span aria-hidden="true">{icon}</span>
           <span>{title}</span>
           <span className="ct-count">({items.length})</span>
-          <span className="ct-chevron" aria-hidden="true">▾</span>
+          <span className="ct-chevron" aria-hidden="true">
+            ▾
+          </span>
         </button>
       </h3>
       <div id={panelId} className="ct-disclosure-panel" hidden={!open}>

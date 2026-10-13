@@ -116,24 +116,39 @@ describe('buildPlanWorkouts', () => {
     expect(dates).not.toContain('2026-01-12');
     // Same plan instance → same IDs; another start date → another instance.
     expect(buildPlanWorkouts(plan, START, MI).map((w) => w.external_id)).toEqual(workouts.map((w) => w.external_id));
-    expect(buildPlanWorkouts(plan, '2026-01-12', { ...MI, from: '2026-01-12' })[0].external_id)
-      .toBe(`apollo:${CUSTOM_PLAN_ID}:2026-01-12:w1d2`);
+    expect(buildPlanWorkouts(plan, '2026-01-12', { ...MI, from: '2026-01-12' })[0].external_id).toBe(
+      `apollo:${CUSTOM_PLAN_ID}:2026-01-12:w1d2`,
+    );
     expect(planExternalId('pfitzinger-18-55', '2026-03-02', 17, 6)).toBe('apollo:pfitzinger-18-55:2026-03-02:w18d7');
   });
 
   it("names workouts clearly, in the athlete's unit", () => {
     const plan = makePlan([WEEK, [HALF, REST, REST, REST, REST, REST, MARATHON]]);
     expect(buildPlanWorkouts(plan, START, MI).map((w) => w.name)).toEqual([
-      'Easy Run · 5 mi', 'Tempo · 7 mi', 'Cross-Training · 45 min', '5 × 800m Intervals',
-      'Marathon Pace · 8 mi', 'Long Run · 18 mi', 'Half Marathon Race', 'Marathon Day 🏅',
+      'Easy Run · 5 mi',
+      'Tempo · 7 mi',
+      'Cross-Training · 45 min',
+      '5 × 800m Intervals',
+      'Marathon Pace · 8 mi',
+      'Long Run · 18 mi',
+      'Half Marathon Race',
+      'Marathon Day 🏅',
     ]);
     expect(buildPlanWorkouts(plan, START, KM).map((w) => w.name)).toEqual([
-      'Easy Run · 8 km', 'Tempo · 11.3 km', 'Cross-Training · 45 min', '6 × 800m Intervals',
-      'Marathon Pace · 12.9 km', 'Long Run · 29 km', 'Half Marathon Race', 'Marathon Day 🏅',
+      'Easy Run · 8 km',
+      'Tempo · 11.3 km',
+      'Cross-Training · 45 min',
+      '6 × 800m Intervals',
+      'Marathon Pace · 12.9 km',
+      'Long Run · 29 km',
+      'Half Marathon Race',
+      'Marathon Day 🏅',
     ]);
     expect(one({ type: 'race', label: 'Race', distanceMi: 6.2, note: 'Race' }).name).toBe('Race · 6.2 mi');
     expect(one({ type: 'run', label: '4 mi recovery', distanceMi: 4, note: 'Easy' }).name).toBe('Recovery Run · 4 mi');
-    expect(one({ type: 'run', label: '11 mi', distanceMi: 11, note: 'Medium Long' }).name).toBe('Medium-Long Run · 11 mi');
+    expect(one({ type: 'run', label: '11 mi', distanceMi: 11, note: 'Medium Long' }).name).toBe(
+      'Medium-Long Run · 11 mi',
+    );
   });
 
   it('easy runs: one distance step at the easy-pace range (mi and km)', () => {
@@ -143,12 +158,14 @@ describe('buildPlanWorkouts', () => {
 
   it('tempo: easy warm-up, threshold block, easy cool-down', () => {
     // A 4 mi tempo block (~31 min at T) is longer than continuous T allows (T-4): see the cruise test below.
-    expect(one({ ...TEMPO, distanceMi: 5 }).description).toBe([
-      'Tempo. Comfortably hard: short phrases only.',
-      'Warmup\n- 1mi 9:19-8:57/mi Pace',
-      'Tempo\n- 3mi 7:50-7:40/mi Pace',
-      'Cooldown\n- 1mi 9:19-8:57/mi Pace',
-    ].join('\n\n'));
+    expect(one({ ...TEMPO, distanceMi: 5 }).description).toBe(
+      [
+        'Tempo. Comfortably hard: short phrases only.',
+        'Warmup\n- 1mi 9:19-8:57/mi Pace',
+        'Tempo\n- 3mi 7:50-7:40/mi Pace',
+        'Cooldown\n- 1mi 9:19-8:57/mi Pace',
+      ].join('\n\n'),
+    );
     expect(steps(one({ ...TEMPO, distanceMi: 5 }, KM))).toBe(
       'Warmup\n- 1km 5:47-5:34/km Pace\n\nTempo\n- 6km 4:52-4:46/km Pace\n\nCooldown\n- 1km 5:47-5:34/km Pace',
     );
@@ -162,12 +179,14 @@ describe('buildPlanWorkouts', () => {
   it('long tempos become cruise intervals, not a long continuous threshold run (T-4)', () => {
     const w = one(TEMPO);
     expect(w.name).toBe('Tempo · 7 mi');
-    expect(w.description).toBe([
-      'Tempo as cruise intervals. Comfortably hard reps with short jogs.',
-      'Warmup\n- 1mi 9:19-8:57/mi Pace',
-      'Cruise intervals 5x\n- 1mi 7:50-7:40/mi Pace\n- Easy jog 1m',
-      'Cooldown\n- 1mi 9:19-8:57/mi Pace',
-    ].join('\n\n'));
+    expect(w.description).toBe(
+      [
+        'Tempo as cruise intervals. Comfortably hard reps with short jogs.',
+        'Warmup\n- 1mi 9:19-8:57/mi Pace',
+        'Cruise intervals 5x\n- 1mi 7:50-7:40/mi Pace\n- Easy jog 1m',
+        'Cooldown\n- 1mi 9:19-8:57/mi Pace',
+      ].join('\n\n'),
+    );
     expect(steps(one(TEMPO, KM))).toContain('Cruise intervals 5x\n- 1.6km 4:52-4:46/km Pace\n- Easy jog 1m');
     // Never more than 6 reps (~6 mi at T), whatever the distance.
     expect(steps(one({ ...TEMPO, distanceMi: 12 }))).toContain('Cruise intervals 6x');
@@ -177,12 +196,14 @@ describe('buildPlanWorkouts', () => {
     const short = one({ type: 'run', label: '5 mi with 3 mi short tempo', distanceMi: 5, note: 'Tempo' });
     expect(short.name).toBe('Tempo · 5 mi');
     expect(short.description).toMatch(/^FIRST short tempo\. About 5K pace \+ 15 s\/mi/);
-    expect(steps(short)).toMatch(/^Warmup\n- 1mi .*\n\nShort tempo\n- 3mi \d+:\d{2}-\d+:\d{2}\/mi Pace\n\nCooldown\n- 1mi /);
+    expect(steps(short)).toMatch(
+      /^Warmup\n- 1mi .*\n\nShort tempo\n- 3mi \d+:\d{2}-\d+:\d{2}\/mi Pace\n\nCooldown\n- 1mi /,
+    );
     const mid = one({ type: 'run', label: '7 mi with 5 mi mid tempo', distanceMi: 7, note: 'Tempo' });
     expect(steps(mid)).toContain('Mid tempo\n- 5mi');
   });
 
-  it('speed: the plan\'s own reps are kept (T-10)', () => {
+  it("speed: the plan's own reps are kept (T-10)", () => {
     const first = one({ type: 'run', label: '3 × 1600 m intervals', distanceMi: 6, note: 'Speed' });
     expect(first.name).toBe('3 × 1600m Intervals');
     expect(steps(first)).toContain('Main set 3x\n- 1600mtr 7:13-7:03/mi Pace\n- Recovery jog');
@@ -202,40 +223,48 @@ describe('buildPlanWorkouts', () => {
     expect(steps(hansons)).toBe(
       'Warmup\n- 1mi 9:19-8:57/mi Pace\n\nMarathon pace\n- 8mi 8:21-8:11/mi Pace\n\nCooldown\n- 1mi 9:19-8:57/mi Pace',
     );
-    expect(steps(one({ type: 'run', label: '8 mi tempo at marathon pace', distanceMi: 10, note: 'Marathon Pace' }, KM)))
-      .toContain('Marathon pace\n- 12.9km 5:11-5:05/km Pace');
-    expect(steps(one({ type: 'run', label: '5 mi with 3 at marathon pace', distanceMi: 5, note: 'Marathon Pace' })))
-      .toContain('Marathon pace\n- 3mi 8:21-8:11/mi Pace');
+    expect(
+      steps(one({ type: 'run', label: '8 mi tempo at marathon pace', distanceMi: 10, note: 'Marathon Pace' }, KM)),
+    ).toContain('Marathon pace\n- 12.9km 5:11-5:05/km Pace');
+    expect(
+      steps(one({ type: 'run', label: '5 mi with 3 at marathon pace', distanceMi: 5, note: 'Marathon Pace' })),
+    ).toContain('Marathon pace\n- 3mi 8:21-8:11/mi Pace');
   });
 
   it('speed: warm-up, "Main set Nx" of reps + recovery jogs, cool-down, sized to the planned distance', () => {
     const mi = one(SPEED);
     expect(mi.name).toBe('5 × 800m Intervals');
-    expect(steps(mi)).toBe([
-      'Warmup\n- 1mi 9:19-8:57/mi Pace',
-      'Main set 5x\n- 800mtr 7:13-7:03/mi Pace\n- Recovery jog 3m30',
-      'Cooldown\n- 1mi 9:19-8:57/mi Pace',
-    ].join('\n\n'));
+    expect(steps(mi)).toBe(
+      [
+        'Warmup\n- 1mi 9:19-8:57/mi Pace',
+        'Main set 5x\n- 800mtr 7:13-7:03/mi Pace\n- Recovery jog 3m30',
+        'Cooldown\n- 1mi 9:19-8:57/mi Pace',
+      ].join('\n\n'),
+    );
     expect(steps(one(SPEED, KM))).toContain('Main set 6x\n- 800mtr 4:29-4:23/km Pace\n- Recovery jog 3m30');
     // Short sessions switch to 400 m reps with half-length bookends.
     const short = one({ ...SPEED, distanceMi: 3 });
     expect(short.name).toBe('5 × 400m Intervals');
-    expect(steps(short)).toBe([
-      'Warmup\n- 0.5mi 9:19-8:57/mi Pace',
-      'Main set 5x\n- 400mtr 7:13-7:03/mi Pace\n- Recovery jog 1m45',
-      'Cooldown\n- 0.5mi 9:19-8:57/mi Pace',
-    ].join('\n\n'));
+    expect(steps(short)).toBe(
+      [
+        'Warmup\n- 0.5mi 9:19-8:57/mi Pace',
+        'Main set 5x\n- 400mtr 7:13-7:03/mi Pace\n- Recovery jog 1m45',
+        'Cooldown\n- 0.5mi 9:19-8:57/mi Pace',
+      ].join('\n\n'),
+    );
   });
 
   it('marathon-pace runs: easy, marathon-pace segment, easy', () => {
     const pfitz = one(PFITZ_MP);
     expect(pfitz.name).toBe('Marathon Pace · 8 mi');
-    expect(pfitz.description).toBe([
-      'Marathon pace. Controlled and sustainable: rehearse race day.',
-      'Warmup\n- 2mi 9:19-8:57/mi Pace',
-      'Marathon pace\n- 5mi 8:21-8:11/mi Pace',
-      'Cooldown\n- 1mi 9:19-8:57/mi Pace',
-    ].join('\n\n'));
+    expect(pfitz.description).toBe(
+      [
+        'Marathon pace. Controlled and sustainable: rehearse race day.',
+        'Warmup\n- 2mi 9:19-8:57/mi Pace',
+        'Marathon pace\n- 5mi 8:21-8:11/mi Pace',
+        'Cooldown\n- 1mi 9:19-8:57/mi Pace',
+      ].join('\n\n'),
+    );
     // Custom-builder style day.
     expect(steps(one({ type: 'run', label: '6 mi MP', distanceMi: 6, note: 'Marathon Pace' }))).toBe(
       'Warmup\n- 2mi 9:19-8:57/mi Pace\n\nMarathon pace\n- 3mi 8:21-8:11/mi Pace\n\nCooldown\n- 1mi 9:19-8:57/mi Pace',
@@ -248,21 +277,25 @@ describe('buildPlanWorkouts', () => {
   it("long runs: one easy step, plus the optional marathon-pace finish from Apollo's long-run target", () => {
     const experienced: PlanDay = { ...LONG, mpFinish: true };
     expect(one(experienced).description).toBe(
-      'Long run. Easy effort; practice your race-day fueling. Optional: last 4 mi at marathon pace (8:16/mi).'
-      + '\n\n- 18mi 9:19-8:57/mi Pace',
+      'Long run. Easy effort; practice your race-day fueling. Optional: last 4 mi at marathon pace (8:16/mi).' +
+        '\n\n- 18mi 9:19-8:57/mi Pace',
     );
     const km = one(experienced, KM);
     expect(km.description).toContain('Optional: last 6 km at marathon pace (5:08/km).');
     expect(steps(km)).toBe('- 29km 5:47-5:34/km Pace');
-    expect(one({ ...experienced, distanceMi: 12 }).description)
-      .toBe('Long run. Easy effort; practice your race-day fueling.\n\n- 12mi 9:19-8:57/mi Pace');
+    expect(one({ ...experienced, distanceMi: 12 }).description).toBe(
+      'Long run. Easy effort; practice your race-day fueling.\n\n- 12mi 9:19-8:57/mi Pace',
+    );
     // v1.0.7 (T-11): no MP finish unless the plan offers one (never on novice plans).
-    expect(one(LONG).description).toBe('Long run. Easy effort; practice your race-day fueling.\n\n- 18mi 9:19-8:57/mi Pace');
+    expect(one(LONG).description).toBe(
+      'Long run. Easy effort; practice your race-day fueling.\n\n- 18mi 9:19-8:57/mi Pace',
+    );
   });
 
   it('races and marathon day: race pace', () => {
-    expect(one(MARATHON).description)
-      .toBe('Marathon day! Start controlled, fuel early, finish strong.\n\n- 26.2mi 8:21-8:11/mi Pace');
+    expect(one(MARATHON).description).toBe(
+      'Marathon day! Start controlled, fuel early, finish strong.\n\n- 26.2mi 8:21-8:11/mi Pace',
+    );
     expect(steps(one(MARATHON, KM))).toBe('- 42.2km 5:11-5:05/km Pace');
     expect(steps(one(HALF))).toBe('- 13.1mi 8:01-7:51/mi Pace');
     expect(steps(one(HALF, KM))).toBe('- 21.1km 4:59-4:53/km Pace');
@@ -292,7 +325,8 @@ describe('buildPlanWorkouts', () => {
   });
 
   it("writes every step in intervals.icu syntax: slow-fast paces in the athlete's unit, short prompts", () => {
-    const STEP = /^- (?:([A-Za-z][A-Za-z -]*) )?(\d+(?:\.\d)?(?:mi|km|mtr)|\d+h(?:\d+m)?|\d+m(?:\d{2})?|\d+s)(?: (\d+):(\d{2})(?:-(\d+):(\d{2}))?\/(mi|km) Pace)?$/;
+    const STEP =
+      /^- (?:([A-Za-z][A-Za-z -]*) )?(\d+(?:\.\d)?(?:mi|km|mtr)|\d+h(?:\d+m)?|\d+m(?:\d{2})?|\d+s)(?: (\d+):(\d{2})(?:-(\d+):(\d{2}))?\/(mi|km) Pace)?$/;
     const plan = makePlan([WEEK, [HALF, REST, EASY, TEMPO, { ...SPEED, distanceMi: 3 }, REST, MARATHON]]);
     for (const opts of [MI, KM, { ...MI, paces: null }]) {
       for (const w of buildPlanWorkouts(plan, START, opts)) {
@@ -311,16 +345,22 @@ describe('buildPlanWorkouts', () => {
 
   it('limits the output to `from` and `weeks`', () => {
     const plan = makePlan(repeatWeek(3));
-    expect(buildPlanWorkouts(plan, START, { ...MI, from: '2026-01-08', weeks: 1 }).map((w) => w.date))
-      .toEqual(['2026-01-08', '2026-01-09', '2026-01-10', '2026-01-11', '2026-01-13', '2026-01-14']);
+    expect(buildPlanWorkouts(plan, START, { ...MI, from: '2026-01-08', weeks: 1 }).map((w) => w.date)).toEqual([
+      '2026-01-08',
+      '2026-01-09',
+      '2026-01-10',
+      '2026-01-11',
+      '2026-01-13',
+      '2026-01-14',
+    ]);
     expect(buildPlanWorkouts(plan, START, { ...MI, weeks: 0 })).toEqual([]);
     expect(buildPlanWorkouts(plan, START, { ...MI, from: '2026-02-01' })).toEqual([]);
   });
 
   it('estimates moving time from the target paces', () => {
-    expect(one(EASY).moving_time).toBe(2760);                                  // 5 mi at ~9:08/mi → 46 min
-    expect(one(EASY, { ...MI, paces: null }).moving_time).toBe(2880);          // 5 mi at 9:30/mi → 48 min
-    expect(one(MARATHON).moving_time).toBe(13020);                             // 26.2 mi at 8:16/mi → 3:37
+    expect(one(EASY).moving_time).toBe(2760); // 5 mi at ~9:08/mi → 46 min
+    expect(one(EASY, { ...MI, paces: null }).moving_time).toBe(2880); // 5 mi at 9:30/mi → 48 min
+    expect(one(MARATHON).moving_time).toBe(13020); // 26.2 mi at 8:16/mi → 3:37
   });
 });
 
@@ -375,30 +415,39 @@ function mockIntervals() {
     deletes: () => server.calls.filter((c) => c.method === 'PUT' && c.url.pathname.endsWith('/events/bulk-delete')),
     lists: () => server.calls.filter((c) => c.method === 'GET' && c.url.pathname.endsWith('/events')),
   };
-  vi.stubGlobal('fetch', vi.fn(async (input: unknown, init?: { method?: string; body?: string }) => {
-    const call: Call = {
-      method: init?.method ?? 'GET',
-      url: new URL(String(input)),
-      body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
-    };
-    server.calls.push(call);
-    const status = server.fail?.(call);
-    if (status) return fakeResponse(status);
-    const path = call.url.pathname;
-    if (call.method === 'POST' && path.endsWith('/events/bulk')) {
-      const events = call.body as IcuEventInput[];
-      for (const e of events) server.calendar.set(String(e.external_id), e);
-      return fakeResponse(200, events.map((e, i) => ({ id: i + 1, ...e })));
-    }
-    if (call.method === 'PUT' && path.endsWith('/events/bulk-delete')) {
-      const ids = (call.body as { external_id: string }[]).map((x) => x.external_id);
-      return fakeResponse(200, { eventsDeleted: ids.filter((id) => server.calendar.delete(id)).length });
-    }
-    if (call.method === 'GET' && path.endsWith('/events')) {
-      return fakeResponse(200, [...server.calendar.values()].map((e, i) => ({ id: i + 1, ...e })));
-    }
-    return fakeResponse(404);
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async (input: unknown, init?: { method?: string; body?: string }) => {
+      const call: Call = {
+        method: init?.method ?? 'GET',
+        url: new URL(String(input)),
+        body: typeof init?.body === 'string' ? JSON.parse(init.body) : undefined,
+      };
+      server.calls.push(call);
+      const status = server.fail?.(call);
+      if (status) return fakeResponse(status);
+      const path = call.url.pathname;
+      if (call.method === 'POST' && path.endsWith('/events/bulk')) {
+        const events = call.body as IcuEventInput[];
+        for (const e of events) server.calendar.set(String(e.external_id), e);
+        return fakeResponse(
+          200,
+          events.map((e, i) => ({ id: i + 1, ...e })),
+        );
+      }
+      if (call.method === 'PUT' && path.endsWith('/events/bulk-delete')) {
+        const ids = (call.body as { external_id: string }[]).map((x) => x.external_id);
+        return fakeResponse(200, { eventsDeleted: ids.filter((id) => server.calendar.delete(id)).length });
+      }
+      if (call.method === 'GET' && path.endsWith('/events')) {
+        return fakeResponse(
+          200,
+          [...server.calendar.values()].map((e, i) => ({ id: i + 1, ...e })),
+        );
+      }
+      return fakeResponse(404);
+    }),
+  );
   return server;
 }
 
@@ -473,7 +522,9 @@ describe('pushPlanToIntervals', () => {
 
     expect(result).toEqual({ upserted: 6, deleted: 0, from: today(), to: addDays(today(), 6) });
     const events = icu.upserts()[0].body as IcuEventInput[];
-    expect(events.map((e) => e.external_id)).toEqual([1, 2, 3, 4, 5, 6].map((d) => planExternalId(CUSTOM_PLAN_ID, start, 1, d)));
+    expect(events.map((e) => e.external_id)).toEqual(
+      [1, 2, 3, 4, 5, 6].map((d) => planExternalId(CUSTOM_PLAN_ID, start, 1, d)),
+    );
     expect(events.every((e) => e.start_date_local >= `${today()}T00:00:00`)).toBe(true);
     // A partial push can't vouch for the whole auto-update window.
     expect(getPlanPushState().lastHash).toBeNull();
@@ -524,8 +575,8 @@ describe('pushPlanToIntervals', () => {
     const start = today();
     activate([WEEK], start);
     const oldStart = addDays(start, -14);
-    const past = planExternalId('old-plan', oldStart, 0, 3);          // 11 days ago
-    const upcoming = planExternalId('old-plan', oldStart, 2, 3);      // in 3 days
+    const past = planExternalId('old-plan', oldStart, 0, 3); // 11 days ago
+    const upcoming = planExternalId('old-plan', oldStart, 2, 3); // in 3 days
     persistence.setItem(STATE_KEY, JSON.stringify({ pushedIds: [past, upcoming, 'coach:42'] }));
     const icu = mockIntervals();
     icu.calendar.set(past, calendarEvent(past, addDays(start, -11), 'Done'));
@@ -627,7 +678,12 @@ describe('removePlanFromIntervals', () => {
     expect(deleted).not.toContain('apollo:old:past');
     expect([...icu.calendar.keys()].sort()).toEqual(['apollo:old:past', 'coach:42']);
     expect(getPlanPushState()).toMatchObject({
-      enabled: false, pushedIds: [], planKey: null, lastHash: null, lastPushAt: null, lastError: null,
+      enabled: false,
+      pushedIds: [],
+      planKey: null,
+      lastHash: null,
+      lastPushAt: null,
+      lastError: null,
     });
   });
 
@@ -770,7 +826,10 @@ describe('syncPlanCalendarIfChanged', () => {
     const moved = addDays(today(), 7);
     activate([WEEK, WEEK], moved);
 
-    expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 12, deleted: 12 } });
+    expect(await syncPlanCalendarIfChanged()).toMatchObject({
+      status: 'pushed',
+      result: { upserted: 12, deleted: 12 },
+    });
     expect(idsIn(icu.deletes()[0])).toEqual(oldIds);
     expect(getPlanPushState().planKey).toBe(`${CUSTOM_PLAN_ID}:${moved}`);
   });
@@ -779,7 +838,9 @@ describe('syncPlanCalendarIfChanged', () => {
     const icu = enableAuto();
     await pushPlanToIntervals({ weeks: 1 });
     expect(await syncPlanCalendarIfChanged()).toMatchObject({ status: 'pushed', result: { upserted: 6 } });
-    expect(idsIn(icu.upserts()[1])).toEqual([1, 2, 3, 4, 5, 6].map((d) => planExternalId(CUSTOM_PLAN_ID, today(), 1, d)));
+    expect(idsIn(icu.upserts()[1])).toEqual(
+      [1, 2, 3, 4, 5, 6].map((d) => planExternalId(CUSTOM_PLAN_ID, today(), 1, d)),
+    );
     expect(icu.upserts()).toHaveLength(2);
   });
 
@@ -787,10 +848,19 @@ describe('syncPlanCalendarIfChanged', () => {
     const icu = enableAuto();
     await pushPlanToIntervals();
     const s = getPlanPushState();
-    persistence.setItem(STATE_KEY, JSON.stringify({
-      enabled: s.enabled, lastPushAt: s.lastPushAt, lastHash: s.lastHash, planKey: s.planKey,
-      pushedIds: s.pushedIds, lastError: null, lastErrorAt: null, lastResult: s.lastResult,
-    }));
+    persistence.setItem(
+      STATE_KEY,
+      JSON.stringify({
+        enabled: s.enabled,
+        lastPushAt: s.lastPushAt,
+        lastHash: s.lastHash,
+        planKey: s.planKey,
+        pushedIds: s.pushedIds,
+        lastError: null,
+        lastErrorAt: null,
+        lastResult: s.lastResult,
+      }),
+    );
     expect(getPlanPushState()).toMatchObject({ pushedHashes: {}, lastStatus: null });
 
     expect(await syncPlanCalendarIfChanged()).toEqual({ status: 'nothing-changed', result: null });
@@ -806,7 +876,9 @@ describe('syncPlanCalendarIfChanged', () => {
     icu.fail = () => 401;
 
     await expect(syncPlanCalendarIfChanged()).resolves.toMatchObject({
-      status: 'error', result: null, error: new IntervalsAuthError().message,
+      status: 'error',
+      result: null,
+      error: new IntervalsAuthError().message,
     });
     expect(getPlanPushState()).toMatchObject({ lastError: new IntervalsAuthError().message, lastStatus: 'error' });
 
@@ -844,7 +916,10 @@ describe('push state', () => {
   it('ignores corrupt stored state', () => {
     persistence.setItem(STATE_KEY, '{not json');
     expect(getPlanPushState()).toMatchObject({ enabled: false, pushedIds: [], lastError: null });
-    persistence.setItem(STATE_KEY, JSON.stringify({ enabled: 'yes', pushedIds: ['a', 3], lastResult: { upserted: 'x' } }));
+    persistence.setItem(
+      STATE_KEY,
+      JSON.stringify({ enabled: 'yes', pushedIds: ['a', 3], lastResult: { upserted: 'x' } }),
+    );
     expect(getPlanPushState()).toMatchObject({ enabled: false, pushedIds: ['a'], lastResult: null });
     persistence.setItem(STATE_KEY, JSON.stringify({ pushedHashes: { a: 'h1', b: 7, c: '' }, lastStatus: 'bogus' }));
     expect(getPlanPushState()).toMatchObject({ pushedHashes: { a: 'h1' }, lastStatus: null });

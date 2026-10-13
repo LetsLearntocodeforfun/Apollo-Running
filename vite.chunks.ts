@@ -41,8 +41,7 @@ const REACT_PACKAGES = [
   'react-is',
 ];
 
-const packagePattern = (names: string[]) =>
-  new RegExp(`[\\\\/]node_modules[\\\\/](?:${names.join('|')})[\\\\/]`);
+const packagePattern = (names: string[]) => new RegExp(`[\\\\/]node_modules[\\\\/](?:${names.join('|')})[\\\\/]`);
 
 const CHART_RE = packagePattern(CHART_PACKAGES);
 const REACT_RE = packagePattern(REACT_PACKAGES);

@@ -7,11 +7,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { persistence } from '@/services/db/persistence';
 import { startPlan, getActivePlanInstanceId } from '@/services/planProgress';
 import { getEffectivePlan, getOverlayLog, undoLastChange } from '@/services/planOverlay';
-import {
-  applyRecommendation,
-  getLastModification,
-  undoRecommendation,
-} from '@/services/adaptiveTraining';
+import { applyRecommendation, getLastModification, undoRecommendation } from '@/services/adaptiveTraining';
 import { CUSTOM_PLAN_ID, getPlanById, setCustomPlan } from '@/data/plans';
 import type { AdaptiveRecommendation } from '@/types/recommendations';
 
@@ -31,29 +27,31 @@ function seedRec(weekIndex: number, multiplier: number, planInstanceId?: string)
     dismissible: true,
     createdAt: new Date().toISOString(),
     planInstanceId,
-    options: [{
-      key: 'reduce',
-      label: 'Reduce',
-      description: '',
-      impact: '',
-      actionType: 'apply_modification',
-      actionPayload: {
-        id: '',
-        description: 'Reduced mileage 20%',
-        modificationType: 'mileage_reduction',
-        weekAdjustments: [{ weekIndex, mileageMultiplier: multiplier }],
-        appliedAt: '',
-        undone: false,
-        originalSnapshot: [],
+    options: [
+      {
+        key: 'reduce',
+        label: 'Reduce',
+        description: '',
+        impact: '',
+        actionType: 'apply_modification',
+        actionPayload: {
+          id: '',
+          description: 'Reduced mileage 20%',
+          modificationType: 'mileage_reduction',
+          weekAdjustments: [{ weekIndex, mileageMultiplier: multiplier }],
+          appliedAt: '',
+          undone: false,
+          originalSnapshot: [],
+        },
       },
-    }],
+    ],
   };
   persistence.setItem(RECS_KEY, JSON.stringify([rec]));
   return rec.id;
 }
 
 const runMiles = (weekIndex: number): number =>
-  getEffectivePlan()!.weeks[weekIndex].days.reduce((s, d) => s + (d.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+  getEffectivePlan()!.weeks[weekIndex].days.reduce((s, d) => s + (d.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
 
 describe('adaptive apply/undo through the overlay (T-2)', () => {
   it('applies to the active instance only and never mutates the built-in plan', () => {
@@ -85,7 +83,8 @@ describe('adaptive apply/undo through the overlay (T-2)', () => {
     vi.resetModules();
     const overlay = await import('@/services/planOverlay');
     const adaptive = await import('@/services/adaptiveTraining');
-    const sum = (w: number) => overlay.getEffectivePlan()!.weeks[w].days.reduce((s, d) => s + (d.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+    const sum = (w: number) =>
+      overlay.getEffectivePlan()!.weeks[w].days.reduce((s, d) => s + (d.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
     expect(sum(5)).toBeCloseTo(after, 5);
     expect(adaptive.getLastModification()?.id).toBe(mod.id);
     expect(adaptive.undoRecommendation(mod.id)).toBe(true);

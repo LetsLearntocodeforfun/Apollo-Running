@@ -23,11 +23,7 @@ import { estimateActivityLoad } from '../services/crossTraining';
 import { getHRProfile } from '../services/heartRate';
 import RouteMap, { RouteMapThumbnail } from '../components/RouteMap';
 import { processRoute, getPolylineForActivity, bearingToCompass } from '../services/routeService';
-import {
-  processActivityEffort,
-  getEffortRecognition,
-  type EffortInsight,
-} from '../services/effortService';
+import { processActivityEffort, getEffortRecognition, type EffortInsight } from '../services/effortService';
 import { TIER_CONFIG, TierBadge, TierDot } from '../components/TierBadge';
 import ConnectDataSourceCTA from '../components/ConnectDataSourceCTA';
 import ImportActivities from '../components/ImportActivities';
@@ -64,13 +60,20 @@ const SPORT_FILTERS: { key: SportFilter; label: string; icon?: string }[] = [
 /** Filter pill (sport filters and the Hidden toggle); 32 px minimum touch height. */
 function filterPillStyle(isActive: boolean): CSSProperties {
   return {
-    display: 'inline-flex', alignItems: 'center', gap: '0.4rem', minHeight: 32,
-    padding: '0.4rem 0.85rem', borderRadius: 'var(--radius-full)',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: '0.4rem',
+    minHeight: 32,
+    padding: '0.4rem 0.85rem',
+    borderRadius: 'var(--radius-full)',
     border: isActive ? '1px solid var(--apollo-gold)' : '1px solid var(--border)',
     background: isActive ? 'var(--apollo-gold-dim)' : 'var(--bg-elevated)',
     color: isActive ? 'var(--apollo-gold)' : 'var(--text-secondary)',
-    fontSize: '0.78rem', fontFamily: 'var(--font-display)', fontWeight: 600,
-    cursor: 'pointer', transition: 'all var(--transition-fast)',
+    fontSize: '0.78rem',
+    fontFamily: 'var(--font-display)',
+    fontWeight: 600,
+    cursor: 'pointer',
+    transition: 'all var(--transition-fast)',
   };
 }
 
@@ -83,7 +86,11 @@ function sportFilterOf(a: Activity): Exclude<SportFilter, 'all'> {
 /** Effort recognition only applies to runs with GPS — the service ignores everything else. */
 function processEfforts(list: Activity[]): void {
   for (const a of list) {
-    try { processActivityEffort(a); } catch { /* non-critical */ }
+    try {
+      processActivityEffort(a);
+    } catch {
+      /* non-critical */
+    }
   }
 }
 
@@ -110,7 +117,10 @@ function formatDate(dateStr: string): string {
   const day = /^\d{4}-\d{2}-\d{2}/.test(dateStr) ? dateStr.slice(0, 10) : null;
   if (!day) return dateStr;
   return new Date(`${day}T00:00:00`).toLocaleDateString(undefined, {
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   });
 }
 
@@ -130,17 +140,33 @@ function SourceBadges({ activity }: { activity: Activity }) {
   const isFile = activity.source === 'file';
   return (
     <>
-      <span style={isFile
-        ? { ...PILL_STYLE, background: 'var(--bg-surface)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }
-        : {
-          ...PILL_STYLE,
-          background: isIntervals ? 'var(--apollo-teal-dim)' : 'rgba(252, 76, 2, 0.12)',
-          color: isIntervals ? 'var(--apollo-teal)' : 'var(--strava)',
-        }}>
+      <span
+        style={
+          isFile
+            ? {
+                ...PILL_STYLE,
+                background: 'var(--bg-surface)',
+                color: 'var(--text-secondary)',
+                border: '1px solid var(--border)',
+              }
+            : {
+                ...PILL_STYLE,
+                background: isIntervals ? 'var(--apollo-teal-dim)' : 'rgba(252, 76, 2, 0.12)',
+                color: isIntervals ? 'var(--apollo-teal)' : 'var(--strava)',
+              }
+        }
+      >
         {getSourceDisplayName(activity.source)}
       </span>
       {activity.trainer && (
-        <span style={{ ...PILL_STYLE, background: 'var(--bg-surface)', color: 'var(--text-secondary)', border: '1px solid var(--border)' }}>
+        <span
+          style={{
+            ...PILL_STYLE,
+            background: 'var(--bg-surface)',
+            color: 'var(--text-secondary)',
+            border: '1px solid var(--border)',
+          }}
+        >
           Indoor
         </span>
       )}
@@ -148,7 +174,11 @@ function SourceBadges({ activity }: { activity: Activity }) {
   );
 }
 
-interface RowMetric { value: string; unit?: string; color?: string }
+interface RowMetric {
+  value: string;
+  unit?: string;
+  color?: string;
+}
 
 /** Up to three compact, sport-appropriate metrics for the list row. */
 function getRowMetrics(a: Activity, maxHR: number): RowMetric[] {
@@ -170,7 +200,11 @@ function getRowMetrics(a: Activity, maxHR: number): RowMetric[] {
     const watts = a.average_watts ?? 0;
     const np = a.weighted_average_watts ?? 0;
     if (watts > 0) {
-      out.push({ value: `${Math.round(watts)} W`, unit: np > 0 ? `NP ${Math.round(np)}` : undefined, color: 'var(--apollo-orange)' });
+      out.push({
+        value: `${Math.round(watts)} W`,
+        unit: np > 0 ? `NP ${Math.round(np)}` : undefined,
+        color: 'var(--apollo-orange)',
+      });
     }
     if (hr > 0) out.push(hrMetric);
     else if (elev > 0) out.push(elevMetric);
@@ -186,19 +220,38 @@ function getRowMetrics(a: Activity, maxHR: number): RowMetric[] {
 /** Stat cell for the expanded detail grid */
 function DetailStat({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
   return (
-    <div style={{
-      background: 'var(--bg-surface)',
-      borderRadius: 'var(--radius-sm)',
-      padding: '0.65rem 0.75rem',
-      textAlign: 'center',
-    }}>
-      <div style={{
-        fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.08em',
-        color: 'var(--text-muted)', fontFamily: 'var(--font-display)', fontWeight: 500, marginBottom: '0.2rem',
-      }}>{label}</div>
-      <div style={{
-        fontSize: '1.1rem', fontWeight: 700, fontFamily: 'var(--font-display)', color, lineHeight: 1.2,
-      }}>{value}</div>
+    <div
+      style={{
+        background: 'var(--bg-surface)',
+        borderRadius: 'var(--radius-sm)',
+        padding: '0.65rem 0.75rem',
+        textAlign: 'center',
+      }}
+    >
+      <div
+        style={{
+          fontSize: '0.65rem',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: 'var(--text-muted)',
+          fontFamily: 'var(--font-display)',
+          fontWeight: 500,
+          marginBottom: '0.2rem',
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: '1.1rem',
+          fontWeight: 700,
+          fontFamily: 'var(--font-display)',
+          color,
+          lineHeight: 1.2,
+        }}
+      >
+        {value}
+      </div>
       {sub && <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>{sub}</div>}
     </div>
   );
@@ -216,43 +269,62 @@ function EffortRecognitionPanel({ activityId }: { activityId: number }) {
   if (!recognition) return null;
   if (recognition.insights.length === 0 && !recognition.paceTier && !recognition.hrEfficiencyTier) return null;
 
-  const borderColor = recognition.paceTier === 'gold' ? 'var(--apollo-gold)'
-    : recognition.paceTier === 'silver' ? 'var(--text-secondary)'
-    : recognition.paceTier === 'bronze' ? '#CD7F32'
-    : 'var(--border)';
+  const borderColor =
+    recognition.paceTier === 'gold'
+      ? 'var(--apollo-gold)'
+      : recognition.paceTier === 'silver'
+        ? 'var(--text-secondary)'
+        : recognition.paceTier === 'bronze'
+          ? '#CD7F32'
+          : 'var(--border)';
 
   return (
-    <div style={{
-      marginTop: '1rem',
-      padding: '0.85rem 1rem',
-      background: 'rgba(212, 165, 55, 0.03)',
-      borderRadius: 'var(--radius-md)',
-      border: '1px solid var(--border)',
-      borderLeftWidth: 3,
-      borderLeftColor: borderColor,
-    }}>
+    <div
+      style={{
+        marginTop: '1rem',
+        padding: '0.85rem 1rem',
+        background: 'rgba(212, 165, 55, 0.03)',
+        borderRadius: 'var(--radius-md)',
+        border: '1px solid var(--border)',
+        borderLeftWidth: 3,
+        borderLeftColor: borderColor,
+      }}
+    >
       {/* Header */}
-      <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: recognition.insights.length > 0 ? '0.6rem' : 0,
-      }}>
-        <span style={{
-          fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600,
-          textTransform: 'uppercase', letterSpacing: '0.08em',
-          color: 'var(--text-muted)',
-        }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: recognition.insights.length > 0 ? '0.6rem' : 0,
+        }}
+      >
+        <span
+          style={{
+            fontSize: '0.72rem',
+            fontFamily: 'var(--font-display)',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            letterSpacing: '0.08em',
+            color: 'var(--text-muted)',
+          }}
+        >
           Effort #{recognition.effortNumber} · {recognition.routeName}
         </span>
         <div style={{ display: 'flex', gap: '0.35rem' }}>
           {recognition.paceTier && <TierBadge tier={recognition.paceTier} />}
           {recognition.hrEfficiencyTier && recognition.hrEfficiencyTier !== recognition.paceTier && (
-            <span style={{
-              fontSize: '0.68rem', fontWeight: 600, padding: '0.12rem 0.5rem',
-              borderRadius: 'var(--radius-full)',
-              background: TIER_CONFIG[recognition.hrEfficiencyTier].bg,
-              color: TIER_CONFIG[recognition.hrEfficiencyTier].color,
-              fontFamily: 'var(--font-display)',
-            }}>
+            <span
+              style={{
+                fontSize: '0.68rem',
+                fontWeight: 600,
+                padding: '0.12rem 0.5rem',
+                borderRadius: 'var(--radius-full)',
+                background: TIER_CONFIG[recognition.hrEfficiencyTier].bg,
+                color: TIER_CONFIG[recognition.hrEfficiencyTier].color,
+                fontFamily: 'var(--font-display)',
+              }}
+            >
               HR Efficiency {TIER_CONFIG[recognition.hrEfficiencyTier].label.split(' ')[0]}
             </span>
           )}
@@ -261,14 +333,17 @@ function EffortRecognitionPanel({ activityId }: { activityId: number }) {
 
       {/* Insights */}
       {recognition.insights.map((insight, i) => (
-        <div key={i} style={{
-          fontSize: 'var(--text-sm)',
-          color: insight.sentiment === 'positive' ? 'var(--text)' : 'var(--text-secondary)',
-          lineHeight: 1.5,
-          padding: '0.25rem 0 0.25rem 0.75rem',
-          borderLeft: `2px solid ${INSIGHT_BORDER[insight.sentiment]}`,
-          marginBottom: i < recognition.insights.length - 1 ? '0.35rem' : 0,
-        }}>
+        <div
+          key={i}
+          style={{
+            fontSize: 'var(--text-sm)',
+            color: insight.sentiment === 'positive' ? 'var(--text)' : 'var(--text-secondary)',
+            lineHeight: 1.5,
+            padding: '0.25rem 0 0.25rem 0.75rem',
+            borderLeft: `2px solid ${INSIGHT_BORDER[insight.sentiment]}`,
+            marginBottom: i < recognition.insights.length - 1 ? '0.35rem' : 0,
+          }}
+        >
           {insight.message}
         </div>
       ))}
@@ -277,7 +352,11 @@ function EffortRecognitionPanel({ activityId }: { activityId: number }) {
 }
 
 /** Expanded detail panel: route map (any sport with GPS), sport-specific stats, split analysis for runs */
-function ActivityDetail({ activity, maxHR, onDone }: {
+function ActivityDetail({
+  activity,
+  maxHR,
+  onDone,
+}: {
   activity: Activity;
   maxHR: number;
   /** Confirmation after Hide / Unhide / Delete (the activity then leaves the current list). */
@@ -286,8 +365,8 @@ function ActivityDetail({ activity, maxHR, onDone }: {
   const isRun = isRunActivity(activity);
   const isRide = !isRun && isRideActivity(activity);
   const [detail, setDetail] = useState<Activity>(activity);
-  const [splitAnalysis, setSplitAnalysis] = useState<SplitAnalysisType | null>(
-    () => (isRun ? getCachedSplitAnalysis(activity.id) : null),
+  const [splitAnalysis, setSplitAnalysis] = useState<SplitAnalysisType | null>(() =>
+    isRun ? getCachedSplitAnalysis(activity.id) : null,
   );
   const [loadingDetail, setLoadingDetail] = useState(false);
   const polyline = getPolylineForActivity(detail);
@@ -301,9 +380,8 @@ function ActivityDetail({ activity, maxHR, onDone }: {
       if (result) setSplitAnalysis(result);
       wantSplits = false;
     }
-    const wantRoute = !activity.trainer
-      && getSportCategory(activity) !== 'strength'
-      && !getPolylineForActivity(activity);
+    const wantRoute =
+      !activity.trainer && getSportCategory(activity) !== 'strength' && !getPolylineForActivity(activity);
     if (!wantSplits && !wantRoute) return;
 
     let cancelled = false;
@@ -321,9 +399,15 @@ function ActivityDetail({ activity, maxHR, onDone }: {
           processEfforts([detailed]);
         }
       })
-      .catch(() => { /* non-critical — keep showing the summary */ })
-      .finally(() => { if (!cancelled) setLoadingDetail(false); });
-    return () => { cancelled = true; };
+      .catch(() => {
+        /* non-critical — keep showing the summary */
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingDetail(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [activity.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const a = detail;
@@ -344,75 +428,120 @@ function ActivityDetail({ activity, maxHR, onDone }: {
       {polyline ? (
         <RouteMap activity={a} size="card" colorMode={isRun ? 'apollo' : 'teal'} animate={true} />
       ) : showRoutePlaceholder ? (
-        <div style={{
-          height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: 'var(--bg-surface)', borderRadius: 'var(--radius-md)',
-          color: 'var(--text-muted)', fontSize: 'var(--text-sm)', fontFamily: 'var(--font-display)',
-        }}>
-          {loadingDetail ? 'Looking for route data…' : a.trainer ? 'Indoor session — no GPS route' : 'No route data for this activity'}
+        <div
+          style={{
+            height: 120,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'var(--bg-surface)',
+            borderRadius: 'var(--radius-md)',
+            color: 'var(--text-muted)',
+            fontSize: 'var(--text-sm)',
+            fontFamily: 'var(--font-display)',
+          }}
+        >
+          {loadingDetail
+            ? 'Looking for route data…'
+            : a.trainer
+              ? 'Indoor session — no GPS route'
+              : 'No route data for this activity'}
         </div>
       ) : null}
 
       {/* Stats grid */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-        gap: '0.75rem', marginTop: '0.85rem',
-      }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+          gap: '0.75rem',
+          marginTop: '0.85rem',
+        }}
+      >
         {(isRun || a.distance > 0) && (
           <DetailStat label="Distance" value={fmtDist(a.distance)} color="var(--apollo-gold)" />
         )}
-        <DetailStat label="Duration" value={fmtDur(a.moving_time || a.elapsed_time)}
+        <DetailStat
+          label="Duration"
+          value={fmtDur(a.moving_time || a.elapsed_time)}
           sub={a.elapsed_time > a.moving_time && a.moving_time > 0 ? `${fmtDur(a.elapsed_time)} elapsed` : undefined}
-          color="var(--text)" />
-        {isRun && (
-          <DetailStat label="Pace" value={fmtPace(a.distance, a.moving_time)} color="var(--apollo-teal)" />
-        )}
+          color="var(--text)"
+        />
+        {isRun && <DetailStat label="Pace" value={fmtPace(a.distance, a.moving_time)} color="var(--apollo-teal)" />}
         {isRide && (
-          <DetailStat label="Avg Speed" value={fmtSpeed(a.average_speed)}
+          <DetailStat
+            label="Avg Speed"
+            value={fmtSpeed(a.average_speed)}
             sub={a.max_speed ? `max ${fmtSpeed(a.max_speed)}` : undefined}
-            color="var(--apollo-teal)" />
+            color="var(--apollo-teal)"
+          />
         )}
         {watts > 0 && (
-          <DetailStat label="Power" value={`${Math.round(watts)} W`}
+          <DetailStat
+            label="Power"
+            value={`${Math.round(watts)} W`}
             sub={np > 0 ? `NP ${Math.round(np)} W` : 'average'}
-            color="var(--apollo-orange)" />
+            color="var(--apollo-orange)"
+          />
         )}
-        {elev > 0 && (
-          <DetailStat label="Elevation" value={fmtElev(elev)} color="var(--color-success)" />
-        )}
+        {elev > 0 && <DetailStat label="Elevation" value={fmtElev(elev)} color="var(--color-success)" />}
         {hr > 0 && (
-          <DetailStat label="Heart Rate" value={`${Math.round(hr)}`}
+          <DetailStat
+            label="Heart Rate"
+            value={`${Math.round(hr)}`}
             sub={a.max_heartrate ? `max ${Math.round(a.max_heartrate)}` : undefined}
-            color="var(--color-error)" />
+            color="var(--color-error)"
+          />
         )}
         {cadence > 0 && (isRun || isRide) && (
-          <DetailStat label="Cadence" value={`${Math.round(isRun ? cadence * 2 : cadence)}`}
-            sub={isRun ? 'spm' : 'rpm'} color="var(--apollo-orange)" />
+          <DetailStat
+            label="Cadence"
+            value={`${Math.round(isRun ? cadence * 2 : cadence)}`}
+            sub={isRun ? 'spm' : 'rpm'}
+            color="var(--apollo-orange)"
+          />
         )}
         {route && (
-          <DetailStat label="Route" value={route.isLoop ? 'Loop' : bearingToCompass(route.bearing)}
+          <DetailStat
+            label="Route"
+            value={route.isLoop ? 'Loop' : bearingToCompass(route.bearing)}
             sub={route.isLoop ? '↻ out & back' : `bearing ${Math.round(route.bearing)}°`}
-            color="var(--apollo-cream)" />
+            color="var(--apollo-cream)"
+          />
         )}
         {load && (!isRun || !load.estimated) && (
-          <DetailStat label="Training Load" value={String(load.value)}
-            sub={load.estimated ? 'estimated' : undefined} color="var(--color-warning)" />
+          <DetailStat
+            label="Training Load"
+            value={String(load.value)}
+            sub={load.estimated ? 'estimated' : undefined}
+            color="var(--color-warning)"
+          />
         )}
         {a.suffer_score != null && a.suffer_score > 0 && (
           <DetailStat label="Suffer Score" value={String(a.suffer_score)} color="var(--color-warning)" />
         )}
         {a.calories != null && a.calories > 0 && (
-          <DetailStat label="Calories" value={String(Math.round(a.calories))} sub="kcal" color="var(--text-secondary)" />
+          <DetailStat
+            label="Calories"
+            value={String(Math.round(a.calories))}
+            sub="kcal"
+            color="var(--text-secondary)"
+          />
         )}
       </div>
 
       {/* Split analysis (runs only) */}
       {isRun && splitAnalysis && <SplitAnalysisPanel analysis={splitAnalysis} />}
       {isRun && loadingDetail && !splitAnalysis && (
-        <div style={{
-          marginTop: '0.75rem', padding: '0.6rem', textAlign: 'center',
-          color: 'var(--text-muted)', fontSize: 'var(--text-sm)',
-        }}>
+        <div
+          style={{
+            marginTop: '0.75rem',
+            padding: '0.6rem',
+            textAlign: 'center',
+            color: 'var(--text-muted)',
+            fontSize: 'var(--text-sm)',
+          }}
+        >
           <span style={{ animation: 'breathe 2s ease-in-out infinite' }}>Loading split data…</span>
         </div>
       )}
@@ -421,10 +550,18 @@ function ActivityDetail({ activity, maxHR, onDone }: {
       {isRun && <EffortRecognitionPanel activityId={a.id} />}
 
       {/* Provenance + link to the source platform */}
-      <div style={{
-        marginTop: '0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.78rem', color: 'var(--text-muted)',
-      }}>
+      <div
+        style={{
+          marginTop: '0.85rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          gap: '0.75rem',
+          flexWrap: 'wrap',
+          fontSize: '0.78rem',
+          color: 'var(--text-muted)',
+        }}
+      >
         <span>
           {getSportLabel(a)}
           {a.device_name ? ` · ${a.device_name}` : ''}
@@ -497,24 +634,30 @@ export default function Activities() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [available, page]);
 
   // Background syncs store new or edited activities — refresh the current page from the local store.
-  useEffect(() => onActivitiesUpdated((summary) => {
-    // First data on this device (e.g. a file import): leave the empty state; the effect above loads it.
-    if (!available) {
-      setAvailable(true);
-      // Imported from the empty-state card, which unmounts now: keep the import's progress and result in view.
-      if (summary.sources.includes('file')) setShowImport(true);
-      return;
-    }
-    const list = queryStoredActivities({ page, per_page: PAGE_SIZE });
-    setActivities(list);
-    setHidden(getHiddenActivities());
-    setError(null);
-    processEfforts(list);
-  }), [available, page]);
+  useEffect(
+    () =>
+      onActivitiesUpdated((summary) => {
+        // First data on this device (e.g. a file import): leave the empty state; the effect above loads it.
+        if (!available) {
+          setAvailable(true);
+          // Imported from the empty-state card, which unmounts now: keep the import's progress and result in view.
+          if (summary.sources.includes('file')) setShowImport(true);
+          return;
+        }
+        const list = queryStoredActivities({ page, per_page: PAGE_SIZE });
+        setActivities(list);
+        setHidden(getHiddenActivities());
+        setError(null);
+        processEfforts(list);
+      }),
+    [available, page],
+  );
 
   /**
    * Hide / unhide / delete / merge: the list refreshes through onActivitiesUpdated. Confirm in the header
@@ -527,9 +670,13 @@ export default function Activities() {
   };
 
   // Surface sync progress (the first sync imports the full history and can take a while).
-  useEffect(() => onSyncStatus((status) => {
-    setSyncMessage(status.running ? (status.progress?.message ?? 'Syncing activities…') : null);
-  }), []);
+  useEffect(
+    () =>
+      onSyncStatus((status) => {
+        setSyncMessage(status.running ? (status.progress?.message ?? 'Syncing activities…') : null);
+      }),
+    [],
+  );
 
   // The header confirmation of a finished import clears itself.
   useEffect(() => {
@@ -544,8 +691,11 @@ export default function Activities() {
    * or a cancel.
    */
   const handleImported = (result: ImportResult): void => {
-    const clean = result.added + result.updated > 0
-      && result.errors.length === 0 && result.skipped.length === 0 && !result.cancelled;
+    const clean =
+      result.added + result.updated > 0 &&
+      result.errors.length === 0 &&
+      result.skipped.length === 0 &&
+      !result.cancelled;
     if (!clean) return;
     // The panel is about to unmount: hand keyboard focus back to its toggle instead of dropping it.
     const active = document.activeElement;
@@ -580,21 +730,54 @@ export default function Activities() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '1rem' }}>
-        <h1 ref={headingRef} tabIndex={-1} style={{
-          fontFamily: 'var(--font-display)', fontSize: 'var(--text-2xl)',
-          fontWeight: 700, margin: 0, color: 'var(--text)',
-        }}>Activities</h1>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '1.25rem',
+          flexWrap: 'wrap',
+          gap: '1rem',
+        }}
+      >
+        <h1
+          ref={headingRef}
+          tabIndex={-1}
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'var(--text-2xl)',
+            fontWeight: 700,
+            margin: 0,
+            color: 'var(--text)',
+          }}
+        >
+          Activities
+        </h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <span role="status" style={{
-            fontSize: '0.72rem', fontFamily: 'var(--font-display)', fontWeight: 600,
-            textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text-muted)',
-          }}>
-            {syncMessage && !loading
-              ? <span style={{ color: 'var(--apollo-teal)', textTransform: 'none', letterSpacing: 0 }}>⟳ {syncMessage}</span>
-              : importNote
-                ? <span style={{ color: 'var(--color-success)', textTransform: 'none', letterSpacing: 0 }}>✓ {importNote}</span>
-                : activities.length > 0 ? `${activities.length} ${activities.length === 1 ? 'activity' : 'activities'} loaded` : ''}
+          <span
+            role="status"
+            style={{
+              fontSize: '0.72rem',
+              fontFamily: 'var(--font-display)',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
+              color: 'var(--text-muted)',
+            }}
+          >
+            {syncMessage && !loading ? (
+              <span style={{ color: 'var(--apollo-teal)', textTransform: 'none', letterSpacing: 0 }}>
+                ⟳ {syncMessage}
+              </span>
+            ) : importNote ? (
+              <span style={{ color: 'var(--color-success)', textTransform: 'none', letterSpacing: 0 }}>
+                ✓ {importNote}
+              </span>
+            ) : activities.length > 0 ? (
+              `${activities.length} ${activities.length === 1 ? 'activity' : 'activities'} loaded`
+            ) : (
+              ''
+            )}
           </span>
           <button
             ref={importButtonRef}
@@ -624,7 +807,11 @@ export default function Activities() {
         Filters. Gear mount point (deferred to 1.0.7): when Activities gets views, switch this area to
         Tabs/TabPanel from components/ui with ?tab= in the URL and add a "Gear" tab. No placeholder until then.
       */}
-      <div role="group" aria-label="Filter activities" style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}>
+      <div
+        role="group"
+        aria-label="Filter activities"
+        style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '1.25rem' }}
+      >
         {SPORT_FILTERS.map((f) => {
           const isActive = sportFilter === f.key;
           return (
@@ -664,14 +851,32 @@ export default function Activities() {
       )}
 
       {error && (
-        <div className="card" role="alert" style={{ background: 'var(--color-error-dim)', borderColor: 'var(--color-error)', borderLeftWidth: 3, borderLeftStyle: 'solid' }}>
+        <div
+          className="card"
+          role="alert"
+          style={{
+            background: 'var(--color-error-dim)',
+            borderColor: 'var(--color-error)',
+            borderLeftWidth: 3,
+            borderLeftStyle: 'solid',
+          }}
+        >
           <span style={{ color: 'var(--color-error)', fontWeight: 600 }}>Error:</span> {error}
         </div>
       )}
 
       {loading ? (
         <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ color: 'var(--apollo-gold)', fontSize: '1.2rem', marginBottom: '0.5rem', animation: 'breathe 2s ease-in-out infinite' }}>⚡</div>
+          <div
+            style={{
+              color: 'var(--apollo-gold)',
+              fontSize: '1.2rem',
+              marginBottom: '0.5rem',
+              animation: 'breathe 2s ease-in-out infinite',
+            }}
+          >
+            ⚡
+          </div>
           <p style={{ color: 'var(--text-muted)', margin: 0 }}>{syncMessage ?? 'Loading your victories…'}</p>
         </div>
       ) : (
@@ -680,114 +885,205 @@ export default function Activities() {
             <div className="card" style={{ textAlign: 'center', padding: '2rem' }}>
               <p style={{ color: 'var(--text-muted)', margin: 0 }}>
                 {showHidden
-                  ? (hidden.length === 0 ? 'No hidden activities.' : `No hidden ${activeFilterLabel}.`)
+                  ? hidden.length === 0
+                    ? 'No hidden activities.'
+                    : `No hidden ${activeFilterLabel}.`
                   : activities.length === 0
-                  ? (page > 1
-                    ? 'No more activities.'
-                    : 'No activities yet. Your first sync imports your full history — new sessions appear here automatically. Have files or a Strava/Garmin export? Use Import files above.')
-                  : `No ${activeFilterLabel} on this page — try another filter or page.`}
+                    ? page > 1
+                      ? 'No more activities.'
+                      : 'No activities yet. Your first sync imports your full history — new sessions appear here automatically. Have files or a Strava/Garmin export? Use Import files above.'
+                    : `No ${activeFilterLabel} on this page — try another filter or page.`}
               </p>
             </div>
           )}
-          {visible.length > 0 && <div className="card" style={{ padding: '0.75rem 1.5rem' }}>
-            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-              {visible.map((a, idx) => {
-                const isExpanded = expandedId === a.id;
-                const hasRoute = !!(a.map?.summary_polyline);
-                const isRun = isRunActivity(a);
-                const recognition = isRun ? getEffortRecognition(a.id) : null;
-                const topTier = recognition?.paceTier ?? recognition?.hrEfficiencyTier ?? null;
-                const cachedSplits = isRun ? getCachedSplitAnalysis(a.id) : null;
-                const metrics = getRowMetrics(a, maxHR);
+          {visible.length > 0 && (
+            <div className="card" style={{ padding: '0.75rem 1.5rem' }}>
+              <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+                {visible.map((a, idx) => {
+                  const isExpanded = expandedId === a.id;
+                  const hasRoute = !!a.map?.summary_polyline;
+                  const isRun = isRunActivity(a);
+                  const recognition = isRun ? getEffortRecognition(a.id) : null;
+                  const topTier = recognition?.paceTier ?? recognition?.hrEfficiencyTier ?? null;
+                  const cachedSplits = isRun ? getCachedSplitAnalysis(a.id) : null;
+                  const metrics = getRowMetrics(a, maxHR);
 
-                return (
-                  <li key={a.id} style={{ borderBottom: idx < visible.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    {/* Main row — click to expand */}
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      aria-expanded={isExpanded}
-                      onClick={() => setExpandedId(isExpanded ? null : a.id)}
-                      onKeyDown={(e) => {
-                        if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
-                        e.preventDefault();
-                        setExpandedId(isExpanded ? null : a.id);
-                      }}
-                      style={{
-                        padding: '1rem 0',
-                        display: 'grid',
-                        gridTemplateColumns: hasRoute ? '64px 1fr auto auto' : '1fr auto auto',
-                        gap: '1rem',
-                        alignItems: 'center',
-                        cursor: 'pointer',
-                        transition: 'background var(--transition-fast)',
-                        borderRadius: 'var(--radius-sm)',
-                        marginLeft: '-0.5rem', marginRight: '-0.5rem',
-                        paddingLeft: '0.5rem', paddingRight: '0.5rem',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--bg-hover)'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                  return (
+                    <li
+                      key={a.id}
+                      style={{ borderBottom: idx < visible.length - 1 ? '1px solid var(--border)' : 'none' }}
                     >
-                      {/* Route thumbnail */}
-                      {hasRoute && <RouteMapThumbnail activity={a} />}
+                      {/* Main row — click to expand */}
+                      <div
+                        role="button"
+                        tabIndex={0}
+                        aria-expanded={isExpanded}
+                        onClick={() => setExpandedId(isExpanded ? null : a.id)}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget || (e.key !== 'Enter' && e.key !== ' ')) return;
+                          e.preventDefault();
+                          setExpandedId(isExpanded ? null : a.id);
+                        }}
+                        style={{
+                          padding: '1rem 0',
+                          display: 'grid',
+                          gridTemplateColumns: hasRoute ? '64px 1fr auto auto' : '1fr auto auto',
+                          gap: '1rem',
+                          alignItems: 'center',
+                          cursor: 'pointer',
+                          transition: 'background var(--transition-fast)',
+                          borderRadius: 'var(--radius-sm)',
+                          marginLeft: '-0.5rem',
+                          marginRight: '-0.5rem',
+                          paddingLeft: '0.5rem',
+                          paddingRight: '0.5rem',
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = 'var(--bg-hover)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = 'transparent';
+                        }}
+                      >
+                        {/* Route thumbnail */}
+                        {hasRoute && <RouteMapThumbnail activity={a} />}
 
-                      {/* Sport, name & date */}
-                      <div style={{ minWidth: 0 }}>
-                        <strong style={{
-                          fontFamily: 'var(--font-display)', fontWeight: 600, fontSize: 'var(--text-base)',
-                          display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                        }}>
-                          <span aria-hidden="true" style={{ marginRight: '0.4rem' }}>{getSportIcon(a)}</span>
-                          {a.name || getSportLabel(a)}
-                          {topTier && <TierDot tier={topTier} />}
-                        </strong>
-                        <div style={{ color: 'var(--text-muted)', fontSize: 'var(--text-sm)', marginTop: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                          <span>{formatDate(a.start_date_local)} · {getSportLabel(a)}</span>
-                          <SourceBadges activity={a} />
-                          {cachedSplits && <SplitSummaryBadge analysis={cachedSplits} />}
+                        {/* Sport, name & date */}
+                        <div style={{ minWidth: 0 }}>
+                          <strong
+                            style={{
+                              fontFamily: 'var(--font-display)',
+                              fontWeight: 600,
+                              fontSize: 'var(--text-base)',
+                              display: 'block',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            <span aria-hidden="true" style={{ marginRight: '0.4rem' }}>
+                              {getSportIcon(a)}
+                            </span>
+                            {a.name || getSportLabel(a)}
+                            {topTier && <TierDot tier={topTier} />}
+                          </strong>
+                          <div
+                            style={{
+                              color: 'var(--text-muted)',
+                              fontSize: 'var(--text-sm)',
+                              marginTop: '0.15rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <span>
+                              {formatDate(a.start_date_local)} · {getSportLabel(a)}
+                            </span>
+                            <SourceBadges activity={a} />
+                            {cachedSplits && <SplitSummaryBadge analysis={cachedSplits} />}
+                          </div>
+                        </div>
+
+                        {/* Distance & time (duration only when there is no distance) */}
+                        <div style={{ textAlign: 'right', fontSize: 'var(--text-sm)' }}>
+                          {a.distance > 0 ? (
+                            <>
+                              <span
+                                style={{
+                                  color: 'var(--apollo-gold)',
+                                  fontWeight: 600,
+                                  fontFamily: 'var(--font-display)',
+                                }}
+                              >
+                                {fmtDist(a.distance)}
+                              </span>
+                              <br />
+                              <span style={{ color: 'var(--text-muted)' }}>{fmtDur(a.moving_time)}</span>
+                            </>
+                          ) : (
+                            <span
+                              style={{
+                                color: 'var(--apollo-gold)',
+                                fontWeight: 600,
+                                fontFamily: 'var(--font-display)',
+                              }}
+                            >
+                              {fmtDur(a.moving_time || a.elapsed_time)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Sport-specific metrics */}
+                        <div
+                          style={{
+                            textAlign: 'right',
+                            fontSize: 'var(--text-sm)',
+                            color: 'var(--text-secondary)',
+                            minWidth: 80,
+                          }}
+                        >
+                          {metrics.slice(0, 3).map((m, i) => (
+                            <div key={i} style={{ whiteSpace: 'nowrap' }}>
+                              <span style={m.color ? { color: m.color } : undefined}>{m.value}</span>
+                              {m.unit && <span style={{ color: 'var(--text-muted)' }}> {m.unit}</span>}
+                            </div>
+                          ))}
                         </div>
                       </div>
 
-                      {/* Distance & time (duration only when there is no distance) */}
-                      <div style={{ textAlign: 'right', fontSize: 'var(--text-sm)' }}>
-                        {a.distance > 0 ? (
-                          <>
-                            <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{fmtDist(a.distance)}</span><br />
-                            <span style={{ color: 'var(--text-muted)' }}>{fmtDur(a.moving_time)}</span>
-                          </>
-                        ) : (
-                          <span style={{ color: 'var(--apollo-gold)', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{fmtDur(a.moving_time || a.elapsed_time)}</span>
-                        )}
-                      </div>
-
-                      {/* Sport-specific metrics */}
-                      <div style={{ textAlign: 'right', fontSize: 'var(--text-sm)', color: 'var(--text-secondary)', minWidth: 80 }}>
-                        {metrics.slice(0, 3).map((m, i) => (
-                          <div key={i} style={{ whiteSpace: 'nowrap' }}>
-                            <span style={m.color ? { color: m.color } : undefined}>{m.value}</span>
-                            {m.unit && <span style={{ color: 'var(--text-muted)' }}> {m.unit}</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Expanded detail panel */}
-                    {isExpanded && <ActivityDetail activity={a} maxHR={maxHR} onDone={handleManaged} />}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>}
-          {!showHidden && <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem', alignItems: 'center' }}>
-            <button type="button" className="btn btn-secondary" disabled={page <= 1} onClick={() => setPage((p) => p - 1)} style={{ fontSize: 'var(--text-sm)' }}>← Previous</button>
-            <span style={{
-              color: 'var(--apollo-gold)', fontFamily: 'var(--font-display)',
-              fontWeight: 600, fontSize: 'var(--text-sm)',
-              padding: '0.35rem 0.75rem', borderRadius: 'var(--radius-sm)',
-              background: 'var(--apollo-gold-dim)',
-            }}>Page {page}</span>
-            <button type="button" className="btn btn-secondary" disabled={activities.length < PAGE_SIZE} onClick={() => setPage((p) => p + 1)} style={{ fontSize: 'var(--text-sm)' }}>Next →</button>
-          </div>}
+                      {/* Expanded detail panel */}
+                      {isExpanded && <ActivityDetail activity={a} maxHR={maxHR} onDone={handleManaged} />}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+          {!showHidden && (
+            <div
+              style={{
+                display: 'flex',
+                gap: '0.75rem',
+                justifyContent: 'center',
+                marginTop: '1.25rem',
+                alignItems: 'center',
+              }}
+            >
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => p - 1)}
+                style={{ fontSize: 'var(--text-sm)' }}
+              >
+                ← Previous
+              </button>
+              <span
+                style={{
+                  color: 'var(--apollo-gold)',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  fontSize: 'var(--text-sm)',
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--apollo-gold-dim)',
+                }}
+              >
+                Page {page}
+              </span>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={activities.length < PAGE_SIZE}
+                onClick={() => setPage((p) => p + 1)}
+                style={{ fontSize: 'var(--text-sm)' }}
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>

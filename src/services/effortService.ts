@@ -69,7 +69,7 @@ const START_END_TOLERANCE_M = 300;
 /** Max haversine distance (m) for route centroids. */
 const CENTROID_TOLERANCE_M = 500;
 /** Max relative distance difference (0–1). */
-const DISTANCE_TOLERANCE_PCT = 0.20;
+const DISTANCE_TOLERANCE_PCT = 0.2;
 
 /** Minimum % change for a pace difference to be called out. */
 const PACE_NOTABLE_PCT = 1.0;
@@ -135,10 +135,7 @@ function saveRecognitionsMap(map: Record<number, EffortRecognition>): void {
 /** Centroid (arithmetic mean) of a coordinate array. */
 export function calcCentroid(coords: LatLng[]): LatLng {
   if (coords.length === 0) return { lat: 0, lng: 0 };
-  const sum = coords.reduce(
-    (acc, c) => ({ lat: acc.lat + c.lat, lng: acc.lng + c.lng }),
-    { lat: 0, lng: 0 },
-  );
+  const sum = coords.reduce((acc, c) => ({ lat: acc.lat + c.lat, lng: acc.lng + c.lng }), { lat: 0, lng: 0 });
   return { lat: sum.lat / coords.length, lng: sum.lng / coords.length };
 }
 
@@ -186,7 +183,8 @@ export function findMatchingBundle(
     if (haversineDistance(end, { lat: fp.endLat, lng: fp.endLng }) > START_END_TOLERANCE_M) continue;
 
     const maxDist = Math.max(distanceMeters, fp.referenceDistanceMeters);
-    if (maxDist > 0 && Math.abs(distanceMeters - fp.referenceDistanceMeters) / maxDist > DISTANCE_TOLERANCE_PCT) continue;
+    if (maxDist > 0 && Math.abs(distanceMeters - fp.referenceDistanceMeters) / maxDist > DISTANCE_TOLERANCE_PCT)
+      continue;
 
     if (haversineDistance(centroid, { lat: fp.centroidLat, lng: fp.centroidLng }) > CENTROID_TOLERANCE_M) continue;
 
@@ -236,9 +234,7 @@ function analyzeEffort(
   }
 
   // "Last effort" = most recent effort BEFORE this effort's date
-  const olderEfforts = previousEfforts
-    .filter((e) => e.date < effort.date)
-    .sort((a, b) => b.date.localeCompare(a.date));
+  const olderEfforts = previousEfforts.filter((e) => e.date < effort.date).sort((a, b) => b.date.localeCompare(a.date));
   const lastEffort = olderEfforts.length > 0 ? olderEfforts[0] : null;
 
   // ── 1. Pace Ranking & Comparison ──────────────────────────
@@ -246,9 +242,7 @@ function analyzeEffort(
   let paceTier: AchievementTier | null = null;
 
   if (effort.paceMinPerMi > 0) {
-    const validPaces = allEfforts
-      .filter((e) => e.paceMinPerMi > 0)
-      .map((e) => e.paceMinPerMi);
+    const validPaces = allEfforts.filter((e) => e.paceMinPerMi > 0).map((e) => e.paceMinPerMi);
 
     if (validPaces.length >= 2) {
       const sorted = [...validPaces].sort((a, b) => a - b); // ascending — fastest first
@@ -334,16 +328,9 @@ function analyzeEffort(
 
   let hrEfficiencyTier: AchievementTier | null = null;
 
-  const effortsWithBoth = allEfforts.filter(
-    (e) => e.averageHR && e.averageHR > 0 && e.paceMinPerMi > 0,
-  );
+  const effortsWithBoth = allEfforts.filter((e) => e.averageHR && e.averageHR > 0 && e.paceMinPerMi > 0);
 
-  if (
-    effort.averageHR &&
-    effort.averageHR > 0 &&
-    effort.paceMinPerMi > 0 &&
-    effortsWithBoth.length >= 2
-  ) {
+  if (effort.averageHR && effort.averageHR > 0 && effort.paceMinPerMi > 0 && effortsWithBoth.length >= 2) {
     // Efficiency = pace / HR — lower = better (faster pace at lower HR)
     const efficiencies = effortsWithBoth.map((e) => ({
       activityId: e.activityId,
@@ -379,8 +366,7 @@ function analyzeEffort(
   if (effort.avgCadence && effort.avgCadence > 0) {
     const cadenceEfforts = previousEfforts.filter((e) => e.avgCadence && e.avgCadence > 0);
     if (cadenceEfforts.length > 0) {
-      const avgCadence =
-        cadenceEfforts.reduce((s, e) => s + (e.avgCadence ?? 0), 0) / cadenceEfforts.length;
+      const avgCadence = cadenceEfforts.reduce((s, e) => s + (e.avgCadence ?? 0), 0) / cadenceEfforts.length;
       const cadenceDelta = effort.avgCadence - avgCadence;
 
       if (Math.abs(cadenceDelta) >= CADENCE_NOTABLE_SPM) {
@@ -399,18 +385,15 @@ function analyzeEffort(
   // ── 5. Overall Synthesis ──────────────────────────────────
 
   if (lastEffort && effort.paceMinPerMi > 0 && lastEffort.paceMinPerMi > 0) {
-    const paceBetter =
-      effort.paceMinPerMi < lastEffort.paceMinPerMi * (1 - PACE_NOTABLE_PCT / 100);
+    const paceBetter = effort.paceMinPerMi < lastEffort.paceMinPerMi * (1 - PACE_NOTABLE_PCT / 100);
 
     if (effort.averageHR && lastEffort.averageHR) {
-      const hrLower =
-        effort.averageHR < lastEffort.averageHR * (1 - HR_NOTABLE_PCT / 100);
+      const hrLower = effort.averageHR < lastEffort.averageHR * (1 - HR_NOTABLE_PCT / 100);
 
       if (paceBetter && hrLower) {
         insights.push({
           category: 'overall',
-          message:
-            'Strong improvement — faster pace with lower heart rate than your previous attempt',
+          message: 'Strong improvement — faster pace with lower heart rate than your previous attempt',
           sentiment: 'positive',
         });
       } else if (!paceBetter && hrLower) {
@@ -579,9 +562,7 @@ let rebuildAgain = false;
  * Note: the pass itself is synchronous (processAllStoredActivities); it is
  * not chunked yet.
  */
-export async function rebuildEffortRecognitions(
-  opts?: { force?: boolean },
-): Promise<{ processed: number }> {
+export async function rebuildEffortRecognitions(opts?: { force?: boolean }): Promise<{ processed: number }> {
   void opts;
   if (rebuildRunning) {
     rebuildAgain = true;
@@ -598,9 +579,14 @@ export async function rebuildEffortRecognitions(
         persistence.removeItem(EFFORT_RECOGNITIONS_KEY);
         processAllStoredActivities(runs);
         processed = runs.length;
-        persistence.setItem(EFFORT_META_KEY, JSON.stringify({
-          algoVersion: EFFORT_ALGO_VERSION, rebuiltAt: new Date().toISOString(), processed,
-        }));
+        persistence.setItem(
+          EFFORT_META_KEY,
+          JSON.stringify({
+            algoVersion: EFFORT_ALGO_VERSION,
+            rebuiltAt: new Date().toISOString(),
+            processed,
+          }),
+        );
       } catch {
         processed = 0;
       }

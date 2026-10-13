@@ -56,7 +56,8 @@ export function getAppPreferences(): AppPreferences {
     if (!raw) return { ...DEFAULT_PREFS };
     const stored = JSON.parse(raw) as Partial<AppPreferences>;
     // Preferences saved before v1.0.7 without a wellness choice keep the old default (on).
-    const legacyWellness = stored && typeof stored === 'object' && !('syncWellness' in stored) ? { syncWellness: true } : {};
+    const legacyWellness =
+      stored && typeof stored === 'object' && !('syncWellness' in stored) ? { syncWellness: true } : {};
     return { ...DEFAULT_PREFS, ...legacyWellness, ...stored };
   } catch {
     return { ...DEFAULT_PREFS };

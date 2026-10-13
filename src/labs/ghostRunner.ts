@@ -176,9 +176,7 @@ function buildSummary(
   const direction = totalDelta > 0 ? 'slower than' : 'faster than';
   const minutes = Math.floor(abs / 60);
   const seconds = abs % 60;
-  const deltaStr = minutes > 0
-    ? `${minutes}:${String(seconds).padStart(2, '0')}`
-    : `${seconds}s`;
+  const deltaStr = minutes > 0 ? `${minutes}:${String(seconds).padStart(2, '0')}` : `${seconds}s`;
 
   // Find best and worst miles
   let bestMile = miles[0];

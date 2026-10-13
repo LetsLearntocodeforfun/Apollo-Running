@@ -92,12 +92,14 @@ interface MessageDef {
 function isFitAt(data: Uint8Array, pos: number): boolean {
   if (pos < 0 || pos + 12 > data.length) return false;
   const headerSize = data[pos];
-  return (headerSize === 12 || headerSize === 14)
-    && pos + headerSize <= data.length
-    && data[pos + 8] === 0x2e   // '.'
-    && data[pos + 9] === 0x46   // 'F'
-    && data[pos + 10] === 0x49  // 'I'
-    && data[pos + 11] === 0x54; // 'T'
+  return (
+    (headerSize === 12 || headerSize === 14) &&
+    pos + headerSize <= data.length &&
+    data[pos + 8] === 0x2e && // '.'
+    data[pos + 9] === 0x46 && // 'F'
+    data[pos + 10] === 0x49 && // 'I'
+    data[pos + 11] === 0x54
+  ); // 'T'
 }
 
 /**
@@ -150,18 +152,43 @@ function readNumber(view: DataView, base: number, def: MessageDef, num: number):
   const le = def.littleEndian;
   let v: number;
   switch (f.type) {
-    case 0: case 2: case BASE_BYTE: v = view.getUint8(p); return v === 0xff ? undefined : v;
-    case 1: v = view.getInt8(p); return v === 0x7f ? undefined : v;
-    case 3: v = view.getInt16(p, le); return v === 0x7fff ? undefined : v;
-    case 4: v = view.getUint16(p, le); return v === 0xffff ? undefined : v;
-    case 5: v = view.getInt32(p, le); return v === 0x7fffffff ? undefined : v;
-    case 6: v = view.getUint32(p, le); return v === 0xffffffff ? undefined : v;
-    case 8: v = view.getFloat32(p, le); return Number.isFinite(v) ? v : undefined;
-    case 9: v = view.getFloat64(p, le); return Number.isFinite(v) ? v : undefined;
-    case 10: v = view.getUint8(p); return v === 0 ? undefined : v;
-    case 11: v = view.getUint16(p, le); return v === 0 ? undefined : v;
-    case 12: v = view.getUint32(p, le); return v === 0 ? undefined : v;
-    default: return undefined;
+    case 0:
+    case 2:
+    case BASE_BYTE:
+      v = view.getUint8(p);
+      return v === 0xff ? undefined : v;
+    case 1:
+      v = view.getInt8(p);
+      return v === 0x7f ? undefined : v;
+    case 3:
+      v = view.getInt16(p, le);
+      return v === 0x7fff ? undefined : v;
+    case 4:
+      v = view.getUint16(p, le);
+      return v === 0xffff ? undefined : v;
+    case 5:
+      v = view.getInt32(p, le);
+      return v === 0x7fffffff ? undefined : v;
+    case 6:
+      v = view.getUint32(p, le);
+      return v === 0xffffffff ? undefined : v;
+    case 8:
+      v = view.getFloat32(p, le);
+      return Number.isFinite(v) ? v : undefined;
+    case 9:
+      v = view.getFloat64(p, le);
+      return Number.isFinite(v) ? v : undefined;
+    case 10:
+      v = view.getUint8(p);
+      return v === 0 ? undefined : v;
+    case 11:
+      v = view.getUint16(p, le);
+      return v === 0 ? undefined : v;
+    case 12:
+      v = view.getUint32(p, le);
+      return v === 0 ? undefined : v;
+    default:
+      return undefined;
   }
 }
 
@@ -177,7 +204,10 @@ function readString(data: Uint8Array, base: number, def: MessageDef, num: number
   while (end < limit && data[end] !== 0) end++;
   if (end === start) return undefined;
   utf8 ??= new TextDecoder('utf-8');
-  const text = utf8.decode(data.subarray(start, end)).replace(/\uFFFD/g, '').trim();
+  const text = utf8
+    .decode(data.subarray(start, end))
+    .replace(/\uFFFD/g, '')
+    .trim();
   return text || undefined;
 }
 
@@ -286,7 +316,14 @@ function readPackedSpeedDistance(data: Uint8Array, p: number, f: FieldLayout, c:
 }
 
 /** record → one sample. Records without a time can't be placed and are dropped. */
-function readRecord(data: Uint8Array, view: DataView, p: number, def: MessageDef, ts: number | undefined, c: FitContent): void {
+function readRecord(
+  data: Uint8Array,
+  view: DataView,
+  p: number,
+  def: MessageDef,
+  ts: number | undefined,
+  c: FitContent,
+): void {
   if (ts === undefined) return;
   const s: ParsedSample = { time: fitTimeMs(ts) };
   const lat = readNumber(view, p, def, 0);
@@ -440,14 +477,29 @@ function decodeRecords(data: Uint8Array, view: DataView, start: number, end: num
     if (ts !== undefined) lastTs = ts;
     c.messages++;
     switch (def.global) {
-      case MESG_RECORD: readRecord(data, view, p, def, ts, c); break;
-      case MESG_FILE_ID: if (!readFileId(data, view, p, def, c)) return 'skip'; break;
-      case MESG_LAP: readLap(view, p, def, ts, c); break;
-      case MESG_SESSION: readSession(view, p, def, ts, c); break;
-      case MESG_ACTIVITY: readActivity(view, p, def, ts, c); break;
-      case MESG_DEVICE_INFO: readDeviceInfo(data, view, p, def, c); break;
-      case MESG_SPORT: readSport(view, p, def, c); break;
-      default: break;
+      case MESG_RECORD:
+        readRecord(data, view, p, def, ts, c);
+        break;
+      case MESG_FILE_ID:
+        if (!readFileId(data, view, p, def, c)) return 'skip';
+        break;
+      case MESG_LAP:
+        readLap(view, p, def, ts, c);
+        break;
+      case MESG_SESSION:
+        readSession(view, p, def, ts, c);
+        break;
+      case MESG_ACTIVITY:
+        readActivity(view, p, def, ts, c);
+        break;
+      case MESG_DEVICE_INFO:
+        readDeviceInfo(data, view, p, def, c);
+        break;
+      case MESG_SPORT:
+        readSport(view, p, def, c);
+        break;
+      default:
+        break;
     }
     p += def.size;
   }
@@ -494,43 +546,63 @@ function lookup<T>(table: Readonly<Record<number, T | undefined>>, key: number |
 
 /** Types by FIT `sport` for sports whose sub_sport doesn't change the type. */
 const SPORT_TYPES: Readonly<Record<number, string | undefined>> = {
-  7: 'Soccer', 8: 'Tennis', 12: 'NordicSki', 14: 'Snowboard', 16: 'Hike' /* mountaineering */,
-  17: 'Hike', 19: 'Kayaking' /* paddling */, 25: 'Golf', 30: 'InlineSkate', 31: 'RockClimbing',
-  32: 'Sail', 33: 'IceSkate', 35: 'Snowshoe', 37: 'StandUpPaddling', 38: 'Surfing',
-  41: 'Kayaking', 43: 'Windsurf', 44: 'Kitesurf', 62: 'HighIntensityIntervalTraining',
-  65: 'Wheelchair', 66: 'Wheelchair', 88: 'Canoeing',
+  7: 'Soccer',
+  8: 'Tennis',
+  12: 'NordicSki',
+  14: 'Snowboard',
+  16: 'Hike' /* mountaineering */,
+  17: 'Hike',
+  19: 'Kayaking' /* paddling */,
+  25: 'Golf',
+  30: 'InlineSkate',
+  31: 'RockClimbing',
+  32: 'Sail',
+  33: 'IceSkate',
+  35: 'Snowshoe',
+  37: 'StandUpPaddling',
+  38: 'Surfing',
+  41: 'Kayaking',
+  43: 'Windsurf',
+  44: 'Kitesurf',
+  62: 'HighIntensityIntervalTraining',
+  65: 'Wheelchair',
+  66: 'Wheelchair',
+  88: 'Canoeing',
 };
 
 /** Types by sub_sport for sport = training (10). */
 const TRAINING_TYPES: Readonly<Record<number, string | undefined>> = {
-  20: 'WeightTraining', 43: 'Yoga', 44: 'Pilates', 70: 'HighIntensityIntervalTraining',
+  20: 'WeightTraining',
+  43: 'Yoga',
+  44: 'Pilates',
+  70: 'HighIntensityIntervalTraining',
 };
 
 /** Types by sub_sport for sport = fitness_equipment (4). */
 const EQUIPMENT_TYPES: Readonly<Record<number, SportInfo | undefined>> = {
-  1: { type: 'Run', trainer: true },      // treadmill
-  45: { type: 'Run', trainer: true },     // indoor_running
-  5: { type: 'Ride', trainer: true },     // spin
-  6: { type: 'Ride', trainer: true },     // indoor_cycling
-  14: { type: 'Rowing', trainer: true },  // indoor_rowing
+  1: { type: 'Run', trainer: true }, // treadmill
+  45: { type: 'Run', trainer: true }, // indoor_running
+  5: { type: 'Ride', trainer: true }, // spin
+  6: { type: 'Ride', trainer: true }, // indoor_cycling
+  14: { type: 'Rowing', trainer: true }, // indoor_rowing
   15: { type: 'Elliptical' },
-  16: { type: 'StairStepper' },           // stair_climbing
-  20: { type: 'WeightTraining' },         // strength_training
+  16: { type: 'StairStepper' }, // stair_climbing
+  20: { type: 'WeightTraining' }, // strength_training
 };
 
 /** Types by sub_sport for sport = cycling (2); anything else is a Ride. */
 const CYCLING_TYPES: Readonly<Record<number, SportInfo | undefined>> = {
-  5: { type: 'Ride', trainer: true },     // spin
-  6: { type: 'Ride', trainer: true },     // indoor_cycling
-  8: { type: 'MountainBikeRide' },        // mountain
-  9: { type: 'MountainBikeRide' },        // downhill
-  12: { type: 'Handcycle' },              // hand_cycling
-  13: { type: 'TrackRide' },              // track_cycling
-  28: { type: 'EBikeRide' },              // e_bike_fitness
-  46: { type: 'GravelRide' },             // gravel_cycling
-  47: { type: 'EMountainBikeRide' },      // e_bike_mountain
+  5: { type: 'Ride', trainer: true }, // spin
+  6: { type: 'Ride', trainer: true }, // indoor_cycling
+  8: { type: 'MountainBikeRide' }, // mountain
+  9: { type: 'MountainBikeRide' }, // downhill
+  12: { type: 'Handcycle' }, // hand_cycling
+  13: { type: 'TrackRide' }, // track_cycling
+  28: { type: 'EBikeRide' }, // e_bike_fitness
+  46: { type: 'GravelRide' }, // gravel_cycling
+  47: { type: 'EMountainBikeRide' }, // e_bike_mountain
   88: { type: 'Handcycle', trainer: true }, // indoor_hand_cycling
-  127: { type: 'EMountainBikeRide' },     // e_bike_enduro
+  127: { type: 'EMountainBikeRide' }, // e_bike_enduro
 };
 
 /** sub_sport values. */
@@ -586,7 +658,7 @@ interface Brand {
 
 const BRANDS: Readonly<Record<number, Brand | undefined>> = {
   1: { origin: 'GARMIN', label: 'Garmin' },
-  2: { origin: 'GARMIN', label: 'Garmin' },      // garmin_fr405_antfs
+  2: { origin: 'GARMIN', label: 'Garmin' }, // garmin_fr405_antfs
   23: { origin: 'SUUNTO', label: 'Suunto' },
   32: { origin: 'WAHOO', label: 'Wahoo' },
   40: { origin: 'CONCEPT2', label: 'Concept2' },
@@ -595,8 +667,8 @@ const BRANDS: Readonly<Record<number, Brand | undefined>> = {
   89: { origin: 'TACX', label: 'Tacx' },
   95: { origin: 'STRYD', label: 'Stryd' },
   123: { origin: 'POLAR', label: 'Polar' },
-  129: { origin: 'COROS', label: 'COROS' },      // coros_byte
-  144: { origin: 'ZWIFT', label: 'Zwift' },      // zwift_byte
+  129: { origin: 'COROS', label: 'COROS' }, // coros_byte
+  144: { origin: 'ZWIFT', label: 'Zwift' }, // zwift_byte
   260: { origin: 'ZWIFT', label: 'Zwift' },
   265: { origin: 'STRAVA', label: 'Strava' },
   267: { origin: 'BRYTON', label: 'Bryton' },
@@ -611,42 +683,149 @@ const BRANDS: Readonly<Record<number, Brand | undefined>> = {
 /** Garmin devices write a product id rather than a name: common models by `garmin_product`. */
 const GARMIN_PRODUCTS: Readonly<Record<number, string | undefined>> = {
   // Forerunner
-  717: 'Forerunner 405', 782: 'Forerunner 50', 988: 'Forerunner 60', 1018: 'Forerunner 310XT',
-  1124: 'Forerunner 110', 1328: 'Forerunner 910XT', 1345: 'Forerunner 610', 1436: 'Forerunner 70',
-  1482: 'Forerunner 10', 1623: 'Forerunner 620', 1632: 'Forerunner 220', 1765: 'Forerunner 920XT',
-  1903: 'Forerunner 15', 2148: 'Forerunner 25', 2153: 'Forerunner 225', 2156: 'Forerunner 630',
-  2157: 'Forerunner 230', 2158: 'Forerunner 735XT', 2431: 'Forerunner 235', 2503: 'Forerunner 35',
-  2691: 'Forerunner 935', 2886: 'Forerunner 645', 2888: 'Forerunner 645 Music', 2891: 'Forerunner 30',
-  3076: 'Forerunner 245', 3077: 'Forerunner 245 Music', 3113: 'Forerunner 945', 3282: 'Forerunner 45',
-  3589: 'Forerunner 745', 3652: 'Forerunner 945 LTE', 3869: 'Forerunner 55', 3990: 'Forerunner 255 Music',
-  3991: 'Forerunner 255S Music', 3992: 'Forerunner 255', 3993: 'Forerunner 255S', 4024: 'Forerunner 955',
-  4257: 'Forerunner 265', 4258: 'Forerunner 265S', 4315: 'Forerunner 965', 4432: 'Forerunner 165',
-  4433: 'Forerunner 165 Music', 4565: 'Forerunner 970', 4570: 'Forerunner 570', 4574: 'Forerunner 570',
-  4814: 'Forerunner 170 Music', 4815: 'Forerunner 170',
+  717: 'Forerunner 405',
+  782: 'Forerunner 50',
+  988: 'Forerunner 60',
+  1018: 'Forerunner 310XT',
+  1124: 'Forerunner 110',
+  1328: 'Forerunner 910XT',
+  1345: 'Forerunner 610',
+  1436: 'Forerunner 70',
+  1482: 'Forerunner 10',
+  1623: 'Forerunner 620',
+  1632: 'Forerunner 220',
+  1765: 'Forerunner 920XT',
+  1903: 'Forerunner 15',
+  2148: 'Forerunner 25',
+  2153: 'Forerunner 225',
+  2156: 'Forerunner 630',
+  2157: 'Forerunner 230',
+  2158: 'Forerunner 735XT',
+  2431: 'Forerunner 235',
+  2503: 'Forerunner 35',
+  2691: 'Forerunner 935',
+  2886: 'Forerunner 645',
+  2888: 'Forerunner 645 Music',
+  2891: 'Forerunner 30',
+  3076: 'Forerunner 245',
+  3077: 'Forerunner 245 Music',
+  3113: 'Forerunner 945',
+  3282: 'Forerunner 45',
+  3589: 'Forerunner 745',
+  3652: 'Forerunner 945 LTE',
+  3869: 'Forerunner 55',
+  3990: 'Forerunner 255 Music',
+  3991: 'Forerunner 255S Music',
+  3992: 'Forerunner 255',
+  3993: 'Forerunner 255S',
+  4024: 'Forerunner 955',
+  4257: 'Forerunner 265',
+  4258: 'Forerunner 265S',
+  4315: 'Forerunner 965',
+  4432: 'Forerunner 165',
+  4433: 'Forerunner 165 Music',
+  4565: 'Forerunner 970',
+  4570: 'Forerunner 570',
+  4574: 'Forerunner 570',
+  4814: 'Forerunner 170 Music',
+  4815: 'Forerunner 170',
   // fēnix, epix, Enduro
-  1551: 'Fenix', 1967: 'Fenix 2', 2050: 'Fenix 3', 2413: 'Fenix 3 HR', 2432: 'Fenix Chronos',
-  2544: 'Fenix 5S', 2604: 'Fenix 5X', 2697: 'Fenix 5', 2900: 'Fenix 5S Plus', 3110: 'Fenix 5 Plus',
-  3111: 'Fenix 5X Plus', 3287: 'Fenix 6S', 3288: 'Fenix 6S', 3289: 'Fenix 6', 3290: 'Fenix 6',
-  3291: 'Fenix 6X', 3905: 'Fenix 7S', 3906: 'Fenix 7', 3907: 'Fenix 7X', 4374: 'Fenix 7S Pro',
-  4375: 'Fenix 7 Pro', 4376: 'Fenix 7X Pro', 4595: 'Fenix 7 Pro', 4532: 'Fenix 8', 4533: 'Fenix 8',
-  4534: 'Fenix 8', 4536: 'Fenix 8', 4631: 'Fenix 8 Pro', 4666: 'Fenix E', 1988: 'Epix',
-  3943: 'Epix Gen 2', 4312: 'Epix Pro', 4313: 'Epix Pro', 4314: 'Epix Pro', 3638: 'Enduro',
-  4341: 'Enduro 2', 4575: 'Enduro 3',
+  1551: 'Fenix',
+  1967: 'Fenix 2',
+  2050: 'Fenix 3',
+  2413: 'Fenix 3 HR',
+  2432: 'Fenix Chronos',
+  2544: 'Fenix 5S',
+  2604: 'Fenix 5X',
+  2697: 'Fenix 5',
+  2900: 'Fenix 5S Plus',
+  3110: 'Fenix 5 Plus',
+  3111: 'Fenix 5X Plus',
+  3287: 'Fenix 6S',
+  3288: 'Fenix 6S',
+  3289: 'Fenix 6',
+  3290: 'Fenix 6',
+  3291: 'Fenix 6X',
+  3905: 'Fenix 7S',
+  3906: 'Fenix 7',
+  3907: 'Fenix 7X',
+  4374: 'Fenix 7S Pro',
+  4375: 'Fenix 7 Pro',
+  4376: 'Fenix 7X Pro',
+  4595: 'Fenix 7 Pro',
+  4532: 'Fenix 8',
+  4533: 'Fenix 8',
+  4534: 'Fenix 8',
+  4536: 'Fenix 8',
+  4631: 'Fenix 8 Pro',
+  4666: 'Fenix E',
+  1988: 'Epix',
+  3943: 'Epix Gen 2',
+  4312: 'Epix Pro',
+  4313: 'Epix Pro',
+  4314: 'Epix Pro',
+  3638: 'Enduro',
+  4341: 'Enduro 2',
+  4575: 'Enduro 3',
   // Instinct, Venu, vívoactive
-  3466: 'Instinct Solar', 3888: 'Instinct 2', 3889: 'Instinct 2S', 4155: 'Instinct Crossover',
-  4394: 'Instinct 2X', 4583: 'Instinct E', 4584: 'Instinct E', 4585: 'Instinct 3', 4586: 'Instinct 3',
-  4587: 'Instinct 3', 4759: 'Instinct 3', 3226: 'Venu', 3703: 'Venu 2', 3704: 'Venu 2S',
-  3851: 'Venu 2 Plus', 4260: 'Venu 3', 4261: 'Venu 3S', 4603: 'Venu X1', 4643: 'Venu 4', 4644: 'Venu 4S',
-  3600: 'Venu Sq', 3596: 'Venu Sq Music', 4115: 'Venu Sq 2', 4116: 'Venu Sq 2 Music',
-  1907: 'Vivoactive', 2337: 'Vivoactive HR', 2700: 'Vivoactive 3', 2988: 'Vivoactive 3 Music',
-  3066: 'Vivoactive 3 Music', 3224: 'Vivoactive 4S', 3225: 'Vivoactive 4', 4426: 'Vivoactive 5',
+  3466: 'Instinct Solar',
+  3888: 'Instinct 2',
+  3889: 'Instinct 2S',
+  4155: 'Instinct Crossover',
+  4394: 'Instinct 2X',
+  4583: 'Instinct E',
+  4584: 'Instinct E',
+  4585: 'Instinct 3',
+  4586: 'Instinct 3',
+  4587: 'Instinct 3',
+  4759: 'Instinct 3',
+  3226: 'Venu',
+  3703: 'Venu 2',
+  3704: 'Venu 2S',
+  3851: 'Venu 2 Plus',
+  4260: 'Venu 3',
+  4261: 'Venu 3S',
+  4603: 'Venu X1',
+  4643: 'Venu 4',
+  4644: 'Venu 4S',
+  3600: 'Venu Sq',
+  3596: 'Venu Sq Music',
+  4115: 'Venu Sq 2',
+  4116: 'Venu Sq 2 Music',
+  1907: 'Vivoactive',
+  2337: 'Vivoactive HR',
+  2700: 'Vivoactive 3',
+  2988: 'Vivoactive 3 Music',
+  3066: 'Vivoactive 3 Music',
+  3224: 'Vivoactive 4S',
+  3225: 'Vivoactive 4',
+  4426: 'Vivoactive 5',
   4625: 'Vivoactive 6',
   // Edge
-  1036: 'Edge 500', 1169: 'Edge 800', 1325: 'Edge 200', 1561: 'Edge 510', 1567: 'Edge 810',
-  1836: 'Edge 1000', 2067: 'Edge 520', 2530: 'Edge 820', 2713: 'Edge 1030', 2909: 'Edge 130',
-  3011: 'Edge Explore', 3112: 'Edge 520 Plus', 3121: 'Edge 530', 3122: 'Edge 830', 3558: 'Edge 130 Plus',
-  3570: 'Edge 1030 Plus', 3843: 'Edge 1040', 4061: 'Edge 540', 4062: 'Edge 840', 4169: 'Edge Explore 2',
-  4440: 'Edge 1050', 4633: 'Edge 550', 4634: 'Edge 850', 4655: 'Edge MTB',
+  1036: 'Edge 500',
+  1169: 'Edge 800',
+  1325: 'Edge 200',
+  1561: 'Edge 510',
+  1567: 'Edge 810',
+  1836: 'Edge 1000',
+  2067: 'Edge 520',
+  2530: 'Edge 820',
+  2713: 'Edge 1030',
+  2909: 'Edge 130',
+  3011: 'Edge Explore',
+  3112: 'Edge 520 Plus',
+  3121: 'Edge 530',
+  3122: 'Edge 830',
+  3558: 'Edge 130 Plus',
+  3570: 'Edge 1030 Plus',
+  3843: 'Edge 1040',
+  4061: 'Edge 540',
+  4062: 'Edge 840',
+  4169: 'Edge Explore 2',
+  4440: 'Edge 1050',
+  4633: 'Edge 550',
+  4634: 'Edge 850',
+  4655: 'Edge MTB',
 };
 
 /** Recording device, e.g. "Garmin Forerunner 965", "COROS PACE 3", or just the brand. */
@@ -705,9 +884,7 @@ function sameLap(a: LapInfo, b: LapInfo): boolean {
 
 /** Datable laps by start time, without repeats. */
 function lapTimeline(laps: LapInfo[]): LapInfo[] {
-  const sorted = laps
-    .filter((l) => isClockTime(l.lap.startTime))
-    .sort((a, b) => a.lap.startTime - b.lap.startTime);
+  const sorted = laps.filter((l) => isClockTime(l.lap.startTime)).sort((a, b) => a.lap.startTime - b.lap.startTime);
   return sorted.filter((l, i) => i === 0 || !sameLap(sorted[i - 1], l));
 }
 
@@ -764,8 +941,13 @@ function synthesizeSession(samples: ParsedSample[], laps: LapInfo[]): SessionInf
 
 /** The same session written twice (chained copies of one file). */
 function sameSession(a: SessionInfo, b: SessionInfo): boolean {
-  return a.start === b.start && a.sport === b.sport && a.subSport === b.subSport
-    && a.totals.elapsedSec === b.totals.elapsedSec && a.totals.distance === b.totals.distance;
+  return (
+    a.start === b.start &&
+    a.sport === b.sport &&
+    a.subSport === b.subSport &&
+    a.totals.elapsedSec === b.totals.elapsedSec &&
+    a.totals.distance === b.totals.distance
+  );
 }
 
 /** A session with a definite, datable start (UTC ms). */
@@ -844,15 +1026,18 @@ function sessionActivity(
 
 /** A session holding nothing — no samples, laps, time or distance (a false start). */
 function isEmptySession(info: SessionInfo, samples: ParsedSample[], laps: LapInfo[]): boolean {
-  return samples.length === 0 && laps.length === 0
-    && (info.totals.elapsedSec ?? 0) <= 0 && (info.totals.distance ?? 0) <= 0;
+  return (
+    samples.length === 0 && laps.length === 0 && (info.totals.elapsedSec ?? 0) <= 0 && (info.totals.distance ?? 0) <= 0
+  );
 }
 
 /** True when the file holds data stamped with device-relative times. */
 function hasRelativeTimes(c: FitContent): boolean {
-  return c.sessions.some((s) => s.start !== undefined && !isClockTime(s.start))
-    || c.laps.some((l) => !isClockTime(l.lap.startTime))
-    || c.samples.some((s) => !isClockTime(s.time));
+  return (
+    c.sessions.some((s) => s.start !== undefined && !isClockTime(s.start)) ||
+    c.laps.some((l) => !isClockTime(l.lap.startTime)) ||
+    c.samples.some((s) => !isClockTime(s.time))
+  );
 }
 
 /**
