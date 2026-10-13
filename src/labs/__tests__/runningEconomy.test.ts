@@ -12,7 +12,7 @@ import {
   analyzeRunningEconomy,
   cacheEconomy,
   getCachedEconomy,
-} from '@/services/runningEconomy';
+} from '@/labs/runningEconomy';
 import type { StravaActivity } from '@/services/strava';
 import { persistence } from '@/services/db/persistence';
 

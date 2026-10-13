@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Shoe Tracker — manage shoe rotation, mileage accumulation,
  * degradation curves, and race-day retirement alerts.
@@ -30,11 +31,11 @@ import type {
   RaceDayShoeAlert,
 } from '../types/shoes';
 import { DEFAULT_MAX_MILEAGE, SHOE_CATEGORIES } from '../types/shoes';
-import { persistence } from './db/persistence';
-import { getStoredActivities } from './analyticsService';
-import { isRunActivity } from './activity/sports';
-import { getDistanceUnit, type DistanceUnit } from './unitPreferences';
-import { getRaceDate } from './journey';
+import { persistence } from '../services/db/persistence';
+import { getStoredActivities } from '../services/analyticsService';
+import { isRunActivity } from '../services/activity/sports';
+import { getDistanceUnit, type DistanceUnit } from '../services/unitPreferences';
+import { getRaceDate } from '../services/journey';
 import { addDays, dateKeyFromLocalIso, daysBetween, isDateKey, parseDateKey, toDateKey, todayKey } from '../utils/localDate';
 
 const SHOES_KEY = 'apollo_shoes';

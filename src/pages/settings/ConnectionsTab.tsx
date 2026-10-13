@@ -555,7 +555,7 @@ export default function ConnectionsTab() {
         <p className="settings-lead">
           Strava API access may require a paid plan. If you have access, connect it here — otherwise use intervals.icu above, it&apos;s free.
         </p>
-        {stravaConnected && stravaReconnect && (
+        {stravaConnected && stravaReconnect && isStravaAvailable() && (
           <ReconnectBanner
             source="strava"
             state={stravaReconnect}
@@ -569,7 +569,15 @@ export default function ConnectionsTab() {
         )}
         {!isStravaAvailable() ? (
           // v1.0.7: the free web version has no backend for Strava's token exchange.
-          <p className="settings-hint" data-testid="strava-desktop-only">{STRAVA_DESKTOP_ONLY_NOTE}</p>
+          // Tokens saved earlier (e.g. by a self-hosted web build) can still be cleared.
+          <>
+            <p className="settings-hint" data-testid="strava-desktop-only">{STRAVA_DESKTOP_ONLY_NOTE}</p>
+            {stravaConnected && (
+              <div className="settings-actions">
+                <button type="button" onClick={() => setConfirmDisconnect('strava')} disabled={syncBusy} className="btn btn-secondary">Disconnect</button>
+              </div>
+            )}
+          </>
         ) : isWeb() ? (
           <>
             <p className="settings-hint">

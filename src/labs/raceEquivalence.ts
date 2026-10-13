@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Race Equivalence Engine — convert marathon performance across conditions.
  *
@@ -16,7 +17,7 @@ import type {
   RaceEquivalenceResult,
   EquivalenceAdjustment,
 } from '../types/nutrition';
-import { formatTimeSec } from './racePrediction';
+import { formatTimeSec } from '../services/racePrediction';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 

@@ -3,8 +3,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { assessBonkRisk } from '@/services/bonkRisk';
-import type { BonkRiskInput } from '@/services/bonkRisk';
+import { assessBonkRisk } from '@/labs/bonkRisk';
+import type { BonkRiskInput } from '@/labs/bonkRisk';
 
 const lowRiskInput: BonkRiskInput = {
   longestRunMi: 22,

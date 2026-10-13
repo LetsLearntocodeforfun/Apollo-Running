@@ -9,8 +9,8 @@ import {
   getDecouplingHistory,
   getDecouplingTrend,
   getDecouplingCoachingMessage,
-} from '@/services/aerobicDecoupling';
-import type { SplitHRPace } from '@/services/aerobicDecoupling';
+} from '@/labs/aerobicDecoupling';
+import type { SplitHRPace } from '@/labs/aerobicDecoupling';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {

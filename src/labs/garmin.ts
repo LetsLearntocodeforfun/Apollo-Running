@@ -1,4 +1,5 @@
-import { getGarminTokens, getGarminCredentials } from './storage';
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
+import { getGarminTokens, getGarminCredentials } from '../services/storage';
 
 // Garmin Connect uses OAuth 2.0 with PKCE. You must apply for the Garmin Connect Developer Program:
 // https://developer.garmin.com/gc-developer-program/

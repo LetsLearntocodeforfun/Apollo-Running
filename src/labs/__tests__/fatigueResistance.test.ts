@@ -8,7 +8,7 @@ import {
   saveFRIResult,
   getFRIHistory,
   getFRITrend,
-} from '@/services/fatigueResistance';
+} from '@/labs/fatigueResistance';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {

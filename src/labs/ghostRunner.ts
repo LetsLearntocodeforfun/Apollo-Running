@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Ghost Runner — overlay a past run's pace on a current run for comparison.
  *
@@ -5,7 +6,7 @@
  * another effort. Generates comparison data for SVG chart overlay.
  */
 
-import { persistence } from './db/persistence';
+import { persistence } from '../services/db/persistence';
 
 const GHOST_HISTORY_KEY = 'apollo_ghost_comparisons';
 const MAX_GHOST_HISTORY = 30;

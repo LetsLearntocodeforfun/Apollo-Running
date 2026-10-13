@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Bonk Risk Assessment — pre-race composite risk score (0-100).
  *

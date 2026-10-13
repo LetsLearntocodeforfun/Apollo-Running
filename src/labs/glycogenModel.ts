@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Glycogen Depletion Model — scientifically-modeled mile-by-mile glycogen
  * simulation for the marathon.

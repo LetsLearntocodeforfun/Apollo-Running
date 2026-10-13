@@ -9,7 +9,7 @@ import {
   compareDecayToIdeal,
   saveDecayModel,
   getSavedDecayModel,
-} from '@/services/pacingDecay';
+} from '@/labs/pacingDecay';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {

@@ -7,7 +7,7 @@ import {
   simulateWhatIf,
   getAvailableScenarios,
   simulateAllScenarios,
-} from '@/services/whatIfSimulator';
+} from '@/labs/whatIfSimulator';
 import { vdotToMarathonSec } from '@/services/racePrediction';
 
 describe('simulateWhatIf', () => {

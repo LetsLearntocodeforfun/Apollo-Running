@@ -11,7 +11,7 @@ import {
   updateLessonsLearned,
   deleteReport,
   type ActualMileSplit,
-} from '@/services/postRaceAnalysis';
+} from '@/labs/postRaceAnalysis';
 import type { RaceStrategy } from '@/types/raceStrategy';
 import { persistence } from '@/services/db/persistence';
 

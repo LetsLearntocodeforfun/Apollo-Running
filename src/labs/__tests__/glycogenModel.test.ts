@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest';
 import {
   simulateGlycogenDepletion,
   willGlycogenLast,
-} from '@/services/glycogenModel';
+} from '@/labs/glycogenModel';
 
 describe('simulateGlycogenDepletion', () => {
   const baseAthlete = { weightKg: 70, vo2max: 50, sex: 'male' as const };

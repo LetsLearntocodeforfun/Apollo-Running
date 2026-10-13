@@ -30,7 +30,7 @@ import { connectIntervals } from '../services/activitySource';
 import { runSync, type AutoSyncReport } from '../services/autoSync';
 import { getAppPreferences, setAppPreferences } from '../services/appPreferences';
 import { getAthleteProfile, updateAthleteProfile } from '../services/athleteProfile';
-import { getStravaCredentials, setIntervalsCredentials, setStravaCredentials } from '../services/storage';
+import { getStravaCredentials, getStravaTokens, setIntervalsCredentials, setStravaCredentials, setStravaTokens } from '../services/storage';
 import { getNeedsReconnect, setNeedsReconnect } from '../services/connectionHealth';
 import { APP_VERSION } from '../version';
 import { addDays, todayKey } from '../utils/localDate';
@@ -247,6 +247,31 @@ describe('Connections', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save credentials' }));
     expect(getStravaCredentials()).toEqual({ clientId: '12345', clientSecret: secret });
     expect(values()).not.toContain(secret);
+  });
+
+  it('web: Strava is desktop-only — a note instead of the connect form', () => {
+    renderSettings('/settings?tab=connections');
+    expect(screen.getByTestId('strava-desktop-only').textContent).toMatch(/available in the desktop app/);
+    expect(screen.queryByRole('button', { name: 'Connect Strava' })).toBeNull();
+    expect(screen.queryByLabelText('Client ID')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Disconnect' })).toBeNull();
+  });
+
+  it('web: Strava tokens saved earlier can still be disconnected', async () => {
+    await setStravaTokens({
+      access_token: 'a', refresh_token: 'r', expires_at: 2_000_000_000,
+      athlete: { id: 1, firstname: 'Ana', lastname: 'Runner' },
+    });
+    setNeedsReconnect('strava', 'Strava rejected the token (401).');
+    renderSettings('/settings?tab=connections');
+    expect(screen.getByTestId('strava-desktop-only')).toBeTruthy();
+    // No "Connect Strava again" on a build that can't connect.
+    expect(screen.queryByRole('button', { name: 'Connect Strava again' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Disconnect Strava?' });
+    fireEvent.click(within(dialog).getByRole('button', { name: /Disconnect/ }));
+    await waitFor(() => expect(getStravaTokens()).toBeNull());
   });
 
   it('shows a needs-reconnect banner with the reason; Retry clears it and syncs that source', async () => {

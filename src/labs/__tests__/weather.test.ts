@@ -10,7 +10,7 @@ import {
   getMarathonCoords,
   formatTimeSec,
   type WeatherForecast,
-} from '@/services/weather';
+} from '@/labs/weather';
 
 // ── Heat Adjustment (Ely Model) ───────────────────────────────────────────────
 

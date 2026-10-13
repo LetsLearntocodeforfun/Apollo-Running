@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Post-Race Analysis Service
  *
@@ -6,7 +7,7 @@
  * provides actionable feedback, and captures lessons learned.
  */
 
-import { persistence } from './db/persistence';
+import { persistence } from '../services/db/persistence';
 import type { RaceStrategy } from '../types/raceStrategy';
 
 // ── Types ─────────────────────────────────────────────────────────────────────

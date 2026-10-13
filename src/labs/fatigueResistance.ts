@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Fatigue Resistance Index (FRI) — measures how well a runner maintains
  * pace in the back half of long runs. Direct predictor of marathon performance.
@@ -13,7 +14,7 @@
  * and Haney & Mercer (2011): pacing strategy effect on performance
  */
 
-import { persistence } from './db/persistence';
+import { persistence } from '../services/db/persistence';
 
 const FRI_KEY = 'apollo_fri_history';
 

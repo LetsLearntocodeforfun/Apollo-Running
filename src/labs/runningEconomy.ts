@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Running Economy Tracker Service
  *
@@ -13,9 +14,9 @@
  * - Barnes & Kilding (2015) "Running economy: measurement, norms, and factors"
  */
 
-import type { StravaActivity } from './strava';
-import { getHRProfile } from './heartRate';
-import { persistence } from './db/persistence';
+import type { StravaActivity } from '../services/strava';
+import { getHRProfile } from '../services/heartRate';
+import { persistence } from '../services/db/persistence';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

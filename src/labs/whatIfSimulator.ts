@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * "What-If" Training Simulator — interactive tool that projects
  * how changes to training/behavior affect marathon finish time.
@@ -10,7 +11,7 @@
  * - Long run benefit: ~0.5-1% improvement per additional 20+ mile run
  */
 
-import { vdotToMarathonSec, formatTimeSec } from './racePrediction';
+import { vdotToMarathonSec, formatTimeSec } from '../services/racePrediction';
 
 const MARATHON_MI = 26.2;
 

@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Pacing Decay Curve — model YOUR personal pacing decay from long run data.
  *
@@ -13,7 +14,7 @@
  * 3. Track how your decay improves over training
  */
 
-import { persistence } from './db/persistence';
+import { persistence } from '../services/db/persistence';
 
 const DECAY_KEY = 'apollo_pacing_decay';
 

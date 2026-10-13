@@ -8,7 +8,7 @@ import {
   convertBetweenConditions,
   normalizeMarathonTime,
   projectTimeInConditions,
-} from '@/services/raceEquivalence';
+} from '@/labs/raceEquivalence';
 
 const THREE_HOURS = 3 * 3600;
 const THREE_FIFTEEN = 3 * 3600 + 15 * 60;

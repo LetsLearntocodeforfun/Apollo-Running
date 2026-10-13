@@ -9,7 +9,7 @@ import {
   getGhostMessageAtMile,
   saveGhostComparison,
   getGhostHistory,
-} from '@/services/ghostRunner';
+} from '@/labs/ghostRunner';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {

@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Aerobic Decoupling Monitor — track cardiac drift during long runs.
  *
@@ -15,7 +16,7 @@
  *   > 10% → aerobic base needs work
  */
 
-import { persistence } from './db/persistence';
+import { persistence } from '../services/db/persistence';
 
 const DECOUPLING_HISTORY_KEY = 'apollo_aerobic_decoupling';
 const MAX_HISTORY = 100;

@@ -20,7 +20,7 @@ import {
   calculateDegradation,
   checkRetirementAlerts,
   getShoesSummary,
-} from '@/services/shoeTracker';
+} from '@/labs/shoeTracker';
 import { persistence } from '@/services/db/persistence';
 
 // Clear storage between tests

@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Hydration Calculator — personalized sweat rate estimation and
  * race-day hydration plan with aid station recommendations.

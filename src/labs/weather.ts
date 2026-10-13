@@ -1,3 +1,4 @@
+// EXPERIMENTAL (src/labs): not used by any screen; has known issues. See src/labs/README.md before using.
 /**
  * Weather Integration Service
  *
@@ -6,8 +7,8 @@
  * training weather context.
  */
 
-import { persistence } from './db/persistence';
-import { formatTimeSec } from './racePrediction';
+import { persistence } from '../services/db/persistence';
+import { formatTimeSec } from '../services/racePrediction';
 import { normalizeMarathonId } from '../data/worldMajors';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ function formatTimeHHMM(iso: string): string {
 }
 
 // Re-export for consumers that import formatTimeSec from weather
-export { formatTimeSec } from './racePrediction';
+export { formatTimeSec } from '../services/racePrediction';
 
 // ── API ───────────────────────────────────────────────────────────────────────
 
