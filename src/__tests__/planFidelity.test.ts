@@ -8,6 +8,8 @@ import {
   BUILT_IN_PLANS,
   PLAN_NOTE_TAXONOMY,
   createCustomPlanFromScratch,
+  customLongRunLimits,
+  describeCustomPlanNotice,
   getPlanById,
   getWorkoutKind,
   suggestPlansForRunner,
@@ -20,6 +22,8 @@ import { getRaceDayRef } from '@/services/planProgress';
 const QUALITY = new Set(['tempo', 'speed', 'strength', 'marathon_pace']);
 const isRunDay = (d: PlanDay) => d.type === 'run' || d.type === 'race' || d.type === 'marathon';
 const trainingMiles = (days: PlanDay[]) => days.reduce((s, d) => s + (d.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+/** v1.0.7 (T-8): the custom builder's notices as text (miles). */
+const notes = (plan: TrainingPlan) => (plan.buildNotices ?? []).map((n) => describeCustomPlanNotice(n)).join(' ');
 
 interface Expected {
   weeks: number;
@@ -211,16 +215,21 @@ describe('custom builder fidelity', () => {
     { name: '10 weeks', totalWeeks: 10, runningDays: 4, currentWeeklyMiles: 25, peakWeeklyMiles: 40 },
   ];
 
-  it.each(inputs.map((i) => [i.name, i] as const))('%s: long runs reach 16–20 mi 3 weeks out, then a 3-week taper', (_n, input) => {
+  it.each(inputs.map((i) => [i.name, i] as const))('%s: long runs peak 3 weeks out within safe caps, then a 3-week taper', (_n, input) => {
     const plan = createCustomPlanFromScratch(input);
     const T = plan.weeks.length;
-    const targetLong = Math.min(20, Math.max(16, Math.round(0.4 * Math.max(input.peakWeeklyMiles, input.currentWeeklyMiles + 4) * 2) / 2));
     const longOf = (w: number) => plan.weeks[w].days.find((d) => getWorkoutKind(d) === 'long')?.distanceMi ?? 0;
-    // Review probe [E]: 20→40 mpw used to top out at 12.4 mi.
-    expect(Math.max(...plan.weeks.map((_, w) => longOf(w)))).toBe(targetLong);
-    expect(longOf(T - 4)).toBe(targetLong);
-    expect(longOf(T - 3)).toBeLessThan(targetLong * 0.9);
-    expect(longOf(T - 2)).toBeLessThan(targetLong * 0.9);
+    const peakLong = Math.max(...plan.weeks.map((_, w) => longOf(w)));
+    // v1.0.7 (T-8): the long run stays within ~30–35 % of the week (no 16 mi floor) and ≤ 20 mi.
+    const share = input.runningDays <= 4 ? 0.35 : 0.3;
+    const peakWeek = Math.max(input.peakWeeklyMiles, input.currentWeeklyMiles + 4);
+    expect(peakLong).toBeLessThanOrEqual(Math.min(20, share * peakWeek));
+    expect(longOf(T - 4)).toBe(peakLong);
+    expect(longOf(T - 3)).toBeLessThan(peakLong * 0.9);
+    expect(longOf(T - 2)).toBeLessThan(peakLong * 0.9);
+    // Honest timeline: a long run short of a marathon build is called out.
+    if (peakLong < 16) expect(notes(plan)).toMatch(/Long runs top out at/);
+    else expect(plan.buildNotices?.some((n) => n.kind === 'long-run-cap') ?? false).toBe(false);
     // Cutback weeks: some build week's long run is shorter than the week before.
     if (T >= 12) expect(plan.weeks.some((_, w) => w > 0 && w < T - 4 && longOf(w) < longOf(w - 1))).toBe(true);
     // Taper ≈ 80 / 60 / 40 % of peak training volume.
@@ -235,6 +244,37 @@ describe('custom builder fidelity', () => {
     for (let w = 0; w < T - 1; w++) {
       expect(plan.weeks[w].days.filter((d) => getWorkoutKind(d) === 'long')).toHaveLength(1);
     }
+  });
+
+  it('T-8 probe: 8→20 mi/week no longer gets a 16 mi long run (76% of the week)', () => {
+    const plan = createCustomPlanFromScratch({ name: 'Low', totalWeeks: 16, runningDays: 4, currentWeeklyMiles: 8, peakWeeklyMiles: 20 });
+    for (const week of plan.weeks.slice(0, -1)) {
+      const long = week.days.find((d) => getWorkoutKind(d) === 'long')?.distanceMi ?? 0;
+      expect(long).toBeLessThanOrEqual(7);
+    }
+    expect(notes(plan)).toMatch(/Long runs top out at 7 mi.*16 mi–20 mi.*later race/);
+    // km users see km.
+    expect(describeCustomPlanNotice(plan.buildNotices![0], (mi) => `${Math.round(mi * 1.609344)} km`)).toMatch(/top out at 11 km/);
+  });
+
+  it('T-8: long runs start ≤ 10% above the 30-day longest and stay under ~3.5 h', () => {
+    const base = { name: 'Fit', totalWeeks: 18, runningDays: 5, currentWeeklyMiles: 40, peakWeeklyMiles: 70 };
+    const longOf = (p: TrainingPlan, w: number) => p.weeks[w].days.find((d) => getWorkoutKind(d) === 'long')?.distanceMi ?? 0;
+    const fromSix = createCustomPlanFromScratch({ ...base, longestRecentRunMi: 6 });
+    expect(longOf(fromSix, 0)).toBeLessThanOrEqual(6.6);
+    for (let w = 1; w < 14; w++) {
+      const prevMax = Math.max(6, ...Array.from({ length: w }, (_, i) => longOf(fromSix, i)));
+      expect(longOf(fromSix, w)).toBeLessThanOrEqual(Math.max(prevMax * 1.1, prevMax + 1));
+    }
+    // A slow easy pace (13:00/mi) caps the long run at 3.5 h ≈ 16 mi.
+    const slow = createCustomPlanFromScratch({ ...base, easyPaceSecPerMi: 780 });
+    expect(Math.max(...slow.weeks.map((_, w) => longOf(slow, w)))).toBeLessThanOrEqual(16);
+    expect(customLongRunLimits({ easyPaceSecPerMi: 780 }, 5).timeCapMi).toBe(16);
+  });
+
+  it('T-8: warns when the timeline is too short for the volume ramp', () => {
+    const plan = createCustomPlanFromScratch({ name: 'Steep', totalWeeks: 10, runningDays: 5, currentWeeklyMiles: 15, peakWeeklyMiles: 45 });
+    expect(notes(plan)).toMatch(/more than ~10% a week/);
   });
 
   it('enforces a single long day when two are assigned (V11 probe)', () => {

@@ -149,7 +149,17 @@ export function PlanChooser({
       {pendingPlan && (
         <div className="plan-chooser-setup">
           <PlanSourceNote plan={pendingPlan} />
-          <RaceDatePlanSetup plan={pendingPlan} value={setup} onChange={setSetup} idPrefix={`${uid}-setup`} today={today} />
+          <RaceDatePlanSetup
+            plan={pendingPlan}
+            value={setup}
+            onChange={setSetup}
+            idPrefix={`${uid}-setup`}
+            today={today}
+            onChoosePlan={(id) => {
+              setPendingPlanId(id);
+              setError(null);
+            }}
+          />
         </div>
       )}
 

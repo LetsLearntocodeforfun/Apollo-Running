@@ -89,6 +89,30 @@
   color: var(--color-error-text, var(--color-error));
 }
 
+/* v1.0.7 (T-3): join fitness check */
+.plan-setup-warning {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-left: 3px solid var(--color-warning, var(--apollo-gold));
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  font-size: var(--text-sm);
+}
+
+.plan-setup-warning-title {
+  margin: 0;
+  color: var(--text);
+}
+
+.plan-setup-options {
+  margin: var(--space-2) 0 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
 /* ── ⋯ day menu ─────────────────────────────────────────────────────────── */
 .day-actions {
   position: relative;

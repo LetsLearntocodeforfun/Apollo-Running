@@ -15,6 +15,7 @@
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import {
   createCustomPlanFromScratch,
+  describeCustomPlanNotice,
   getPlanOverview,
   type CustomDayType,
   type TrainingPlan,
@@ -33,6 +34,7 @@ import {
   type DistanceUnit,
 } from '../services/unitPreferences';
 import { workoutTitle } from './plan/planDisplay';
+import { readRecentFitness } from './plan/RaceDatePlanSetup';
 import './plan/PlanBuilder.css';
 
 // ── Constants ──────────────────────────────────────────────────────────────────
@@ -382,6 +384,12 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
   const assignIssues = getAssignIssues(assignments);
   const assignValid = assignIssues.length === 0;
 
+  // Paces for target display: the athlete's current paces (pure, no writes), else the saved cache.
+  const savedPaces = useMemo(() => getCurrentTrainingPaces() ?? getSavedTrainingPaces(), []);
+  const vdot = savedPaces?.vdot ?? 0;
+  // v1.0.7 (T-8): the 30-day longest run caps how fast long runs grow.
+  const recentFitness = useMemo(() => readRecentFitness(), []);
+
   // Generate the preview plan
   const previewPlan = useMemo(() => {
     if (step !== 'preview') return null;
@@ -392,8 +400,10 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
       currentWeeklyMiles: currentMiles,
       peakWeeklyMiles: peakMiles,
       dayAssignments: assignments,
+      longestRecentRunMi: recentFitness?.longestRunMi ?? null,
+      easyPaceSecPerMi: savedPaces ? Math.round((savedPaces.easy.min + savedPaces.easy.max) / 2) : null,
     });
-  }, [step, name, totalWeeks, assignedRunDays, currentMiles, peakMiles, assignments]);
+  }, [step, name, totalWeeks, assignedRunDays, currentMiles, peakMiles, assignments, recentFitness, savedPaces]);
 
   const overview = useMemo(() => {
     if (!previewPlan) return [];
@@ -401,10 +411,6 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
   }, [previewPlan]);
 
   const phases = useMemo(() => (previewPlan ? detectPhases(previewPlan) : []), [previewPlan]);
-
-  // Paces for target display: the athlete's current paces (pure, no writes), else the saved cache.
-  const savedPaces = useMemo(() => getCurrentTrainingPaces() ?? getSavedTrainingPaces(), []);
-  const vdot = savedPaces?.vdot ?? 0;
 
   const ids = {
     name: `${uid}-name`,
@@ -687,6 +693,18 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
             {' '}Peak: {formatMiles(peakWeekMiles, 1, unit)}/week
           </p>
         </div>
+
+        {/* v1.0.7 (T-8): honest notes when the long run is capped or the timeline is short */}
+        {previewPlan.buildNotices && previewPlan.buildNotices.length > 0 && (
+          <div className="pb-warnings" role="note" aria-label="Plan safety notes">
+            <ul>
+              {previewPlan.buildNotices.map((n) => {
+                const text = describeCustomPlanNotice(n, (mi) => `${Math.round(toUnit(mi, unit) * 10) / 10} ${unitLabel(unit)}`);
+                return <li key={text}>{text}</li>;
+              })}
+            </ul>
+          </div>
+        )}
 
         {/* Weekly distance chart, coloured by periodization phase */}
         <div className="pb-chart" role="group" aria-label="Weekly distance by week. Select a week to show its workouts.">

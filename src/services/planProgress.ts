@@ -307,6 +307,158 @@ export function placePlan(plan: TrainingPlan, raceDate: string, today: string = 
   return { startDate, raceDate: race, joinWeekIndex, weeksAvailable, fits, raceDayIndex, notes };
 }
 
+// ── Join fitness check (v1.0.7, T-3) ─────────────────────────────────────────
+
+/** The runner's recent training, for the join check. Null fields are unknown. */
+export interface RecentFitness {
+  /** Average weekly running miles over the last 4 weeks. */
+  weeklyMiles: number | null;
+  /** Longest run of the last 30 days (mi). */
+  longestRunMi: number | null;
+}
+
+/** A run for {@link summarizeRecentFitness}: local date key + miles. */
+export interface RecentRun {
+  date: string;
+  miles: number;
+}
+
+/**
+ * v1.0.7 (T-3): recent weekly volume (last 28 days ÷ 4) and the 30-day longest
+ * run, from the runner's runs. Null when there are fewer than 3 runs in the last
+ * 28 days (too little to judge).
+ */
+export function summarizeRecentFitness(runs: readonly RecentRun[], today: string = todayKey()): RecentFitness | null {
+  const from28 = addDays(today, -28);
+  const from30 = addDays(today, -30);
+  let miles28 = 0;
+  let count28 = 0;
+  let longest = 0;
+  for (const r of runs) {
+    if (!isDateKey(r.date) || !(r.miles > 0) || r.date > today) continue;
+    if (r.date >= from28) {
+      miles28 += r.miles;
+      count28++;
+    }
+    if (r.date >= from30) longest = Math.max(longest, r.miles);
+  }
+  if (count28 < 3) return null;
+  return { weeklyMiles: Math.round((miles28 / 4) * 10) / 10, longestRunMi: Math.round(longest * 10) / 10 };
+}
+
+/** Outcome of {@link checkJoinFitness}. */
+export interface JoinFitnessCheck {
+  /** False when the plan's current week is an unsafe jump from recent training. */
+  safe: boolean;
+  joinWeekIndex: number;
+  /** Training miles of the join week. */
+  planWeekMiles: number;
+  /** Longest run in the join week and the week after. */
+  planLongRunMi: number;
+  /** Plain-language reasons (empty when safe). */
+  issues: string[];
+  /**
+   * Later race date (YYYY-MM-DD) at which this plan joins at a week that suits the
+   * runner's recent training; null when no later join week would (pick another plan).
+   */
+  laterRaceDate: string | null;
+  /** Ramp-in guidance: weekly miles and long-run caps for the first weeks, ~10% steps. */
+  rampIn: { weeklyMiles: number[]; longRunMi: number[] } | null;
+}
+
+/** Safe weekly volume for a runner averaging `recent` mi/week: +20% or +5 mi, whichever is more. */
+export function safeWeeklyMiles(recent: number): number {
+  return Math.max(recent * 1.2, recent + 5);
+}
+
+/** Safe long run after a 30-day longest of `longest` mi: +10% or +1 mi, whichever is more. */
+export function safeLongRunMiles(longest: number): number {
+  return Math.max(longest * 1.1, longest + 1);
+}
+
+function weekTrainingMilesOf(plan: TrainingPlan, w: number): number {
+  return (plan.weeks[w]?.days ?? []).reduce((s, d) => s + (d?.type === 'run' ? d.distanceMi ?? 0 : 0), 0);
+}
+
+function weekLongestRunOf(plan: TrainingPlan, w: number): number {
+  return Math.max(0, ...(plan.weeks[w]?.days ?? []).filter((d) => d?.type === 'run').map((d) => d.distanceMi ?? 0));
+}
+
+function joinWeekIssues(plan: TrainingPlan, w: number, fitness: RecentFitness): string[] {
+  const issues: string[] = [];
+  const weekMiles = Math.round(weekTrainingMilesOf(plan, w) * 10) / 10;
+  const long = Math.max(weekLongestRunOf(plan, w), weekLongestRunOf(plan, w + 1));
+  if (fitness.weeklyMiles != null && weekMiles > safeWeeklyMiles(fitness.weeklyMiles)) {
+    issues.push(`Week ${w + 1} has ${weekMiles} mi of running; you've averaged about ${fitness.weeklyMiles} mi a week over the last 4 weeks.`);
+  }
+  if (fitness.longestRunMi != null && long > safeLongRunMiles(fitness.longestRunMi)) {
+    issues.push(`It includes a ${long} mi run; your longest run in the last 30 days is ${fitness.longestRunMi} mi.`);
+  }
+  return issues;
+}
+
+/**
+ * v1.0.7 (T-3): compare the plan week the runner would join (`placement.joinWeekIndex`)
+ * with their recent weekly volume and 30-day longest run. A jump of more than
+ * ~20% (or 5 mi) in weekly volume, or a long run more than ~10% (or 1 mi) over the
+ * recent longest, is flagged with three ways out: a later race (join at an
+ * earlier, easier week), a ramp-in for the first weeks, or a shorter / gentler plan
+ * ({@link saferPlansForRace}). Returns null without fitness data.
+ */
+export function checkJoinFitness(plan: TrainingPlan, placement: PlanPlacement, fitness: RecentFitness | null): JoinFitnessCheck | null {
+  if (!fitness || (fitness.weeklyMiles == null && fitness.longestRunMi == null)) return null;
+  const w = placement.joinWeekIndex;
+  const issues = joinWeekIssues(plan, w, fitness);
+  const planWeekMiles = Math.round(weekTrainingMilesOf(plan, w) * 10) / 10;
+  const planLongRunMi = Math.max(weekLongestRunOf(plan, w), weekLongestRunOf(plan, w + 1));
+  if (issues.length === 0) {
+    return { safe: true, joinWeekIndex: w, planWeekMiles, planLongRunMi, issues, laterRaceDate: null, rampIn: null };
+  }
+  // Later race: the latest earlier join week that suits recent training.
+  let laterRaceDate: string | null = null;
+  for (let k = w - 1; k >= 0; k--) {
+    if (joinWeekIssues(plan, k, fitness).length === 0) {
+      laterRaceDate = addDays(placement.raceDate, 7 * (w - k));
+      break;
+    }
+  }
+  // Ramp-in: ~10% a week from recent training up to the join week.
+  let rampIn: JoinFitnessCheck['rampIn'] = null;
+  const recent = fitness.weeklyMiles;
+  if (recent != null && recent > 0) {
+    const weeks = Math.min(6, Math.max(1, Math.ceil(Math.log(planWeekMiles / recent) / Math.log(1.1)) - 1));
+    const longest = fitness.longestRunMi ?? planLongRunMi;
+    rampIn = {
+      weeklyMiles: Array.from({ length: weeks }, (_, i) => Math.round(Math.min(planWeekMiles, recent * Math.pow(1.1, i + 1)))),
+      longRunMi: Array.from({ length: weeks }, (_, i) => Math.round(Math.min(planLongRunMi, safeLongRunMiles(longest) + i) * 2) / 2),
+    };
+  }
+  return { safe: false, joinWeekIndex: w, planWeekMiles, planLongRunMi, issues, laterRaceDate, rampIn };
+}
+
+/**
+ * v1.0.7 (T-3): plans (other than `excludeId`) that the runner can join safely for
+ * this race date, gentlest join week first.
+ */
+export function saferPlansForRace(
+  plans: readonly TrainingPlan[],
+  raceDate: string,
+  fitness: RecentFitness | null,
+  excludeId: string | null = null,
+  today: string = todayKey(),
+): TrainingPlan[] {
+  if (!fitness) return [];
+  return plans
+    .filter((p) => p.id !== excludeId)
+    .map((p) => {
+      const placement = placePlan(p, raceDate, today);
+      return { p, check: checkJoinFitness(p, placement, fitness), miles: weekTrainingMilesOf(p, placement.joinWeekIndex) };
+    })
+    .filter((x) => x.check?.safe)
+    .sort((a, b) => a.miles - b.miles)
+    .map((x) => x.p);
+}
+
 /**
  * Plans whose length changed in v1.0.6. Active plans started by older versions
  * (no `startedAt`, no `raceDate`) keep the race date implied by the old length.

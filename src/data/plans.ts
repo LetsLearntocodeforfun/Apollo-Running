@@ -26,6 +26,11 @@ export interface PlanDay {
   skipped?: boolean;
   /** v1.0.6 overlay: label of the planned workout this day replaced (skip/convert). */
   originalLabel?: string;
+  /**
+   * v1.0.7 (T-11): the plan allows an optional marathon-pace finish on this long
+   * run (experienced plans only; never on novice plans).
+   */
+  mpFinish?: boolean;
 }
 
 export interface PlanWeek {
@@ -44,6 +49,8 @@ export interface TrainingPlan {
   halfMarathonWeek?: number;
   /** v1.0.7: how Apollo's version relates to the coach's published plan, with official sources. */
   attribution?: PlanAttribution;
+  /** v1.0.7 (T-8): honest notes from the custom builder (long-run caps, timeline too short). */
+  buildNotices?: CustomPlanNotice[];
 }
 
 /**
@@ -118,6 +125,10 @@ export interface CustomPlanBuilderInput {
   peakWeeklyMiles: number;
   /** Optional per-day workout type assignment (0=Mon … 6=Sun). Keys are day indices, values are workout types. */
   dayAssignments?: Record<number, CustomDayType>;
+  /** v1.0.7 (T-8): longest run of the last 30 days (mi), when known. Long runs start ≤ 10% above it. */
+  longestRecentRunMi?: number | null;
+  /** v1.0.7 (T-8): easy pace (sec/mi) for the ~3.5 h long-run cap; defaults to 10:30/mi. */
+  easyPaceSecPerMi?: number | null;
 }
 
 /** Workout types available for custom plan day assignment */
@@ -166,6 +177,8 @@ type SessionNote = 'Tempo' | 'Speed' | 'Strength' | 'Marathon Pace' | 'Medium Lo
 const MI = (n: number): PlanDay => ({ type: 'run', label: `${n} mi run`, distanceMi: n, note: 'Easy' });
 /** Long run. Every long-run consumer keys on note 'Long' (V9). */
 const LONG = (n: number): PlanDay => ({ type: 'run', label: `${n} mi long run`, distanceMi: n, note: 'Long' });
+/** v1.0.7 (T-11): a long run of an experienced plan; 18+ mi may finish at marathon pace. */
+const LONG_MP = (n: number): PlanDay => ({ ...LONG(n), mpFinish: true });
 /** Higdon "pace" day: the whole run at goal marathon pace. */
 const PACE = (n: number): PlanDay => ({ type: 'run', label: `${n} mi marathon pace`, distanceMi: n, note: 'Marathon Pace' });
 const EASY = (n: number, label = `${n} mi easy`): PlanDay => ({ type: 'run', label, distanceMi: n, note: 'Easy' });
@@ -405,7 +418,7 @@ function buildHalHigdonAdvanced1(): TrainingPlan {
       higdonQuality(quality),
       REST,
       sat === 0 ? REST : paceWeeks.has(i) ? PACE(sat) : MI(sat),
-      i === 8 ? HALF : LONG(sun),
+      i === 8 ? HALF : LONG_MP(sun),
     ],
   }));
   // Race week: 3 mi run, 4 × 400, 2 mi run, two rest days, 2 mi run, marathon.
@@ -449,7 +462,7 @@ function buildPfitzinger1855(): TrainingPlan {
       RECOVERY(recovery),
       REST,
       SESSION(mp, `${mp} mi marathon pace`, 'Marathon Pace'),
-      LONG(long),
+      LONG_MP(long),
     ];
     return {
       weekNumber: i + 1,
@@ -523,6 +536,19 @@ function buildNikeRunClubMarathon(): TrainingPlan {
 }
 
 /**
+ * v1.0.7 (T-4): a FIRST Thursday tempo at FIRST's own intensities instead of one
+ * long threshold run. `n` is the day's miles, including 1 mi easy before and
+ * after. Up to 3 mi of tempo is a short tempo (≈ 5K pace + 15 s/mi), 4–5 mi a
+ * mid tempo (≈ 5K pace + 30 s/mi), and longer tempos run at marathon pace.
+ * workoutTargets.ts reads these labels for the paces.
+ */
+function firstTempo(n: number): PlanDay {
+  const work = Math.max(1, n - 2);
+  if (work >= 6) return SESSION(n, `${n} mi with ${work} at marathon pace (long tempo)`, 'Marathon Pace');
+  return SESSION(n, `${n} mi with ${work} mi ${work <= 3 ? 'short' : 'mid'} tempo`, 'Tempo');
+}
+
+/**
  * FIRST (Run Less, Run Faster) — 16 weeks, the book's marathon length (V9). Three
  * key runs a week (Tuesday intervals, Thursday tempo, Sunday long) plus two
  * cross-training days. Five 20-milers; the last is 3 weeks before race week.
@@ -552,7 +578,7 @@ function buildFirst(): TrainingPlan {
       REST,
       SESSION(repMiles, `${reps} intervals`, 'Speed'),
       CROSS,
-      SESSION(tempo, `${tempo} mi tempo`, 'Tempo'),
+      firstTempo(tempo),
       CROSS,
       REST,
       LONG(long),
@@ -643,8 +669,9 @@ FIRST.attribution = {
   coach: 'FIRST',
   fidelity: 'method',
   note: 'Three key runs a week (intervals, tempo, long) plus two cross-training days, as in the Run Less, Run Faster ' +
-    'program from the Furman Institute of Running and Scientific Training. Pace targets come from Apollo’s VDOT paces, ' +
-    'not FIRST’s own pace tables; the book and FIRST’s site have the full program.',
+    'program from the Furman Institute of Running and Scientific Training. Tempos follow FIRST’s short, mid and long ' +
+    'tempo intensities (from the 5K pace your VDOT predicts; long tempos at marathon pace). Other pace targets come ' +
+    'from Apollo’s VDOT paces, not FIRST’s own pace tables; the book and FIRST’s site have the full program.',
   sources: [
     { label: 'FIRST at Furman University', url: 'https://www.furman.edu/first/', kind: 'website' },
   ],
@@ -761,14 +788,24 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
   // Long-run progression (V10): from ~30 % of current volume up to a
   // marathon-specific 16–20 mi, with cutback weeks. Then a 3-week taper at
   // ~80/60/40 % of peak volume.
-  const targetLong = Math.min(20, Math.max(16, roundHalf(0.4 * peakMiles)));
-  const startLong = clamp(roundHalf(0.3 * baseMiles), 6, targetLong - 2);
+  // v1.0.7 (T-8): no 16 mi floor. Each long run stays within a safe share of its
+  // week, about 3.5 h at easy pace, and about 10% above the longest run so far
+  // (the 30-day longest, when known). When that keeps the long run short of a
+  // marathon build, the plan says so (`buildNotices`) instead of hiding the gap.
+  const limits = customLongRunLimits(input, runDays.length);
+  const targetLong = Math.min(20, floorHalf(limits.share * peakMiles), limits.timeCapMi);
+  const startLong = Math.min(targetLong, Math.max(3, roundHalf(0.3 * baseMiles)));
   const isCutback = (w: number) => w > 2 && w % 4 === 3 && w < lastBuildWeek;
+  /** Longest run so far: the 30-day longest when known; the plan's own long runs after that. */
+  let longestSoFar = limits.recentLongestMi;
+  let growthLimited = false;
 
   const qualityTypes: CustomDayType[] = ['tempo', 'speed', 'marathon_pace'];
   const qualityCount = runDays.filter((d) => qualityTypes.includes(dayTypes[d])).length;
   const medLongCount = runDays.filter((d) => dayTypes[d] === 'medium_long').length;
   const easyCount = runDays.filter((d) => dayTypes[d] === 'easy').length;
+  // v1.0.7 (T-11): an optional marathon-pace finish only for experienced volumes.
+  const longDay = peakMiles >= 40 ? LONG_MP : LONG;
 
   const weeks: PlanWeek[] = [];
   for (let w = 0; w < totalWeeks; w++) {
@@ -800,7 +837,16 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     }
 
     // Calculate mileage distribution based on assigned workout types
-    const longMiles = roundHalf(longRaw);
+    // v1.0.7 (T-8): cap the long run (share of the week, time, growth).
+    let longCap = Math.min(limits.share * weekMiles, limits.timeCapMi);
+    if (longestSoFar != null) {
+      // The first long run stays ≤ 10% above the recent longest; later ones grow ≤ ~10% (min +1 mi).
+      const growthCap = w === 0 ? longestSoFar * 1.1 : Math.max(longestSoFar * 1.1, longestSoFar + 1);
+      if (limits.recentLongestMi != null && growthCap < longCap && roundHalf(longRaw) > floorHalf(growthCap)) growthLimited = true;
+      longCap = Math.min(longCap, growthCap);
+    }
+    const longMiles = Math.max(2, Math.min(roundHalf(longRaw), floorHalf(longCap)));
+    longestSoFar = Math.max(longestSoFar ?? 0, longMiles);
     const qualityMiles = roundHalf(clamp(weekMiles * 0.16, 3, 10));
     const medLongMiles = roundHalf(Math.min(clamp(weekMiles * 0.2, 5, 14), Math.max(longMiles, 5)));
     const remainingMiles = weekMiles - longMiles - qualityMiles * qualityCount - medLongMiles * medLongCount;
@@ -811,7 +857,7 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     for (const day of runDays) {
       switch (dayTypes[day]) {
         case 'long':
-          days[day] = LONG(longMiles);
+          days[day] = longDay(longMiles);
           break;
         case 'tempo':
           days[day] = SESSION(qualityMiles, `${qualityMiles} mi tempo`, 'Tempo');
@@ -834,16 +880,132 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     weeks.push({ weekNumber: w + 1, days });
   }
 
+  const peakLong = Math.max(0, ...weeks.map((wk) => Math.max(0, ...wk.days.filter((d) => d.note === 'Long').map((d) => d.distanceMi ?? 0))));
+  const buildNotices = customPlanNotices({
+    baseMiles, peakMiles, buildWeeks: lastBuildWeek, peakLong, limits, growthLimited,
+  });
+
   return {
     id: CUSTOM_PLAN_ID,
     name: input.name.trim() || 'Custom Marathon Plan',
     author: 'You + Apollo Builder',
     description:
       `Built from scratch for ${runDays.length} running days/week, starting near ${baseMiles} mpw and peaking around ${peakMiles} mpw. ` +
-      `Long runs build to ${targetLong} mi (the last one 3 weeks before race day), followed by a 3-week taper.`,
+      `Long runs build to ${peakLong} mi (the last one 3 weeks before race day), followed by a 3-week taper.`,
     totalWeeks,
     weeks,
+    ...(buildNotices.length > 0 ? { buildNotices } : {}),
   };
+}
+
+function floorHalf(n: number): number {
+  return Math.floor(n * 2 + 1e-9) / 2;
+}
+
+/** Long runs most marathon plans build to before the taper (mi). */
+export const MARATHON_LONG_RUN_MIN_MI = 16;
+/** v1.0.7 (T-8): the longest a custom long run should take (h). */
+export const CUSTOM_LONG_RUN_MAX_HOURS = 3.5;
+/** Easy pace assumed for the time cap when the runner's pace is unknown (10:30/mi). */
+const DEFAULT_EASY_PACE_SEC_PER_MI = 630;
+
+/** v1.0.7 (T-8): long-run limits of a custom plan. */
+export interface CustomLongRunLimits {
+  /** Largest share of the week's miles the long run may take (0.35 with ≤ 4 run days, else 0.30). */
+  share: number;
+  /** ~3.5 h at the runner's easy pace (mi, rounded down to 0.5). */
+  timeCapMi: number;
+  /** The 30-day longest run (mi), when known. */
+  recentLongestMi: number | null;
+}
+
+export function customLongRunLimits(
+  input: Pick<CustomPlanBuilderInput, 'longestRecentRunMi' | 'easyPaceSecPerMi'>,
+  runDayCount: number,
+): CustomLongRunLimits {
+  const share = runDayCount <= 4 ? 0.35 : 0.3;
+  const pace = input.easyPaceSecPerMi && input.easyPaceSecPerMi > 240 ? input.easyPaceSecPerMi : DEFAULT_EASY_PACE_SEC_PER_MI;
+  const timeCapMi = floorHalf((CUSTOM_LONG_RUN_MAX_HOURS * 3600) / pace);
+  const longest = input.longestRecentRunMi;
+  return { share, timeCapMi, recentLongestMi: longest != null && longest > 0 ? longest : null };
+}
+
+/** v1.0.7 (T-8): an honest note from the custom builder (distances in miles; format with {@link describeCustomPlanNotice}). */
+export type CustomPlanNotice =
+  | {
+      kind: 'long-run-cap';
+      /** Longest long run in the plan. */
+      peakLongMi: number;
+      /** What holds it back: growth from the recent longest run, the ~3.5 h cap, or the share of the week. */
+      reason: 'growth' | 'time' | 'share';
+      sharePct: number;
+      recentLongestMi: number | null;
+      /** Peak weekly miles that would allow a 16 mi long run. */
+      neededPeakWeeklyMi: number;
+    }
+  | {
+      kind: 'steep-ramp';
+      baseWeeklyMi: number;
+      peakWeeklyMi: number;
+      buildWeeks: number;
+      /** Extra weeks for a ~10%-a-week ramp. */
+      extraWeeks: number;
+    };
+
+/** v1.0.7 (T-8): honest timeline notes for a custom plan. */
+function customPlanNotices(o: {
+  baseMiles: number;
+  peakMiles: number;
+  buildWeeks: number;
+  peakLong: number;
+  limits: CustomLongRunLimits;
+  growthLimited: boolean;
+}): CustomPlanNotice[] {
+  const notices: CustomPlanNotice[] = [];
+  if (o.peakLong < MARATHON_LONG_RUN_MIN_MI) {
+    notices.push({
+      kind: 'long-run-cap',
+      peakLongMi: o.peakLong,
+      reason: o.growthLimited ? 'growth' : o.limits.timeCapMi < MARATHON_LONG_RUN_MIN_MI ? 'time' : 'share',
+      sharePct: Math.round(o.limits.share * 100),
+      recentLongestMi: o.limits.recentLongestMi,
+      neededPeakWeeklyMi: Math.ceil(MARATHON_LONG_RUN_MIN_MI / o.limits.share),
+    });
+  }
+  // Weekly volume: more than ~10% a week on average is a steep ramp.
+  const neededWeeks = Math.ceil(Math.log(o.peakMiles / o.baseMiles) / Math.log(1.1));
+  if (o.buildWeeks < neededWeeks) {
+    notices.push({
+      kind: 'steep-ramp',
+      baseWeeklyMi: o.baseMiles,
+      peakWeeklyMi: o.peakMiles,
+      buildWeeks: o.buildWeeks,
+      extraWeeks: neededWeeks - o.buildWeeks,
+    });
+  }
+  return notices;
+}
+
+/**
+ * v1.0.7 (T-8): a custom-plan notice as a sentence. `distance` formats a
+ * distance given in miles (default "12 mi"), so km users see km.
+ */
+export function describeCustomPlanNotice(
+  n: CustomPlanNotice,
+  distance: (miles: number) => string = (mi) => `${mi} mi`,
+): string {
+  if (n.kind === 'long-run-cap') {
+    const why = n.reason === 'growth'
+      ? `long runs grow about 10% at a time from your longest recent run (${distance(n.recentLongestMi ?? 0)}) and stay within ${n.sharePct}% of the week`
+      : n.reason === 'time'
+        ? `long runs stay under about ${CUSTOM_LONG_RUN_MAX_HOURS} hours at your easy pace`
+        : `a safe long run is at most about ${n.sharePct}% of the week`;
+    return `Long runs top out at ${distance(n.peakLongMi)} because ${why}. Most marathon plans build to ` +
+      `${distance(16)}–${distance(20)}. For a longer build, raise your peak toward ~${distance(n.neededPeakWeeklyMi)} a week, ` +
+      'add weeks, or pick a later race.';
+  }
+  return `Going from ${distance(n.baseWeeklyMi)} to ${distance(n.peakWeeklyMi)} a week in ${n.buildWeeks} build weeks is more than ` +
+    `~10% a week. Add about ${n.extraWeeks} week${n.extraWeeks === 1 ? '' : 's'} or lower the peak.`;
 }
 
 /** Training miles of a plan week (race days excluded). */

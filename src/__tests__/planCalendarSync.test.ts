@@ -142,20 +142,70 @@ describe('buildPlanWorkouts', () => {
   });
 
   it('tempo: easy warm-up, threshold block, easy cool-down', () => {
-    expect(one(TEMPO).description).toBe([
+    // A 4 mi tempo block (~31 min at T) is longer than continuous T allows (T-4): see the cruise test below.
+    expect(one({ ...TEMPO, distanceMi: 5 }).description).toBe([
       'Tempo. Comfortably hard: short phrases only.',
       'Warmup\n- 1mi 9:19-8:57/mi Pace',
-      'Tempo\n- 5mi 7:50-7:40/mi Pace',
+      'Tempo\n- 3mi 7:50-7:40/mi Pace',
       'Cooldown\n- 1mi 9:19-8:57/mi Pace',
     ].join('\n\n'));
-    expect(steps(one(TEMPO, KM))).toBe(
-      'Warmup\n- 1km 5:47-5:34/km Pace\n\nTempo\n- 9.3km 4:52-4:46/km Pace\n\nCooldown\n- 1km 5:47-5:34/km Pace',
+    expect(steps(one({ ...TEMPO, distanceMi: 5 }, KM))).toBe(
+      'Warmup\n- 1km 5:47-5:34/km Pace\n\nTempo\n- 6km 4:52-4:46/km Pace\n\nCooldown\n- 1km 5:47-5:34/km Pace',
     );
     // Shorter runs get shorter bookends; very short ones none.
     expect(steps(one({ ...TEMPO, distanceMi: 3 }))).toBe(
       'Warmup\n- 0.5mi 9:19-8:57/mi Pace\n\nTempo\n- 2mi 7:50-7:40/mi Pace\n\nCooldown\n- 0.5mi 9:19-8:57/mi Pace',
     );
     expect(steps(one({ ...TEMPO, distanceMi: 2 }))).toBe('Tempo\n- 2mi 7:50-7:40/mi Pace');
+  });
+
+  it('long tempos become cruise intervals, not a long continuous threshold run (T-4)', () => {
+    const w = one(TEMPO);
+    expect(w.name).toBe('Tempo · 7 mi');
+    expect(w.description).toBe([
+      'Tempo as cruise intervals. Comfortably hard reps with short jogs.',
+      'Warmup\n- 1mi 9:19-8:57/mi Pace',
+      'Cruise intervals 5x\n- 1mi 7:50-7:40/mi Pace\n- Easy jog 1m',
+      'Cooldown\n- 1mi 9:19-8:57/mi Pace',
+    ].join('\n\n'));
+    expect(steps(one(TEMPO, KM))).toContain('Cruise intervals 5x\n- 1.6km 4:52-4:46/km Pace\n- Easy jog 1m');
+    // Never more than 6 reps (~6 mi at T), whatever the distance.
+    expect(steps(one({ ...TEMPO, distanceMi: 12 }))).toContain('Cruise intervals 6x');
+  });
+
+  it('FIRST tempos at FIRST intensities: short / mid tempo from 5K pace (T-4)', () => {
+    const short = one({ type: 'run', label: '5 mi with 3 mi short tempo', distanceMi: 5, note: 'Tempo' });
+    expect(short.name).toBe('Tempo · 5 mi');
+    expect(short.description).toMatch(/^FIRST short tempo\. About 5K pace \+ 15 s\/mi/);
+    expect(steps(short)).toMatch(/^Warmup\n- 1mi .*\n\nShort tempo\n- 3mi \d+:\d{2}-\d+:\d{2}\/mi Pace\n\nCooldown\n- 1mi /);
+    const mid = one({ type: 'run', label: '7 mi with 5 mi mid tempo', distanceMi: 7, note: 'Tempo' });
+    expect(steps(mid)).toContain('Mid tempo\n- 5mi');
+  });
+
+  it('speed: the plan\'s own reps are kept (T-10)', () => {
+    const first = one({ type: 'run', label: '3 × 1600 m intervals', distanceMi: 6, note: 'Speed' });
+    expect(first.name).toBe('3 × 1600m Intervals');
+    expect(steps(first)).toContain('Main set 3x\n- 1600mtr 7:13-7:03/mi Pace\n- Recovery jog');
+    const hansons = one({ type: 'run', label: '12 × 400 m speed', distanceMi: 6, note: 'Speed' });
+    expect(hansons.name).toBe('12 × 400m Intervals');
+    expect(steps(hansons)).toContain('Main set 12x\n- 400mtr 7:13-7:03/mi Pace');
+    const km = one({ type: 'run', label: '5 × 1 km intervals', distanceMi: 6, note: 'Speed' });
+    expect(km.name).toBe('5 × 1km Intervals');
+    expect(steps(km)).toContain('Main set 5x\n- 1000mtr');
+    const hills = one({ type: 'run', label: '6 × hill repeats', distanceMi: 6, note: 'Speed' });
+    expect(hills.name).toBe('6 × Hill Intervals');
+    expect(steps(hills)).toContain('Main set 6x\n- Hill hard 1m30\n- Recovery jog 3m');
+  });
+
+  it("marathon-pace runs keep the plan's miles at marathon pace (T-17)", () => {
+    const hansons = one({ type: 'run', label: '8 mi tempo at marathon pace', distanceMi: 10, note: 'Marathon Pace' });
+    expect(steps(hansons)).toBe(
+      'Warmup\n- 1mi 9:19-8:57/mi Pace\n\nMarathon pace\n- 8mi 8:21-8:11/mi Pace\n\nCooldown\n- 1mi 9:19-8:57/mi Pace',
+    );
+    expect(steps(one({ type: 'run', label: '8 mi tempo at marathon pace', distanceMi: 10, note: 'Marathon Pace' }, KM)))
+      .toContain('Marathon pace\n- 12.9km 5:11-5:05/km Pace');
+    expect(steps(one({ type: 'run', label: '5 mi with 3 at marathon pace', distanceMi: 5, note: 'Marathon Pace' })))
+      .toContain('Marathon pace\n- 3mi 8:21-8:11/mi Pace');
   });
 
   it('speed: warm-up, "Main set Nx" of reps + recovery jogs, cool-down, sized to the planned distance', () => {
@@ -196,15 +246,18 @@ describe('buildPlanWorkouts', () => {
   });
 
   it("long runs: one easy step, plus the optional marathon-pace finish from Apollo's long-run target", () => {
-    expect(one(LONG).description).toBe(
+    const experienced: PlanDay = { ...LONG, mpFinish: true };
+    expect(one(experienced).description).toBe(
       'Long run. Easy effort; practice your race-day fueling. Optional: last 4 mi at marathon pace (8:16/mi).'
       + '\n\n- 18mi 9:19-8:57/mi Pace',
     );
-    const km = one(LONG, KM);
+    const km = one(experienced, KM);
     expect(km.description).toContain('Optional: last 6 km at marathon pace (5:08/km).');
     expect(steps(km)).toBe('- 29km 5:47-5:34/km Pace');
-    expect(one({ ...LONG, distanceMi: 12 }).description)
+    expect(one({ ...experienced, distanceMi: 12 }).description)
       .toBe('Long run. Easy effort; practice your race-day fueling.\n\n- 12mi 9:19-8:57/mi Pace');
+    // v1.0.7 (T-11): no MP finish unless the plan offers one (never on novice plans).
+    expect(one(LONG).description).toBe('Long run. Easy effort; practice your race-day fueling.\n\n- 18mi 9:19-8:57/mi Pace');
   });
 
   it('races and marathon day: race pace', () => {
@@ -225,7 +278,7 @@ describe('buildPlanWorkouts', () => {
   it('sends plain distance steps when paces are unknown', () => {
     const workouts = buildPlanWorkouts(makePlan([WEEK]), START, { ...MI, paces: null, vdot: null });
     expect(steps(workouts[0])).toBe('- 5mi');
-    expect(steps(workouts[1])).toBe('Warmup\n- 1mi\n\nTempo\n- 5mi\n\nCooldown\n- 1mi');
+    expect(steps(workouts[1])).toBe('Warmup\n- 1mi\n\nCruise intervals 5x\n- 1mi\n- Easy jog 1m\n\nCooldown\n- 1mi');
     expect(steps(workouts[3])).toBe('Warmup\n- 1mi\n\nMain set 6x\n- 800mtr\n- Recovery jog 2m30\n\nCooldown\n- 1mi');
     expect(workouts[5].description).toBe('Long run. Easy effort; practice your race-day fueling.\n\n- 18mi');
     for (const w of workouts) expect(w.description).not.toMatch(/Pace$|\/mi/m);

@@ -47,7 +47,14 @@ import { getWorkoutKind, type PlanDay, type PlanWorkoutKind, type TrainingPlan }
 import { getActivePlan, getDateForDay, formatDateKey } from './planProgress';
 import { getEffectivePlan } from './planOverlay';
 import { calculateTrainingPaces, getCurrentTrainingPaces, getSavedTrainingPaces, type TrainingPaces } from './paceCalculator';
-import { getWorkoutTarget } from './workoutTargets';
+import {
+  FIRST_TEMPO_OFFSET_SEC,
+  getSpeedStructure,
+  getTempoStructure,
+  getWorkoutTarget,
+  parseMarathonPaceMiles,
+  type SpeedStructure,
+} from './workoutTargets';
 import { getDistanceUnit, type DistanceUnit } from './unitPreferences';
 import { getIntervalsCredentials, type IntervalsCredentials } from './storage';
 import { persistence } from './db/persistence';
@@ -379,10 +386,11 @@ function bookend(totalU: number): number {
   return totalU >= 4 ? 1 : totalU >= 2.5 ? 0.5 : 0;
 }
 
-function longRunNote(plannedMi: number, ctx: BuildContext): string {
+function longRunNote(day: PlanDay, plannedMi: number, ctx: BuildContext): string {
   const base = 'Long run. Easy effort; practice your race-day fueling.';
   if (!ctx.paces || !ctx.vdot) return base;
-  const segment = getWorkoutTarget('Long', ctx.vdot, plannedMi)?.marathonPaceSegment;
+  // v1.0.7 (T-11): the same target Today shows — no MP finish unless the plan offers one.
+  const segment = getWorkoutTarget('Long', ctx.vdot, plannedMi, day)?.marathonPaceSegment;
   if (!segment || segment.endMile <= segment.startMile) return base;
   const lengthMi = segment.endMile - segment.startMile;
   const length = ctx.unit === 'km' ? `${Math.round(lengthMi * KM_PER_MILE)} km` : `${fmtNumber(lengthMi)} mi`;
@@ -390,13 +398,50 @@ function longRunNote(plannedMi: number, ctx: BuildContext): string {
   return `${base} Optional: last ${length} at marathon pace (${mp}).`;
 }
 
+/** Warm-up / cool-down (athlete's unit) that fills the planned distance around a main set of `mainMi`. */
+function fillBookend(plannedMi: number, mainMi: number, unit: DistanceUnit): number {
+  const totalU = toUnit(plannedMi, unit);
+  const left = Math.max(0, totalU - toUnit(mainMi, unit)) / 2;
+  return round1(Math.max(bookend(totalU), left));
+}
+
+/**
+ * v1.0.7 (T-10): a speed session with the plan's own reps ("8 × 400 m", "3 × 1600 m",
+ * "6 × hill repeats"), from `getSpeedStructure` — the structure Today shows.
+ */
+function planRepsSpec(plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined, s: SpeedStructure): WorkoutSpec {
+  const { unit, paces } = ctx;
+  const reps = s.planReps!;
+  const jogPace = paces ? paces.easy.max + 30 : DEFAULT_JOG_SEC_PER_MI;
+  const restSec = Math.max(30, Math.round(s.restSec / 15) * 15);
+  const repMi = s.repMeters ? s.repMeters / METERS_PER_MILE : s.workSec / (paces?.interval ?? DEFAULT_PACE_SEC_PER_MI);
+  const mainMi = s.repeats * (repMi + restSec / jogPace);
+  const e = plannedMi > 0 ? fillBookend(plannedMi, mainMi, unit) : 0;
+  const repPace = paces?.interval;
+  const work: Step = s.repMeters
+    ? { distance: s.repMeters, unit: 'mtr', pace: repPace ? around(repPace, 5) : undefined }
+    : { seconds: s.workSec, prompt: 'Hill hard' };
+  const sections: Section[] = [];
+  if (e > 0) sections.push({ header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] });
+  sections.push({ header: 'Main set', repeats: s.repeats, steps: [work, { seconds: restSec, prompt: 'Recovery jog' }] });
+  if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
+  const repName = reps.hill ? 'Hill' : reps.repLabel.replace(/\s+/g, '');
+  const note = reps.hill
+    ? 'Hill repeats. Hard but controlled uphill by effort; jog back down.'
+    : 'Speed. Run the reps hard but even; jog the recoveries.';
+  return { name: `${s.repeats} × ${repName} Intervals`, note, sections };
+}
+
 /**
  * Speed session: warm-up, "Main set Nx" of rep + recovery jog, cool-down.
  * Reps and the work:rest ratio follow Apollo's speed target (800 m repeats,
  * equal-time jog recoveries; 400 m when the session is short); the number of
  * reps is sized so the whole session roughly matches the planned distance.
+ * v1.0.7 (T-10): when the plan names its reps, those are sent instead.
  */
-function speedSpec(plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined): WorkoutSpec {
+function speedSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined): WorkoutSpec {
+  const planned = getSpeedStructure(day, plannedMi, ctx.paces);
+  if (planned.planReps) return planRepsSpec(plannedMi, ctx, easy, planned);
   const { unit, paces } = ctx;
   const e = bookend(toUnit(plannedMi, unit));
   const unitMeters = unit === 'km' ? 1000 : METERS_PER_MILE;
@@ -426,6 +471,44 @@ function speedSpec(plannedMi: number, ctx: BuildContext, easy: PaceTarget | unde
   return { name: `${reps} × ${repMeters}m Intervals`, note: 'Speed. Run the reps hard but even; jog the recoveries.', sections };
 }
 
+/**
+ * v1.0.7 (T-4): tempo from `getTempoStructure` — the structure Today shows. FIRST
+ * short / mid tempos at FIRST's intensities; long tempos as cruise intervals
+ * instead of a long continuous run at threshold.
+ */
+function tempoSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined, withDistance: (t: string) => string): WorkoutSpec | null {
+  const { unit, paces } = ctx;
+  const t = getTempoStructure(day, plannedMi, paces);
+  if (plannedMi <= 0 || t.workMi == null || t.style === 'threshold') return null;
+  const pace = t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined;
+  if (t.style === 'cruise') {
+    const repU = unit === 'km' ? 1.6 : 1;
+    const jogPace = paces ? paces.easy.max + 30 : DEFAULT_JOG_SEC_PER_MI;
+    const e = fillBookend(plannedMi, t.repeats * (1 + t.restSec / jogPace), unit);
+    return {
+      name: withDistance('Tempo'),
+      note: 'Tempo as cruise intervals. Comfortably hard reps with short jogs.',
+      sections: [
+        { header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] },
+        { header: 'Cruise intervals', repeats: t.repeats, steps: [{ distance: repU, unit, pace }, { seconds: t.restSec, prompt: 'Easy jog' }] },
+        { header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] },
+      ],
+    };
+  }
+  const level = t.style === 'first_short' ? 'Short' : 'Mid';
+  const workU = toUnit(t.workMi, unit);
+  const e = round1(Math.max(0, toUnit(plannedMi, unit) - workU) / 2);
+  const sections: Section[] = [];
+  if (e > 0) sections.push({ header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] });
+  sections.push({ header: `${level} tempo`, steps: [{ distance: workU, unit, pace }] });
+  if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
+  return {
+    name: withDistance('Tempo'),
+    note: `FIRST ${level.toLowerCase()} tempo. About 5K pace + ${FIRST_TEMPO_OFFSET_SEC[level === 'Short' ? 'short' : 'mid']} s/mi; even effort.`,
+    sections,
+  };
+}
+
 function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutSpec {
   const { unit, paces } = ctx;
   if (kind === 'cross') {
@@ -439,7 +522,7 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
   const easy = paces ? { fast: paces.easy.min, slow: paces.easy.max } : undefined;
   const plannedMi = day.distanceMi && day.distanceMi > 0 ? day.distanceMi
     : kind === 'marathon' ? 26.2 : kind === 'race' ? 13.1 : kind === 'speed' ? 5 : 0;
-  if (kind === 'speed') return speedSpec(plannedMi, ctx, easy);
+  if (kind === 'speed') return speedSpec(day, plannedMi, ctx, easy);
 
   const totalU = toUnit(plannedMi, unit);
   const withDistance = (title: string) => (plannedMi > 0 ? `${title} · ${fmtNumber(totalU)} ${unit}` : title);
@@ -463,7 +546,7 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
     case 'recovery':
       return { name: withDistance('Recovery Run'), note: 'Recovery run. Keep it truly easy.', sections: single(easy) };
     case 'long':
-      return { name: withDistance('Long Run'), note: longRunNote(plannedMi, ctx), sections: single(easy) };
+      return { name: withDistance('Long Run'), note: longRunNote(day, plannedMi, ctx), sections: single(easy) };
     case 'medium_long':
       return {
         name: withDistance('Medium-Long Run'),
@@ -471,7 +554,7 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
         sections: single(paces ? { fast: paces.easy.min - 10, slow: paces.easy.max - 5 } : undefined),
       };
     case 'tempo':
-      return {
+      return tempoSpec(day, plannedMi, ctx, easy, withDistance) ?? {
         name: withDistance('Tempo'),
         note: 'Tempo. Comfortably hard: short phrases only.',
         sections: sandwich('Tempo', paces ? around(paces.threshold, 5) : undefined, e, e),
@@ -482,12 +565,18 @@ function buildSpec(day: PlanDay, kind: WorkoutKind, ctx: BuildContext): WorkoutS
         note: 'Strength. Between marathon and tempo effort; hold your form.',
         sections: sandwich('Strength', paces ? around(Math.round((paces.threshold + paces.marathon) / 2), 8) : undefined, e, e),
       };
-    case 'marathon_pace':
+    case 'marathon_pace': {
+      // v1.0.7 (T-17): keep the plan's miles at marathon pace (Hansons 1 + 8 at MP + 1, not 2 + 7 + 1).
+      const mpMi = parseMarathonPaceMiles(day);
+      const mpBookend = mpMi ? round1(Math.max(0, totalU - toUnit(mpMi, unit)) / 2) : 0;
       return {
         name: withDistance('Marathon Pace'),
         note: 'Marathon pace. Controlled and sustainable: rehearse race day.',
-        sections: sandwich('Marathon pace', paces ? around(paces.marathon, 5) : undefined, totalU >= 6 ? 2 : e, e),
+        sections: mpMi
+          ? sandwich('Marathon pace', paces ? around(paces.marathon, 5) : undefined, mpBookend, mpBookend)
+          : sandwich('Marathon pace', paces ? around(paces.marathon, 5) : undefined, totalU >= 6 ? 2 : e, e),
       };
+    }
     case 'race': {
       const label = String(day.label || '').trim();
       const name = !label || /^race$/i.test(label) ? withDistance('Race') : /\brace\b/i.test(label) ? label : `${label} Race`;

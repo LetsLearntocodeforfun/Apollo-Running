@@ -9,10 +9,196 @@
 
 import type { WorkoutTarget, WorkoutCategory } from '../types/workout';
 import { calculateTrainingPaces, type TrainingPaces } from './paceCalculator';
+import { raceTimeFromVdot } from './racePrediction';
 import { persistence } from './db/persistence';
 import { getWorkoutKind, type PlanDay, type PlanWorkoutKind } from '../data/plans';
 
 const TARGETS_CACHE_KEY = 'apollo_workout_targets';
+const METERS_PER_MILE = 1609.344;
+
+/** The parts of a plan day the targets read (label for the plan's own structure, T-11 opt-in). */
+export type TargetDay = Pick<PlanDay, 'label'> & Partial<Pick<PlanDay, 'mpFinish' | 'distanceMi'>>;
+
+// ── The plan's own session structure (v1.0.7, T-4 / T-10 / T-17) ────────────
+//
+// Today, the plan preview, compliance and the watch push all read these, so a
+// session keeps its coach's reps, tempo intensity and marathon-pace miles
+// everywhere (workoutParity.test.ts).
+
+/** A rep set from the plan's description, e.g. "8 × 400 m intervals" or "6 × hill repeats". */
+export interface PlanRepSet {
+  repeats: number;
+  /** Rep length in metres (null for hill repeats, which go by effort). */
+  meters: number | null;
+  /** Rep length as written by the plan, e.g. "400m", "1 km", "hill". */
+  repLabel: string;
+  hill: boolean;
+}
+
+/**
+ * v1.0.7 (T-10): the plan's own reps from its workout description. Returns null
+ * when the description doesn't say (e.g. "5 mi speed workout").
+ */
+export function parsePlanReps(label: string | undefined | null): PlanRepSet | null {
+  const text = String(label ?? '');
+  const hill = /(\d+)\s*[×x]\s*hill/i.exec(text);
+  if (hill) {
+    const repeats = Number(hill[1]);
+    return repeats > 0 ? { repeats, meters: null, repLabel: 'hill', hill: true } : null;
+  }
+  const m = /(\d+)\s*[×x]\s*(\d+(?:\.\d+)?)\s*(km|mi|m)\b/i.exec(text);
+  if (!m) return null;
+  const repeats = Number(m[1]);
+  const value = Number(m[2]);
+  const unit = m[3].toLowerCase();
+  if (!(repeats > 0) || !(value > 0)) return null;
+  const meters = unit === 'km' ? value * 1000 : unit === 'mi' ? value * METERS_PER_MILE : value;
+  const repLabel = unit === 'm' ? `${value}m` : `${value} ${unit}`;
+  return { repeats, meters: Math.round(meters), repLabel, hill: false };
+}
+
+/** Hill repeats: ~90 s hard uphill, jog back down (about twice as long). */
+const HILL_WORK_SEC = 90;
+const HILL_REST_SEC = 180;
+
+/** Structure of a speed session, shared by Today and the watch push. */
+export interface SpeedStructure {
+  /** The plan's reps (null → Apollo's default, sized to the planned distance). */
+  planReps: PlanRepSet | null;
+  repeats: number;
+  /** Work rep in metres (null for hills). */
+  repMeters: number | null;
+  /** Work rep duration (s) at interval pace (hills: effort-based). */
+  workSec: number;
+  /** Recovery jog (s). */
+  restSec: number;
+}
+
+/**
+ * Recovery for one of the plan's reps: equal time for reps up to 1 km, half the
+ * rep time for longer reps (min 60 s), rounded to 15 s.
+ */
+function repRestSec(meters: number, workSec: number): number {
+  const ratio = meters <= 1000 ? 1 : 0.5;
+  return Math.max(60, Math.round((workSec * ratio) / 15) * 15);
+}
+
+/**
+ * v1.0.7 (T-10): the speed session for a plan day. The plan's own reps when its
+ * description names them; otherwise Apollo's default (800 m repeats at interval
+ * pace, equal-time jog, sized to the planned distance).
+ */
+export function getSpeedStructure(
+  day: Pick<PlanDay, 'label'> | null | undefined,
+  distanceMi: number | undefined,
+  paces: Pick<TrainingPaces, 'interval'> | null,
+): SpeedStructure {
+  const reps = parsePlanReps(day?.label);
+  const repPace = paces?.interval ?? 0;
+  if (reps?.hill) {
+    return { planReps: reps, repeats: reps.repeats, repMeters: null, workSec: HILL_WORK_SEC, restSec: HILL_REST_SEC };
+  }
+  if (reps && reps.meters) {
+    // Without paces, assume ~6:30/mi for the rep duration.
+    const workSec = (reps.meters / METERS_PER_MILE) * (repPace > 0 ? repPace : 390);
+    return { planReps: reps, repeats: reps.repeats, repMeters: reps.meters, workSec, restSec: repRestSec(reps.meters, workSec) };
+  }
+  const totalMi = distanceMi ?? 5;
+  const workMi = Math.max(totalMi - 2, 2);
+  const repeats = Math.max(Math.round(workMi / 0.5), 3);
+  const workSec = 0.5 * (repPace > 0 ? repPace : 390);
+  return { planReps: null, repeats, repMeters: 800, workSec, restSec: workSec };
+}
+
+/** All-out 5K race pace (sec/mi) for a VDOT. */
+function fiveKPace(vdot: number): number {
+  const t = raceTimeFromVdot(vdot, 5000);
+  return t > 0 ? Math.round(t / (5000 / METERS_PER_MILE)) : 0;
+}
+
+/**
+ * FIRST (Run Less, Run Faster) tempo intensities, from 5K race pace: short
+ * tempo ≈ 5K pace + 15 s/mi, mid tempo ≈ 5K pace + 30 s/mi. Long tempos are run
+ * at marathon pace (plans.ts gives them note 'Marathon Pace').
+ */
+export const FIRST_TEMPO_OFFSET_SEC: Record<'short' | 'mid', number> = { short: 15, mid: 30 };
+
+/** Longest continuous threshold block (min); longer tempos become cruise intervals. */
+export const MAX_CONTINUOUS_THRESHOLD_MIN = 25;
+/** Without paces, the continuous-threshold limit in miles. */
+const MAX_CONTINUOUS_THRESHOLD_MI = 3.5;
+/** Cruise intervals: 1-mile reps at threshold with a 1-minute jog, at most 6 reps. */
+const CRUISE_MAX_REPS = 6;
+const CRUISE_REST_SEC = 60;
+
+/** Structure of a tempo session, shared by Today and the watch push. */
+export interface TempoStructure {
+  /**
+   * `threshold`: continuous at T pace; `cruise`: 1-mile reps at T pace;
+   * `first_short` / `first_mid`: FIRST's short / mid tempo.
+   */
+  style: 'threshold' | 'cruise' | 'first_short' | 'first_mid';
+  /** Work pace (sec/mi), null without paces. */
+  paceSecPerMi: number | null;
+  /** Miles at tempo effort (null → the whole run between the usual warm-up and cool-down). */
+  workMi: number | null;
+  repeats: number;
+  /** Recovery jog between cruise reps (s); 0 for continuous tempos. */
+  restSec: number;
+}
+
+/**
+ * v1.0.7 (T-4): the tempo session for a plan day. Uses the plan's own intensity
+ * reference (FIRST's short / mid tempo from 5K pace) and caps continuous
+ * threshold running at ~25 min: longer tempos become cruise intervals (Daniels)
+ * instead of a long continuous run at T.
+ */
+export function getTempoStructure(
+  day: Pick<PlanDay, 'label'> | null | undefined,
+  distanceMi: number | undefined,
+  paces: Pick<TrainingPaces, 'threshold' | 'vdot'> | null,
+): TempoStructure {
+  const first = /(\d+(?:\.\d+)?)\s*mi\s+(short|mid)\s+tempo/i.exec(String(day?.label ?? ''));
+  if (first) {
+    const level = first[2].toLowerCase() as 'short' | 'mid';
+    const fiveK = paces ? fiveKPace(paces.vdot) : 0;
+    return {
+      style: level === 'short' ? 'first_short' : 'first_mid',
+      paceSecPerMi: fiveK > 0 ? fiveK + FIRST_TEMPO_OFFSET_SEC[level] : null,
+      workMi: Number(first[1]),
+      repeats: 1,
+      restSec: 0,
+    };
+  }
+  const threshold = paces?.threshold ?? null;
+  if (!distanceMi || distanceMi < 6) {
+    return { style: 'threshold', paceSecPerMi: threshold, workMi: null, repeats: 1, restSec: 0 };
+  }
+  const workMi = distanceMi - 2;
+  const tooLong = threshold
+    ? (workMi * threshold) / 60 > MAX_CONTINUOUS_THRESHOLD_MIN
+    : workMi > MAX_CONTINUOUS_THRESHOLD_MI;
+  if (!tooLong) return { style: 'threshold', paceSecPerMi: threshold, workMi, repeats: 1, restSec: 0 };
+  const repeats = Math.max(2, Math.min(CRUISE_MAX_REPS, Math.floor(workMi)));
+  return { style: 'cruise', paceSecPerMi: threshold, workMi: repeats, repeats, restSec: CRUISE_REST_SEC };
+}
+
+/**
+ * v1.0.7 (T-17): miles at marathon pace when the plan's description names fewer
+ * than the whole run, e.g. Hansons "8 mi tempo at marathon pace" (10 mi with
+ * warm-up and cool-down) or "5 mi with 3 at marathon pace". Null when the whole
+ * run is at marathon pace (Higdon pace runs) or the description doesn't say.
+ */
+export function parseMarathonPaceMiles(day: Pick<PlanDay, 'label' | 'distanceMi'> | null | undefined): number | null {
+  const label = String(day?.label ?? '');
+  const total = day?.distanceMi ?? 0;
+  const m = /\bwith\s+(\d+(?:\.\d+)?)\s*(?:mi\s+)?at\s+marathon\s+pace/i.exec(label)
+    ?? /(\d+(?:\.\d+)?)\s*mi\s+(?:tempo\s+)?at\s+marathon\s+pace/i.exec(label);
+  if (!m) return null;
+  const mp = Number(m[1]);
+  if (!(mp > 0) || !(total > mp)) return null;
+  return mp;
+}
 
 /**
  * Map from plan day `note` field to canonical WorkoutCategory.
@@ -89,7 +275,7 @@ export function getWorkoutTargetForDay(day: PlanDay | null | undefined, vdot: nu
   if (kind === 'rest' || kind === 'cross') return null;
   const paces = calculateTrainingPaces(vdot);
   if (!paces) return null;
-  return buildTarget(categoryForKind(kind), paces, day.distanceMi);
+  return buildTarget(categoryForKind(kind), paces, day.distanceMi, day);
 }
 
 /**
@@ -98,37 +284,39 @@ export function getWorkoutTargetForDay(day: PlanDay | null | undefined, vdot: nu
  * @param note The plan day's `note` field (e.g. "Easy", "Tempo")
  * @param vdot The runner's current VDOT score
  * @param distanceMi Optional planned distance in miles (affects long run MP segments)
+ * @param day Optional plan day (v1.0.7): its description keeps the plan's own reps,
+ *   tempo intensity and marathon-pace miles; `mpFinish` allows an MP finish (T-11)
  * @returns WorkoutTarget with pace ranges, intervals, and coaching guidance
  */
-export function getWorkoutTarget(note: string, vdot: number, distanceMi?: number): WorkoutTarget | null {
+export function getWorkoutTarget(note: string, vdot: number, distanceMi?: number, day?: TargetDay): WorkoutTarget | null {
   if (!note || vdot <= 0) return null;
 
   const paces = calculateTrainingPaces(vdot);
   if (!paces) return null;
 
   const category = noteToCategory(note);
-  return buildTarget(category, paces, distanceMi);
+  return buildTarget(category, paces, distanceMi, day);
 }
 
 /**
  * Build a complete WorkoutTarget from category and training paces.
  */
-function buildTarget(category: WorkoutCategory, paces: TrainingPaces, distanceMi?: number): WorkoutTarget {
+function buildTarget(category: WorkoutCategory, paces: TrainingPaces, distanceMi?: number, day?: TargetDay): WorkoutTarget {
   switch (category) {
     case 'easy':
       return buildEasyTarget(paces);
     case 'long':
-      return buildLongRunTarget(paces, distanceMi);
+      return buildLongRunTarget(paces, distanceMi, day);
     case 'medium_long':
       return buildMediumLongTarget(paces);
     case 'tempo':
-      return buildTempoTarget(paces, distanceMi);
+      return buildTempoTarget(paces, distanceMi, day);
     case 'speed':
-      return buildSpeedTarget(paces, distanceMi);
+      return buildSpeedTarget(paces, distanceMi, day);
     case 'strength':
       return buildStrengthTarget(paces, distanceMi);
     case 'marathon_pace':
-      return buildMarathonPaceTarget(paces);
+      return buildMarathonPaceTarget(paces, distanceMi, day);
     case 'race':
       return buildRaceTarget(paces);
     case 'rest':
@@ -150,7 +338,7 @@ function buildEasyTarget(paces: TrainingPaces): WorkoutTarget {
   };
 }
 
-function buildLongRunTarget(paces: TrainingPaces, distanceMi?: number): WorkoutTarget {
+function buildLongRunTarget(paces: TrainingPaces, distanceMi?: number, day?: TargetDay): WorkoutTarget {
   // Long runs: easy pace, but the last few miles of very long runs (18+) can include MP segment
   const target: WorkoutTarget = {
     category: 'long',
@@ -161,7 +349,9 @@ function buildLongRunTarget(paces: TrainingPaces, distanceMi?: number): WorkoutT
   };
 
   // For long runs 18+ miles, add optional marathon-pace segment in final 4-6 miles
-  if (distanceMi && distanceMi >= 18) {
+  // v1.0.7 (T-11): only when the plan allows it (`mpFinish`, set by experienced
+  // plans). Novice plans and callers without a plan day get a plain easy long run.
+  if (day?.mpFinish && distanceMi && distanceMi >= 18) {
     const mpSegmentLength = distanceMi >= 20 ? 6 : 4;
     const mpStart = Math.round(distanceMi - mpSegmentLength);
     target.marathonPaceSegment = {
@@ -189,7 +379,11 @@ function buildMediumLongTarget(paces: TrainingPaces): WorkoutTarget {
   };
 }
 
-function buildTempoTarget(paces: TrainingPaces, distanceMi?: number): WorkoutTarget {
+function fmtMi(n: number): string {
+  return String(Math.round(n * 10) / 10);
+}
+
+function buildTempoTarget(paces: TrainingPaces, distanceMi?: number, day?: TargetDay): WorkoutTarget {
   // Tempo runs: threshold pace ±5 sec/mi tolerance
   const tolerance = 5;
   const target: WorkoutTarget = {
@@ -204,11 +398,46 @@ function buildTempoTarget(paces: TrainingPaces, distanceMi?: number): WorkoutTar
       `This pace teaches your body to clear lactate efficiently.`,
   };
 
+  // v1.0.7 (T-4): the plan's own intensity reference (FIRST short / mid tempo).
+  const tempo = getTempoStructure(day, distanceMi, paces);
+  if ((tempo.style === 'first_short' || tempo.style === 'first_mid') && tempo.paceSecPerMi && tempo.workMi) {
+    const pace = tempo.paceSecPerMi;
+    const level = tempo.style === 'first_short' ? 'short' : 'mid';
+    target.targetPaceRange = { minSecPerMi: pace - tolerance, maxSecPerMi: pace + tolerance };
+    target.description = `FIRST ${level} tempo — about 5K race pace + ${FIRST_TEMPO_OFFSET_SEC[level]} s/mi. ` +
+      `Hard but controlled and even from start to finish, with easy running before and after.`;
+    const bookend = Math.max(0, ((distanceMi ?? tempo.workMi) - tempo.workMi) / 2);
+    target.intervals = [{
+      workDurationMin: Math.round((tempo.workMi * pace) / 60),
+      restDurationMin: 0,
+      targetPaceSecPerMi: pace,
+      repeats: 1,
+      description: `${fmtMi(bookend)}mi warmup → ${fmtMi(tempo.workMi)}mi ${level} tempo → ${fmtMi(bookend)}mi cooldown`,
+    }];
+    return target;
+  }
+
   // For longer tempo runs (6+ mi), structure as tempo intervals with warmup/cooldown
   if (distanceMi && distanceMi >= 6) {
     const warmupMi = 1;
     const cooldownMi = 1;
     const tempoMi = distanceMi - warmupMi - cooldownMi;
+    if (tempo.style === 'cruise') {
+      // v1.0.7 (T-4): a long tempo becomes cruise intervals (1-mile reps at T with
+      // 1-minute jogs, at most 6), not ~an hour of continuous threshold running.
+      const extraEasy = Math.max(0, tempoMi - tempo.repeats) / 2;
+      target.description = `Cruise intervals at threshold pace — comfortably hard, with short jogs between reps. ` +
+        `Splitting a long tempo into 1-mile reps keeps the threshold work at the right effort.`;
+      target.intervals = [{
+        workDurationMin: Math.round(paces.threshold / 60 * 10) / 10,
+        restDurationMin: tempo.restSec / 60,
+        targetPaceSecPerMi: paces.threshold,
+        repeats: tempo.repeats,
+        description: `${fmtMi(warmupMi + extraEasy)}mi warmup → ${tempo.repeats}×1mi at tempo (1min jog) → ` +
+          `${fmtMi(cooldownMi + extraEasy)}mi cooldown`,
+      }];
+      return target;
+    }
     const tempoMin = Math.round((tempoMi * paces.threshold) / 60);
     target.intervals = [{
       workDurationMin: tempoMin,
@@ -222,7 +451,7 @@ function buildTempoTarget(paces: TrainingPaces, distanceMi?: number): WorkoutTar
   return target;
 }
 
-function buildSpeedTarget(paces: TrainingPaces, distanceMi?: number): WorkoutTarget {
+function buildSpeedTarget(paces: TrainingPaces, distanceMi?: number, day?: TargetDay): WorkoutTarget {
   // Speed workouts: interval pace, structured as repeats
   const intervalTolerance = 5;
   const target: WorkoutTarget = {
@@ -235,6 +464,29 @@ function buildSpeedTarget(paces: TrainingPaces, distanceMi?: number): WorkoutTar
     description: `Speed session with interval repeats. Push hard during work intervals, ` +
       `jog easy during rest. This builds VO2max and running economy.`,
   };
+
+  // v1.0.7 (T-10): keep the plan's own reps (e.g. FIRST "3 × 1600 m", Hansons "12 × 400 m").
+  const speed = getSpeedStructure(day, distanceMi, paces);
+  if (speed.planReps) {
+    const reps = speed.planReps;
+    const workMin = Math.round(speed.workSec / 60 * 10) / 10;
+    const restMin = Math.round(speed.restSec / 60 * 10) / 10;
+    if (reps.hill) {
+      target.description = `Hill repeats — run each ~90 s uphill hard but controlled (by effort, not pace), ` +
+        `then jog back down. This builds strength and running economy.`;
+    }
+    const main = reps.hill
+      ? `${reps.repeats}× hill repeats (~${workMin}min hard uphill, jog down)`
+      : `${reps.repeats}×${reps.repLabel} at interval pace (${restMin}min jog rest)`;
+    target.intervals = [{
+      workDurationMin: workMin,
+      restDurationMin: restMin,
+      targetPaceSecPerMi: paces.interval,
+      repeats: reps.repeats,
+      description: `warmup → ${main} → cooldown`,
+    }];
+    return target;
+  }
 
   // Standard speed workout structure based on distance
   const totalMi = distanceMi ?? 5;
@@ -275,9 +527,9 @@ function buildStrengthTarget(paces: TrainingPaces, _distanceMi?: number): Workou
   };
 }
 
-function buildMarathonPaceTarget(paces: TrainingPaces): WorkoutTarget {
+function buildMarathonPaceTarget(paces: TrainingPaces, distanceMi?: number, day?: TargetDay): WorkoutTarget {
   const tolerance = 5;
-  return {
+  const target: WorkoutTarget = {
     category: 'marathon_pace',
     targetPaceRange: {
       minSecPerMi: paces.marathon - tolerance,
@@ -287,6 +539,20 @@ function buildMarathonPaceTarget(paces: TrainingPaces): WorkoutTarget {
     description: `Marathon-pace run — practice your target race pace. ` +
       `This should feel controlled and sustainable. If it feels hard, your target may be too aggressive.`,
   };
+  // v1.0.7 (T-17): keep the plan's marathon-pace miles (e.g. Hansons 1 + 8 at MP + 1).
+  const total = distanceMi ?? day?.distanceMi;
+  const mpMi = day ? parseMarathonPaceMiles({ label: day.label, distanceMi: total }) : null;
+  if (mpMi && total) {
+    const bookend = (total - mpMi) / 2;
+    target.intervals = [{
+      workDurationMin: Math.round((mpMi * paces.marathon) / 60),
+      restDurationMin: 0,
+      targetPaceSecPerMi: paces.marathon,
+      repeats: 1,
+      description: `${fmtMi(bookend)}mi warmup → ${fmtMi(mpMi)}mi at marathon pace → ${fmtMi(bookend)}mi cooldown`,
+    }];
+  }
+  return target;
 }
 
 function buildRaceTarget(paces: TrainingPaces): WorkoutTarget {
@@ -305,7 +571,7 @@ function buildRaceTarget(paces: TrainingPaces): WorkoutTarget {
  * Returns a map of dayIndex -> WorkoutTarget for all run days.
  */
 export function getWeekTargets(
-  weekDays: { note?: string; distanceMi?: number; type: string }[],
+  weekDays: { note?: string; distanceMi?: number; type: string; label?: string; mpFinish?: boolean }[],
   vdot: number,
 ): Map<number, WorkoutTarget> {
   const targets = new Map<number, WorkoutTarget>();
@@ -314,7 +580,7 @@ export function getWeekTargets(
   for (let i = 0; i < weekDays.length; i++) {
     const day = weekDays[i];
     if (day.type === 'rest' || !day.note) continue;
-    const target = getWorkoutTarget(day.note, vdot, day.distanceMi);
+    const target = getWorkoutTarget(day.note, vdot, day.distanceMi, { label: day.label ?? '', mpFinish: day.mpFinish });
     if (target) targets.set(i, target);
   }
 

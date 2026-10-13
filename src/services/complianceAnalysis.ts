@@ -7,6 +7,7 @@
  */
 
 import type { ComplianceResult, WorkoutTarget } from '../types/workout';
+import type { PlanDay } from '../data/plans';
 import { getWorkoutTarget } from './workoutTargets';
 import { getCurrentTrainingPaces, getSavedTrainingPaces } from './paceCalculator';
 import { formatPaceFromMinPerMi } from './unitPreferences';
@@ -21,6 +22,8 @@ const COMPLIANCE_KEY = 'apollo_compliance_results';
  * @param actualPaceMinPerMi Actual average pace in min/mi
  * @param actualDistanceMi Actual distance in miles
  * @param plannedDistanceMi Planned distance in miles
+ * @param day Optional plan day (v1.0.7): scores against the same target Today and
+ *   the watch use (e.g. FIRST short-tempo pace, the plan's own reps)
  * @returns ComplianceResult with score, feedback, and coaching
  */
 export function analyzeCompliance(
@@ -28,6 +31,7 @@ export function analyzeCompliance(
   actualPaceMinPerMi: number,
   actualDistanceMi: number,
   plannedDistanceMi: number,
+  day?: PlanDay,
 ): ComplianceResult | null {
   if (!note || actualPaceMinPerMi <= 0) return null;
 
@@ -35,7 +39,7 @@ export function analyzeCompliance(
   const paces = getCurrentTrainingPaces() ?? getSavedTrainingPaces();
   if (!paces) return null;
 
-  const target = getWorkoutTarget(note, paces.vdot, plannedDistanceMi);
+  const target = getWorkoutTarget(note, paces.vdot, plannedDistanceMi, day);
   if (!target) return null;
 
   const actualPaceSec = Math.round(actualPaceMinPerMi * 60);

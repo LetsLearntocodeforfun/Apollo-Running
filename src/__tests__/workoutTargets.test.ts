@@ -8,10 +8,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   getWorkoutTarget,
+  getWorkoutTargetForDay,
   getWeekTargets,
   cacheWeekTargets,
   getCachedTarget,
+  getSpeedStructure,
+  getTempoStructure,
+  parseMarathonPaceMiles,
+  parsePlanReps,
+  FIRST_TEMPO_OFFSET_SEC,
+  MAX_CONTINUOUS_THRESHOLD_MIN,
 } from '@/services/workoutTargets';
+import { calculateTrainingPaces } from '@/services/paceCalculator';
+import { BUILT_IN_PLANS } from '@/data/plans';
 import { persistence } from '@/services/db/persistence';
 
 const VDOT_45 = 45; // ~3:35 marathon runner
@@ -123,8 +132,11 @@ describe('getWorkoutTarget', () => {
       expect(target.targetPaceRange!.maxSecPerMi).toBe(easy.targetPaceRange!.maxSecPerMi);
     });
 
+    // v1.0.7 (T-11): the MP finish needs a plan day that offers it (experienced plans).
+    const EXPERIENCED = { label: 'long run', mpFinish: true };
+
     it('should add marathon-pace segment for runs 18+ miles', () => {
-      const target = getWorkoutTarget('Long', VDOT_45, 20)!;
+      const target = getWorkoutTarget('Long', VDOT_45, 20, EXPERIENCED)!;
       expect(target.marathonPaceSegment).toBeDefined();
       expect(target.marathonPaceSegment!.startMile).toBe(14); // 20 - 6
       expect(target.marathonPaceSegment!.endMile).toBe(20);
@@ -132,14 +144,111 @@ describe('getWorkoutTarget', () => {
     });
 
     it('should add 4-mile MP segment for 18-19 mile runs', () => {
-      const target = getWorkoutTarget('Long', VDOT_45, 18)!;
+      const target = getWorkoutTarget('Long', VDOT_45, 18, EXPERIENCED)!;
       expect(target.marathonPaceSegment).toBeDefined();
       expect(target.marathonPaceSegment!.startMile).toBe(14); // 18 - 4
     });
 
     it('should NOT add MP segment for shorter long runs', () => {
-      const target = getWorkoutTarget('Long', VDOT_45, 14)!;
+      const target = getWorkoutTarget('Long', VDOT_45, 14, EXPERIENCED)!;
       expect(target.marathonPaceSegment).toBeUndefined();
+    });
+
+    it('never offers an MP finish on novice long runs or without a plan day (T-11)', () => {
+      expect(getWorkoutTarget('Long', VDOT_45, 20)!.marathonPaceSegment).toBeUndefined();
+      expect(getWorkoutTarget('Long', VDOT_45, 20, { label: '20 mi long run' })!.marathonPaceSegment).toBeUndefined();
+      expect(getWorkoutTarget('Long', VDOT_45, 20)!.description).not.toMatch(/marathon pace/i);
+      for (const id of ['hal-higdon-novice-1', 'hal-higdon-novice-2', 'hansons-beginner']) {
+        const plan = BUILT_IN_PLANS.find((p) => p.id === id)!;
+        for (const week of plan.weeks) {
+          for (const day of week.days) {
+            expect(getWorkoutTargetForDay(day, VDOT_45)?.marathonPaceSegment, `${id} ${day.label}`).toBeUndefined();
+          }
+        }
+      }
+      // Experienced plans keep it on their 18+ mi long runs.
+      const pfitz = BUILT_IN_PLANS.find((p) => p.id === 'pfitzinger-18-55')!;
+      const twenty = pfitz.weeks.flatMap((w) => w.days).find((d) => d.note === 'Long' && d.distanceMi === 20)!;
+      expect(getWorkoutTargetForDay(twenty, VDOT_45)?.marathonPaceSegment).toBeDefined();
+    });
+  });
+
+  describe("plan's own structure (v1.0.7)", () => {
+    const paces = calculateTrainingPaces(VDOT_45)!;
+
+    it('T-10: parses the plan\'s reps', () => {
+      expect(parsePlanReps('8 × 400 m intervals')).toEqual({ repeats: 8, meters: 400, repLabel: '400m', hill: false });
+      expect(parsePlanReps('5 × 1 km intervals')).toMatchObject({ repeats: 5, meters: 1000, repLabel: '1 km' });
+      expect(parsePlanReps('6 × 1 mi strength')).toMatchObject({ repeats: 6, meters: 1609 });
+      expect(parsePlanReps('4 x 1200m')).toMatchObject({ repeats: 4, meters: 1200 });
+      expect(parsePlanReps('6 × hill repeats')).toMatchObject({ repeats: 6, meters: null, hill: true });
+      expect(parsePlanReps('5 mi speed workout')).toBeNull();
+    });
+
+    it('T-10: speed targets keep the plan\'s reps instead of 800 m', () => {
+      const t = getWorkoutTarget('Speed', VDOT_45, 6, { label: '3 × 1600 m intervals' })!;
+      expect(t.intervals![0].repeats).toBe(3);
+      expect(t.intervals![0].description).toContain('3×1600m');
+      expect(t.intervals![0].description).not.toContain('800m');
+      // 1600 m at I pace ≈ 1 mile of interval pace; recovery about half the rep for reps over 1 km.
+      expect(t.intervals![0].workDurationMin).toBeCloseTo(paces.interval / 60, 0);
+      expect(t.intervals![0].restDurationMin).toBeLessThan(t.intervals![0].workDurationMin);
+      const fourHundreds = getWorkoutTarget('Speed', VDOT_45, 6, { label: '12 × 400 m speed' })!;
+      expect(fourHundreds.intervals![0].repeats).toBe(12);
+      expect(fourHundreds.targetPaceRange).toEqual(t.targetPaceRange);
+      // No reps in the description → Apollo's default 800s.
+      expect(getWorkoutTarget('Speed', VDOT_45, 6, { label: '6 mi speed' })!.intervals![0].description).toContain('800m');
+      expect(getSpeedStructure({ label: '6 × hill repeats' }, 6, paces)).toMatchObject({ repeats: 6, repMeters: null });
+    });
+
+    it('T-4: FIRST short / mid tempos at 5K pace + 15 / + 30 s/mi', () => {
+      const short = getWorkoutTarget('Tempo', VDOT_45, 5, { label: '5 mi with 3 mi short tempo' })!;
+      const mid = getWorkoutTarget('Tempo', VDOT_45, 7, { label: '7 mi with 5 mi mid tempo' })!;
+      const shortMid = (short.targetPaceRange!.minSecPerMi + short.targetPaceRange!.maxSecPerMi) / 2;
+      const midMid = (mid.targetPaceRange!.minSecPerMi + mid.targetPaceRange!.maxSecPerMi) / 2;
+      expect(midMid - shortMid).toBe(FIRST_TEMPO_OFFSET_SEC.mid - FIRST_TEMPO_OFFSET_SEC.short);
+      // Short tempo is quicker than Daniels T; mid tempo is close to it.
+      expect(shortMid).toBeLessThan(paces.threshold);
+      expect(Math.abs(midMid - paces.threshold)).toBeLessThan(15);
+      expect(short.description).toMatch(/FIRST short tempo/);
+      expect(short.intervals![0].description).toBe('1mi warmup → 3mi short tempo → 1mi cooldown');
+    });
+
+    it('T-4: long tempos become cruise intervals (≤ 6 × 1 mi), never ~an hour at T', () => {
+      const t = getWorkoutTarget('Tempo', VDOT_45, 10)!;
+      expect(t.category).toBe('tempo');
+      expect(t.intervals![0].repeats).toBe(6);
+      expect(t.intervals![0].restDurationMin).toBe(1);
+      expect(t.intervals![0].description).toContain('6×1mi at tempo');
+      // A tempo block of ≤ 25 min at T stays continuous.
+      expect(getTempoStructure(null, 6, paces).style).toBe(
+        (4 * paces.threshold) / 60 > MAX_CONTINUOUS_THRESHOLD_MIN ? 'cruise' : 'threshold',
+      );
+      expect(getTempoStructure(null, 5, paces).style).toBe('threshold');
+    });
+
+    it('T-4: every FIRST tempo is a short / mid tempo or a marathon-pace long tempo', () => {
+      const first = BUILT_IN_PLANS.find((p) => p.id === 'first')!;
+      const thursdays = first.weeks.slice(0, 15).map((w) => w.days[3]);
+      for (const day of thursdays) {
+        const t = getWorkoutTargetForDay(day, VDOT_45)!;
+        if ((day.distanceMi ?? 0) - 2 >= 6) {
+          expect(t.category, day.label).toBe('marathon_pace');
+          expect(t.intervals![0].description).toContain('at marathon pace');
+        } else {
+          expect(t.category, day.label).toBe('tempo');
+          expect(t.description).toMatch(/^FIRST (short|mid) tempo/);
+        }
+      }
+    });
+
+    it('T-17: marathon-pace targets keep the plan\'s MP miles', () => {
+      expect(parseMarathonPaceMiles({ label: '8 mi tempo at marathon pace', distanceMi: 10 })).toBe(8);
+      expect(parseMarathonPaceMiles({ label: '5 mi with 3 at marathon pace', distanceMi: 5 })).toBe(3);
+      expect(parseMarathonPaceMiles({ label: '8 mi marathon pace', distanceMi: 8 })).toBeNull();
+      const t = getWorkoutTarget('Marathon Pace', VDOT_45, 10, { label: '8 mi tempo at marathon pace' })!;
+      expect(t.intervals![0].description).toBe('1mi warmup → 8mi at marathon pace → 1mi cooldown');
+      expect(t.intervals![0].targetPaceSecPerMi).toBe(paces.marathon);
     });
   });
 

@@ -43,7 +43,7 @@ import {
 import { getEffectivePlan } from './planOverlay';
 import { persistence } from './db/persistence';
 import { addDays, dateKeyFromLocalIso, daysBetween, todayKey } from '../utils/localDate';
-import { buildHRDataFromActivity, getHRProfile, upsertActivityHR } from './heartRate';
+import { buildHRDataFromActivity, getHRProfile, getMeasuredTimeInZones, upsertActivityHR } from './heartRate';
 import { calculateRacePrediction, calculateTrainingAdherence } from './racePrediction';
 import { generateCurrentWeekReadiness } from './weeklyReadiness';
 import { generateDailyRecap } from './dailyRecap';
@@ -516,6 +516,8 @@ export function syncPlanWithActivities(activities: Activity[], today: string = t
           paceMinPerMi,
           actualMi,
           plannedDay.distanceMi ?? 0,
+          // v1.0.7 (T-4 / T-10): the plan day's own intensity and structure.
+          plannedDay,
         );
         if (compliance) {
           saveComplianceResult(weekIndex, dayIndex, compliance);
@@ -567,6 +569,9 @@ function runPostSyncAnalysis(activities: Activity[], hasPlan: boolean): void {
           activity.moving_time,
           activity.average_cadence,
           activity.source ?? 'strava',
+          // v1.0.7 (L-11): keep zone times measured from the HR stream (saved when the
+          // activity's detail was fetched); otherwise they're estimated and tagged so.
+          getMeasuredTimeInZones(activity.id),
         );
         if (hrData) upsertActivityHR(hrData);
       } catch { /* non-critical */ }

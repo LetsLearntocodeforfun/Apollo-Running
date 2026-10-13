@@ -12,19 +12,43 @@
  * (confirm when progress would be cleared) → `startPlan()`.
  */
 
+import { useMemo } from 'react';
+import { BUILT_IN_PLANS } from '../../data/plans';
 import type { TrainingPlan } from '../../data/plans';
 import {
+  checkJoinFitness,
   getDateKeyForDay,
   getRaceDayRef,
   placePlan,
+  saferPlansForRace,
   snapToMonday,
+  summarizeRecentFitness,
 } from '../../services/planProgress';
-import type { StartPlanInput } from '../../services/planProgress';
+import type { RecentFitness, StartPlanInput } from '../../services/planProgress';
 import { getRaceDate } from '../../services/journey';
 import { getMyRace } from '../../services/myRace';
-import { daysBetween, isDateKey, todayKey } from '../../utils/localDate';
+import { getStoredActivities } from '../../services/analyticsService';
+import { isRunActivity } from '../../services/activity/sports';
+import { dateKeyFromLocalIso, daysBetween, isDateKey, todayKey } from '../../utils/localDate';
 import { formatLongDate } from './planDisplay';
 import './plan.css';
+
+const METERS_PER_MILE = 1609.344;
+
+/**
+ * v1.0.7 (T-3): the runner's recent weekly volume and 30-day longest run from
+ * stored activities, or null with too little data. Never throws.
+ */
+export function readRecentFitness(today: string = todayKey()): RecentFitness | null {
+  try {
+    const runs = getStoredActivities()
+      .filter((a) => isRunActivity(a))
+      .map((a) => ({ date: dateKeyFromLocalIso(a.start_date_local) ?? '', miles: (a.distance || 0) / METERS_PER_MILE }));
+    return summarizeRecentFitness(runs, today);
+  } catch {
+    return null;
+  }
+}
 
 export interface PlanSetupValue {
   /** Goal race date, 'YYYY-MM-DD' ('' when not set). */
@@ -67,10 +91,96 @@ export interface RaceDatePlanSetupProps {
   idPrefix: string;
   /** Override "today" (tests). */
   today?: string;
+  /**
+   * v1.0.7 (T-3): recent training for the join check. Omitted → read from stored
+   * activities; null → no data (no check).
+   */
+  fitness?: RecentFitness | null;
+  /** v1.0.7 (T-3): switch to a gentler plan offered by the join check. Without it, plan names are listed. */
+  onChoosePlan?: (planId: string) => void;
+  /** Plans the join check may offer instead (default: the built-in plans). */
+  candidatePlans?: readonly TrainingPlan[];
 }
 
 function weeksLabel(n: number): string {
   return `${n} week${n === 1 ? '' : 's'}`;
+}
+
+/**
+ * v1.0.7 (T-3): warns when the plan week the runner would join is an unsafe jump
+ * from their recent training, and offers a later race, a ramp-in or a gentler plan.
+ */
+function JoinFitnessWarning({
+  plan,
+  value,
+  onChange,
+  today,
+  fitness,
+  onChoosePlan,
+  candidatePlans,
+  idPrefix,
+}: {
+  plan: TrainingPlan;
+  value: PlanSetupValue;
+  onChange: (value: PlanSetupValue) => void;
+  today: string;
+  fitness: RecentFitness | null;
+  onChoosePlan?: (planId: string) => void;
+  candidatePlans: readonly TrainingPlan[];
+  idPrefix: string;
+}) {
+  if (value.useStartDate || planSetupError(value, today) || !fitness) return null;
+  const placement = placePlan(plan, value.raceDate, today);
+  const check = checkJoinFitness(plan, placement, fitness);
+  if (!check || check.safe) return null;
+  const safer = saferPlansForRace(candidatePlans, value.raceDate, fitness, plan.id, today).slice(0, 3);
+  const titleId = `${idPrefix}-fitness-title`;
+  return (
+    <section className="plan-setup-warning" aria-labelledby={titleId}>
+      <p id={titleId} className="plan-setup-warning-title">
+        <strong>Week {check.joinWeekIndex + 1} is a big jump from your recent training</strong>
+      </p>
+      <ul className="plan-setup-notes">
+        {check.issues.map((issue) => (
+          <li key={issue}>{issue}</li>
+        ))}
+      </ul>
+      <p className="plan-setup-muted">Big jumps in volume or long-run distance raise injury risk. Some safer options:</p>
+      <ul className="plan-setup-options">
+        {check.laterRaceDate && (
+          <li>
+            <strong>A later race.</strong> Racing on {formatLongDate(check.laterRaceDate)} lets you join at an easier week.{' '}
+            <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChange({ ...value, raceDate: check.laterRaceDate! })}>
+              Use {formatLongDate(check.laterRaceDate)}
+            </button>
+          </li>
+        )}
+        {check.rampIn && (
+          <li>
+            <strong>A ramp-in.</strong> Keep this race, but for the first {weeksLabel(check.rampIn.weeklyMiles.length)} run about{' '}
+            {check.rampIn.weeklyMiles.join(', ')} mi a week, with long runs of at most {check.rampIn.longRunMi.join(', ')} mi. Then follow the plan in full.
+          </li>
+        )}
+        {safer.length > 0 ? (
+          <li>
+            <strong>A gentler plan</strong> for this race date:{' '}
+            {onChoosePlan
+              ? safer.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && ' '}
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={() => onChoosePlan(p.id)}>
+                      {p.author} {p.name}
+                    </button>
+                  </span>
+                ))
+              : safer.map((p) => `${p.author} ${p.name}`).join(', ')}
+          </li>
+        ) : (
+          !check.laterRaceDate && <li>No plan here starts gently enough for this race date. Consider a later race or a shorter goal race.</li>
+        )}
+      </ul>
+    </section>
+  );
 }
 
 function PlacementPreview({ plan, value, today }: { plan: TrainingPlan; value: PlanSetupValue; today: string }) {
@@ -129,11 +239,23 @@ function PlacementPreview({ plan, value, today }: { plan: TrainingPlan; value: P
 }
 
 /** Race date input + live placement preview + optional start date. */
-export function RaceDatePlanSetup({ plan, value, onChange, idPrefix, today = todayKey() }: RaceDatePlanSetupProps) {
+export function RaceDatePlanSetup({
+  plan,
+  value,
+  onChange,
+  idPrefix,
+  today = todayKey(),
+  fitness,
+  onChoosePlan,
+  candidatePlans = BUILT_IN_PLANS,
+}: RaceDatePlanSetupProps) {
   const raceId = `${idPrefix}-race-date`;
   const advId = `${idPrefix}-use-start-date`;
   const startId = `${idPrefix}-start-date`;
   const previewId = `${idPrefix}-placement`;
+  // v1.0.7 (T-3): recent training for the join check (read from stored activities unless given).
+  const storedFitness = useMemo(() => (fitness === undefined ? readRecentFitness(today) : null), [fitness, today]);
+  const recentFitness = fitness === undefined ? storedFitness : fitness;
 
   return (
     <div className="plan-setup">
@@ -179,6 +301,17 @@ export function RaceDatePlanSetup({ plan, value, onChange, idPrefix, today = tod
       <div id={previewId} className="plan-setup-preview" role="status" aria-live="polite">
         <PlacementPreview plan={plan} value={value} today={today} />
       </div>
+
+      <JoinFitnessWarning
+        plan={plan}
+        value={value}
+        onChange={onChange}
+        today={today}
+        fitness={recentFitness}
+        onChoosePlan={onChoosePlan}
+        candidatePlans={candidatePlans}
+        idPrefix={idPrefix}
+      />
     </div>
   );
 }
