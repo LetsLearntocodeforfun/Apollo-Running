@@ -4,6 +4,7 @@
  */
 
 import { persistence, isApolloKey, CREDENTIAL_KEYS } from './db/persistence';
+import { clearBackupPayloads } from './db/backupStore';
 import { clearAllCredentials } from './storage';
 import { APP_VERSION } from '../version';
 
@@ -27,6 +28,9 @@ export interface BackupData {
 /** Prefix of the in-app backup keys (registry, config and payloads). */
 export const BACKUP_KEY_PREFIX = 'apollo_backup_';
 
+/** v1.0.7 (PX-14): prefix of quarantined (damaged) copies — see db/quarantine.ts. */
+export const QUARANTINE_KEY_PREFIX = 'apollo_quarantine_';
+
 /**
  * Device/session state that is neither exported nor removed by a restore:
  * it describes this device (or this session), not the athlete's data.
@@ -43,11 +47,13 @@ const DEVICE_STATE_KEYS = new Set([
  * - in-app backups themselves (`apollo_backup_*`), which made every backup
  *   embed all earlier ones,
  * - derived caches (`*_cache`, rebuilt on demand),
- * - device state (integrity-check time, needs-reconnect, persist request).
+ * - device state (integrity-check time, needs-reconnect, persist request),
+ * - v1.0.7 (PX-14): quarantined damaged copies (`apollo_quarantine_*`).
  */
 export function isExcludedFromExport(key: string): boolean {
   return CREDENTIAL_KEYS.has(key)
     || key.startsWith(BACKUP_KEY_PREFIX)
+    || key.startsWith(QUARANTINE_KEY_PREFIX)
     || key.endsWith('_cache')
     || DEVICE_STATE_KEYS.has(key);
 }
@@ -56,10 +62,12 @@ export function isExcludedFromExport(key: string): boolean {
  * True for keys a restore must keep even when the snapshot doesn't have them:
  * the backups themselves, device state and credentials. Every other Apollo
  * key missing from the snapshot is deleted so the restored state is exact.
+ * v1.0.7 (PX-14): quarantined copies are kept too.
  */
 export function isPreservedOnRestore(key: string): boolean {
   return CREDENTIAL_KEYS.has(key)
     || key.startsWith(BACKUP_KEY_PREFIX)
+    || key.startsWith(QUARANTINE_KEY_PREFIX)
     || DEVICE_STATE_KEYS.has(key)
     || !isApolloKey(key);
 }
@@ -152,6 +160,8 @@ export function importAllData(backup: unknown): boolean {
  */
 export function clearAllData(): void {
   persistence.clear();
+  // v1.0.7 (PX-04): backup payloads live in their own table.
+  void clearBackupPayloads().catch((err: unknown) => console.error('[Apollo] Failed to clear backups:', err));
 }
 
 /**
@@ -167,6 +177,8 @@ export function clearAllData(): void {
 export async function deleteAllLocalData(): Promise<void> {
   const failedCredentials = await clearAllCredentials();
   await persistence.clearAll();
+  // v1.0.7 (PX-04): backup payloads live in their own IndexedDB table.
+  await clearBackupPayloads();
   // Sweep anything written to localStorage outside the persistence layer.
   try {
     const doomed: string[] = [];

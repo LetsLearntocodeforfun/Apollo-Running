@@ -32,6 +32,9 @@ vi.mock('@/services/db/persistence', () => ({
     failedWrites: new Set<string>(),
     blockedWrites: new Set<string>(),
     retryFailedWrites: () => Promise.resolve(0),
+    // v1.0.7 (PX-03): write health (always healthy in the mock).
+    getWriteHealth: () => ({ ok: true, failedKeys: [] }),
+    onWriteHealthChange: () => () => {},
   },
   CREDENTIAL_KEYS: new Set([
     'strava_tokens',
@@ -49,7 +52,11 @@ vi.mock('@/services/db/persistence', () => ({
 
 // ── Mock IndexedDB (Dexie) ────────────────────────────────────────────────────
 
+// v1.0.7 (PX-04): in-memory `backups` table (backup payloads).
+const backupTable = new Map<string, { id: string; json: string; updatedAt: number }>();
+
 vi.mock('@/services/db/apolloDB', () => ({
+  LEGACY_BACKUP_DATA_PREFIX: 'apollo_backup_data_',
   db: {
     kvStore: {
       toArray: () => Promise.resolve([]),
@@ -61,6 +68,13 @@ vi.mock('@/services/db/apolloDB', () => ({
       get: () => Promise.resolve(undefined),
       clear: () => Promise.resolve(),
     },
+    backups: {
+      put: (row: { id: string; json: string; updatedAt: number }) => { backupTable.set(row.id, { ...row }); return Promise.resolve(row.id); },
+      get: (id: string) => Promise.resolve(backupTable.get(id)),
+      delete: (id: string) => { backupTable.delete(id); return Promise.resolve(); },
+      clear: () => { backupTable.clear(); return Promise.resolve(); },
+      toCollection: () => ({ primaryKeys: () => Promise.resolve(Array.from(backupTable.keys())) }),
+    },
   },
 }));
 
@@ -68,4 +82,5 @@ vi.mock('@/services/db/apolloDB', () => ({
 
 beforeEach(() => {
   memoryStore.clear();
+  backupTable.clear();
 });

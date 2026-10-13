@@ -27,6 +27,13 @@ import {
   type BackupRecord,
 } from '../../services/backupService';
 import { deleteAllLocalData } from '../../services/dataManager';
+import {
+  discardQuarantined,
+  getQuarantinedEntries,
+  getQuarantinedValue,
+  onQuarantineChange,
+  type QuarantineEntry,
+} from '../../services/db/quarantine';
 import { normalizeActionResult, type ActionOutcome } from './backupResult';
 import { reloadApp } from './appReload';
 import { StatusLine, formatSize, useStatus } from './shared';
@@ -35,6 +42,7 @@ const DELETE_PHRASE = 'DELETE';
 
 /** Friendly names for the largest storage keys (fallback: the key itself). */
 const KEY_LABELS: [RegExp, string][] = [
+  [/^apollo_quarantine_/, 'Damaged copy (set aside)'],
   [/^apollo_activities_store$/, 'Activities'],
   [/^apollo_backup_data_/, 'Backup copy'],
   [/^apollo_backup_registry$/, 'Backup list'],
@@ -110,6 +118,33 @@ export default function DataTab() {
     return () => window.removeEventListener(BACKUPS_CHANGED_EVENT, refreshBackups);
   }, [refreshBackups]);
 
+  // v1.0.7 (PX-14): damaged copies set aside by the quarantine.
+  const [quarantined, setQuarantined] = useState<QuarantineEntry[]>(() => getQuarantinedEntries());
+  const [pendingDiscard, setPendingDiscard] = useState<QuarantineEntry | null>(null);
+  useEffect(() => {
+    const update = () => setQuarantined(getQuarantinedEntries());
+    const unsubscribe = onQuarantineChange(update);
+    update();
+    return unsubscribe;
+  }, []);
+
+  const handleDownloadQuarantined = (entry: QuarantineEntry) => {
+    const raw = getQuarantinedValue(entry.key);
+    if (raw === null) {
+      backupStatus.error('That damaged copy is no longer on this device.');
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([raw], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `apollo-damaged-${entry.originalKey.replace(/^apollo_/, '')}-${entry.quarantinedAt.slice(0, 10)}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    backupStatus.success(`Downloaded the damaged copy of ${keyLabel(entry.originalKey)}.`);
+  };
+
   useEffect(() => {
     let cancelled = false;
     void Promise.all([estimateStorageUsage(), isDesktop ? Promise.resolve(null) : isStoragePersisted()])
@@ -164,9 +199,9 @@ export default function DataTab() {
     }
   };
 
-  const handleDownloadBackup = (record: BackupRecord) => {
+  const handleDownloadBackup = async (record: BackupRecord) => {
     setNeedsReload(false);
-    if (downloadBackup(record.id)) backupStatus.success(`Downloaded the backup from ${formatBackupTime(record.createdAt)}.`);
+    if (await downloadBackup(record.id)) backupStatus.success(`Downloaded the backup from ${formatBackupTime(record.createdAt)}.`);
     else backupStatus.error('That backup is no longer on this device.');
   };
 
@@ -448,6 +483,49 @@ export default function DataTab() {
         </p>
       </div>
 
+      {quarantined.length > 0 && (
+        // v1.0.7 (PX-14): damaged values moved aside instead of being overwritten.
+        <div className="card settings-card settings-card--warning" data-testid="quarantine-card">
+          <h2 className="card-title settings-card-title">Damaged data set aside</h2>
+          <p className="settings-lead">
+            Apollo couldn&apos;t read this data, so it kept the damaged copy here instead of overwriting it. Download it if you
+            want to try recovering it or send it with a bug report, then discard it. It is never included in backups or exports.
+          </p>
+          <ul className="settings-backup-list">
+            {quarantined.map((q) => {
+              const when = formatBackupTime(q.quarantinedAt);
+              const label = keyLabel(q.originalKey);
+              return (
+                <li key={q.key} className="settings-backup-row">
+                  <span className="settings-backup-meta">
+                    <span className="settings-strong">{label}</span>
+                    <span className="settings-muted">Set aside {when} · {formatSize(q.sizeChars * 2)} · {q.reason}</span>
+                  </span>
+                  <span className="settings-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      aria-label={`Download damaged copy of ${label} from ${when}`}
+                      onClick={() => handleDownloadQuarantined(q)}
+                    >
+                      Download damaged copy
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      aria-label={`Discard damaged copy of ${label} from ${when}`}
+                      onClick={() => setPendingDiscard(q)}
+                    >
+                      Discard
+                    </button>
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
       <div className="card settings-card settings-card--error settings-danger">
         <h2 className="card-title settings-card-title">Delete all data</h2>
         <p className="settings-lead">
@@ -489,6 +567,25 @@ export default function DataTab() {
           if (record) void runRestore(record);
         }}
         onCancel={() => setPendingRestore(null)}
+      />
+
+      <ConfirmDialog
+        open={pendingDiscard !== null}
+        tone="danger"
+        title="Discard this damaged copy?"
+        message={pendingDiscard
+          ? `The damaged copy of ${keyLabel(pendingDiscard.originalKey)} set aside ${formatBackupTime(pendingDiscard.quarantinedAt)} will be deleted from this device. Download it first if you might want it. This can't be undone.`
+          : undefined}
+        confirmLabel="Discard"
+        onConfirm={() => {
+          const entry = pendingDiscard;
+          setPendingDiscard(null);
+          if (entry) {
+            discardQuarantined(entry.key);
+            backupStatus.success(`Discarded the damaged copy of ${keyLabel(entry.originalKey)}.`);
+          }
+        }}
+        onCancel={() => setPendingDiscard(null)}
       />
 
       <ConfirmDialog

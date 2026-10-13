@@ -21,6 +21,7 @@ import {
   formatBytes,
 } from '@/services/backupService';
 import { persistence } from '@/services/db/persistence';
+import { getBackupPayload, putBackupPayload } from '@/services/db/backupStore';
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -93,7 +94,9 @@ describe('createBackup', () => {
     seedTestData();
     const record = await createBackup('manual');
     expect(record).not.toBeNull();
-    const raw = persistence.getItem(`apollo_backup_data_${record!.id}`);
+    // v1.0.7 (PX-04): payloads live in the backups table, not the persistence layer.
+    expect(persistence.getItem(`apollo_backup_data_${record!.id}`)).toBeNull();
+    const raw = await getBackupPayload(record!.id);
     expect(raw).not.toBeNull();
     const parsed = JSON.parse(raw!);
     expect(parsed.metadata.appName).toBe('Apollo Running');
@@ -147,8 +150,7 @@ describe('verifyLatestBackup', () => {
     expect(record).not.toBeNull();
 
     // Tamper with the stored backup data
-    const key = `apollo_backup_data_${record!.id}`;
-    persistence.setItem(key, '{"metadata":{},"data":{}}');
+    await putBackupPayload(record!.id, '{"metadata":{},"data":{}}');
 
     const result = await verifyLatestBackup();
     expect(result).toBe(false);

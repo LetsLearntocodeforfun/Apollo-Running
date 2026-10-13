@@ -12,10 +12,25 @@
 // - Restore replaces the data exactly (keys absent from the snapshot are
 //   removed after a safety backup) and never touches backups or credentials.
 // - Automatic backups really run (initBackupSystem from main.tsx).
+//
+// v1.0.7 (PX-03, PX-04):
+// - Backup payloads live in their own IndexedDB table (db/backupStore), read
+//   only to restore, verify or download — never loaded into memory at launch.
+//   Payloads still held by the persistence layer (≤ 1.0.6) are moved there.
+// - A backup is marked `verified` only after its payload has committed and
+//   read back with a matching checksum.
 
 import { persistence, isApolloKey, CREDENTIAL_KEYS } from './db/persistence';
 import { hasMigrationRun, markMigrationRun } from './db/migrations';
 import { isStorageDegraded } from './db/storageHealthState';
+import {
+  deleteBackupPayload,
+  getBackupPayload,
+  listBackupPayloadIds,
+  migrateLegacyBackupPayloads,
+  putBackupPayload,
+} from './db/backupStore';
+import { QUARANTINE_PREFIX } from './db/quarantine';
 import {
   exportAllData,
   isExcludedFromExport,
@@ -251,20 +266,37 @@ export async function createBackup(
       keyCount: backupData.metadata.keyCount,
       sizeBytes: utf8Length(jsonStr),
       trigger,
-      verified: true,
+      verified: false,
       ...(opts.note ? { note: opts.note } : {}),
     };
 
-    // Store backup data in a separate KV entry
-    const storageKey = `${BACKUP_DATA_PREFIX}${id}`;
-    persistence.setItem(storageKey, jsonStr);
-    if (persistence.getItem(storageKey) !== jsonStr) {
+    // v1.0.7 (PX-04): the payload goes to the backups table (awaited, so it
+    // has committed). v1.0.7 (PX-03): only a read-back whose checksum matches
+    // marks the backup verified; before, it was "verified" before being saved.
+    try {
+      await putBackupPayload(id, jsonStr);
+    } catch (err) {
+      throw new Error(`The backup could not be stored on this device (${errorMessage(err)}). Free up disk space and try again.`);
+    }
+    const stored = await getBackupPayload(id);
+    if (stored === null || (await sha256(stored)) !== checksum) {
+      await deleteBackupPayload(id).catch(() => { /* nothing usable was stored */ });
       throw new Error('The backup could not be stored on this device.');
     }
+    record.verified = true;
 
-    const registry = getBackupRegistry();
+    // (Filter: reconcileBackupRegistry may have relisted this payload meanwhile.)
+    const registry = getBackupRegistry().filter((r) => r.id !== id);
     registry.push(record);
     saveBackupRegistry(registry);
+    // v1.0.7 (PX-03): the backup only counts once the list naming it is on disk.
+    // If that write failed, it stays in the unsaved/retry state (the "Not saved"
+    // banner) and reconcileBackupRegistry relists the payload on the next launch.
+    await persistence.flush();
+    if (persistence.failedWrites.has(BACKUP_REGISTRY_KEY)) {
+      emitBackupsChanged();
+      throw new Error('The backup was stored, but the backup list could not be saved to disk yet. Apollo keeps retrying; free up disk space, then try again.');
+    }
     await pruneOldBackups();
     setLastBackupError(null);
     emitBackupsChanged();
@@ -306,8 +338,7 @@ export async function restoreFromBackupDetailed(backupId: string): Promise<Resto
   const fail = (error: string): RestoreResult => ({ success: false, error, restoredKeys: 0, removedKeys: [] });
   try {
     if (isStorageDegraded()) return fail('Storage is unavailable right now, so nothing was restored. Restart Apollo and try again.');
-    const storageKey = `${BACKUP_DATA_PREFIX}${backupId}`;
-    const jsonStr = persistence.getItem(storageKey);
+    const jsonStr = await getBackupPayload(backupId);
     if (!jsonStr) return fail('This backup\u2019s data is missing from the device.');
 
     const record = getBackupRegistry().find((r) => r.id === backupId);
@@ -367,8 +398,8 @@ export async function verifyLatestBackup(): Promise<boolean> {
   if (registry.length === 0) return false;
 
   const latest = registry[registry.length - 1];
-  const storageKey = `${BACKUP_DATA_PREFIX}${latest.id}`;
-  const jsonStr = persistence.getItem(storageKey);
+  let jsonStr: string | null = null;
+  try { jsonStr = await getBackupPayload(latest.id); } catch { /* unreadable counts as failed */ }
   const passed = !!jsonStr && (await sha256(jsonStr)) === latest.checksum;
 
   // Update record
@@ -392,6 +423,7 @@ export function verifyDataIntegrity(): string[] {
     // Skip non-JSON keys
     if (key === 'apollo_distance_unit' || key === 'apollo_welcome_completed') continue;
     if (key.startsWith(BACKUP_DATA_PREFIX)) continue; // Don't check backup data during integrity scan
+    if (key.startsWith(QUARANTINE_PREFIX)) continue; // v1.0.7 (PX-14): already set aside as damaged
 
     const raw = persistence.getItem(key);
     if (!raw) continue;
@@ -431,24 +463,29 @@ export interface CompactionResult {
  * the 1.0.5 restore bug are listed again). Payloads that can't be parsed, or
  * whose checksum doesn't match, are deleted. Then prunes to `maxBackups`.
  * Runs once (flag in `apollo_migrations`) unless `force` is set.
+ *
+ * v1.0.7 (PX-04): first moves any payloads still in the persistence layer to
+ * the backups table (every launch, idempotent), then works on that table.
  */
 export async function compactLegacyBackups(opts: { force?: boolean } = {}): Promise<CompactionResult> {
+  try {
+    await migrateLegacyBackupPayloads();
+  } catch (err) {
+    console.warn('[Apollo Backup] Moving backups to the backups table failed:', err);
+  }
   const none: CompactionResult = { compacted: 0, deleted: 0, kept: getBackupRegistry().length };
   if (!opts.force && hasMigrationRun(BACKUP_COMPACTION_MIGRATION_ID)) return none;
   if (isStorageDegraded()) return none; // try again on a healthy launch
 
   const byId = new Map(getBackupRegistry().map((r) => [r.id, r]));
-  const payloadIds = persistence
-    .keys()
-    .filter((k) => k.startsWith(BACKUP_DATA_PREFIX))
-    .map((k) => k.slice(BACKUP_DATA_PREFIX.length));
+  const payloadIds = await listBackupPayloadIds();
 
   const next: BackupRecord[] = [];
   let compacted = 0;
   let deleted = 0;
   for (const id of payloadIds) {
-    const key = `${BACKUP_DATA_PREFIX}${id}`;
-    const raw = persistence.getItem(key);
+    // One payload in memory at a time.
+    const raw = await getBackupPayload(id);
     const existing = byId.get(id);
     let parsed: unknown = null;
     try {
@@ -458,7 +495,7 @@ export async function compactLegacyBackups(opts: { force?: boolean } = {}): Prom
       parsed = null; // unreadable (corrupt, or too large to parse)
     }
     if (!raw || !isBackupShape(parsed)) {
-      persistence.removeItem(key);
+      await deleteBackupPayload(id);
       deleted++;
       continue;
     }
@@ -474,7 +511,7 @@ export async function compactLegacyBackups(opts: { force?: boolean } = {}): Prom
         data,
       };
       const json = JSON.stringify(compact);
-      persistence.setItem(key, json);
+      await putBackupPayload(id, json);
       record = {
         id,
         createdAt: existing?.createdAt
@@ -501,6 +538,54 @@ export async function compactLegacyBackups(opts: { force?: boolean } = {}): Prom
     console.info(`[Apollo Backup] Compacted ${compacted} legacy backup(s), deleted ${deleted} unreadable one(s), keeping ${kept}`);
   }
   return { compacted, deleted, kept };
+}
+
+/**
+ * v1.0.7 (PX-03, PX-04): make sure no stored payload is orphaned. Every
+ * payload in the backups table that the backup list doesn't name (e.g. the
+ * list write failed, or the app quit before it committed) is listed again,
+ * with its checksum recomputed; unreadable orphans are deleted. Runs on every
+ * launch (initBackupSystem), then prunes to `maxBackups`. Returns how many
+ * backups were relisted. Payloads are read one at a time.
+ */
+export async function reconcileBackupRegistry(): Promise<number> {
+  if (isStorageDegraded()) return 0;
+  const registry = getBackupRegistry();
+  const listed = new Set(registry.map((r) => r.id));
+  const orphans = (await listBackupPayloadIds()).filter((id) => !listed.has(id));
+  let added = 0;
+  for (const id of orphans) {
+    const raw = await getBackupPayload(id);
+    let parsed: unknown = null;
+    try {
+      parsed = raw ? JSON.parse(raw) : null;
+    } catch {
+      parsed = null;
+    }
+    if (!raw || !isBackupShape(parsed)) {
+      console.warn(`[Apollo Backup] Deleting unreadable unlisted backup ${id}`);
+      await deleteBackupPayload(id);
+      continue;
+    }
+    registry.push({
+      id,
+      createdAt: typeof parsed.metadata.exportDate === 'string' ? parsed.metadata.exportDate : createdAtFromId(id),
+      checksum: await sha256(raw),
+      keyCount: Object.keys(parsed.data).length,
+      sizeBytes: utf8Length(raw),
+      trigger: 'manual',
+      verified: true,
+      note: 'Recovered',
+    });
+    added++;
+  }
+  if (added === 0) return 0;
+  registry.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  saveBackupRegistry(registry);
+  await pruneOldBackups();
+  emitBackupsChanged();
+  console.info(`[Apollo Backup] Relisted ${added} backup(s) missing from the backup list`);
+  return added;
 }
 
 // ── Auto-Backup ───────────────────────────────────────────────────────────────
@@ -571,6 +656,12 @@ export async function initBackupSystem(opts: { schedule?: boolean } = {}): Promi
   } catch (err) {
     console.warn('[Apollo Backup] Legacy backup compaction failed:', err);
   }
+  // v1.0.7 (PX-03, PX-04): every launch, relist payloads the backup list lost.
+  try {
+    await reconcileBackupRegistry();
+  } catch (err) {
+    console.warn('[Apollo Backup] Backup list repair failed:', err);
+  }
 
   const config = getBackupConfig();
   if (config.verifyOnStartup) {
@@ -608,7 +699,11 @@ async function pruneOldBackups(): Promise<void> {
   // Remove oldest until we're at the limit
   const toRemove = registry.splice(0, registry.length - config.maxBackups);
   for (const record of toRemove) {
-    persistence.removeItem(`${BACKUP_DATA_PREFIX}${record.id}`);
+    try {
+      await deleteBackupPayload(record.id);
+    } catch (err) {
+      console.warn(`[Apollo Backup] Couldn\u2019t delete old backup ${record.id}:`, err);
+    }
   }
 
   saveBackupRegistry(registry);
@@ -699,10 +794,11 @@ function dateStamp(date: Date): string {
 /**
  * Export a specific backup as a downloadable JSON file.
  * The file embeds the backup's checksum, so Import verifies it.
+ * v1.0.7 (PX-04): async — the payload is read from the backups table.
  */
-export function downloadBackup(backupId: string): boolean {
-  const storageKey = `${BACKUP_DATA_PREFIX}${backupId}`;
-  const jsonStr = persistence.getItem(storageKey);
+export async function downloadBackup(backupId: string): Promise<boolean> {
+  let jsonStr: string | null = null;
+  try { jsonStr = await getBackupPayload(backupId); } catch { /* treated as missing */ }
   if (!jsonStr) return false;
 
   const registry = getBackupRegistry();

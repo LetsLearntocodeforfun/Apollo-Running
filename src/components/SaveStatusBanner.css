@@ -1,0 +1,9 @@
+/* v1.0.7 (PX-03): "Not saved" banner — layout comes from .app-banner (App.css). */
+.save-status-banner .btn[disabled] {
+  cursor: progress;
+  opacity: 0.75;
+}
+
+.save-status-detail {
+  font-weight: 600;
+}

@@ -1,6 +1,8 @@
 // Analytics engine: weekly mileage, pace trends, training load, PRs, HR efficiency.
 
 import { persistence } from './db/persistence';
+import { quarantineCorruptValue } from './db/quarantine';
+import { isStorageDegraded } from './db/storageHealthState';
 import type { StravaActivity } from './strava';
 import { mergeIntoStore } from './activity/dedupe';
 import { isRunActivity } from './activity/sports';
@@ -242,14 +244,53 @@ export function getAllStoredActivities(): StravaActivity[] {
       return [];
     }
     if (!storeCache || storeCache.raw !== raw) {
-      const parsed = JSON.parse(raw);
-      setStoreCache(raw, Array.isArray(parsed) ? parsed : []);
+      // v1.0.7 (PX-14): a store that can't be read is moved aside, not treated as empty.
+      if (raw === quarantinedStoreRaw) return [];
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        moveCorruptStoreAside(raw, 'not valid JSON');
+        return [];
+      }
+      if (!Array.isArray(parsed)) {
+        moveCorruptStoreAside(raw, 'not a list of activities');
+        return [];
+      }
+      setStoreCache(raw, parsed as StravaActivity[]);
     }
     // Callers may sort/splice the array, so hand out a copy.
     return storeCache!.activities.slice();
   } catch {
     return [];
   }
+}
+
+/** Raw store value already moved aside this session (read as empty until it's gone). */
+let quarantinedStoreRaw: string | null = null;
+
+/**
+ * v1.0.7 (PX-14): the activity store couldn't be read. Before, it was read as
+ * empty and the next sync overwrote it, silently losing every activity in it.
+ * Now the raw value is copied to a timestamped quarantine key (the app shows
+ * a notice), and the original key is removed only once that copy has been
+ * committed. While storage is degraded nothing is moved: store writes are
+ * blocked then, and the value may just be an incomplete copy.
+ */
+function moveCorruptStoreAside(raw: string, reason: string): void {
+  if (storeCache) {
+    storeCache = null;
+    storeVersion++;
+  }
+  if (quarantinedStoreRaw === raw) return;
+  quarantinedStoreRaw = raw;
+  if (isStorageDegraded()) return;
+  const entry = quarantineCorruptValue(ACTIVITIES_STORE_KEY, raw, reason);
+  void persistence.flush().then(() => {
+    if (persistence.failedWrites.has(entry.key) || persistence.getItem(entry.key) !== raw) return;
+    // Only if nothing newer was written to the store meanwhile.
+    if (persistence.getItem(ACTIVITIES_STORE_KEY) === raw) persistence.removeItem(ACTIVITIES_STORE_KEY);
+  });
 }
 
 /**

@@ -7,6 +7,7 @@ import AuthStravaCallback from './pages/AuthStravaCallback';
 import NotFound from './pages/NotFound';
 import ErrorBoundary from './components/ErrorBoundary';
 import LoadingScreen from './components/LoadingScreen';
+import SaveStatusBanner from './components/SaveStatusBanner';
 import { getWelcomeCompleted } from './services/planProgress';
 import { usePageHeadingFocus, useRouteChangeEffects } from './hooks/useRouteChangeEffects';
 import { useRaceCountdown } from './hooks/useRaceCountdown';
@@ -225,6 +226,8 @@ function StatusBanners({ pathname }: { pathname: string }) {
           </button>
         </div>
       )}
+      {/* v1.0.7 (PX-03, PX-14): unsaved writes ("Not saved — Retry") and damaged data set aside. */}
+      <SaveStatusBanner />
       {showReconnect &&
         reconnect.map(({ source, state }) => (
           <div key={source} className="app-banner app-banner--warning">

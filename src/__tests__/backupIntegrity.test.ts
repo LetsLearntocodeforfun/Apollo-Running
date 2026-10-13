@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { gzipSync } from 'node:zlib';
 import { createHash } from 'node:crypto';
 import { persistence } from '@/services/db/persistence';
+import { getBackupPayload, listBackupPayloadIds, putBackupPayload } from '@/services/db/backupStore';
 import {
   createBackup,
   downloadCurrentData,
@@ -110,7 +111,7 @@ describe('backups contain only the athlete data (V1, V4)', () => {
     persistence.setItem('apollo_last_integrity_check', new Date().toISOString());
     await createBackup('manual');
     const second = await createBackup('auto');
-    const payload = persistence.getItem(`apollo_backup_data_${second!.id}`)!;
+    const payload = (await getBackupPayload(second!.id))!;
     expect(payload).not.toMatch(/SECRET-REFRESH|SECRET-API-KEY/);
     const data = JSON.parse(payload).data as Record<string, string>;
     for (const key of Object.keys(data)) expect(isExcludedFromExport(key)).toBe(false);
@@ -165,7 +166,7 @@ describe('legacy (≤ 1.0.5) backup compaction migration', () => {
     expect(result).toEqual({ compacted: 1, deleted: 1, kept: 2 });
     expect(hasMigrationRun(BACKUP_COMPACTION_MIGRATION_ID)).toBe(true);
 
-    const compacted = persistence.getItem(`apollo_backup_data_${id}`)!;
+    const compacted = (await getBackupPayload(id))!;
     expect(compacted).not.toMatch(/SECRET-REFRESH|apollo_backup_/);
     const parsed = JSON.parse(compacted);
     expect(Object.keys(parsed.data).sort()).toEqual(['apollo_activities_store', 'apollo_settings']);
@@ -174,7 +175,9 @@ describe('legacy (≤ 1.0.5) backup compaction migration', () => {
     const records = getBackupRecords();
     expect(records.map((r) => r.id)).toEqual([id, orphanId]);
     expect(records[0].checksum).toBe(sha256Hex(compacted));
-    expect(persistence.getItem('apollo_backup_data_backup_1767398400000_bad1')).toBeNull();
+    expect(await getBackupPayload('backup_1767398400000_bad1')).toBeNull();
+    // v1.0.7 (PX-04): nothing is left in the persistence layer (loaded at launch).
+    expect(persistence.keys().filter((k) => k.startsWith('apollo_backup_data_'))).toEqual([]);
 
     // Restoring the compacted backup works (checksum valid) and doesn't bring credentials back.
     persistence.removeItem('strava_tokens');
@@ -204,7 +207,7 @@ describe('export → import round trip (V2, V3, U5)', () => {
   it('a downloaded in-app backup imports with its embedded checksum', async () => {
     persistence.setItem('apollo_settings', JSON.stringify({ theme: 'dark' }));
     const record = await createBackup('manual');
-    expect(downloadBackup(record!.id)).toBe(true);
+    expect(await downloadBackup(record!.id)).toBe(true);
     const text = await capturedText();
     expect(JSON.parse(text).metadata.checksum).toBe(record!.checksum);
     const result = await importFromFile(new File([text], 'apollo-backup.json'));
@@ -311,9 +314,7 @@ describe('restore (V5)', () => {
     expect(persistence.getItem('intervals_credentials')).toMatch(/SECRET-API-KEY/);
 
     const registryIds = getBackupRecords().map((r) => r.id);
-    const storedIds = persistence.keys()
-      .filter((k) => k.startsWith('apollo_backup_data_'))
-      .map((k) => k.replace('apollo_backup_data_', ''));
+    const storedIds = await listBackupPayloadIds();
     expect(registryIds.sort()).toEqual(storedIds.sort());
     expect(registryIds).toContain(second!.id);
     expect(getBackupRecords().some((r) => r.note === 'Before restore')).toBe(true);
@@ -331,7 +332,7 @@ describe('restore (V5)', () => {
   it('returns the real reason on failure (U4)', async () => {
     persistence.setItem('apollo_x', '"v1"');
     const record = await createBackup('manual');
-    persistence.setItem(`apollo_backup_data_${record!.id}`, '{"metadata":{},"data":{}}');
+    await putBackupPayload(record!.id, '{"metadata":{},"data":{}}');
     const result = await restoreFromBackupDetailed(record!.id);
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/integrity check/);

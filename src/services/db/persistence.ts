@@ -15,6 +15,11 @@
 //   marked degraded (storageHealth): sync is blocked elsewhere and large or
 //   protected values stay in memory only, so a partial copy can never replace
 //   the complete one.
+//
+// v1.0.7 (PX-03): failed IndexedDB writes are no longer only logged. Their
+// keys stay in `failedWrites` (the value is kept in memory), are retried with
+// every later flush and by `retryFailedWrites()`, and `onWriteHealthChange`
+// lets the app shell show a "Not saved — Retry" banner until they recover.
 
 import { db as defaultDb, type ApolloDatabase, type KVEntry } from './apolloDB';
 import { isStorageDegraded, markStorageDegraded } from './storageHealthState';
@@ -54,6 +59,14 @@ function isProtectedKey(key: string): boolean {
   return PROTECTED_KEYS.has(key) || PROTECTED_PREFIXES.some((p) => key.startsWith(p));
 }
 
+/** v1.0.7 (PX-03): snapshot of unsaved writes, for the "Not saved" banner. */
+export interface WriteHealth {
+  /** True when every write has reached IndexedDB. */
+  ok: boolean;
+  /** Keys whose latest value failed to reach IndexedDB (kept in memory, retried). */
+  failedKeys: string[];
+}
+
 /** Minimal slice of the Dexie database the service needs (injectable for tests). */
 export type PersistenceDatabase = Pick<ApolloDatabase, 'kvStore'>;
 
@@ -71,6 +84,8 @@ export class PersistenceService {
   private localTimestamps: Record<string, number> = {};
   /** Keys written or removed before hydration finished (hydrate must not override them). */
   private touchedDuringHydrate = new Set<string>();
+  /** v1.0.7 (PX-03): notified whenever the set of unsaved (failed) writes changes. */
+  private writeHealthListeners = new Set<() => void>();
 
   constructor(private readonly database: PersistenceDatabase = defaultDb) {
     // Phase 1: instant bootstrap from localStorage (synchronous)
@@ -187,19 +202,44 @@ export class PersistenceService {
     return this._blockedWrites;
   }
 
+  /**
+   * v1.0.7 (PX-03): subscribe to changes in unsaved writes (a write failed, or a
+   * retry recovered it). Returns an unsubscribe function.
+   */
+  onWriteHealthChange(listener: () => void): () => void {
+    this.writeHealthListeners.add(listener);
+    return () => { this.writeHealthListeners.delete(listener); };
+  }
+
+  /** v1.0.7 (PX-03): current write health (a snapshot). */
+  getWriteHealth(): WriteHealth {
+    return { ok: this._failedWrites.size === 0, failedKeys: Array.from(this._failedWrites) };
+  }
+
+  private notifyWriteHealth(): void {
+    for (const listener of [...this.writeHealthListeners]) {
+      try { listener(); } catch { /* a listener must not break persistence */ }
+    }
+  }
+
   /** Retry any writes that previously failed. Call after connectivity/quota issues resolve. */
   async retryFailedWrites(): Promise<number> {
     let recovered = 0;
-    for (const key of this._failedWrites) {
+    let changed = false;
+    for (const key of [...this._failedWrites]) {
       const value = this.cache.get(key);
       if (value === undefined) {
         this._failedWrites.delete(key);
+        changed = true;
         continue;
       }
+      // v1.0.7 (PX-03): while degraded, the same rules as flushNow apply.
+      if (isStorageDegraded() && (isProtectedKey(key) || value.length > DEGRADED_MAX_WRITE_CHARS)) continue;
       try {
         await this.database.kvStore.put({ key, value, updatedAt: Date.now() });
         this._failedWrites.delete(key);
         recovered++;
+        changed = true;
       } catch {
         // Still failing — leave in the set
       }
@@ -207,6 +247,7 @@ export class PersistenceService {
     if (recovered > 0) {
       console.info(`[Apollo] Recovered ${recovered} previously failed write(s)`);
     }
+    if (changed) this.notifyWriteHealth();
     return recovered;
   }
 
@@ -231,6 +272,8 @@ export class PersistenceService {
     this.cache.delete(key);
     this.dirty.delete(key);
     this._blockedWrites.delete(key);
+    // v1.0.7 (PX-03): a removed key has nothing left to save.
+    if (this._failedWrites.delete(key)) this.notifyWriteHealth();
     if (!this._initialized) this.touchedDuringHydrate.add(key);
     this.track(this.database.kvStore.delete(key).catch(() => {}));
     try { localStorage.removeItem(key); } catch { /* ignore */ }
@@ -264,7 +307,9 @@ export class PersistenceService {
     this.cache.clear();
     this.dirty.clear();
     this._blockedWrites.clear();
+    const hadFailures = this._failedWrites.size > 0;
     this._failedWrites.clear();
+    if (hadFailures) this.notifyWriteHealth();
     this.localTimestamps = {};
     try {
       const doomed: string[] = [];
@@ -320,6 +365,8 @@ export class PersistenceService {
   private flushNow(): void {
     this.flushScheduled = false;
     if (this.dirty.size === 0) return;
+    // v1.0.7 (PX-03): every write also retries keys that failed earlier.
+    for (const key of this._failedWrites) this.dirty.add(key);
     const keys = Array.from(this.dirty);
     this.dirty.clear();
     const updatedAt = Date.now();
@@ -342,11 +389,14 @@ export class PersistenceService {
 
     const write = this.database.kvStore.bulkPut(entries).then(
       () => {
-        for (const e of entries) this._failedWrites.delete(e.key);
+        let changed = false;
+        for (const e of entries) changed = this._failedWrites.delete(e.key) || changed;
+        if (changed) this.notifyWriteHealth();
       },
       (err: unknown) => {
         console.error('[Apollo] IndexedDB write failed:', err);
         for (const e of entries) this._failedWrites.add(e.key);
+        this.notifyWriteHealth();
       },
     );
     this.track(write);
