@@ -31,6 +31,16 @@ export interface PlanDay {
    * run (experienced plans only; never on novice plans).
    */
   mpFinish?: boolean;
+  /**
+   * v1.0.7 (T-4): the coach's own tempo shape, so the tempo isn't turned into
+   * Apollo's generic cruise intervals:
+   * - `progressive`: Hal Higdon's tempo (easy start, build to about 10K pace in the
+   *   middle, ease back down), for the minutes in the label;
+   * - `continuous`: one continuous run with at most ~25 min at threshold and the
+   *   rest at marathon-pace effort (Nike Run Club).
+   * Without it, long tempos become cruise intervals (custom plans).
+   */
+  tempoShape?: 'progressive' | 'continuous';
 }
 
 export interface PlanWeek {
@@ -380,7 +390,7 @@ type HigdonQuality = ['hill' | '800' | 'tempo', number];
 
 /** Higdon quality session as a plan day; the distance includes warm-up and cool-down. */
 function higdonQuality([kind, n]: HigdonQuality): PlanDay {
-  if (kind === 'tempo') return SESSION(roundHalf(2 + n / 8), `${n} min tempo`, 'Tempo');
+  if (kind === 'tempo') return { ...SESSION(roundHalf(2 + n / 8), `${n} min tempo`, 'Tempo'), tempoShape: 'progressive' };
   if (kind === '800') return SESSION(roundHalf(3 + 0.75 * n), `${n} × 800 m`, 'Speed');
   return SESSION(roundHalf(3 + 0.5 * n), `${n} × hill repeats`, 'Speed');
 }
@@ -506,7 +516,7 @@ function buildNikeRunClubMarathon(): TrainingPlan {
         REST,
         SESSION(speed, `${speed} mi speed workout`, 'Speed'),
         RECOVERY(recovery),
-        SESSION(tempo, `${tempo} mi tempo`, 'Tempo'),
+        { ...SESSION(tempo, `${tempo} mi tempo`, 'Tempo'), tempoShape: 'continuous' },
         REST,
         EASY(easy),
         LONG(long),
@@ -544,7 +554,8 @@ function buildNikeRunClubMarathon(): TrainingPlan {
  */
 function firstTempo(n: number): PlanDay {
   const work = Math.max(1, n - 2);
-  if (work >= 6) return SESSION(n, `${n} mi with ${work} at marathon pace (long tempo)`, 'Marathon Pace');
+  // No "long" in the label: label-based classifiers (periodization) read "long" as a long run.
+  if (work >= 6) return SESSION(n, `${n} mi tempo with ${work} at marathon pace`, 'Marathon Pace');
   return SESSION(n, `${n} mi with ${work} mi ${work <= 3 ? 'short' : 'mid'} tempo`, 'Tempo');
 }
 
@@ -804,8 +815,7 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
   const qualityCount = runDays.filter((d) => qualityTypes.includes(dayTypes[d])).length;
   const medLongCount = runDays.filter((d) => dayTypes[d] === 'medium_long').length;
   const easyCount = runDays.filter((d) => dayTypes[d] === 'easy').length;
-  // v1.0.7 (T-11): an optional marathon-pace finish only for experienced volumes.
-  const longDay = peakMiles >= 40 ? LONG_MP : LONG;
+  // v1.0.7 (T-11): the optional marathon-pace finish is set by withCustomMpFinish() below.
 
   const weeks: PlanWeek[] = [];
   for (let w = 0; w < totalWeeks; w++) {
@@ -851,13 +861,17 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     const medLongMiles = roundHalf(Math.min(clamp(weekMiles * 0.2, 5, 14), Math.max(longMiles, 5)));
     const remainingMiles = weekMiles - longMiles - qualityMiles * qualityCount - medLongMiles * medLongCount;
     // Round easy days down so the week never exceeds its target volume.
-    const easyMiles = Math.max(2, Math.floor((easyCount > 0 ? remainingMiles / easyCount : 2) * 2) / 2);
+    // v1.0.7: and keep them shorter than the long run (3-day plans put most of the week on two easy days).
+    const easyMiles = Math.min(
+      Math.max(2, Math.floor((easyCount > 0 ? remainingMiles / easyCount : 2) * 2) / 2),
+      Math.max(1, longMiles - 0.5),
+    );
 
     const days: PlanDay[] = Array.from({ length: 7 }, (_, d) => (crossDays.has(d) ? CROSS : REST));
     for (const day of runDays) {
       switch (dayTypes[day]) {
         case 'long':
-          days[day] = longDay(longMiles);
+          days[day] = LONG(longMiles);
           break;
         case 'tempo':
           days[day] = SESSION(qualityMiles, `${qualityMiles} mi tempo`, 'Tempo');
@@ -885,7 +899,7 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     baseMiles, peakMiles, buildWeeks: lastBuildWeek, peakLong, limits, growthLimited,
   });
 
-  return {
+  return withCustomMpFinish({
     id: CUSTOM_PLAN_ID,
     name: input.name.trim() || 'Custom Marathon Plan',
     author: 'You + Apollo Builder',
@@ -895,6 +909,27 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     totalWeeks,
     weeks,
     ...(buildNotices.length > 0 ? { buildNotices } : {}),
+  });
+}
+
+/** v1.0.7 (T-11): custom plans whose peak week reaches this many training miles may finish long runs at MP. */
+export const CUSTOM_MP_FINISH_MIN_PEAK_MI = 40;
+
+/**
+ * v1.0.7 (T-11): marks the long runs of an experienced custom plan (peak week
+ * ≥ 40 training miles) as allowing an optional marathon-pace finish. Used when the
+ * plan is built and when a saved plan is read, so custom plans saved before the
+ * flag existed keep their MP finish. Never removes a flag.
+ */
+export function withCustomMpFinish(plan: TrainingPlan): TrainingPlan {
+  const peak = Math.max(0, ...plan.weeks.map((w) => weekTrainingMiles(w)));
+  if (peak < CUSTOM_MP_FINISH_MIN_PEAK_MI) return plan;
+  return {
+    ...plan,
+    weeks: plan.weeks.map((w) => ({
+      ...w,
+      days: w.days.map((d) => (d && d.type === 'run' && d.note === 'Long' && d.mpFinish === undefined ? { ...d, mpFinish: true } : d)),
+    })),
   };
 }
 
@@ -1051,7 +1086,9 @@ export function suggestPlansForRunner(weeklyMiles: number, runningDays: number):
 }
 
 export function getCustomPlan(): TrainingPlan | null {
-  return readStorage<TrainingPlan>(CUSTOM_PLAN_STORAGE_KEY);
+  const plan = readStorage<TrainingPlan>(CUSTOM_PLAN_STORAGE_KEY);
+  // v1.0.7 (T-11): plans saved before `mpFinish` existed get it derived here.
+  return plan && Array.isArray(plan.weeks) ? withCustomMpFinish(plan) : plan;
 }
 
 export function setCustomPlan(plan: TrainingPlan | null): void {

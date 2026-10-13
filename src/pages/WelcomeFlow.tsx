@@ -533,7 +533,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
             <h2 id="welcome-race-heading" className="wf-subtitle">
               When is your race?
             </h2>
-            <RaceDatePlanSetup plan={selectedPlan} value={setup} onChange={setSetup} idPrefix="welcome" />
+            <RaceDatePlanSetup plan={selectedPlan} value={setup} onChange={setSetup} idPrefix="welcome" onChoosePlan={choosePlan} />
             {planChoice === CUSTOM_PLAN_ID && (
               <div className="wf-inline-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowBuilder(true)}>

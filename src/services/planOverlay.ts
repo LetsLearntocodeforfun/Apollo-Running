@@ -17,7 +17,7 @@
  */
 
 import type { PlanDay, PlanWeek, TrainingPlan } from '../data/plans';
-import { CUSTOM_PLAN_ID, getPlanById } from '../data/plans';
+import { CUSTOM_PLAN_ID, getPlanById, getWorkoutKind } from '../data/plans';
 import { persistence } from './db/persistence';
 import {
   getActivePlan,
@@ -152,6 +152,19 @@ function newLogId(): string {
 /** Replace a leading "N mi" in a label with the new distance. */
 function relabelDistance(label: string, mi: number): string {
   return /^\d+(\.\d+)?\s*mi\b/.test(label) ? label.replace(/^\d+(\.\d+)?/, String(mi)) : label;
+}
+
+/**
+ * v1.0.7 (T-4 / T-11): a replacement day for the same kind of workout keeps the
+ * plan's per-day fields (`mpFinish`, `tempoShape`) unless it sets its own. A
+ * different kind of workout (e.g. long run → easy run) starts clean.
+ */
+function keepPlanDayFields(base: PlanDay, next: PlanDay): PlanDay {
+  if (getWorkoutKind(base) !== getWorkoutKind(next)) return next;
+  const out: PlanDay = { ...next };
+  if (out.mpFinish === undefined && base.mpFinish !== undefined) out.mpFinish = base.mpFinish;
+  if (out.tempoShape === undefined && base.tempoShape !== undefined) out.tempoShape = base.tempoShape;
+  return out;
 }
 
 // ── Placement (race date / length changes) ─────────────────────────────────
@@ -570,7 +583,7 @@ export function applyAdaptiveChanges(changes: AdaptiveWeekChange[], summary: str
       const ref = { weekIndex: ch.weekIndex, dayIndex: ov.dayIndex };
       if (editError(ctx, ref)) continue;
       if (ov.day && (ov.day.type === 'marathon' || ov.day.type === 'race')) continue;
-      next.set(refKey(ref), ov.day ? clone(ov.day) : null);
+      next.set(refKey(ref), ov.day ? keepPlanDayFields(dayAt(ctx, ref), clone(ov.day)) : null);
     }
   }
   if (next.size === 0) return { ok: false, error: 'No remaining days to change.' };

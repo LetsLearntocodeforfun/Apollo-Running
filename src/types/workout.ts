@@ -62,6 +62,12 @@ export interface WorkoutTarget {
   intervals?: IntervalBlock[];
   /** Optional marathon-pace segment in long runs */
   marathonPaceSegment?: MarathonPaceSegment;
+  /**
+   * v1.0.7: expected whole-run average pace of a structured session (warm-up,
+   * blocks, recoveries and cool-down, distance-weighted). Compliance scores the
+   * activity's average pace against this until L-9 scores the work laps.
+   */
+  expectedAveragePace?: PaceRange;
   /** Human-readable description of the workout target */
   description: string;
 }

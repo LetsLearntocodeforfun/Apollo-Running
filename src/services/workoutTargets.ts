@@ -17,7 +17,7 @@ const TARGETS_CACHE_KEY = 'apollo_workout_targets';
 const METERS_PER_MILE = 1609.344;
 
 /** The parts of a plan day the targets read (label for the plan's own structure, T-11 opt-in). */
-export type TargetDay = Pick<PlanDay, 'label'> & Partial<Pick<PlanDay, 'mpFinish' | 'distanceMi'>>;
+export type TargetDay = Pick<PlanDay, 'label'> & Partial<Pick<PlanDay, 'mpFinish' | 'distanceMi' | 'tempoShape'>>;
 
 // ── The plan's own session structure (v1.0.7, T-4 / T-10 / T-17) ────────────
 //
@@ -134,17 +134,29 @@ const CRUISE_REST_SEC = 60;
 /** Structure of a tempo session, shared by Today and the watch push. */
 export interface TempoStructure {
   /**
-   * `threshold`: continuous at T pace; `cruise`: 1-mile reps at T pace;
-   * `first_short` / `first_mid`: FIRST's short / mid tempo.
+   * `threshold`: continuous at T pace; `cruise`: 1-mile reps at T pace (plans
+   * without a coach-specified shape); `first_short` / `first_mid`: FIRST's short /
+   * mid tempo; `progressive`: Hal Higdon's build-and-ease tempo; `continuous`:
+   * one continuous run, marathon pace then at most ~25 min at T (Nike).
    */
-  style: 'threshold' | 'cruise' | 'first_short' | 'first_mid';
-  /** Work pace (sec/mi), null without paces. */
+  style: 'threshold' | 'cruise' | 'first_short' | 'first_mid' | 'progressive' | 'continuous';
+  /** Work pace (sec/mi), null without paces (progressive: about 10K pace for the middle block). */
   paceSecPerMi: number | null;
   /** Miles at tempo effort (null → the whole run between the usual warm-up and cool-down). */
   workMi: number | null;
   repeats: number;
   /** Recovery jog between cruise reps (s); 0 for continuous tempos. */
   restSec: number;
+  /** `continuous`: miles at marathon pace before the threshold block. */
+  mpMi?: number;
+  /** `progressive`: minutes building up, near 10K pace, and easing back. */
+  minutes?: { build: number; peak: number; ease: number };
+}
+
+/** All-out 10K race pace (sec/mi) for a VDOT. */
+function tenKPace(vdot: number): number {
+  const t = raceTimeFromVdot(vdot, 10000);
+  return t > 0 ? Math.round(t / (10000 / METERS_PER_MILE)) : 0;
 }
 
 /**
@@ -152,13 +164,16 @@ export interface TempoStructure {
  * reference (FIRST's short / mid tempo from 5K pace) and caps continuous
  * threshold running at ~25 min: longer tempos become cruise intervals (Daniels)
  * instead of a long continuous run at T.
+ * Coach-specified shapes (`day.tempoShape`) win over the cruise rule: Hal
+ * Higdon's progressive tempo and Nike's continuous tempo keep their shape.
  */
 export function getTempoStructure(
-  day: Pick<PlanDay, 'label'> | null | undefined,
+  day: (Pick<PlanDay, 'label'> & Partial<Pick<PlanDay, 'tempoShape'>>) | null | undefined,
   distanceMi: number | undefined,
   paces: Pick<TrainingPaces, 'threshold' | 'vdot'> | null,
 ): TempoStructure {
-  const first = /(\d+(?:\.\d+)?)\s*mi\s+(short|mid)\s+tempo/i.exec(String(day?.label ?? ''));
+  const label = String(day?.label ?? '');
+  const first = /(\d+(?:\.\d+)?)\s*mi\s+(short|mid)\s+tempo/i.exec(label);
   if (first) {
     const level = first[2].toLowerCase() as 'short' | 'mid';
     const fiveK = paces ? fiveKPace(paces.vdot) : 0;
@@ -171,6 +186,30 @@ export function getTempoStructure(
     };
   }
   const threshold = paces?.threshold ?? null;
+  if (day?.tempoShape === 'progressive') {
+    // Hal Higdon: easy start, build to about 10K pace in the middle, ease back down.
+    const fromLabel = /(\d+)\s*min\s+tempo/i.exec(label);
+    const total = fromLabel ? Number(fromLabel[1]) : Math.max(20, Math.round(((distanceMi ?? 5) - 2) * 8));
+    // Higdon's proportions: build ~40%, near 10K pace ~35% (at most 15 min), ease down the rest (~25%).
+    const build = Math.round(total * 0.4);
+    const peak = Math.min(15, Math.round(total * 0.35));
+    const tenK = paces ? tenKPace(paces.vdot) : 0;
+    return {
+      style: 'progressive',
+      paceSecPerMi: tenK > 0 ? tenK : null,
+      workMi: null,
+      repeats: 1,
+      restSec: 0,
+      minutes: { build, peak, ease: total - build - peak },
+    };
+  }
+  if (day?.tempoShape === 'continuous' && distanceMi && distanceMi >= 4) {
+    // Nike: one continuous tempo; at most ~25 min at T, the rest at marathon pace first.
+    const workMi = distanceMi - 2;
+    const maxT = threshold ? Math.floor(((MAX_CONTINUOUS_THRESHOLD_MIN * 60) / threshold) * 2) / 2 : MAX_CONTINUOUS_THRESHOLD_MI;
+    const tMi = Math.min(workMi, maxT);
+    return { style: 'continuous', paceSecPerMi: threshold, workMi: tMi, repeats: 1, restSec: 0, mpMi: Math.round((workMi - tMi) * 10) / 10 };
+  }
   if (!distanceMi || distanceMi < 6) {
     return { style: 'threshold', paceSecPerMi: threshold, workMi: null, repeats: 1, restSec: 0 };
   }
@@ -383,6 +422,45 @@ function fmtMi(n: number): string {
   return String(Math.round(n * 10) / 10);
 }
 
+/** Middle of the easy range (warm-up / cool-down). */
+function easyMid(paces: TrainingPaces): number {
+  return Math.round((paces.easy.min + paces.easy.max) / 2);
+}
+
+/** "Steady" effort between marathon pace and the fast end of easy (Higdon build / ease, as on the watch). */
+function steadyPace(paces: TrainingPaces): number {
+  return Math.round((paces.marathon + paces.easy.min) / 2);
+}
+
+/** Recovery-jog pace between reps (as on the watch). */
+function jogPace(paces: TrainingPaces): number {
+  return paces.easy.max + 30;
+}
+
+/** Tolerance (± sec/mi) on a structured session's expected whole-run average. */
+const AVERAGE_TOLERANCE_SEC = 8;
+
+/**
+ * v1.0.7: expected whole-run average pace of a structured session — total time ÷
+ * total distance over its segments (distance at a pace, or time at a pace), ±8 s/mi.
+ */
+function averageRange(segments: Array<{ mi?: number; sec?: number; pace: number }>) {
+  let sec = 0;
+  let mi = 0;
+  for (const s of segments) {
+    if (!(s.pace > 0)) continue;
+    if (s.mi && s.mi > 0) {
+      sec += s.mi * s.pace;
+      mi += s.mi;
+    } else if (s.sec && s.sec > 0) {
+      sec += s.sec;
+      mi += s.sec / s.pace;
+    }
+  }
+  const avg = mi > 0 ? Math.round(sec / mi) : 0;
+  return { minSecPerMi: avg - AVERAGE_TOLERANCE_SEC, maxSecPerMi: avg + AVERAGE_TOLERANCE_SEC };
+}
+
 function buildTempoTarget(paces: TrainingPaces, distanceMi?: number, day?: TargetDay): WorkoutTarget {
   // Tempo runs: threshold pace ±5 sec/mi tolerance
   const tolerance = 5;
@@ -417,6 +495,51 @@ function buildTempoTarget(paces: TrainingPaces, distanceMi?: number, day?: Targe
     return target;
   }
 
+  // v1.0.7 (T-4): Hal Higdon's tempo: build up, about 10K pace in the middle, ease back.
+  if (tempo.style === 'progressive' && tempo.minutes) {
+    const { build, peak, ease } = tempo.minutes;
+    const pace = tempo.paceSecPerMi ?? paces.threshold;
+    target.targetPaceRange = { minSecPerMi: pace - tolerance, maxSecPerMi: pace + tolerance };
+    target.description = `Hal Higdon tempo — start easy, build to about 10K race pace in the middle, then ease back down. ` +
+      `Only the middle ${peak} minutes are at full tempo effort.`;
+    target.intervals = [{
+      workDurationMin: peak,
+      restDurationMin: 0,
+      targetPaceSecPerMi: pace,
+      repeats: 1,
+      description: `1mi warmup → ${build} min building → ${peak} min near 10K pace → ${ease} min easing back → 1mi cooldown`,
+    }];
+    const steady = steadyPace(paces);
+    target.expectedAveragePace = averageRange([
+      { mi: 1, pace: easyMid(paces) },
+      { sec: build * 60, pace: steady },
+      { sec: peak * 60, pace },
+      { sec: ease * 60, pace: steady },
+      { mi: 1, pace: easyMid(paces) },
+    ]);
+    return target;
+  }
+  // v1.0.7 (T-4): Nike's continuous tempo: marathon pace first, then at most ~25 min at T.
+  if (tempo.style === 'continuous' && tempo.workMi && distanceMi) {
+    const mpMi = tempo.mpMi ?? 0;
+    target.intervals = [{
+      workDurationMin: Math.round((tempo.workMi * paces.threshold) / 60),
+      restDurationMin: 0,
+      targetPaceSecPerMi: paces.threshold,
+      repeats: 1,
+      description: mpMi > 0
+        ? `1mi warmup → ${fmtMi(mpMi)}mi at marathon pace → ${fmtMi(tempo.workMi)}mi at tempo → 1mi cooldown`
+        : `1mi warmup → ${fmtMi(tempo.workMi)}mi at tempo → 1mi cooldown`,
+    }];
+    target.expectedAveragePace = averageRange([
+      { mi: 1, pace: easyMid(paces) },
+      { mi: mpMi, pace: paces.marathon },
+      { mi: tempo.workMi, pace: paces.threshold },
+      { mi: 1, pace: easyMid(paces) },
+    ]);
+    return target;
+  }
+
   // For longer tempo runs (6+ mi), structure as tempo intervals with warmup/cooldown
   if (distanceMi && distanceMi >= 6) {
     const warmupMi = 1;
@@ -436,6 +559,12 @@ function buildTempoTarget(paces: TrainingPaces, distanceMi?: number, day?: Targe
         description: `${fmtMi(warmupMi + extraEasy)}mi warmup → ${tempo.repeats}×1mi at tempo (1min jog) → ` +
           `${fmtMi(cooldownMi + extraEasy)}mi cooldown`,
       }];
+      target.expectedAveragePace = averageRange([
+        { mi: warmupMi + extraEasy, pace: easyMid(paces) },
+        { mi: tempo.repeats, pace: paces.threshold },
+        { sec: tempo.repeats * tempo.restSec, pace: jogPace(paces) },
+        { mi: cooldownMi + extraEasy, pace: easyMid(paces) },
+      ]);
       return target;
     }
     const tempoMin = Math.round((tempoMi * paces.threshold) / 60);
@@ -571,7 +700,7 @@ function buildRaceTarget(paces: TrainingPaces): WorkoutTarget {
  * Returns a map of dayIndex -> WorkoutTarget for all run days.
  */
 export function getWeekTargets(
-  weekDays: { note?: string; distanceMi?: number; type: string; label?: string; mpFinish?: boolean }[],
+  weekDays: { note?: string; distanceMi?: number; type: string; label?: string; mpFinish?: boolean; tempoShape?: PlanDay['tempoShape'] }[],
   vdot: number,
 ): Map<number, WorkoutTarget> {
   const targets = new Map<number, WorkoutTarget>();
@@ -580,7 +709,7 @@ export function getWeekTargets(
   for (let i = 0; i < weekDays.length; i++) {
     const day = weekDays[i];
     if (day.type === 'rest' || !day.note) continue;
-    const target = getWorkoutTarget(day.note, vdot, day.distanceMi, { label: day.label ?? '', mpFinish: day.mpFinish });
+    const target = getWorkoutTarget(day.note, vdot, day.distanceMi, { label: day.label ?? '', mpFinish: day.mpFinish, tempoShape: day.tempoShape });
     if (target) targets.set(i, target);
   }
 

@@ -39,8 +39,13 @@ export function analyzeCompliance(
   const paces = getCurrentTrainingPaces() ?? getSavedTrainingPaces();
   if (!paces) return null;
 
-  const target = getWorkoutTarget(note, paces.vdot, plannedDistanceMi, day);
-  if (!target) return null;
+  const planned = getWorkoutTarget(note, paces.vdot, plannedDistanceMi, day);
+  if (!planned) return null;
+  // v1.0.7: structured sessions (Higdon / Nike tempos, cruise intervals) are scored on
+  // their expected whole-run average pace until L-9 scores the work laps.
+  const target: WorkoutTarget = planned.expectedAveragePace
+    ? { ...planned, targetPaceRange: planned.expectedAveragePace }
+    : planned;
 
   const actualPaceSec = Math.round(actualPaceMinPerMi * 60);
 

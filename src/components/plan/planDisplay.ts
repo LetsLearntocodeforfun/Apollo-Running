@@ -42,6 +42,9 @@ export function workoutTitle(day: PlanDay): string {
   if (!title || /^run$/i.test(title)) title = day.note ? day.note : 'Run';
   if (/^mp$/i.test(title)) title = 'Marathon-pace run';
   else if (/^speed$/i.test(title)) title = 'Speed workout';
+  // v1.0.7 (T-4): FIRST tempos ("5 mi with 3 mi short tempo", "10 mi tempo with 8 at marathon pace").
+  else if (/\b(short|mid) tempo\b/i.test(title)) title = `${/\bshort\b/i.test(title) ? 'Short' : 'Mid'} tempo run`;
+  else if (/^tempo with \d+(?:\.\d+)? at marathon pace$/i.test(title)) title = 'Tempo at marathon pace';
   else if (RUN_SUFFIX.test(title)) title = `${title} run`;
   return title.charAt(0).toUpperCase() + title.slice(1);
 }

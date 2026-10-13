@@ -479,7 +479,34 @@ function speedSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: Pac
 function tempoSpec(day: PlanDay, plannedMi: number, ctx: BuildContext, easy: PaceTarget | undefined, withDistance: (t: string) => string): WorkoutSpec | null {
   const { unit, paces } = ctx;
   const t = getTempoStructure(day, plannedMi, paces);
-  if (plannedMi <= 0 || t.workMi == null || t.style === 'threshold') return null;
+  if (t.style === 'progressive' && t.minutes && plannedMi > 0) {
+    // v1.0.7 (T-4): Hal Higdon's tempo — build, about 10K pace, ease back (timed steps).
+    const steady: PaceTarget | undefined = paces ? { fast: paces.marathon, slow: paces.easy.min } : undefined;
+    const peakPace = t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined;
+    const e = bookend(toUnit(plannedMi, unit));
+    const sections: Section[] = [];
+    if (e > 0) sections.push({ header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] });
+    sections.push({ header: 'Build', steps: [{ seconds: t.minutes.build * 60, pace: steady }] });
+    sections.push({ header: 'Tempo', steps: [{ seconds: t.minutes.peak * 60, pace: peakPace }] });
+    sections.push({ header: 'Ease back', steps: [{ seconds: t.minutes.ease * 60, pace: steady }] });
+    if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
+    return {
+      name: withDistance('Tempo'),
+      note: 'Tempo (Hal Higdon). Start easy, build to about 10K pace in the middle, then ease back.',
+      sections,
+    };
+  }
+  if (t.style === 'continuous' && t.workMi && (t.mpMi ?? 0) > 0) {
+    // v1.0.7 (T-4): Nike's continuous tempo — marathon pace, then at most ~25 min at T.
+    const e = bookend(toUnit(plannedMi, unit));
+    const sections: Section[] = [];
+    if (e > 0) sections.push({ header: 'Warmup', steps: [{ distance: e, unit, pace: easy }] });
+    sections.push({ header: 'Marathon pace', steps: [{ distance: toUnit(t.mpMi!, unit), unit, pace: paces ? around(paces.marathon, 5) : undefined }] });
+    sections.push({ header: 'Tempo', steps: [{ distance: toUnit(t.workMi, unit), unit, pace: t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined }] });
+    if (e > 0) sections.push({ header: 'Cooldown', steps: [{ distance: e, unit, pace: easy }] });
+    return { name: withDistance('Tempo'), note: 'Tempo. Steady at marathon pace, then comfortably hard to the finish.', sections };
+  }
+  if (plannedMi <= 0 || t.workMi == null || t.style === 'threshold' || t.style === 'continuous') return null;
   const pace = t.paceSecPerMi ? around(t.paceSecPerMi, 5) : undefined;
   if (t.style === 'cruise') {
     const repU = unit === 'km' ? 1.6 : 1;
