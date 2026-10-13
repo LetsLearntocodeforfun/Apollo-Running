@@ -7,6 +7,7 @@ import {
   type NeedsReconnectState,
 } from '../services/connectionHealth';
 import type { LiveActivitySource } from '../services/activity/types';
+import { isStravaAvailable } from '../utils/platform';
 
 /** Current storage health; re-renders when IndexedDB fails or recovers. */
 export function useStorageHealth(): StorageHealth {
@@ -28,6 +29,8 @@ export interface ReconnectNotice {
 function readReconnectNotices(): ReconnectNotice[] {
   const notices: ReconnectNotice[] = [];
   for (const source of getSourcesNeedingReconnect()) {
+    // v1.0.7: on the web version Strava can't be (re)connected, so don't ask.
+    if (source === 'strava' && !isStravaAvailable()) continue;
     const state = getNeedsReconnect(source);
     if (state) notices.push({ source, state });
   }

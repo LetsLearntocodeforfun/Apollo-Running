@@ -31,6 +31,7 @@ import {
   clearStravaTokens,
 } from './storage';
 import * as stravaApi from './strava';
+import { isStravaAvailable } from '../utils/platform';
 import * as intervalsApi from './intervals';
 import {
   getStoredActivities,
@@ -96,6 +97,15 @@ export function isStravaConnected(): boolean {
 /** Connected live sources in priority order (file imports are not a connection). */
 export function getConnectedSources(): LiveActivitySource[] {
   return SOURCE_ORDER.filter((s) => (s === 'intervals' ? isIntervalsConnected() : isStravaConnected()));
+}
+
+/**
+ * Connected sources this build can actually sync. v1.0.7: the web version has
+ * no backend for Strava's token refresh, so Strava is never called there, even
+ * if tokens were saved earlier (they can still be disconnected in Settings).
+ */
+function getSyncableSources(): LiveActivitySource[] {
+  return getConnectedSources().filter((s) => s !== 'strava' || isStravaAvailable());
 }
 
 /** True when at least one live data source is connected. */
@@ -396,7 +406,7 @@ export function cancelSync(): boolean {
 }
 
 function planSources(opts: SyncOptions): SyncPlan {
-  const requested = getConnectedSources().filter((s) => !opts.sources || opts.sources.includes(s));
+  const requested = getSyncableSources().filter((s) => !opts.sources || opts.sources.includes(s));
   const plan: SyncPlan = { requested, sync: [], skipped: [] };
   for (const source of requested) {
     const flagged = opts.force ? null : getNeedsReconnect(source);
@@ -800,7 +810,7 @@ async function enrichIntervalsRoutes(report: ProgressReporter, signal: AbortSign
 
 function isSyncStale(): boolean {
   const now = Date.now();
-  return getConnectedSources().some((s) => {
+  return getSyncableSources().some((s) => {
     const st = getSourceSyncState(s);
     // Back off after a failure so every page load doesn't hammer a failing source.
     if (st.lastErrorAt && now - Date.parse(st.lastErrorAt) < STALE_AFTER_MS) return false;

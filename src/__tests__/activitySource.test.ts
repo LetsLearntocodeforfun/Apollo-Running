@@ -108,6 +108,7 @@ function connect(): void {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 // ── Connecting ────────────────────────────────────────────────────────────────
@@ -271,6 +272,7 @@ describe('syncActivities (intervals.icu)', () => {
   });
 
   it('queues a follow-up sync for a source connected while a sync is running', async () => {
+    vi.stubEnv('VITE_WEB_STRAVA', 'true'); // a build that can sync Strava
     connect();
     fakeIntervals([icu(1, 1)]);
     const first = syncActivities();
@@ -284,6 +286,21 @@ describe('syncActivities (intervals.icu)', () => {
     const [a, b] = await Promise.all([first, second]);
     expect(a.sources).toEqual(['intervals']);
     expect(b.sources).toContain('strava');
+  });
+
+  it('web version: never calls Strava, even with saved Strava tokens', async () => {
+    connect();
+    setStravaTokens({
+      access_token: 'a', refresh_token: 'r', expires_at: Math.floor(Date.now() / 1000) - 60, // expired: would refresh
+      athlete: { id: 7, firstname: 'S', lastname: 'T' },
+    });
+    const calls = fakeIntervals([icu(1, 1)]);
+    const summary = await syncActivities({ full: true });
+    expect(summary.sources).toEqual(['intervals']);
+    expect(summary.errors).toEqual([]);
+    expect(calls.length).toBeGreaterThan(0);
+    // No Strava API call and no token refresh through the (absent) web backend.
+    expect(calls.filter((u) => u.hostname !== 'intervals.icu').map(String)).toEqual([]);
   });
 
   it('serves pages from the local store when the last sync is fresh', async () => {
