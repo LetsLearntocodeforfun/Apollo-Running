@@ -56,6 +56,9 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Check formatting (Prettier)
+        run: npm run format:check
+
       - name: Unit & component tests
         run: npx vitest run
 

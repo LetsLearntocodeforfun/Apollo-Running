@@ -1,0 +1,8 @@
+# Commits that only reformat code. Hide them from `git blame`:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+# GitHub's blame view reads this file automatically.
+#
+# v1.0.7 (PX-28): one-time Prettier reformat of src/, electron/, e2e/, scripts/ and configs.
+
+# v1.0.7 prettier reformat
+bda5bdc40209dd02f7c29ab55c686b0d682b1c30
