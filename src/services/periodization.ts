@@ -338,7 +338,7 @@ export function getPhaseCoachingTips(
       tips.push({ category: 'Fatigue', tip: 'Feeling tired is normal in peak training. Trust the process — fitness is accumulating beneath the fatigue.', priority: 'high' });
       tips.push({ category: 'Recovery', tip: 'Extra sleep, foam rolling, and easy-day discipline are non-negotiable now.', priority: 'high' });
       if (weekProfile.longRunMiles >= 18) {
-        tips.push({ category: 'Long Run', tip: `${weekProfile.longRunMiles} mi is a cornerstone workout. Practice everything you\'ll do on race day: kit, fueling, pacing.`, priority: 'high' });
+        tips.push({ category: 'Long Run', tip: `${weekProfile.longRunMiles} mi is a cornerstone workout. Practice everything you'll do on race day: kit, fueling, pacing.`, priority: 'high' });
       }
       tips.push({ category: 'Mental', tip: 'Visualize your race during long runs. Rehearse mantras for tough miles.', priority: 'low' });
       break;

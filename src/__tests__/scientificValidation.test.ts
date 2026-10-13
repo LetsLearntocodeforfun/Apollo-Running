@@ -26,6 +26,9 @@ import { generateCarbLoadingProtocol, getDailyCarbTarget, getRaceMorningCarbTarg
 import { generateFuelingPlan, getGelSchedule } from '@/services/fuelingCalculator';
 import { generateRaceDayTimeline } from '@/services/raceDayTimeline';
 import { generateCourseTraining } from '@/services/courseTraining';
+
+/** Course-training input; the fixtures below are partial on purpose. */
+type CourseInput = Parameters<typeof generateCourseTraining>[0];
 import { calculateFitnessFatigue, generateTaperPlan, estimateTSS } from '@/services/taperOptimizer';
 
 // ── Test Athletes ─────────────────────────────────────────────────────────────
@@ -239,14 +242,14 @@ describe('Course Training — World Major Specificity', () => {
   };
 
   it('Boston plan includes hill training and downhill prep', () => {
-    const plan = generateCourseTraining(bostonRace as any);
+    const plan = generateCourseTraining(bostonRace as unknown as CourseInput);
     expect(plan.keyWorkouts.some((w) => w.category === 'hill')).toBe(true);
     expect(plan.keyWorkouts.some((w) => w.name.toLowerCase().includes('downhill'))).toBe(true);
     expect(plan.raceExecutionTips.some((t) => t.toLowerCase().includes('heartbreak'))).toBe(true);
   });
 
   it('Berlin plan focuses on pace discipline', () => {
-    const plan = generateCourseTraining(berlinRace as any);
+    const plan = generateCourseTraining(berlinRace as unknown as CourseInput);
     expect(plan.keyWorkouts.some((w) => w.category === 'tempo')).toBe(true);
     expect(plan.keyWorkouts.some((w) => w.name.toLowerCase().includes('pace'))).toBe(true);
   });
@@ -268,7 +271,7 @@ describe('Course Training — World Major Specificity', () => {
         courseType: 'loop',
         course: { totalGainFt: 300, difficulty: 3 },
         averageConditions: { tempF: 55, humidityPct: 50 },
-      } as any);
+      } as unknown as CourseInput);
       expect(plan.keyWorkouts.length).toBeGreaterThanOrEqual(3);
       expect(plan.raceExecutionTips.length).toBeGreaterThanOrEqual(2);
     }
@@ -277,16 +280,16 @@ describe('Course Training — World Major Specificity', () => {
   it('generic plan differentiates hilly vs flat courses', () => {
     const hilly = generateCourseTraining({
       name: 'Mountain Marathon', city: 'Denver',
-      courseType: 'out-and-back' as any,
+      courseType: 'out-and-back',
       course: { totalGainFt: 2000, difficulty: 8 },
       averageConditions: { tempF: 55, humidityPct: 50 },
-    } as any);
+    } as unknown as CourseInput);
     const flat = generateCourseTraining({
       name: 'Plains Marathon', city: 'Topeka',
-      courseType: 'loop' as any,
+      courseType: 'loop',
       course: { totalGainFt: 100, difficulty: 2 },
       averageConditions: { tempF: 55, humidityPct: 50 },
-    } as any);
+    } as unknown as CourseInput);
     expect(hilly.keyWorkouts.some((w) => w.category === 'hill')).toBe(true);
     expect(flat.keyWorkouts.some((w) => w.category === 'long_run' || w.category === 'tempo')).toBe(true);
   });

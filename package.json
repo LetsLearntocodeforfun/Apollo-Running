@@ -19,8 +19,8 @@
     "preview": "vite preview --config vite.config.web.ts",
     "preview:web": "vite preview --config vite.config.web.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc -p tsconfig.node.json",
-    "lint": "npm run typecheck",
-    "format": "prettier --write \"src/**/*.{ts,tsx}\"",
+    "lint": "eslint . --max-warnings=34",
+    "format": "prettier --write \"{src,electron,e2e,scripts}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,mjs,cjs,json}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -29,7 +29,8 @@
     "test:e2e:only": "playwright test",
     "electron:dev": "npm run dev:electron",
     "electron:build": "npm run package",
-    "swa": "swa start ./dist --api-location ./api"
+    "swa": "swa start ./dist --api-location ./api",
+    "format:check": "prettier --check \"{src,electron,e2e,scripts}/**/*.{ts,tsx,js,mjs,cjs,css,json}\" \"*.{ts,mjs,cjs,json}\""
   },
   "dependencies": {
     "dexie": "^4.0.9",
@@ -40,6 +41,7 @@
     "recharts": "^3.7.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@fontsource-variable/inter": "^5.2.6",
     "@fontsource-variable/montserrat": "^5.2.6",
     "@playwright/test": "^1.63.0",
@@ -53,9 +55,16 @@
     "cross-env": "^10.1.0",
     "electron": "^44.4.3",
     "electron-builder": "^26.9.0",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.26",
     "fake-indexeddb": "^6.0.1",
+    "globals": "^16.5.0",
     "jsdom": "^28.1.0",
+    "prettier": "^3.9.8",
     "typescript": "^5.3.3",
+    "typescript-eslint": "^8.70.1",
     "vite": "^7.3.1",
     "vite-plugin-electron": "^0.28.0",
     "vite-plugin-electron-renderer": "^0.14.5",

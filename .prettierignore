@@ -1,0 +1,19 @@
+# Build output and dependencies
+dist/
+dist-electron/
+release/
+coverage/
+node_modules/
+playwright-report/
+test-results/
+
+# Lockfiles and generated/static assets
+package-lock.json
+api/package-lock.json
+public/
+
+# Markdown is edited by hand (README, docs, release notes)
+*.md
+
+# Azure Functions backend (separate package, not part of the app build)
+api/

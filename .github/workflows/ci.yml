@@ -51,6 +51,11 @@ jobs:
       - name: Type-check (app + Electron main/preload)
         run: npm run typecheck
 
+      # ESLint: hook rules, unsafe patterns and the src/labs import boundary.
+      # --max-warnings in package.json is a ratchet: lower it as warnings are fixed.
+      - name: Lint
+        run: npm run lint
+
       - name: Unit & component tests
         run: npx vitest run
 

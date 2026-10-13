@@ -502,6 +502,7 @@ function ensureOAuthServer(): PendingOAuth {
 
 /** A short, printable string from the renderer (IDs, codes, tokens). */
 function requireString(value: unknown, name: string, maxLength = 512): string {
+  // eslint-disable-next-line no-control-regex -- deliberately rejects control characters
   if (typeof value !== 'string' || !value.trim() || value.length > maxLength || /[\u0000-\u001f]/.test(value)) {
     throw new Error(`Invalid ${name}`);
   }
