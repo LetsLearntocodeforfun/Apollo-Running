@@ -8,6 +8,14 @@
  * 25 min). {@link planRaceFueling} builds the race-day timeline; the older
  * {@link generateFuelingPlan} and {@link getGelSchedule} reuse it.
  *
+ * v1.0.7 (R-5): the gel COUNT now comes from target × race hours, spread from
+ * the first gel to 15 min before the finish, so the plan delivers its target
+ * over the whole race (the fixed cadence delivered 50–56 g/h of a 60 g/h
+ * target). v1.0.7 (R-7): {@link CARB_TOLERANCE_MIN_G_PER_HOUR} /
+ * {@link CARB_TOLERANCE_MAX_G_PER_HOUR} are the one carb range used by
+ * Settings, the Fuel tab and this engine. v1.0.7 (R-1, R-2): pre-race
+ * caffeine card ({@link planCaffeine}) and sweat-rate test ({@link estimateSweatRate}).
+ *
  * Based on:
  * - Jeukendrup (2014): 30–60 g/h for 1–2.5 h; up to 90 g/h beyond 2.5 h, which
  *   needs glucose + fructose (multiple transportable carbs) and a trained gut
@@ -63,6 +71,8 @@ export interface RaceFuelingPlan {
   targetCarbsPerHourG: number;
   /** Minutes between gels (one cadence for the whole race). */
   gelIntervalMin: number;
+  /** v1.0.7 (R-5): in-race carbs ÷ finish time (g/h) — what the plan really delivers. */
+  deliveredCarbsPerHourG: number;
   items: RaceFuelingItem[];
   /** In-race carbohydrate (g); the pre-race gel is not counted. */
   totalCarbsG: number;
@@ -75,6 +85,12 @@ export interface RaceFuelingPlan {
 export const DEFAULT_CARBS_PER_HOUR_G = 60;
 /** Highest carb target the planner uses (g/h). */
 export const RACE_MAX_CARBS_PER_HOUR_G = 90;
+// v1.0.7 (R-7): ONE carb range for Settings, the Fuel tab and the engine
+// (was Settings 0–120, Fuel tab 30–90, engine 90).
+/** Lowest carb tolerance (g/h) the app accepts. Below 30 g/h the plan adds a note. */
+export const CARB_TOLERANCE_MIN_G_PER_HOUR = 20;
+/** Highest carb tolerance (g/h) the app accepts — the planner's ceiling. */
+export const CARB_TOLERANCE_MAX_G_PER_HOUR = RACE_MAX_CARBS_PER_HOUR_G;
 const RACE_LOW_CARBS_PER_HOUR_G = 30;
 const MULTIPLE_TRANSPORTABLE_ABOVE_G = 60;
 /** Standard gel: 25 g carbs. */
@@ -86,6 +102,12 @@ const NO_GEL_FINAL_SEC = 15 * 60;
 /** Below ~60 min, in-race carbs aren't needed (a mouth rinse is enough). */
 const MIN_FUELED_RACE_SEC = 60 * 60;
 const PRE_RACE_GEL_SEC = -15 * 60;
+/**
+ * v1.0.7 (R-5): inside the fuelling window the rate never exceeds this
+ * multiple of the athlete's target (nor 90 g/h): gels are never closer than
+ * nominal interval ÷ 1.2.
+ */
+const MAX_IN_WINDOW_RATE_FACTOR = 1.2;
 const AID_STATION_RADIUS_MI = 0.6;
 /** Safety bound on timeline length (tiny gels / huge targets). */
 const MAX_RACE_GELS = 60;
@@ -120,6 +142,9 @@ function nearestAidStation(stations: AidStation[] | undefined, mi: number): AidS
  *
  * - target = min(carbsPerHourG, 90); lower values are respected (with a note under 30 g/h).
  * - First gel one interval after the gun, clamped to 20–45 min; none in the final 15 min.
+ *   v1.0.7 (R-5): round(target × hours ÷ gel) gels spread evenly from the first gel
+ *   up to 15 min before the finish, so the race total meets the target
+ *   (to within half a gel) unless the window is too short — then a note says so.
  * - Races under ~60 min get no in-race carbs (a carb mouth rinse is enough).
  * - Optional pre-race gel at −15 min (not counted in `totalCarbsG`).
  * - Invalid input yields an empty timeline plus a note — never NaN.
@@ -132,6 +157,7 @@ export function planRaceFueling(input: RaceFuelingInput): RaceFuelingPlan {
     return {
       targetCarbsPerHourG: 0,
       gelIntervalMin: 0,
+      deliveredCarbsPerHourG: 0,
       items: [],
       totalCarbsG: 0,
       needsMultipleTransportable: false,
@@ -156,14 +182,19 @@ export function planRaceFueling(input: RaceFuelingInput): RaceFuelingPlan {
     notes.push('Above ~60 g/h use glucose+fructose products and a trained gut — practise this intake on long runs first.');
   }
 
-  const plan = (items: RaceFuelingItem[]): RaceFuelingPlan => ({
-    targetCarbsPerHourG: target,
-    gelIntervalMin,
-    items,
-    totalCarbsG: items.filter((i) => i.kind === 'gel').reduce((sum, i) => sum + i.carbsG, 0),
-    needsMultipleTransportable,
-    notes,
-  });
+  const plan = (items: RaceFuelingItem[], intervalMin: number = gelIntervalMin): RaceFuelingPlan => {
+    const totalCarbsG = items.filter((i) => i.kind === 'gel').reduce((sum, i) => sum + i.carbsG, 0);
+    const hours = isPositiveFinite(input.finishSec) ? input.finishSec / 3600 : 0;
+    return {
+      targetCarbsPerHourG: target,
+      gelIntervalMin: intervalMin,
+      deliveredCarbsPerHourG: hours > 0 ? Math.round((totalCarbsG / hours) * 10) / 10 : 0,
+      items,
+      totalCarbsG,
+      needsMultipleTransportable,
+      notes,
+    };
+  };
 
   const { finishSec, distanceMi } = input;
   if (!isPositiveFinite(finishSec) || !isPositiveFinite(distanceMi)) {
@@ -196,11 +227,23 @@ export function planRaceFueling(input: RaceFuelingInput): RaceFuelingPlan {
   }
 
   const intervalSec = gelIntervalMin * 60;
-  const firstSec = clampNumber(intervalSec, FIRST_GEL_MIN_SEC, FIRST_GEL_MAX_SEC);
+  // v1.0.7 (R-5): deliver the target over the WHOLE race. The old fixed cadence
+  // (first gel one interval in, none in the final 15 min) left a 60 g/h plan at
+  // 50–56 g/h. Now: gel count = round(target × hours ÷ gel), spread evenly from
+  // the first gel to 15 min before the finish — never faster than the lower of
+  // 1.2 × the athlete's target and 90 g/h at any point (so a short window can
+  // under-deliver slightly; the note and deliveredCarbsPerHourG say so).
+  const firstSec = Math.round(clampNumber(intervalSec, FIRST_GEL_MIN_SEC, FIRST_GEL_MAX_SEC));
   const lastAllowedSec = finishSec - NO_GEL_FINAL_SEC;
-  for (let k = 0; k < MAX_RACE_GELS; k++) {
-    const timeSec = Math.round(firstSec + k * intervalSec);
-    if (timeSec > lastAllowedSec) break;
+  const windowSec = lastAllowedSec - firstSec;
+  const wanted = Math.min(MAX_RACE_GELS, Math.max(1, Math.round((target * finishSec) / 3600 / gelCarbsG)));
+  const maxInWindowRate = Math.min(target * MAX_IN_WINDOW_RATE_FACTOR, RACE_MAX_CARBS_PER_HOUR_G);
+  const minSpacingSec = ((60 * gelCarbsG) / maxInWindowRate) * 60;
+  const fits = windowSec < 0 ? 0 : Math.floor(windowSec / minSpacingSec + 1e-9) + 1;
+  const count = Math.min(wanted, fits);
+  const spacingSec = count > 1 ? windowSec / (count - 1) : intervalSec;
+  for (let k = 0; k < count; k++) {
+    const timeSec = Math.round(firstSec + k * spacingSec);
     const mi = distanceAt(timeSec);
     const station = nearestAidStation(input.aidStations, mi);
     items.push({
@@ -213,7 +256,13 @@ export function planRaceFueling(input: RaceFuelingInput): RaceFuelingPlan {
     });
   }
   notes.push("No gels in the final 15 minutes — they can't be absorbed in time to help.");
-  return plan(items);
+  const result = plan(items, spacingSec / 60);
+  if (count < wanted) {
+    notes.push(
+      `Only ${count} gel${count === 1 ? '' : 's'} fit between ${Math.round(firstSec / 60)} min and 15 min before the finish without bunching them — about ${Math.round(result.deliveredCarbsPerHourG)} g/h over the race. The pre-race gel helps close the gap.`,
+    );
+  }
+  return result;
 }
 
 // ── Fluid safety (shared with the Fuel tab) ───────────────────────────────────
@@ -232,6 +281,176 @@ const DEFAULT_DRINK_ML_PER_HOUR = 400;
 export function fluidCeilingMlPerHour(sweatRateLPerHour: number | undefined): number | null {
   if (!isPositiveFinite(sweatRateLPerHour)) return null;
   return Math.floor(Math.min(sweatRateLPerHour * 1000 * SWEAT_REPLACEMENT_CAP, MAX_PLANNED_FLUID_ML_PER_HOUR));
+}
+
+// ── Sweat-rate test (v1.0.7, R-2) ─────────────────────────────────────────────
+
+/** Sweat rates the app stores (L/h) — the same bounds as athleteProfile. */
+export const SWEAT_RATE_RANGE_L_PER_HOUR = { min: 0.2, max: 3.5 } as const;
+const SWEAT_TEST_MASS_KG = { min: 25, max: 250 } as const;
+const SWEAT_TEST_DURATION_MIN = { min: 30, max: 300 } as const;
+const SWEAT_TEST_MAX_FLUID_L = 5;
+
+/** Input for {@link estimateSweatRate}. Masses in kg, volumes in litres. */
+export interface SweatTestInput {
+  preKg: number;
+  postKg: number;
+  /** Fluid drunk during the run (L). */
+  fluidL: number;
+  /** Optional: urine passed during the run (L). */
+  urineL?: number;
+  durationMin: number;
+}
+
+export type SweatTestResult =
+  | {
+    ok: true;
+    /** Sweat rate (L/h), 2 dp. */
+    sweatRateLPerHour: number;
+    /** Body-mass change during the run (%), negative = lost weight. */
+    massChangePct: number;
+    warnings: string[];
+  }
+  | { ok: false; error: string };
+
+/**
+ * v1.0.7 (R-2): sweat rate from a simple test run —
+ * (pre-run mass − post-run mass + fluid drunk − urine) ÷ hours (1 kg ≈ 1 L).
+ * Pure; validates every input and never returns NaN.
+ */
+export function estimateSweatRate(input: SweatTestInput): SweatTestResult {
+  const { preKg, postKg, fluidL, durationMin } = input;
+  const urineL = input.urineL ?? 0;
+  const massOk = (kg: number) => Number.isFinite(kg) && kg >= SWEAT_TEST_MASS_KG.min && kg <= SWEAT_TEST_MASS_KG.max;
+  if (!massOk(preKg) || !massOk(postKg)) {
+    return { ok: false, error: 'Enter your body mass before and after the run.' };
+  }
+  if (!Number.isFinite(fluidL) || fluidL < 0 || fluidL > SWEAT_TEST_MAX_FLUID_L) {
+    return { ok: false, error: 'Enter how much you drank during the run (0 if nothing).' };
+  }
+  if (!Number.isFinite(urineL) || urineL < 0 || urineL > SWEAT_TEST_MAX_FLUID_L) {
+    return { ok: false, error: 'Enter a valid urine volume, or leave it empty.' };
+  }
+  if (!Number.isFinite(durationMin) || durationMin < SWEAT_TEST_DURATION_MIN.min || durationMin > SWEAT_TEST_DURATION_MIN.max) {
+    return { ok: false, error: `Use a run of ${SWEAT_TEST_DURATION_MIN.min}–${SWEAT_TEST_DURATION_MIN.max} minutes.` };
+  }
+  const lossL = preKg - postKg + fluidL - urineL;
+  const rate = lossL / (durationMin / 60);
+  if (!(rate >= SWEAT_RATE_RANGE_L_PER_HOUR.min && rate <= SWEAT_RATE_RANGE_L_PER_HOUR.max)) {
+    return {
+      ok: false,
+      error: `That works out to ${Number.isFinite(rate) ? rate.toFixed(2) : '?'} L/h, outside the usual ${SWEAT_RATE_RANGE_L_PER_HOUR.min}–${SWEAT_RATE_RANGE_L_PER_HOUR.max} L/h. Check the numbers (same scale, minimal clothing, towel off first).`,
+    };
+  }
+  const massChangePct = Math.round(((postKg - preKg) / preKg) * 1000) / 10;
+  const warnings: string[] = [];
+  if (postKg > preKg) {
+    warnings.push('You finished heavier than you started: you drank more than you sweated. In a race, drink less than that — weight gain is how hyponatremia starts.');
+  } else if (massChangePct <= -3) {
+    warnings.push('You lost more than 3% of your body mass. Drinking a little more to thirst on long, hot runs is reasonable — but never aim to replace every drop.');
+  }
+  return { ok: true, sweatRateLPerHour: Math.round(rate * 100) / 100, massChangePct, warnings };
+}
+
+/** v1.0.7 (R-2): race sodium guidance (mg/h), higher for a self-identified salty sweater. */
+export function sodiumGuidanceMgPerHour(saltySweater: boolean | undefined): { min: number; max: number } {
+  // Sweat sodium varies roughly 200–2000 mg/L between people (Baker 2017);
+  // salty sweaters sit at the top, so their suggested range is higher.
+  return saltySweater ? { min: 500, max: 1000 } : { min: 300, max: 600 };
+}
+
+// ── Pre-race caffeine card (v1.0.7, R-1) ──────────────────────────────────────
+
+/** Pre-race caffeine dose (mg/kg) ~60 min before the start (Guest et al., ISSN 2021: 3–6 mg/kg). */
+export const CAFFEINE_PRE_RACE_MG_PER_KG = 3;
+/** Late-race alternative range (mg/kg). */
+export const CAFFEINE_LATE_RACE_MG_PER_KG = { min: 1, max: 3 } as const;
+/** Minutes before the gun for the pre-race dose. */
+export const CAFFEINE_PRE_RACE_MIN_BEFORE = 60;
+/** Generally safe daily total for healthy adults (EFSA 2015 / FDA). */
+export const CAFFEINE_DAILY_MAX_MG = 400;
+/** Late-race caffeine only makes sense in races longer than this. */
+const CAFFEINE_LATE_RACE_MIN_SEC = 90 * 60;
+/** Starts at or after this local hour get the stronger sleep warning. */
+const CAFFEINE_LATE_START_HOUR = 12;
+
+export interface CaffeinePlanInput {
+  /** athleteProfile.caffeine — the card stays off unless the athlete opted in. */
+  enabled: boolean | undefined;
+  weightKg?: number;
+  /** Race-local start time 'HH:mm', if known. */
+  startTime?: string | null;
+  /** Expected finish (s), if known. */
+  finishSec?: number | null;
+}
+
+export interface CaffeinePlan {
+  enabled: boolean;
+  /** Pre-race option: ~3 mg/kg about 60 min before. Null without a body mass. */
+  preRace: { mg: number; mgPerKg: number; minutesBefore: number; clockTime: string | null } | null;
+  /** Late-race option: 1–3 mg/kg from about the last hour. Null for short races / no mass. */
+  lateRace: { minMg: number; maxMg: number; fromSec: number | null } | null;
+  /** True when the start is in the afternoon or evening. */
+  lateStart: boolean;
+  warnings: string[];
+}
+
+function roundTo5(n: number): number {
+  return Math.round(n / 5) * 5;
+}
+
+/** 'HH:mm' minus `minutes`, wrapping midnight; null for an invalid time. */
+function clockMinus(time: string | null | undefined, minutes: number): string | null {
+  const m = time ? /^(\d{1,2}):(\d{2})$/.exec(time) : null;
+  if (!m) return null;
+  const total = (((Number(m[1]) * 60 + Number(m[2]) - minutes) % 1440) + 1440) % 1440;
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
+}
+
+/**
+ * v1.0.7 (R-1): evidence-based, clearly OPTIONAL caffeine card for the Fuel tab.
+ * Pre-race ~3 mg/kg about 60 min before the start, or 1–3 mg/kg late in the
+ * race instead; doses are capped at 400 mg/day. Always returns the safety
+ * warnings (sleep, tolerance, practise in training). Pure.
+ */
+export function planCaffeine(input: CaffeinePlanInput): CaffeinePlan {
+  const enabled = input.enabled === true;
+  const startHour = input.startTime ? Number(/^(\d{1,2}):/.exec(input.startTime)?.[1]) : NaN;
+  const lateStart = Number.isFinite(startHour) && startHour >= CAFFEINE_LATE_START_HOUR;
+  const warnings = [
+    'Optional. It helps most runners a little, but skip it if you don\'t already use caffeine in training.',
+    'Practise the exact dose and product on long runs first — nothing new on race day.',
+    lateStart
+      ? 'Your race starts in the afternoon or evening: caffeine lasts 5 hours or more and is likely to disrupt your sleep that night.'
+      : 'Caffeine lasts 5 hours or more: avoid it the evening before, as poor sleep costs more than caffeine gains.',
+    'More is not better: above ~6 mg/kg you get jitters, a racing heart and stomach upset without extra benefit. Count coffee, gels, tablets and energy drinks together.',
+    'Skip it, or ask your doctor first, if you are pregnant, have a heart condition or high blood pressure, or are sensitive to caffeine.',
+  ];
+  const weightKg = input.weightKg;
+  if (!isPositiveFinite(weightKg)) {
+    return { enabled, preRace: null, lateRace: null, lateStart, warnings };
+  }
+  const preMg = Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_PRE_RACE_MG_PER_KG * weightKg));
+  const finishSec = isPositiveFinite(input.finishSec ?? undefined) ? (input.finishSec as number) : null;
+  const lateRace = finishSec !== null && finishSec < CAFFEINE_LATE_RACE_MIN_SEC
+    ? null
+    : {
+      minMg: Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_LATE_RACE_MG_PER_KG.min * weightKg)),
+      maxMg: Math.min(CAFFEINE_DAILY_MAX_MG, roundTo5(CAFFEINE_LATE_RACE_MG_PER_KG.max * weightKg)),
+      fromSec: finishSec !== null ? Math.round(Math.max(finishSec / 2, finishSec - CAFFEINE_LEAD_SEC)) : null,
+    };
+  return {
+    enabled,
+    preRace: {
+      mg: preMg,
+      mgPerKg: Math.round((preMg / weightKg) * 10) / 10,
+      minutesBefore: CAFFEINE_PRE_RACE_MIN_BEFORE,
+      clockTime: clockMinus(input.startTime, CAFFEINE_PRE_RACE_MIN_BEFORE),
+    },
+    lateRace,
+    lateStart,
+    warnings,
+  };
 }
 
 // ── Legacy fueling plan builder (now on the shared cadence) ───────────────────

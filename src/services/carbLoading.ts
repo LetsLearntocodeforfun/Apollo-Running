@@ -13,6 +13,10 @@
  * g/kg/day, default 10), an optional D-3 lead-in (≤ 8 g/kg), and race morning
  * (2.5 g/kg, ~3 h pre-start). Targets use at most 90 kg of body mass: glycogen
  * storage tracks muscle mass, not total body weight.
+ *
+ * v1.0.7 (R-4): race morning now follows the ONE shared race-breakfast rule
+ * ({@link raceBreakfastGPerKg}: light 1 / moderate 2 / full 3 g/kg, ≤ ~1 g/kg
+ * per hour before the start), the same rule the race-morning timeline uses.
  */
 
 import type {
@@ -69,7 +73,6 @@ export const CARB_LOAD_MASS_CAP_KG = 90;
 const LEAD_IN_G_PER_KG = 8;
 /** Days outside the loading window (g/kg/day). */
 const NORMAL_DAY_G_PER_KG = 6;
-const RACE_MORNING_CARBS_PER_KG = 2.5;
 const MAX_SERVINGS_PER_FOOD = 2;
 const RACE_MORNING_TOLERANCE_G = 10;
 
@@ -78,6 +81,8 @@ export interface CarbLoadingOptions {
   carbsPerKg?: number;
   /** Include the optional D-3 lead-in day. Default true. */
   includeDay3?: boolean;
+  /** v1.0.7 (R-4): race-breakfast size (the race-morning setup's choice). Default 'moderate'. */
+  breakfastSize?: RaceBreakfastSize;
 }
 
 function isValidWeight(weightKg: number | undefined): weightKg is number {
@@ -87,6 +92,58 @@ function isValidWeight(weightKg: number | undefined): weightKg is number {
 /** Body mass the g/kg targets use: capped at {@link CARB_LOAD_MASS_CAP_KG}. */
 function effectiveMassKg(weightKg: number): number {
   return Math.min(weightKg, CARB_LOAD_MASS_CAP_KG);
+}
+
+// ── Race breakfast: ONE rule (v1.0.7, R-4) ────────────────────────────────────
+// The Fuel tab used 2.5 g/kg and the race-morning timeline 1/2/3 g/kg; both
+// now use this rule. Evidence: 1–4 g carbs/kg eaten 1–4 h before the start
+// (Burke 2011; Thomas, Erdman & Burke / ACSM 2016) — roughly 1 g/kg for each
+// hour before the gun, so a bigger breakfast needs more time to settle.
+
+export type RaceBreakfastSize = 'light' | 'moderate' | 'full';
+/** g carbs per kg for each breakfast size. */
+export const RACE_BREAKFAST_G_PER_KG: Readonly<Record<RaceBreakfastSize, number>> = { light: 1, moderate: 2, full: 3 };
+export const DEFAULT_RACE_BREAKFAST_SIZE: RaceBreakfastSize = 'moderate';
+/** Evidence range for the pre-race meal. */
+export const RACE_BREAKFAST_RANGE = { minGPerKg: 1, maxGPerKg: 4, minHoursBefore: 1, maxHoursBefore: 4 } as const;
+/** Default timing: about 3 h before the start. */
+export const RACE_BREAKFAST_DEFAULT_MIN_BEFORE = 180;
+/** One-line statement of the rule for UI copy. */
+export const RACE_BREAKFAST_RULE_TEXT = '1–4 g of carbs per kg of body weight, 1–4 hours before the start — about 1 g/kg for each hour';
+/**
+ * Food guidance shared by every race-breakfast surface. Oatmeal is NOT
+ * low-fibre: it is offered only for runners already used to it.
+ */
+export const RACE_BREAKFAST_FOODS =
+  'Familiar, low-fat, low-fibre foods: a white bagel or toast with honey or jam, a banana, white rice or a sports drink. ' +
+  'Oatmeal has more fibre — fine only if you always eat it before long runs. Nothing new on race day.';
+
+function isBreakfastSize(size: unknown): size is RaceBreakfastSize {
+  return size === 'light' || size === 'moderate' || size === 'full';
+}
+
+/**
+ * g carbs/kg for a race breakfast of `size` eaten `minutesBefore` the start:
+ * the size's value, but never more than ~1 g/kg per hour before (1–4 g/kg).
+ */
+export function raceBreakfastGPerKg(
+  size: RaceBreakfastSize | undefined = DEFAULT_RACE_BREAKFAST_SIZE,
+  minutesBefore: number = RACE_BREAKFAST_DEFAULT_MIN_BEFORE,
+): number {
+  const perKg = RACE_BREAKFAST_G_PER_KG[isBreakfastSize(size) ? size : DEFAULT_RACE_BREAKFAST_SIZE];
+  const hours = Number.isFinite(minutesBefore) ? minutesBefore / 60 : RACE_BREAKFAST_DEFAULT_MIN_BEFORE / 60;
+  const ceiling = Math.min(RACE_BREAKFAST_RANGE.maxGPerKg, Math.max(RACE_BREAKFAST_RANGE.minGPerKg, hours));
+  return Math.min(perKg, ceiling);
+}
+
+/** Race-breakfast carbs (g) from the shared rule; body mass capped at 90 kg; invalid mass → 0. */
+export function raceBreakfastCarbsG(
+  weightKg: number | undefined,
+  size?: RaceBreakfastSize,
+  minutesBefore?: number,
+): number {
+  if (!isValidWeight(weightKg)) return 0;
+  return Math.round(raceBreakfastGPerKg(size, minutesBefore) * effectiveMassKg(weightKg));
 }
 
 /** Clamp a requested loading target to 8–12 g/kg/day (default 10). */
@@ -122,7 +179,7 @@ export function generateCarbLoadingProtocol(
       weightKg: 0,
       raceDate,
       days: [],
-      raceMorning: buildRaceMorningDay(0),
+      raceMorning: buildRaceMorningDay(0, options.breakfastSize),
       totalCarbTargetG: 0,
       summary: message,
       carbsPerKg,
@@ -155,7 +212,7 @@ export function generateCarbLoadingProtocol(
     totalCarbTarget += targetCarbsG;
   }
 
-  const raceMorning = buildRaceMorningDay(massKg);
+  const raceMorning = buildRaceMorningDay(massKg, options.breakfastSize);
   totalCarbTarget += raceMorning.targetCarbsG;
 
   const notes = [
@@ -281,8 +338,10 @@ const RACE_MORNING_CHOICES: { name: string; max: number }[] = [
  * Race-morning meal built from the food database up to the target (N-13),
  * with a shortfall warning when the simple foods can't reach it.
  */
-function buildRaceMorningDay(massKg: number): CarbLoadingDay {
-  const targetCarbsG = Math.round(RACE_MORNING_CARBS_PER_KG * massKg);
+function buildRaceMorningDay(massKg: number, size?: RaceBreakfastSize): CarbLoadingDay {
+  // v1.0.7 (R-4): the shared race-breakfast rule, ~3 h before the start.
+  const perKg = raceBreakfastGPerKg(size);
+  const targetCarbsG = Math.round(perKg * massKg);
   const servings = new Map<FoodItem, number>();
   let carbs = 0;
   for (const choice of RACE_MORNING_CHOICES) {
@@ -302,12 +361,12 @@ function buildRaceMorningDay(massKg: number): CarbLoadingDay {
     daysBefore: 0,
     intensity: 'race_morning',
     targetCarbsG,
-    carbsPerKg: RACE_MORNING_CARBS_PER_KG,
+    carbsPerKg: perKg,
     targetCalories: Math.round(targetCarbsG * 4 * 1.2),
     meals: carbs > 0
       ? [{ name: 'Pre-Race Meal', timing: '3 hours before start', carbsG: carbs, description: describeSelection(servings) }]
       : [],
-    fiberGuidance: 'Low fiber, low fat: white bread or bagel, banana, honey, sports drink. Nothing new on race day.',
+    fiberGuidance: RACE_BREAKFAST_FOODS,
     ...(hasShortfall
       ? {
         shortfallG,
@@ -333,8 +392,8 @@ export function getDailyCarbTarget(
 
 /**
  * Get race morning carb target (2.5 g/kg, at most 90 kg of body mass; invalid weight → 0).
+ * v1.0.7 (R-4): now the shared race-breakfast rule — default 'moderate' (2 g/kg) ~3 h before.
  */
-export function getRaceMorningCarbTarget(weightKg: number): number {
-  if (!isValidWeight(weightKg)) return 0;
-  return Math.round(RACE_MORNING_CARBS_PER_KG * effectiveMassKg(weightKg));
+export function getRaceMorningCarbTarget(weightKg: number, size?: RaceBreakfastSize): number {
+  return raceBreakfastCarbsG(weightKg, size);
 }

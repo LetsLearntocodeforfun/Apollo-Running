@@ -585,13 +585,24 @@ function buildNutritionPlan(
   finishSec: number,
   options: BuildStrategyOptions
 ): NutritionPlan[] {
+  return nutritionPlanFor(getRaceDistanceMi(marathon), milePaces, finishSec, marathon.aidStations, options);
+}
+
+/** Shared by {@link buildNutritionPlan} (save time) and {@link liveNutritionPlan} (display time). */
+function nutritionPlanFor(
+  distanceMi: number,
+  milePaces: MilePacePlan[],
+  finishSec: number,
+  aidStations: MarathonRace['aidStations'] | undefined,
+  options: BuildStrategyOptions,
+): NutritionPlan[] {
   const fuel = planRaceFueling({
     finishSec,
-    distanceMi: getRaceDistanceMi(marathon),
+    distanceMi,
     carbsPerHourG: options.carbsPerHourG ?? getCarbToleranceGPerHour(),
     ...(options.gelCarbsG && options.gelCarbsG > 0 ? { gelCarbsG: options.gelCarbsG } : {}),
-    distanceAtTimeSec: (t) => distanceAtTime(milePaces, t),
-    aidStations: marathon.aidStations,
+    ...(milePaces.length > 0 ? { distanceAtTimeSec: (t: number) => distanceAtTime(milePaces, t) } : {}),
+    aidStations,
   });
   let gelNo = 0;
   return fuel.items.map((item) => ({
@@ -607,6 +618,38 @@ function buildNutritionPlan(
   }));
 }
 
+
+/**
+ * v1.0.7 (R-3): the strategy's gel plan computed NOW from its saved pacing
+ * (`milePaces`, `targetTimeSec`) and the athlete's CURRENT carb tolerance, so
+ * the race card and Strategy view can never drift from the Fuel tab. The
+ * `nutritionPlan` saved with a strategy is a snapshot; display code should
+ * use this instead. `marathon` supplies aid stations (looked up by id if omitted).
+ */
+export function liveNutritionPlan(
+  strategy: RaceStrategy,
+  marathon?: MarathonRace,
+  options: Pick<BuildStrategyOptions, 'carbsPerHourG' | 'gelCarbsG'> = {},
+): NutritionPlan[] {
+  const race = marathon ?? getMarathon(strategy.marathonId) ?? undefined;
+  return nutritionPlanFor(
+    getStrategyDistanceMi(strategy),
+    strategy.milePaces,
+    strategy.targetTimeSec,
+    race?.aidStations,
+    options,
+  );
+}
+
+/**
+ * v1.0.7 (R-3): true when a saved strategy's fuel snapshot no longer matches
+ * the live plan (e.g. carb tolerance changed since it was saved).
+ */
+export function isNutritionPlanStale(strategy: RaceStrategy, live: NutritionPlan[]): boolean {
+  const saved = strategy.nutritionPlan ?? [];
+  if (saved.length !== live.length) return true;
+  return saved.some((n, i) => n.timeSec !== live[i].timeSec || n.carbsG !== live[i].carbsG || n.item !== live[i].item);
+}
 
 // ── Helpers ──
 

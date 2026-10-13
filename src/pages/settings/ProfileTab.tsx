@@ -16,6 +16,11 @@ import {
   type TemperatureUnit,
 } from '../../services/athleteProfile';
 import { getDistanceUnit, setDistanceUnit, type DistanceUnit } from '../../services/unitPreferences';
+import {
+  CAFFEINE_PRE_RACE_MG_PER_KG,
+  CARB_TOLERANCE_MAX_G_PER_HOUR,
+  CARB_TOLERANCE_MIN_G_PER_HOUR,
+} from '../../services/fuelingCalculator';
 import { getHRProfile, setHRProfile } from '../../services/heartRate';
 import { syncPlanCalendarIfChanged } from '../../services/planCalendarSync';
 import { todayKey } from '../../utils/localDate';
@@ -389,15 +394,17 @@ export default function ProfileTab() {
               {...describe('carbTolerance', 'settings-profile-carb-hint')}
               type="number"
               inputMode="numeric"
-              min={0}
-              max={120}
+              min={CARB_TOLERANCE_MIN_G_PER_HOUR}
+              max={CARB_TOLERANCE_MAX_G_PER_HOUR}
               placeholder={String(DEFAULT_CARB_TOLERANCE_G_PER_HOUR)}
               value={draft.carbTolerance}
               onChange={(e) => set('carbTolerance', e.target.value)}
               className="settings-input settings-input--short"
             />
             <p id="settings-profile-carb-hint" className="settings-hint">
-              Used to size your race fueling plan. Leave empty to use {DEFAULT_CARB_TOLERANCE_G_PER_HOUR} g/h.
+              {/* v1.0.7 (R-7): same range as the Fuel tab and the fueling engine. */}
+              Used to size your race fueling plan ({CARB_TOLERANCE_MIN_G_PER_HOUR}–{CARB_TOLERANCE_MAX_G_PER_HOUR} g/h; above
+              60 needs glucose + fructose and a trained gut). Leave empty to use {DEFAULT_CARB_TOLERANCE_G_PER_HOUR} g/h.
             </p>
             <FieldError field="carbTolerance" errors={errors} />
           </div>
@@ -411,7 +418,12 @@ export default function ProfileTab() {
             />
             <span>I use caffeine during races</span>
           </label>
-          <p id="settings-profile-caffeine-hint" className="settings-hint settings-indent">Used to add caffeine timing to your fueling plan.</p>
+          {/* v1.0.7 (R-1): the setting now drives the caffeine card on Race Day › Fuel. */}
+          <p id="settings-profile-caffeine-hint" className="settings-hint settings-indent">
+            Optional. Shows a caffeine plan on Race Day › Fuel: about {CAFFEINE_PRE_RACE_MG_PER_KG} mg per kg of body
+            weight about an hour before the start, or a smaller dose late in the race. Only use what you have practised
+            in training.
+          </p>
         </div>
 
         <div className="settings-save-bar">

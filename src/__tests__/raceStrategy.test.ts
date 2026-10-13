@@ -204,19 +204,23 @@ describe('buildRaceStrategy', () => {
     expect(strategy!.nutritionPlan.length).toBeGreaterThanOrEqual(3);
   });
 
-  it('places gels by projected race time (slower = more gels, none in the last 2 miles)', () => {
-    const gelMiles = (targetSec: number) =>
+  // v1.0.7 (R-5): gels now run up to 15 min before the finish so the plan delivers its
+  // target; at a 5:00 finish that is ~1.3 mi from the end (was "none in the last 2 miles").
+  it('places gels by projected race time (slower = more gels, none in the final 15 min)', () => {
+    const gels = (targetSec: number) =>
       buildRaceStrategy('chicago-marathon-2026', targetSec, 'even-split')!
-        .nutritionPlan.filter((n) => n.item.startsWith('Energy gel'))
-        .map((n) => n.mile);
-    const fast = gelMiles(2.75 * 3600);
-    const slow = gelMiles(5 * 3600);
+        .nutritionPlan.filter((n) => n.item.startsWith('Energy gel'));
+    for (const [targetSec, list] of [[2.75 * 3600, gels(2.75 * 3600)], [5 * 3600, gels(5 * 3600)]] as const) {
+      for (const g of list) {
+        expect(g.mile).toBeGreaterThan(0);
+        expect(g.mile).toBeLessThan(26.2);
+        expect(g.timeSec!).toBeLessThanOrEqual(targetSec - 15 * 60);
+      }
+    }
+    const fast = gels(2.75 * 3600);
+    const slow = gels(5 * 3600);
     expect(fast.length).toBeGreaterThanOrEqual(3);
     expect(slow.length).toBeGreaterThan(fast.length);
-    for (const mile of [...fast, ...slow]) {
-      expect(mile).toBeGreaterThan(0);
-      expect(mile).toBeLessThanOrEqual(24);
-    }
   });
 
   it('should return null for an invalid marathon ID', () => {

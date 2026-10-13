@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import ElevationChart, { type ElevationHighlight } from './ElevationChart';
 import {
   buildRaceStrategy,
@@ -9,10 +9,14 @@ import {
   formatPaceForUnit,
   getRaceDistanceMi,
   getStrategyDistanceMi,
+  isNutritionPlanStale,
+  liveNutritionPlan,
   plannedSplitPct,
   saveStrategy,
   validateGoalTime,
 } from '../services/raceStrategy';
+import { getCarbToleranceGPerHour, onAthleteProfileChanged } from '../services/athleteProfile';
+import { CARB_TOLERANCE_MAX_G_PER_HOUR } from '../services/fuelingCalculator';
 import { getDistanceUnit, paceUnitLabel, type DistanceUnit } from '../services/unitPreferences';
 import type { MarathonRace, RaceStrategy, PacingStrategy } from '../types/raceStrategy';
 import './race/Strategy.css';
@@ -334,6 +338,16 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
   const diffWords = diff < 0 ? 'negative split' : diff > 0 ? 'positive split' : 'even';
   const unitWord = unit === 'km' ? 'Km' : 'Mile';
 
+  // v1.0.7 (R-3): show the fuel plan computed now (current carb tolerance), not
+  // the snapshot saved with the strategy, so it always matches the Fuel tab.
+  const [carbsPerHourG, setCarbsPerHourG] = useState(() => getCarbToleranceGPerHour());
+  useEffect(() => onAthleteProfileChanged(() => setCarbsPerHourG(getCarbToleranceGPerHour())), []);
+  const nutritionPlan = useMemo(
+    () => liveNutritionPlan(strategy, marathon, { carbsPerHourG }),
+    [strategy, marathon, carbsPerHourG],
+  );
+  const fuelUpdated = !isPreview && isNutritionPlanStale(strategy, nutritionPlan);
+
   const summary: { label: string; value: string; gold?: boolean }[] = [
     { label: 'Target', value: formatDurationSec(strategy.targetTimeSec), gold: true },
     { label: 'Average pace', value: `${formatPaceForUnit(strategy.targetTimeSec / distanceMi, unit)}${paceLabel}` },
@@ -426,11 +440,16 @@ function StrategyDetails({ strategy, marathon, unit, isActive, isPreview, highli
 
       <section className="card rs-section" aria-labelledby={`${idPrefix}-fuel`}>
         <h4 id={`${idPrefix}-fuel`} className="rs-eyebrow">Fuel plan</h4>
-        {strategy.nutritionPlan.length === 0 ? (
+        {fuelUpdated && (
+          <p className="rs-help" role="note">
+            Updated to your current carb target ({Math.round(Math.min(carbsPerHourG, CARB_TOLERANCE_MAX_G_PER_HOUR))} g/h) — it now matches the Fuel tab.
+          </p>
+        )}
+        {nutritionPlan.length === 0 ? (
           <p className="rs-muted">No fuel stops planned for this race.</p>
         ) : (
           <ul className="rs-fuel-list">
-            {strategy.nutritionPlan.map((np, i) => (
+            {nutritionPlan.map((np, i) => (
               <li key={i} className="rs-fuel-item">
                 <span className="rs-fuel-when">
                   {typeof np.timeSec === 'number'

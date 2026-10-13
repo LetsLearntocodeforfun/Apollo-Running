@@ -12,6 +12,7 @@
 import { persistence } from './db/persistence';
 import { getDistanceUnit } from './unitPreferences';
 import { isDateKey } from '../utils/localDate';
+import { CARB_TOLERANCE_MAX_G_PER_HOUR, CARB_TOLERANCE_MIN_G_PER_HOUR } from './fuelingCalculator';
 
 export const ATHLETE_PROFILE_KEY = 'apollo_athlete_profile';
 export const ATHLETE_PROFILE_CHANGED_EVENT = 'apollo:athlete-profile-changed';
@@ -44,6 +45,8 @@ export interface AthleteProfile {
   caffeine?: boolean;
   /** Measured sweat rate in litres per hour. */
   sweatRateLPerHour?: number;
+  /** v1.0.7 (R-2): self-identified salty sweater (white salt marks on kit) — raises sodium guidance. */
+  saltySweater?: boolean;
   temperatureUnit?: TemperatureUnit;
   massUnit?: MassUnit;
   updatedAt?: string;
@@ -89,9 +92,17 @@ export function sanitizeAthleteProfile(input: unknown): AthleteProfile {
     };
   }
   if (inRange(p.goalMarathonSec, LIMITS.goalMarathonSec)) out.goalMarathonSec = Math.round(p.goalMarathonSec);
-  if (inRange(p.carbToleranceGPerHour, LIMITS.carbTolerance)) out.carbToleranceGPerHour = Math.round(p.carbToleranceGPerHour);
+  // v1.0.7 (R-7): older profiles may hold 0–120 g/h; keep them, clamped to the shared
+  // 20–90 range so Settings never rejects a value the user didn't just type.
+  if (inRange(p.carbToleranceGPerHour, LIMITS.carbTolerance)) {
+    out.carbToleranceGPerHour = Math.min(
+      CARB_TOLERANCE_MAX_G_PER_HOUR,
+      Math.max(CARB_TOLERANCE_MIN_G_PER_HOUR, Math.round(p.carbToleranceGPerHour)),
+    );
+  }
   if (typeof p.caffeine === 'boolean') out.caffeine = p.caffeine;
   if (inRange(p.sweatRateLPerHour, LIMITS.sweatRate)) out.sweatRateLPerHour = Math.round(p.sweatRateLPerHour * 100) / 100;
+  if (typeof p.saltySweater === 'boolean') out.saltySweater = p.saltySweater;
   if (p.temperatureUnit === 'F' || p.temperatureUnit === 'C') out.temperatureUnit = p.temperatureUnit;
   if (p.massUnit === 'kg' || p.massUnit === 'lb') out.massUnit = p.massUnit;
   if (typeof p.updatedAt === 'string') out.updatedAt = p.updatedAt;

@@ -6,8 +6,12 @@
  * explicit Save. The preview is a fully sandboxed iframe; Print uses the
  * service's hidden-iframe helper (window.open is blocked in the desktop app)
  * and Download saves a standalone .html file.
+ *
+ * v1.0.7 (R-3): the fuel column is computed live from the strategy's pacing
+ * and the CURRENT carb tolerance (`liveNutritionPlan`), so it always matches
+ * the Fuel tab instead of the snapshot saved with the strategy.
  */
-import { useId, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useId, useMemo, useState, type FormEvent } from 'react';
 import type { RaceDayContext, RacePanelProps } from './types';
 import { EmptyState } from '../ui';
 import {
@@ -17,7 +21,8 @@ import {
   printRaceCard,
   setRaceCardPrefs,
 } from '../../services/raceCard';
-import { KM_PER_MI, getMarathon, getStrategyDistanceMi } from '../../services/raceStrategy';
+import { KM_PER_MI, getMarathon, getStrategyDistanceMi, liveNutritionPlan } from '../../services/raceStrategy';
+import { getCarbToleranceGPerHour, onAthleteProfileChanged } from '../../services/athleteProfile';
 import { getDistanceUnit } from '../../services/unitPreferences';
 import { normalizeMarathonId } from '../../data/worldMajors';
 
@@ -85,6 +90,14 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
     return getMarathon(strategy.marathonId);
   }, [strategy, race]);
 
+  // v1.0.7 (R-3): re-plan fuel when the carb tolerance changes.
+  const [carbsPerHourG, setCarbsPerHourG] = useState(() => getCarbToleranceGPerHour());
+  useEffect(() => onAthleteProfileChanged(() => setCarbsPerHourG(getCarbToleranceGPerHour())), []);
+  const nutritionPlan = useMemo(
+    () => (strategy ? liveNutritionPlan(strategy, marathon, { carbsPerHourG }) : []),
+    [strategy, marathon, carbsPerHourG],
+  );
+
   const startInfo = startInfoFor(ctx);
   const card = useMemo(() => {
     if (!strategy) return null;
@@ -98,8 +111,9 @@ export default function RaceCardPanel({ ctx }: RacePanelProps) {
       mantras: cleanMantras(mantras),
       raceDate: ctx.raceDate ?? undefined,
       startInfo: startInfo || undefined,
+      nutritionPlan,
     });
-  }, [strategy, marathon, unit, contactName, contactPhone, mantras, ctx.raceDate, startInfo]);
+  }, [strategy, marathon, unit, contactName, contactPhone, mantras, ctx.raceDate, startInfo, nutritionPlan]);
 
   const points = useMemo(
     () => (strategy ? mantraPoints(getStrategyDistanceMi(strategy), unit) : []),

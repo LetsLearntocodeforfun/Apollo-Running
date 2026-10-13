@@ -5,6 +5,11 @@
  * Everything is computed from the shared RaceDayContext and the athlete
  * profile. The only writes are explicit Save buttons (carb tolerance, body
  * mass) through `updateAthleteProfile` — nothing is persisted while rendering.
+ *
+ * v1.0.7: caffeine card driven by the Settings caffeine choice (R-1), a
+ * sweat-rate test and salty-sweater flag feeding the fluid ceiling (R-2), the
+ * shared race-breakfast rule (R-4), the delivered g/h chip (R-5) and the shared
+ * carb range (R-7).
  */
 import { useEffect, useId, useMemo, useState } from 'react';
 import type { FormEvent } from 'react';
@@ -13,15 +18,24 @@ import type { CarbLoadingDay } from '../../types/nutrition';
 import { EmptyState } from '../ui';
 import {
   planRaceFueling,
+  planCaffeine,
+  estimateSweatRate,
+  sodiumGuidanceMgPerHour,
   fluidCeilingMlPerHour,
   MAX_PLANNED_FLUID_ML_PER_HOUR,
+  CARB_TOLERANCE_MIN_G_PER_HOUR,
+  CARB_TOLERANCE_MAX_G_PER_HOUR,
 } from '../../services/fuelingCalculator';
 import {
   generateCarbLoadingProtocol,
   CARB_LOAD_G_PER_KG_OPTIONS,
   CARB_LOAD_MASS_CAP_KG,
   DEFAULT_CARB_LOAD_G_PER_KG,
+  DEFAULT_RACE_BREAKFAST_SIZE,
+  RACE_BREAKFAST_RULE_TEXT,
 } from '../../services/carbLoading';
+import type { RaceBreakfastSize } from '../../services/carbLoading';
+import { getMyRace, onMyRaceChanged } from '../../services/myRace';
 import {
   getAthleteProfile,
   updateAthleteProfile,
@@ -40,8 +54,9 @@ import { addDays, isDateKey, parseDateKey } from '../../utils/localDate';
 import './Fuel.css';
 
 const ML_PER_OZ = 29.5735;
-const CARB_TOLERANCE_MIN = 30;
-const CARB_TOLERANCE_MAX = 90;
+// v1.0.7 (R-7): the shared carb range (was a local 30–90).
+const CARB_TOLERANCE_MIN = CARB_TOLERANCE_MIN_G_PER_HOUR;
+const CARB_TOLERANCE_MAX = CARB_TOLERANCE_MAX_G_PER_HOUR;
 const MASS_LIMITS_KG = { min: 25, max: 250 };
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
@@ -74,6 +89,14 @@ function breakfastTime(startTime: string | null): string | null {
   return `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
 }
 
+/** v1.0.7 (R-4): the race-morning breakfast size (My Race), so both tabs agree. */
+function useBreakfastSize(): RaceBreakfastSize {
+  const read = () => getMyRace().mealSize ?? DEFAULT_RACE_BREAKFAST_SIZE;
+  const [size, setSize] = useState<RaceBreakfastSize>(read);
+  useEffect(() => onMyRaceChanged(() => setSize(read())), []);
+  return size;
+}
+
 /** The stored athlete profile, refreshed whenever it changes. */
 function useAthleteProfile(): AthleteProfile {
   const [profile, setProfile] = useState<AthleteProfile>(() => getAthleteProfile());
@@ -90,6 +113,7 @@ export default function FuelPanel({ ctx }: RacePanelProps) {
   return (
     <div className="fuel-panel">
       <FuelTimelineSection ctx={ctx} profile={profile} unit={unit} />
+      <CaffeineSection ctx={ctx} profile={profile} unit={unit} />
       <CarbLoadSection ctx={ctx} profile={profile} />
       <HydrationSection ctx={ctx} profile={profile} unit={unit} />
     </div>
@@ -141,6 +165,8 @@ function FuelTimelineSection({ ctx, profile, unit }: SectionProps) {
             <li className="fuel-chip">Target {Math.round(plan.targetCarbsPerHourG)} g/h</li>
             {plan.gelIntervalMin > 0 && <li className="fuel-chip">A gel every {Math.round(plan.gelIntervalMin)} min</li>}
             <li className="fuel-chip">{plan.totalCarbsG} g during the race</li>
+            {/* v1.0.7 (R-5): what the plan really delivers over the whole race. */}
+            {plan.totalCarbsG > 0 && <li className="fuel-chip">≈ {Math.round(plan.deliveredCarbsPerHourG)} g/h delivered</li>}
             {plan.needsMultipleTransportable && (
               <li className="fuel-chip fuel-chip--warn">Needs glucose + fructose</li>
             )}
@@ -224,11 +250,65 @@ function CarbToleranceForm({ current }: { current: number }) {
         <button type="submit" className="fuel-button">Save</button>
       </div>
       <p id={helpId} className="fuel-help">
-        Most runners handle 30–60 g per hour. Up to 90 g works with glucose + fructose products and a trained gut.
+        Most runners handle 30–60 g per hour. Up to {CARB_TOLERANCE_MAX} g works with glucose + fructose products and a trained gut.
       </p>
       {error && <p className="fuel-error" role="alert">{error}</p>}
       {saved && <p className="fuel-saved" role="status">Saved.</p>}
     </form>
+  );
+}
+
+// ── 1b. Caffeine (v1.0.7, R-1) ───────────────────────────────────────────────
+
+/**
+ * Optional caffeine card. Honours the Settings choice: the full plan shows only
+ * when the athlete said they use caffeine in races; otherwise a one-line note.
+ */
+function CaffeineSection({ ctx, profile }: SectionProps) {
+  const headingId = useId();
+  const finishSec = ctx.strategy?.targetTimeSec ?? ctx.goalTimeSec ?? null;
+  const plan = useMemo(
+    () => planCaffeine({ enabled: profile.caffeine, weightKg: profile.weightKg, startTime: ctx.startTime, finishSec }),
+    [profile.caffeine, profile.weightKg, ctx.startTime, finishSec],
+  );
+
+  return (
+    <section className="fuel-section" aria-labelledby={headingId}>
+      <h3 id={headingId}>Caffeine (optional)</h3>
+      {!plan.enabled ? (
+        <p className="fuel-help">
+          Off. If you already use caffeine in training, tick &ldquo;I use caffeine during races&rdquo; in Settings ›
+          Athlete profile to see a dose and timing here.
+        </p>
+      ) : (
+        <>
+          {plan.preRace ? (
+            <ul className="fuel-notes" aria-label="Caffeine options">
+              <li>
+                <strong>Before the start:</strong> about {plan.preRace.mg} mg ({plan.preRace.mgPerKg} mg/kg) roughly{' '}
+                {plan.preRace.minutesBefore} minutes before the gun
+                {plan.preRace.clockTime ? ` (around ${plan.preRace.clockTime})` : ''} — coffee, a tablet or a caffeinated gel.
+              </li>
+              {plan.lateRace && (
+                <li>
+                  <strong>Or late in the race:</strong> {plan.lateRace.minMg}–{plan.lateRace.maxMg} mg (1–3 mg/kg)
+                  {plan.lateRace.fromSec !== null ? ` from about ${formatRaceClock(plan.lateRace.fromSec)} into the race` : ' in the final hour'},
+                  e.g. a caffeinated gel in place of a regular one. If you also took some before the start, keep this
+                  to the low end.
+                </li>
+              )}
+            </ul>
+          ) : (
+            <p className="fuel-help">Add your body mass (Carb loading, below) to get a caffeine dose in milligrams.</p>
+          )}
+          <aside className="fuel-caution" aria-label="Caffeine cautions">
+            <ul className="fuel-notes">
+              {plan.warnings.map((w) => <li key={w}>{w}</li>)}
+            </ul>
+          </aside>
+        </>
+      )}
+    </section>
   );
 }
 
@@ -239,14 +319,15 @@ function CarbLoadSection({ ctx, profile }: Omit<SectionProps, 'unit'>) {
   const selectId = useId();
   const [carbsPerKg, setCarbsPerKg] = useState(DEFAULT_CARB_LOAD_G_PER_KG);
   const [includeDay3, setIncludeDay3] = useState(false);
+  const breakfastSize = useBreakfastSize();
   const { weightKg } = profile;
   const sex = profile.sex === 'female' || profile.sex === 'male' ? profile.sex : undefined;
 
   const protocol = useMemo(
     () => (weightKg
-      ? generateCarbLoadingProtocol({ weightKg, sex }, ctx.raceDate ?? '', { carbsPerKg, includeDay3 })
+      ? generateCarbLoadingProtocol({ weightKg, sex }, ctx.raceDate ?? '', { carbsPerKg, includeDay3, breakfastSize })
       : null),
-    [weightKg, sex, ctx.raceDate, carbsPerKg, includeDay3],
+    [weightKg, sex, ctx.raceDate, carbsPerKg, includeDay3, breakfastSize],
   );
   const breakfastAt = breakfastTime(ctx.startTime);
 
@@ -321,8 +402,12 @@ function RaceMorningCard({ day, breakfastAt }: { day: CarbLoadingDay; breakfastA
     <article className="fuel-day-card fuel-day-card--race">
       <h4>Race morning</h4>
       <p className="fuel-day-target">
-        <strong>{day.targetCarbsG} g</strong> carbs · about 3 hours before the start
+        <strong>{day.targetCarbsG} g</strong> carbs ({day.carbsPerKg} g/kg) · about 3 hours before the start
         {breakfastAt ? ` (around ${breakfastAt})` : ''}
+      </p>
+      {/* v1.0.7 (R-4): the same rule and breakfast size as the Race Morning tab. */}
+      <p className="fuel-help">
+        Rule of thumb: {RACE_BREAKFAST_RULE_TEXT}. Breakfast size is set on the Race Morning tab.
       </p>
       {day.meals.map((meal) => <p key={meal.name}>{meal.description}</p>)}
       {day.warning && <p className="fuel-warning">{day.warning}</p>}
@@ -377,6 +462,7 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
   const headingId = useId();
   const ceiling = fluidCeilingMlPerHour(profile.sweatRateLPerHour);
   const temps = ctx.race?.typicalTempF;
+  const sodium = sodiumGuidanceMgPerHour(profile.saltySweater);
   const sweatTip = getMassUnit() === 'lb'
     ? 'each pound lost is about 16 oz (450 mL) of sweat'
     : 'each kilogram lost is about 1 litre of sweat';
@@ -391,15 +477,17 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
       </p>
       {ceiling !== null ? (
         <p>
-          Your upper limit: <strong>{formatFluidMl(ceiling, unit)} per hour</strong> (80% of your measured sweat rate,
-          never more than {formatFluidMl(MAX_PLANNED_FLUID_ML_PER_HOUR, unit)}). It&apos;s a limit, not a target.
+          Your upper limit: <strong>{formatFluidMl(ceiling, unit)} per hour</strong> (80% of your measured sweat rate
+          of {profile.sweatRateLPerHour} L/h, never more than {formatFluidMl(MAX_PLANNED_FLUID_ML_PER_HOUR, unit)}).
+          It&apos;s a limit, not a target.
         </p>
       ) : (
         <p className="fuel-help">
           Know your sweat rate: weigh yourself before and after a 60-minute run and add what you drank — {sweatTip}.
-          Add it to your athlete profile to get a personal upper limit.
+          Use the sweat test below to get a personal upper limit.
         </p>
       )}
+      <SweatTestForm hasRate={ceiling !== null} />
       {temps && (
         <p>
           Typical race-day temperature: {formatTemperatureF(temps.low)}–{formatTemperatureF(temps.high)}. Heat raises
@@ -407,9 +495,12 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
         </p>
       )}
       <p>
-        Sodium: about 300–600 mg per hour helps in long or hot races, or if you&apos;re a salty sweater (white streaks
-        on your kit).
+        Sodium: about {sodium.min}–{sodium.max} mg per hour helps in long or hot races
+        {profile.saltySweater
+          ? ' — you marked yourself as a salty sweater, so aim for the upper part of that. Needs vary a lot: test it on long runs.'
+          : ', or more if you\'re a salty sweater (white streaks on your kit).'}
       </p>
+      <SaltySweaterToggle checked={profile.saltySweater === true} />
       <aside className="fuel-caution" aria-label="Over-drinking warning">
         <p>
           <strong>Don&apos;t over-drink.</strong> You shouldn&apos;t gain weight during a race. Drinking far more than you
@@ -418,5 +509,103 @@ function HydrationSection({ ctx, profile, unit }: SectionProps) {
         </p>
       </aside>
     </section>
+  );
+}
+
+// ── 3b. Sweat-rate test (v1.0.7, R-2) ─────────────────────────────────────────
+
+/**
+ * Sweat test: body mass before/after a run, fluid drunk and duration → L/h,
+ * saved to the athlete profile on submit (feeds the personal fluid ceiling).
+ */
+function SweatTestForm({ hasRate }: { hasRate: boolean }) {
+  const baseId = useId();
+  const massUnit = getMassUnit();
+  const fluidUnit = getDistanceUnit() === 'mi' ? 'oz' : 'mL';
+  const [open, setOpen] = useState(!hasRate);
+  const [pre, setPre] = useState('');
+  const [post, setPost] = useState('');
+  const [fluid, setFluid] = useState('');
+  const [minutes, setMinutes] = useState('60');
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ rate: number; warnings: string[] } | null>(null);
+
+  const toKg = (v: string) => (massUnit === 'lb' ? lbToKg(Number(v)) : Number(v));
+  const toL = (v: string) => (v.trim() === '' ? 0 : (fluidUnit === 'oz' ? Number(v) * ML_PER_OZ : Number(v)) / 1000);
+
+  const onSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!pre.trim() || !post.trim()) {
+      setError(`Enter your body mass before and after the run (${massUnit}).`);
+      setResult(null);
+      return;
+    }
+    const r = estimateSweatRate({ preKg: toKg(pre), postKg: toKg(post), fluidL: toL(fluid), durationMin: Number(minutes) });
+    if (!r.ok) {
+      setError(r.error);
+      setResult(null);
+      return;
+    }
+    setError(null);
+    setResult({ rate: r.sweatRateLPerHour, warnings: r.warnings });
+    updateAthleteProfile({ sweatRateLPerHour: r.sweatRateLPerHour });
+  };
+
+  if (!open) {
+    return (
+      <button type="button" className="fuel-button" onClick={() => setOpen(true)}>
+        Redo the sweat test
+      </button>
+    );
+  }
+
+  return (
+    <form className="fuel-inline-form" onSubmit={onSubmit} noValidate aria-label="Sweat-rate test">
+      <p className="fuel-help">
+        <strong>Sweat test.</strong> On a run of 45–90 minutes at race effort and similar weather: weigh yourself
+        (minimal clothing, after the toilet) before, towel off and weigh again after, and note what you drank.
+      </p>
+      <div className="fuel-controls">
+        <label htmlFor={`${baseId}-pre`}>Before ({massUnit})</label>
+        <input id={`${baseId}-pre`} type="number" inputMode="decimal" min={1} step="0.1" value={pre}
+          onChange={(e) => setPre(e.target.value)} />
+        <label htmlFor={`${baseId}-post`}>After ({massUnit})</label>
+        <input id={`${baseId}-post`} type="number" inputMode="decimal" min={1} step="0.1" value={post}
+          onChange={(e) => setPost(e.target.value)} />
+        <label htmlFor={`${baseId}-fluid`}>Drank during the run ({fluidUnit})</label>
+        <input id={`${baseId}-fluid`} type="number" inputMode="decimal" min={0} value={fluid}
+          onChange={(e) => setFluid(e.target.value)} />
+        <label htmlFor={`${baseId}-min`}>Run duration (min)</label>
+        <input id={`${baseId}-min`} type="number" inputMode="numeric" min={30} max={300} value={minutes}
+          onChange={(e) => setMinutes(e.target.value)} />
+      </div>
+      <button type="submit" className="fuel-button">Work out my sweat rate</button>
+      {error && <p className="fuel-error" role="alert">{error}</p>}
+      {result && (
+        <div role="status">
+          <p className="fuel-saved">
+            Sweat rate: about <strong>{result.rate} L/h</strong> — saved to your profile.
+          </p>
+          {result.warnings.map((w) => <p key={w} className="fuel-warning">{w}</p>)}
+        </div>
+      )}
+      <p className="fuel-help">
+        This sets an upper limit only. On race day still drink to thirst, and don&apos;t finish heavier than you started.
+      </p>
+    </form>
+  );
+}
+
+/** v1.0.7 (R-2): salty-sweater flag, saved immediately (an explicit user action). */
+function SaltySweaterToggle({ checked }: { checked: boolean }) {
+  return (
+    <label className="fuel-check">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => updateAthleteProfile({ saltySweater: e.target.checked })}
+      />
+      I&apos;m a salty sweater (white salt marks on my kit or face after long runs)
+    </label>
   );
 }

@@ -84,7 +84,9 @@ describe('FuelPanel', () => {
   it('renders the seeded Chicago timeline on the shared cadence, in miles, without persisting anything', () => {
     render(<FuelPanel ctx={chicagoCtx()} />);
     expect(screen.getByText('Target 60 g/h')).toBeTruthy();
-    expect(screen.getByText('A gel every 25 min')).toBeTruthy();
+    // v1.0.7 (R-5): 10 gels spread evenly (~22 min apart) so a 4:00 race really gets 60 g/h.
+    expect(screen.getByText('A gel every 22 min')).toBeTruthy();
+    expect(screen.getByText('≈ 63 g/h delivered')).toBeTruthy();
     expect(screen.queryByText('Needs glucose + fructose')).toBeNull();
 
     const rows = timelineRows();
@@ -118,7 +120,8 @@ describe('FuelPanel', () => {
 
     fireEvent.change(input, { target: { value: '120' } });
     fireEvent.click(save);
-    expect(screen.getByRole('alert').textContent).toBe('Enter a value between 30 and 90 g per hour.');
+    // v1.0.7 (R-7): the shared 20–90 g/h range (Settings and the engine use the same).
+    expect(screen.getByRole('alert').textContent).toBe('Enter a value between 20 and 90 g per hour.');
     expect(getAthleteProfile().carbToleranceGPerHour).toBeUndefined();
 
     fireEvent.change(input, { target: { value: '90' } });
@@ -171,9 +174,11 @@ describe('FuelPanel', () => {
     fireEvent.click(screen.getByLabelText(/Include an optional lead-in day/));
     expect(screen.getByRole('heading', { level: 4, name: '3 days before (optional)' })).toBeTruthy();
 
-    // Race morning: 2.5 g/kg, about 3 h before a 07:30 start.
+    // Race morning: v1.0.7 (R-4) shared rule — moderate breakfast 2 g/kg, about 3 h before a 07:30 start.
     const morning = dayCard('Race morning');
-    expect(morning.textContent).toContain('175 g');
+    expect(morning.textContent).toContain('140 g');
+    expect(morning.textContent).toContain('1–4 g of carbs per kg');
+    expect(morning.textContent).not.toMatch(/low-fibre[^.]*oatmeal/i);
     expect(morning.textContent).toContain('(around 04:30)');
     expect(screen.getByText(/Expect the scale to go up/).textContent).toContain('about 2–4 lb');
 
@@ -216,5 +221,61 @@ describe('FuelPanel', () => {
     expect(container.textContent).not.toMatch(/\d mi\b/);
     expect(screen.getByLabelText('Carbs you can handle (g per hour)')).toBeTruthy();
     expect(screen.getByText(/Expect the scale to go up/).textContent).toContain('about 1–2 kg');
+  });
+
+  // ── v1.0.7 (R-1) caffeine card ──
+  it('keeps the caffeine card off unless caffeine is enabled in Settings', () => {
+    updateAthleteProfile({ weightKg: 70 });
+    render(<FuelPanel ctx={chicagoCtx()} />);
+    expect(screen.getByRole('heading', { level: 3, name: 'Caffeine (optional)' })).toBeTruthy();
+    expect(screen.getByText(/I use caffeine during races/)).toBeTruthy();
+    expect(screen.queryByText(/Before the start:/)).toBeNull();
+  });
+
+  it('shows ~3 mg/kg about 60 min before (or 1–3 mg/kg late) with cautions when enabled', () => {
+    updateAthleteProfile({ weightKg: 70, caffeine: true });
+    render(<FuelPanel ctx={chicagoCtx()} />);
+    const options = screen.getByRole('list', { name: 'Caffeine options' });
+    expect(options.textContent).toContain('210 mg (3 mg/kg)');
+    expect(options.textContent).toContain('around 06:30');
+    expect(options.textContent).toContain('70–210 mg (1–3 mg/kg)');
+    const caution = screen.getByRole('complementary', { name: 'Caffeine cautions' });
+    expect(caution.textContent).toMatch(/sleep/);
+    expect(caution.textContent).toMatch(/[Pp]ractise/);
+  });
+
+  // ── v1.0.7 (R-2) sweat test + salty sweater ──
+  it('works out a sweat rate, saves it and shows the personal fluid ceiling', () => {
+    setDistanceUnit('km');
+    render(<FuelPanel ctx={chicagoCtx()} />);
+    const form = screen.getByRole('form', { name: 'Sweat-rate test' });
+    fireEvent.change(within(form).getByLabelText('Before (kg)'), { target: { value: '70' } });
+    fireEvent.change(within(form).getByLabelText('After (kg)'), { target: { value: '69.4' } });
+    fireEvent.change(within(form).getByLabelText('Drank during the run (mL)'), { target: { value: '300' } });
+    fireEvent.change(within(form).getByLabelText('Run duration (min)'), { target: { value: '60' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Work out my sweat rate' }));
+    expect(getAthleteProfile().sweatRateLPerHour).toBe(0.9);
+    // 80% of 0.9 L/h = 720 mL/h.
+    expect(screen.getByText(/Your upper limit:/).textContent).toContain('720 mL per hour');
+    expect(screen.getByText(/drink to thirst/i, { selector: 'p.fuel-help' })).toBeTruthy();
+  });
+
+  it('rejects an implausible sweat test without saving', () => {
+    setDistanceUnit('km');
+    render(<FuelPanel ctx={chicagoCtx()} />);
+    const form = screen.getByRole('form', { name: 'Sweat-rate test' });
+    fireEvent.change(within(form).getByLabelText('Before (kg)'), { target: { value: '70' } });
+    fireEvent.change(within(form).getByLabelText('After (kg)'), { target: { value: '64' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Work out my sweat rate' }));
+    expect(within(form).getByRole('alert').textContent).toMatch(/outside the usual/);
+    expect(getAthleteProfile().sweatRateLPerHour).toBeUndefined();
+  });
+
+  it('raises sodium guidance when the salty-sweater box is ticked', () => {
+    const { container } = render(<FuelPanel ctx={chicagoCtx()} />);
+    expect(container.textContent).toMatch(/Sodium: about 300–600 mg per hour/);
+    fireEvent.click(screen.getByLabelText(/salty sweater/));
+    expect(getAthleteProfile().saltySweater).toBe(true);
+    expect(container.textContent).toMatch(/Sodium: about 500–1000 mg per hour/);
   });
 });

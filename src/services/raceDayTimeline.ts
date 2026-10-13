@@ -15,6 +15,12 @@
 
 import type { MilePacePlan } from '../types/raceStrategy';
 import { KM_PER_MI, formatDurationSec, timeAtDistance } from './raceStrategy';
+import {
+  RACE_BREAKFAST_FOODS,
+  RACE_BREAKFAST_G_PER_KG,
+  raceBreakfastCarbsG,
+  raceBreakfastGPerKg,
+} from './carbLoading';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -142,7 +148,8 @@ const START_AREA_STEP_GAP_MIN = 3;
 const DEFAULT_PRE_RACE_GEL_MIN = 15;
 const RECOVERY_AFTER_FINISH_MIN = 10;
 
-const MEAL_CARBS_G_PER_KG: Record<MealPreference, number> = { light: 1, moderate: 2, full: 3 };
+// v1.0.7 (R-4): breakfast g/kg comes from the ONE shared rule in carbLoading.ts.
+const MEAL_CARBS_G_PER_KG: Readonly<Record<MealPreference, number>> = RACE_BREAKFAST_G_PER_KG;
 const MEAL_LABEL: Record<MealPreference, string> = { light: 'Light', moderate: 'Moderate', full: 'Full' };
 const ML_PER_FL_OZ = 29.5735;
 
@@ -290,7 +297,7 @@ function addMorning(
   pushAt(b, -alarmMB, 'pre-race', 'wake', 'Alarm — wake up',
     'Bathroom, race kit on, bib pinned (lay everything out the night before).');
   pushAt(b, -(alarmMB - 5), 'pre-race', 'nutrition', 'Drink fluids', fluidsCopy(o.weightKg));
-  pushAt(b, -breakfastMB, 'pre-race', 'nutrition', 'Breakfast', breakfastCopy(o.meal, o.weightKg, finishEatingBy));
+  pushAt(b, -breakfastMB, 'pre-race', 'nutrition', 'Breakfast', breakfastCopy(o.meal, o.weightKg, finishEatingBy, breakfastMB));
   if (breakfastMB > BREAKFAST_SNACK_THRESHOLD_MIN) {
     const used = new Set(b.events.map((e) => e.minutesBeforeStart).concat([leaveMB, o.lead]));
     const snackMB = pickFreeMinute([90, 100, 80, 110, 70, 120], used);
@@ -302,13 +309,15 @@ function addMorning(
   return leaveMB;
 }
 
-function breakfastCopy(meal: MealPreference, weightKg: number | undefined, finishBy: string): string {
-  const gPerKg = MEAL_CARBS_G_PER_KG[meal];
+function breakfastCopy(meal: MealPreference, weightKg: number | undefined, finishBy: string, minutesBefore: number): string {
+  // v1.0.7 (R-4): shared rule (1–4 g/kg, ≤ ~1 g/kg per hour before; mass capped at 90 kg)
+  // and shared food copy — oatmeal is no longer called low-fibre.
+  const gPerKg = raceBreakfastGPerKg(meal, minutesBefore);
   const carbs = weightKg
-    ? `~${Math.round(weightKg * gPerKg)}g carbs (${gPerKg} g/kg)`
+    ? `~${raceBreakfastCarbsG(weightKg, meal, minutesBefore)}g carbs (${gPerKg} g/kg)`
     : `about ${gPerKg} g of carbs per kg of body weight (add your weight in your profile to see grams)`;
   return `${MEAL_LABEL[meal]} breakfast: ${carbs}. Finish eating by ${finishBy}, at least 15 min before you leave. ` +
-    'Familiar, low-fibre, low-fat foods: oatmeal with banana, a white bagel or toast with honey or jam.';
+    RACE_BREAKFAST_FOODS;
 }
 
 function fluidsCopy(weightKg: number | undefined): string {

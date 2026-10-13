@@ -18,6 +18,7 @@ import {
   type RecentRace,
 } from '../../services/athleteProfile';
 import { metersToUnit, unitToMeters, type DistanceUnit } from '../../services/unitPreferences';
+import { CARB_TOLERANCE_MAX_G_PER_HOUR, CARB_TOLERANCE_MIN_G_PER_HOUR } from '../../services/fuelingCalculator';
 import { isDateKey, todayKey } from '../../utils/localDate';
 
 export const RACE_PRESETS = [
@@ -41,7 +42,7 @@ export const PROFILE_LIMITS = {
   raceDistanceM: [1000, 100_000],
   raceTimeSec: [120, 24 * 3600],
   goalMarathonSec: [2 * 3600 - 300, 8 * 3600],
-  carbTolerance: [0, 120],
+  carbTolerance: [CARB_TOLERANCE_MIN_G_PER_HOUR, CARB_TOLERANCE_MAX_G_PER_HOUR], // v1.0.7 (R-7): shared range (was 0–120)
 } as const;
 
 /** Raw form values (strings as typed). */

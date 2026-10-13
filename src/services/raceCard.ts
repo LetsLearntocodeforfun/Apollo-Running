@@ -53,6 +53,12 @@ export interface RaceCardInput {
   raceDate?: string;
   /** Extra header line, e.g. "Wave 2 · start 10:00 (America/New_York)". */
   startInfo?: string;
+  /**
+   * v1.0.7 (R-3): the fuel plan to print, computed when the card is shown
+   * (`liveNutritionPlan` in raceStrategy.ts). Defaults to the snapshot saved
+   * with the strategy, which can be out of date.
+   */
+  nutritionPlan?: NutritionPlan[];
 }
 
 /** One row of the split table (a mile or a km, depending on the card's unit). */
@@ -498,7 +504,9 @@ export function generateRaceCard(input: RaceCardInput): RaceCard {
   // Build row data
   const baseRows = buildBaseRows(milePaces, unit, distanceMi);
   const landmarks = landmarkBuckets(baseRows, marathon);
-  const fuel = nutritionBuckets(baseRows, strategy.nutritionPlan ?? []);
+  // v1.0.7 (R-3): prefer the live plan passed in over the saved snapshot.
+  const nutritionPlan = input.nutritionPlan ?? strategy.nutritionPlan ?? [];
+  const fuel = nutritionBuckets(baseRows, nutritionPlan);
   const mantraRows = baseRows.map(() => [] as string[]);
   const mantraList: string[] = [];
   for (const [d, text] of mantraEntries(userMantras)) {
@@ -539,7 +547,7 @@ export function generateRaceCard(input: RaceCardInput): RaceCard {
   }
 
   // Nutrition summary
-  const nutritionItems = (strategy.nutritionPlan ?? [])
+  const nutritionItems = nutritionPlan
     .map((n) => `${isInRaceItem(n) ? distanceLabel(n.mile, unit) : 'Before start'}: ${n.item}`)
     .join(' | ');
 

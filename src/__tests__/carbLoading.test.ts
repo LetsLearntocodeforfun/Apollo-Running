@@ -126,7 +126,8 @@ describe('carb loading v1.0.6 fixes', () => {
     expect(heavy.effectiveMassKg).toBe(90);
     expect(heavy.days.find((d) => d.daysBefore === 1)!.targetCarbsG).toBe(900);
     expect(getDailyCarbTarget(130, 1)).toBe(900);
-    expect(getRaceMorningCarbTarget(130)).toBe(225);
+    // v1.0.7 (R-4): shared breakfast rule, default moderate 2 g/kg × 90 kg cap.
+    expect(getRaceMorningCarbTarget(130)).toBe(180);
   });
 
   it('day meal suggestions land close to each day target', () => {

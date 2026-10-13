@@ -9,6 +9,13 @@ import {
   planRaceFueling,
   fluidCeilingMlPerHour,
   assessGIRisk,
+  planCaffeine,
+  estimateSweatRate,
+  sodiumGuidanceMgPerHour,
+  CARB_TOLERANCE_MIN_G_PER_HOUR,
+  CARB_TOLERANCE_MAX_G_PER_HOUR,
+  RACE_MAX_CARBS_PER_HOUR_G,
+  CAFFEINE_DAILY_MAX_MG,
 } from '@/services/fuelingCalculator';
 import { getCarbToleranceGPerHour } from '@/services/athleteProfile';
 import {
@@ -170,7 +177,9 @@ describe('generateFuelingPlan', () => {
   it('uses the shared planRaceFueling cadence: target = carb tolerance, default 60 g/h (N-16)', () => {
     const plan = generateFuelingPlan({ athlete: baseAthlete, paceSecPerMi: 480 });
     expect(plan.targetCarbRateGHr).toBe(60);
-    expect(plan.gelIntervalMin).toBe(25);
+    // v1.0.7 (R-5): spacing is the even spread that delivers the target (20–25 min here).
+    expect(plan.gelIntervalMin).toBeGreaterThanOrEqual(20);
+    expect(plan.gelIntervalMin).toBeLessThanOrEqual(25);
     const race = planRaceFueling({
       finishSec: 480 * MARATHON_MI, distanceMi: MARATHON_MI, carbsPerHourG: 60, preRaceGel: false,
     });
@@ -178,7 +187,9 @@ describe('generateFuelingPlan', () => {
 
     const custom = generateFuelingPlan({ athlete: baseAthlete, paceSecPerMi: 480, carbsPerHourG: 75 });
     expect(custom.targetCarbRateGHr).toBe(75);
-    expect(custom.gelIntervalMin).toBe(20);
+    // v1.0.7 (R-5): between nominal ÷ 1.2 and the nominal 20-min interval.
+    expect(custom.gelIntervalMin).toBeGreaterThanOrEqual(20 / 1.2 - 0.01);
+    expect(custom.gelIntervalMin).toBeLessThanOrEqual(20);
   });
 
   it('accepts a race distance instead of assuming 26.2 mi (N-15)', () => {
@@ -246,8 +257,11 @@ describe('getGelSchedule', () => {
   });
 
   it('follows the carb target and the distance (N-15, N-16)', () => {
-    expect(getGelSchedule(480).intervalMin).toBe(25);
-    expect(getGelSchedule(480, MARATHON_MI, 90).intervalMin).toBeCloseTo(16.7, 1);
+    // v1.0.7 (R-5): the interval is the actual even spacing, never below 0.8 × nominal or 90 g/h.
+    expect(getGelSchedule(480).intervalMin).toBeGreaterThanOrEqual(20);
+    expect(getGelSchedule(480).intervalMin).toBeLessThanOrEqual(25);
+    expect(getGelSchedule(480, MARATHON_MI, 90).intervalMin).toBeGreaterThanOrEqual(16.6);
+    expect(getGelSchedule(480, MARATHON_MI, 90).intervalMin).toBeLessThanOrEqual(18);
     const half = getGelSchedule(480, HALF_MI);
     expect(half.miles.every((m) => m < HALF_MI)).toBe(true);
     expect(getGelSchedule(Number.NaN)).toEqual({ miles: [], intervalMin: 0 });
@@ -255,24 +269,59 @@ describe('getGelSchedule', () => {
 });
 
 describe('planRaceFueling', () => {
-  it('targets the carb tolerance (60 g/h by default) with a 25-min interval for 25 g gels', () => {
+  it('targets the carb tolerance (60 g/h by default) with the first gel 25 min in for 25 g gels', () => {
     const tolerance = getCarbToleranceGPerHour();
     expect(tolerance).toBe(60);
     const plan = planRaceFueling({ finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: tolerance });
     expect(plan.targetCarbsPerHourG).toBe(tolerance);
-    expect(plan.gelIntervalMin).toBe(25);
+    expect(plan.items.find((i) => i.kind === 'gel')!.timeSec).toBe(1500);
+    // v1.0.7 (R-5): even spacing slightly under the nominal 25 min so the race total meets the target.
+    expect(plan.gelIntervalMin).toBeGreaterThanOrEqual(20);
+    expect(plan.gelIntervalMin).toBeLessThanOrEqual(25);
     expect(plan.needsMultipleTransportable).toBe(false);
   });
 
-  it('delivers ≈ the target g/h between the first and the last gel', () => {
-    for (const carbs of [40, 60, 75, 90]) {
-      const plan = planRaceFueling({
-        finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: carbs, preRaceGel: false,
-      });
-      const gels = plan.items;
-      const spanH = (gels[gels.length - 1].timeSec - gels[0].timeSec) / 3600;
-      expect(((gels.length - 1) * 25) / spanH).toBeCloseTo(carbs, 0);
+  // v1.0.7 (R-5): the plan used to deliver 50–56 g/h of a 60 g/h target.
+  it('delivers its target over the whole race, to within half a gel (R-5)', () => {
+    for (const carbs of [40, 60, 75]) {
+      for (const finishSec of [1.75 * 3600, 2.75 * 3600, 3 * 3600, 4 * 3600, 5 * 3600]) {
+        const plan = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: carbs, preRaceGel: false });
+        const hours = finishSec / 3600;
+        const short = /Only \d+ gels? fit/.test(plan.notes.join(' '));
+        // Within half a gel of target × hours — unless the window is too short, which is then said.
+        if (!short) expect(Math.abs(plan.totalCarbsG - carbs * hours)).toBeLessThanOrEqual(12.5 + 1e-9);
+        else expect(plan.totalCarbsG).toBeLessThan(carbs * hours);
+        expect(plan.deliveredCarbsPerHourG).toBeCloseTo(plan.totalCarbsG / hours, 1);
+      }
     }
+    // The headline case from the review: 60 g/h for a 3:00 and 4:00 marathon.
+    for (const finishSec of [3 * 3600, 4 * 3600]) {
+      const plan = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: 60 });
+      expect(plan.deliveredCarbsPerHourG).toBeGreaterThanOrEqual(57.5);
+    }
+  });
+
+  it('never bunches gels: in-window rate ≤ min(1.2 × target, 90 g/h) (R-5)', () => {
+    for (const carbs of [20, 45, 60, 75, 90]) {
+      for (const finishSec of [65 * 60, 1.75 * 3600, 3 * 3600, 5.5 * 3600]) {
+        const gels = planRaceFueling({ finishSec, distanceMi: MARATHON_MI, carbsPerHourG: carbs })
+          .items.filter((i) => i.kind === 'gel');
+        const minGap = ((60 * 25) / Math.min(1.2 * Math.min(carbs, 90), RACE_MAX_CARBS_PER_HOUR_G)) * 60;
+        for (let i = 1; i < gels.length; i++) {
+          expect(gels[i].timeSec - gels[i - 1].timeSec).toBeGreaterThanOrEqual(minGap - 1);
+        }
+      }
+    }
+  });
+
+  it('says so when the fuelling window is too short to reach the target (R-5)', () => {
+    const tight = planRaceFueling({ finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: 90 });
+    expect(tight.deliveredCarbsPerHourG).toBeLessThan(90);
+    expect(tight.notes.join(' ')).toMatch(/Only \d+ gels fit/);
+    const short = planRaceFueling({ finishSec: 65 * 60, distanceMi: 6.2, carbsPerHourG: 60 });
+    expect(short.notes.join(' ')).toMatch(/Only 2 gels fit/);
+    const fine = planRaceFueling({ finishSec: 4 * 3600, distanceMi: MARATHON_MI, carbsPerHourG: 60 });
+    expect(fine.notes.join(' ')).not.toMatch(/Only \d+ gel/);
   });
 
   it('caps a 100 g/h tolerance at 90 and needs glucose + fructose', () => {
@@ -341,9 +390,11 @@ describe('planRaceFueling', () => {
   it('builds a sensible 1:45 half marathon', () => {
     const plan = planRaceFueling({ finishSec: 6300, distanceMi: HALF_MI, carbsPerHourG: 60 });
     const gels = plan.items.filter((i) => i.kind === 'gel');
-    expect(gels.map((g) => g.timeSec)).toEqual([1500, 3000, 4500]);
+    // v1.0.7 (R-5): 4 gels (was 3 → only 43 g/h of a 60 g/h target), the last 15 min before the finish.
+    expect(gels.map((g) => g.timeSec)).toEqual([1500, 2800, 4100, 5400]);
     expect(gels.every((g) => g.distanceMi > 0 && g.distanceMi < HALF_MI)).toBe(true);
-    expect(plan.totalCarbsG).toBe(75);
+    expect(plan.totalCarbsG).toBe(100);
+    expect(plan.deliveredCarbsPerHourG).toBeCloseTo(57.1, 1);
   });
 
   it('plans no in-race gels under 60 minutes', () => {
@@ -382,5 +433,105 @@ describe('fluidCeilingMlPerHour', () => {
     expect(fluidCeilingMlPerHour(undefined)).toBeNull();
     expect(fluidCeilingMlPerHour(Number.NaN)).toBeNull();
     expect(fluidCeilingMlPerHour(0)).toBeNull();
+  });
+});
+
+// ── v1.0.7 (R-7): one carb range ─────────────────────────────────────────────
+
+describe('shared carb range (R-7)', () => {
+  it('is 20–90 g/h and the ceiling is the engine cap', () => {
+    expect(CARB_TOLERANCE_MIN_G_PER_HOUR).toBe(20);
+    expect(CARB_TOLERANCE_MAX_G_PER_HOUR).toBe(RACE_MAX_CARBS_PER_HOUR_G);
+    expect(CARB_TOLERANCE_MAX_G_PER_HOUR).toBe(90);
+  });
+});
+
+// ── v1.0.7 (R-2): sweat-rate test ────────────────────────────────────────────
+
+describe('estimateSweatRate (R-2)', () => {
+  it('is (pre − post + drunk − urine) ÷ hours', () => {
+    const r = estimateSweatRate({ preKg: 70, postKg: 69, fluidL: 0.5, durationMin: 60 });
+    expect(r).toMatchObject({ ok: true, sweatRateLPerHour: 1.5 });
+    const withUrine = estimateSweatRate({ preKg: 70, postKg: 69.2, fluidL: 0.3, urineL: 0.1, durationMin: 90 });
+    expect(withUrine.ok && withUrine.sweatRateLPerHour).toBeCloseTo(0.67, 2);
+  });
+
+  it('feeds the personal fluid ceiling', () => {
+    const r = estimateSweatRate({ preKg: 60, postKg: 59.4, fluidL: 0, durationMin: 60 });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(fluidCeilingMlPerHour(r.sweatRateLPerHour)).toBe(480);
+  });
+
+  it('warns when the runner gained weight (drank more than they sweated)', () => {
+    const r = estimateSweatRate({ preKg: 70, postKg: 70.3, fluidL: 1, durationMin: 60 });
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.massChangePct).toBeGreaterThan(0);
+      expect(r.warnings.join(' ')).toMatch(/heavier|hyponatremia/);
+    }
+  });
+
+  it('rejects invalid or implausible input with a message — never NaN', () => {
+    const bad = [
+      { preKg: Number.NaN, postKg: 69, fluidL: 0, durationMin: 60 },
+      { preKg: 70, postKg: 69, fluidL: -1, durationMin: 60 },
+      { preKg: 70, postKg: 69, fluidL: 0, durationMin: 10 },
+      { preKg: 70, postKg: 64, fluidL: 0, durationMin: 60 }, // 6 L/h
+      { preKg: 70, postKg: 70.5, fluidL: 0, durationMin: 60 }, // negative
+    ];
+    for (const input of bad) {
+      const r = estimateSweatRate(input);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.error).not.toMatch(/NaN|Infinity/);
+    }
+  });
+
+  it('raises sodium guidance for a salty sweater', () => {
+    expect(sodiumGuidanceMgPerHour(false)).toEqual({ min: 300, max: 600 });
+    expect(sodiumGuidanceMgPerHour(undefined)).toEqual({ min: 300, max: 600 });
+    expect(sodiumGuidanceMgPerHour(true).max).toBeGreaterThan(600);
+  });
+});
+
+// ── v1.0.7 (R-1): caffeine card ──────────────────────────────────────────────
+
+describe('planCaffeine (R-1)', () => {
+  it('honours the setting: off unless the athlete opted in', () => {
+    expect(planCaffeine({ enabled: undefined, weightKg: 70 }).enabled).toBe(false);
+    expect(planCaffeine({ enabled: false, weightKg: 70 }).enabled).toBe(false);
+    expect(planCaffeine({ enabled: true, weightKg: 70 }).enabled).toBe(true);
+  });
+
+  it('suggests ~3 mg/kg about 60 min before, or 1–3 mg/kg late in the race', () => {
+    const plan = planCaffeine({ enabled: true, weightKg: 70, startTime: '07:30', finishSec: 4 * 3600 });
+    expect(plan.preRace).toMatchObject({ mg: 210, mgPerKg: 3, minutesBefore: 60, clockTime: '06:30' });
+    expect(plan.lateRace).toMatchObject({ minMg: 70, maxMg: 210, fromSec: 3 * 3600 });
+  });
+
+  it('caps doses at 400 mg and skips late-race caffeine in short races', () => {
+    const big = planCaffeine({ enabled: true, weightKg: 150, finishSec: 5 * 3600 });
+    expect(big.preRace!.mg).toBe(CAFFEINE_DAILY_MAX_MG);
+    expect(big.lateRace!.maxMg).toBeLessThanOrEqual(CAFFEINE_DAILY_MAX_MG);
+    expect(planCaffeine({ enabled: true, weightKg: 70, finishSec: 45 * 60 }).lateRace).toBeNull();
+  });
+
+  it('always carries optional / practise / sleep / tolerance warnings, stronger for a late start', () => {
+    const morning = planCaffeine({ enabled: true, weightKg: 70, startTime: '07:30' });
+    const text = morning.warnings.join(' ');
+    expect(text).toMatch(/Optional/);
+    expect(text).toMatch(/[Pp]ractise/);
+    expect(text).toMatch(/sleep/);
+    expect(text).toMatch(/6 mg\/kg/);
+    expect(morning.lateStart).toBe(false);
+    const evening = planCaffeine({ enabled: true, weightKg: 70, startTime: '18:00' });
+    expect(evening.lateStart).toBe(true);
+    expect(evening.warnings.join(' ')).toMatch(/afternoon or evening/);
+  });
+
+  it('gives no milligrams without a body mass — never NaN', () => {
+    const plan = planCaffeine({ enabled: true, weightKg: undefined, startTime: 'nonsense' });
+    expect(plan.preRace).toBeNull();
+    expect(plan.lateRace).toBeNull();
+    expect(JSON.stringify(plan)).not.toMatch(/NaN|Infinity/);
   });
 });
