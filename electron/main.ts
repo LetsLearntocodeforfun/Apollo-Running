@@ -25,6 +25,13 @@ let oauthPort: number | null = null;
 
 const isDev = !app.isPackaged;
 const DEV_SERVER_URL = 'http://localhost:5173';
+/**
+ * Unpackaged runs normally load the Vite dev server. APOLLO_LOAD_DIST=1 makes
+ * them load the built dist/index.html instead, exactly like a packaged app —
+ * the Playwright smoke test (e2e/) uses this, because packaged builds have the
+ * Node inspector fuse turned off and can't be driven by Playwright.
+ */
+const useDevServer = isDev && process.env.APOLLO_LOAD_DIST !== '1';
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
 // v1.0.7 (PX-07): read-only. Apollo reads activities (incl. private ones) and
@@ -61,7 +68,7 @@ let loadedIndexUrl: string | null = null;
 function trustedLocation(): TrustedAppLocation {
   return {
     indexUrl: loadedIndexUrl,
-    devServerOrigin: isDev ? DEV_SERVER_URL : null,
+    devServerOrigin: useDevServer ? DEV_SERVER_URL : null,
     caseInsensitivePaths: process.platform === 'win32',
   };
 }
@@ -225,7 +232,7 @@ function createWindow() {
 
   // Load the app
   const loadApp = async () => {
-    if (isDev) {
+    if (useDevServer) {
       try {
         logDev('Loading app from Vite dev server');
         await win.loadURL(DEV_SERVER_URL);
@@ -720,8 +727,13 @@ handleTrusted('secure-storage:is-available', () => {
 // macOS builds are not code-signed, so Squirrel.Mac can't apply updates:
 // there, updates are manual downloads from the releases page.
 
+/**
+ * Microsoft Store (AppX/MSIX) builds are updated by the Store itself; they must
+ * never download installers from GitHub. See docs/SIGNING.md.
+ */
+const IS_STORE_BUILD = process.windowsStore === true;
 /** Whether downloaded updates can be installed by the app on this platform. */
-const CAN_AUTO_INSTALL = process.platform !== 'darwin';
+const CAN_AUTO_INSTALL = process.platform !== 'darwin' && !IS_STORE_BUILD;
 /** Where to get an update manually (macOS). */
 const MANUAL_DOWNLOAD_URL = `${RELEASES_URL}/latest`;
 
@@ -750,7 +762,7 @@ const updateState: UpdateState = {
   downloadProgress: null,
   error: null,
   canAutoInstall: CAN_AUTO_INSTALL,
-  manualDownloadUrl: CAN_AUTO_INSTALL ? null : MANUAL_DOWNLOAD_URL,
+  manualDownloadUrl: CAN_AUTO_INSTALL || IS_STORE_BUILD ? null : MANUAL_DOWNLOAD_URL,
 };
 
 function sendUpdateState(): void {
@@ -809,6 +821,9 @@ handleTrusted('updater:check', async () => {
   if (isDev) {
     return { ...updateState, status: 'not-available', error: 'Updates disabled in development mode' };
   }
+  if (IS_STORE_BUILD) {
+    return { ...updateState, status: 'not-available', error: null };
+  }
   try {
     await autoUpdater.checkForUpdates();
     return { ...updateState };
@@ -851,7 +866,7 @@ handleTrusted('updater:open-download-page', () => {
  * Input is validated (only literal booleans); macOS never auto-downloads.
  */
 handleTrusted('updater:configure', async (_, rawPrefs: unknown) => {
-  if (isDev) return { ...updateState };
+  if (isDev || IS_STORE_BUILD) return { ...updateState };
   const prefs = parseUpdaterPrefs(rawPrefs);
   const autoDownload = CAN_AUTO_INSTALL && prefs.autoDownload;
   autoUpdater.autoDownload = autoDownload;

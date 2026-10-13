@@ -1,0 +1,108 @@
+name: Deploy web version (GitHub Pages)
+
+# v1.0.7: the free, no-install web version of Apollo at
+#   https://<owner>.github.io/<repo>/   (https://letslearntocodeforfun.github.io/Apollo-Running/)
+#
+# It is the same app as the desktop build, served as static files. Everything
+# stays in the visitor's browser (IndexedDB + localStorage); there is no
+# backend, so Strava (which needs a server for its token exchange) is switched
+# off on the web and the Settings screen points to the desktop app instead.
+#
+# Runs when a release tag (v*) is pushed, or by hand (Actions → Run workflow).
+# One-time setup: Settings → Pages → Build and deployment → Source: "GitHub Actions".
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deployment at a time; never cancel one that is already publishing.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # The Electron binary is not needed to build the web bundle.
+  ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+jobs:
+  build:
+    name: Build web version
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Unit & component tests
+        run: npx vitest run
+
+      - name: Configure GitHub Pages
+        id: pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      # Pages serves the site from /<repo>/, so assets must use that base path.
+      # configure-pages reports it (also correct for a custom domain: "/").
+      - name: Build web bundle
+        run: npm run build:web
+        env:
+          APOLLO_BASE: ${{ steps.pages.outputs.base_path }}/
+
+      - name: Check web bundle
+        run: |
+          node scripts/check-bundle.mjs
+          grep -q 'http-equiv="Content-Security-Policy"' dist/index.html \
+            || { echo "::error::index.html is missing its Content-Security-Policy"; exit 1; }
+          if grep -rIlE "fonts\.(googleapis|gstatic)\.com" dist; then
+            echo "::error::Third-party font host found in the web bundle"
+            exit 1
+          fi
+
+      # Pages has no rewrites: serve the app for unknown paths too (e.g. an old
+      # /auth/strava/callback link), and main.tsx moves the path into the hash
+      # route (PX-02). Azure-only config is not needed here.
+      - name: Prepare Pages site
+        run: |
+          cp dist/index.html dist/404.html
+          rm -f dist/staticwebapp.config.json
+          touch dist/.nojekyll
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: dist
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write    # deploy to Pages
+      id-token: write # verify the deployment came from this workflow
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1

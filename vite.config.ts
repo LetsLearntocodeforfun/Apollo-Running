@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react';
 import electron from 'vite-plugin-electron';
 import renderer from 'vite-plugin-electron-renderer';
 import path from 'path';
+import { manualChunks } from './vite.chunks';
 
 /**
  * Desktop (Electron) build — the single source of truth for `npm run build:electron`
@@ -71,8 +72,9 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        // Charts are only needed by a few lazily-loaded screens.
-        manualChunks: { 'vendor-charts': ['recharts'] },
+        // Charts are only needed by a few lazily-loaded screens. Function form
+        // (vite.chunks.ts) so React doesn't end up in the chart chunk (PX-05).
+        manualChunks,
       },
     },
   },

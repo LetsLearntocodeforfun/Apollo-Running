@@ -4,6 +4,8 @@ Apollo is a free, open-source marathon training app for **Windows, macOS and Lin
 
 **Download:** [github.com/LetsLearntocodeforfun/Apollo-Running/releases/latest](https://github.com/LetsLearntocodeforfun/Apollo-Running/releases/latest)
 
+**Don't want to install anything?** [Use it in your browser](#use-it-in-your-browser) instead.
+
 ---
 
 ## 1. Pick the right file
@@ -121,6 +123,24 @@ To remove your data as well, use **Settings → Data & Privacy → Delete all da
 
 ---
 
+## Use it in your browser
+
+Apollo also runs as a website, free and with nothing to install:
+
+**[letslearntocodeforfun.github.io/Apollo-Running](https://letslearntocodeforfun.github.io/Apollo-Running/)**
+
+It's the same app as the desktop version. Good to know:
+
+- **Your data stays in this browser** on this device (in the browser's own storage). Nothing is uploaded, and there is no account. A different browser, a private/incognito window or another computer starts empty.
+- **Clearing your browser's site data deletes your Apollo data.** Back it up regularly with **Settings → Data & Privacy → Download current data**. You can bring that file into the desktop app (or another browser) with **Import from file…**.
+- **Strava sync is available in the desktop app.** In the browser, connect **intervals.icu** (free; it collects activities from Garmin, COROS, Zwift and others) or import activity files (`.fit`, `.gpx`, `.tcx`, Strava/Garmin exports).
+- **Use one tab at a time.** If Apollo is open in two tabs, the second one shows a warning, because changes made in both could overwrite each other.
+- Updates arrive automatically the next time you open the page.
+
+To move to the desktop app later: download your data in the browser, install the desktop app, then use **Import from file…**.
+
+---
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -129,6 +149,8 @@ To remove your data as well, use **Settings → Data & Privacy → Delete all da
 | macOS: no "Open Anyway" button | Try to open Apollo once first. The button only appears for about an hour after a blocked launch. |
 | macOS: "damaged and can't be opened" | See the `xattr` command in step 2. |
 | Linux: AppImage won't start | Install `libfuse2` (or `libfuse2t64`), or use the `.deb`. |
+| Browser: "Apollo is open in another tab" | Close the other Apollo tabs (or this one), then click **Reload**. |
+| Browser: my data is gone | The browser's site data was cleared, or you're in a different browser/profile or a private window. Restore your last download with **Import from file…**. |
 | Something else | [Open an issue](https://github.com/LetsLearntocodeforfun/Apollo-Running/issues) with your OS version and what you saw. |
 
 ## Run from source (developers)
@@ -139,6 +161,8 @@ cd Apollo-Running
 npm ci
 npm run dev           # browser at http://localhost:5173
 npm run dev:electron  # desktop app
+npm run build:pages   # the GitHub Pages web build (base /Apollo-Running/)
+npm run test:e2e      # build the desktop app and run the Playwright smoke test
 ```
 
 Requires Node.js 22 or later.

@@ -57,6 +57,11 @@ jobs:
       - name: Build web bundle
         run: npm run build:web
 
+      # PX-05: the chart library must not load on Today, and the first-screen
+      # JavaScript must stay within budget (scripts/check-bundle.mjs).
+      - name: Check web bundle budget
+        run: node scripts/check-bundle.mjs
+
       # Local-first promise: the app must not pull fonts (or anything else)
       # from Google at runtime. Fonts are self-hosted via @fontsource.
       - name: Check web bundle has no third-party font hosts
@@ -79,6 +84,71 @@ jobs:
             echo "::error::Third-party font host found in the desktop bundle"
             exit 1
           fi
+
+      - name: Check desktop bundle budget
+        run: node scripts/check-bundle.mjs
+
+  # PX-09: launch the built desktop app with Playwright and click through the
+  # main navigation (e2e/smoke.spec.ts). Linux runs under a virtual display.
+  e2e:
+    name: Electron smoke test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-24.04
+          - windows-latest
+          - macos-latest
+    env:
+      # This job launches Electron, so it needs the real binary.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Download the Electron binary
+        run: npx --no-install install-electron
+
+      # Ubuntu 24.04 blocks the unprivileged user namespaces Chromium's sandbox
+      # needs; allow them for this runner instead of disabling the sandbox.
+      - name: Allow the Chromium sandbox (Linux)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+
+      - name: Build desktop bundles
+        run: npm run build:electron
+
+      - name: Smoke test (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run --auto-servernum --server-args="-screen 0 1280x960x24" npx playwright test
+
+      - name: Smoke test
+        if: runner.os != 'Linux'
+        run: npx playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: playwright-report-${{ matrix.os }}
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
 
   # Date maths (plan grid, streaks, load charts) must not depend on the
   # machine's time zone or daylight-saving transitions.

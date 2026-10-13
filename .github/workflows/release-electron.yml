@@ -16,6 +16,17 @@ name: Build & Release Electron Installers
 # automatically when the MAC_CSC_LINK / APPLE_* secrets exist. Without them the
 # Apple Silicon build is ad-hoc signed (electron-builder's fallback) and the
 # Intel build is unsigned, exactly as in v1.0.6.
+#
+# Windows signing (SignPath Foundation, free for open source) switches on when
+# the SIGNPATH_ORGANIZATION_ID repository variable and the SIGNPATH_API_TOKEN
+# secret both exist. Until then the Windows job builds exactly as before. When
+# on, the app (Apollo.exe + DLLs) is signed first, the installer is built from
+# the signed app, then the installer itself is signed and latest.yml/blockmap
+# are refreshed so auto-update accepts it.
+#
+# Microsoft Store: the separate "store" job builds an AppX package (signed by
+# the Store on upload) only when the MS_STORE_IDENTITY_NAME variable exists. It
+# is uploaded as a workflow artifact for Partner Center, never to the release.
 on:
   push:
     tags:
@@ -87,7 +98,16 @@ jobs:
 
     runs-on: ${{ matrix.os }}
     name: Build (${{ matrix.platform }})
-    timeout-minutes: 45
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read # SignPath reads this job's details and downloads the unsigned artifact
+    env:
+      # 'true' only on the Windows job once SignPath is configured (docs/SIGNING.md).
+      SIGN_WINDOWS: ${{ matrix.platform == 'win' && vars.SIGNPATH_ORGANIZATION_ID != '' && secrets.SIGNPATH_API_TOKEN != '' && 'true' || 'false' }}
+      # SignPath Foundation projects get a test and a release signing policy;
+      # dry runs use the test policy so they never consume a release approval.
+      SIGNPATH_POLICY: ${{ startsWith(github.ref, 'refs/tags/') && (vars.SIGNPATH_RELEASE_POLICY_SLUG || 'release-signing') || (vars.SIGNPATH_TEST_POLICY_SLUG || 'test-signing') }}
 
     steps:
       - name: Checkout repository
@@ -117,6 +137,7 @@ jobs:
 
       # Build installers WITHOUT publishing (the publish job attaches them).
       - name: Package installers
+        if: env.SIGN_WINDOWS != 'true'
         run: npx electron-builder --publish never
         env:
           # Keychain discovery only when a macOS signing certificate is provided;
@@ -129,6 +150,94 @@ jobs:
           APPLE_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_ID || '' }}
           APPLE_APP_SPECIFIC_PASSWORD: ${{ matrix.platform == 'mac' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
           APPLE_TEAM_ID: ${{ matrix.platform == 'mac' && secrets.APPLE_TEAM_ID || '' }}
+
+      # ── Windows + SignPath (only when SIGN_WINDOWS is 'true') ──────────────
+      # 1. Package the app folder only (release/win-unpacked), unsigned.
+      - name: 'SignPath 1/6: package unsigned app folder'
+        if: env.SIGN_WINDOWS == 'true'
+        run: npx electron-builder --win dir --publish never
+
+      - name: 'SignPath 2/6: upload unsigned app folder'
+        id: upload-unsigned-app
+        if: env.SIGN_WINDOWS == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win-unpacked-unsigned
+          path: release/win-unpacked/
+          if-no-files-found: error
+          retention-days: 1
+
+      # 2. Sign Apollo.exe and the bundled DLLs (artifact configuration
+      #    "apollo-app", see docs/SIGNING.md), then put the signed folder back.
+      - name: 'SignPath 3/6: sign app folder'
+        if: env.SIGN_WINDOWS == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'Apollo-Running' }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_APP_CONFIG_SLUG || 'apollo-app' }}
+          github-artifact-id: ${{ steps.upload-unsigned-app.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: release/win-unpacked-signed
+
+      # 3. Build the NSIS installer from the signed app folder.
+      - name: 'SignPath 4/6: build installer from signed app'
+        if: env.SIGN_WINDOWS == 'true'
+        shell: bash
+        run: |
+          rm -rf release/win-unpacked
+          mv release/win-unpacked-signed release/win-unpacked
+          npx electron-builder --win nsis --prepackaged release/win-unpacked --publish never
+
+      - name: 'SignPath 5/6: upload unsigned installer'
+        id: upload-unsigned-installer
+        if: env.SIGN_WINDOWS == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: win-installer-unsigned
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 1
+
+      # 4. Sign the installer (artifact configuration "apollo-installer"), then
+      #    refresh latest.yml + blockmap so electron-updater accepts the signed file.
+      - name: 'SignPath 6/6: sign installer'
+        if: env.SIGN_WINDOWS == 'true'
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3.0
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG || 'Apollo-Running' }}
+          signing-policy-slug: ${{ env.SIGNPATH_POLICY }}
+          artifact-configuration-slug: ${{ vars.SIGNPATH_INSTALLER_CONFIG_SLUG || 'apollo-installer' }}
+          github-artifact-id: ${{ steps.upload-unsigned-installer.outputs.artifact-id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: 3600
+          output-artifact-directory: release/signed-installer
+
+      - name: Use signed installer and refresh update metadata
+        if: env.SIGN_WINDOWS == 'true'
+        shell: bash
+        run: |
+          shopt -s nullglob
+          signed=(release/signed-installer/*.exe)
+          if [ ${#signed[@]} -eq 0 ]; then echo "::error::SignPath returned no installer"; exit 1; fi
+          cp -f "${signed[@]}" release/
+          node scripts/update-latest-yml.mjs release
+
+      - name: Verify Windows signatures
+        if: env.SIGN_WINDOWS == 'true'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem release/*.exe) + @(Get-Item release/win-unpacked/Apollo.exe)
+          foreach ($f in $files) {
+            $sig = Get-AuthenticodeSignature $f.FullName
+            Write-Host "$($f.Name): $($sig.Status) $($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { Write-Error "$($f.Name) is not validly signed"; exit 1 }
+          }
 
       # Upload installer files as workflow artifacts
       - name: Upload installer artifacts
@@ -145,6 +254,50 @@ jobs:
             release/latest*.yml
           if-no-files-found: error
           retention-days: 5
+
+  # ─── Optional: Microsoft Store package (AppX) ───
+  # Off until the MS_STORE_* repository variables are set (docs/SIGNING.md).
+  # Not part of the GitHub Release: upload the .appx in Partner Center, where
+  # Microsoft signs it. Store installs update through the Store (electron/main.ts).
+  store:
+    name: Build (Microsoft Store)
+    needs: verify
+    if: ${{ vars.MS_STORE_IDENTITY_NAME != '' }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Electron app
+        run: npm run build:electron
+
+      - name: Package AppX
+        run: npx electron-builder --win --config electron-builder.store.cjs --publish never
+        env:
+          MS_STORE_IDENTITY_NAME: ${{ vars.MS_STORE_IDENTITY_NAME }}
+          MS_STORE_PUBLISHER: ${{ vars.MS_STORE_PUBLISHER }}
+          MS_STORE_PUBLISHER_DISPLAY_NAME: ${{ vars.MS_STORE_PUBLISHER_DISPLAY_NAME }}
+
+      - name: Upload Store package
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: microsoft-store-package
+          path: release/*.appx
+          if-no-files-found: error
+          retention-days: 30
 
   # ─── Step 2: Checksums, provenance, and (for tags) the GitHub Release ───
   publish:

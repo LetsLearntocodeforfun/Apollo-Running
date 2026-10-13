@@ -28,6 +28,7 @@ import {
 } from '../../services/activitySource';
 import { runSync, type AutoSyncReport } from '../../services/autoSync';
 import { getStravaAuthUrl, isWeb } from '../../services/stravaWeb';
+import { isStravaAvailable, STRAVA_DESKTOP_ONLY_NOTE } from '../../utils/platform';
 import {
   clearNeedsReconnect,
   getNeedsReconnect,
@@ -566,7 +567,10 @@ export default function ConnectionsTab() {
             </button>
           </ReconnectBanner>
         )}
-        {isWeb() ? (
+        {!isStravaAvailable() ? (
+          // v1.0.7: the free web version has no backend for Strava's token exchange.
+          <p className="settings-hint" data-testid="strava-desktop-only">{STRAVA_DESKTOP_ONLY_NOTE}</p>
+        ) : isWeb() ? (
           <>
             <p className="settings-hint">
               You&apos;ll be redirected to Strava to authorize. Activities then sync along with your other sources.

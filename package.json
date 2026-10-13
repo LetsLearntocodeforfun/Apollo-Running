@@ -13,6 +13,8 @@
     "build": "npm run build:electron",
     "build:web": "vite build --config vite.config.web.ts",
     "build:electron": "vite build --config vite.config.ts",
+    "build:pages": "cross-env APOLLO_BASE=/Apollo-Running/ vite build --config vite.config.web.ts",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "package": "npm run build:electron && electron-builder --publish never",
     "preview": "vite preview --config vite.config.web.ts",
     "preview:web": "vite preview --config vite.config.web.ts",
@@ -23,6 +25,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:tz": "cross-env TZ=America/Los_Angeles vitest run && cross-env TZ=Europe/London vitest run && cross-env TZ=Australia/Sydney vitest run",
+    "test:e2e": "npm run build:electron && playwright test",
+    "test:e2e:only": "playwright test",
     "electron:dev": "npm run dev:electron",
     "electron:build": "npm run package",
     "swa": "swa start ./dist --api-location ./api"
@@ -38,6 +42,7 @@
   "devDependencies": {
     "@fontsource-variable/inter": "^5.2.6",
     "@fontsource-variable/montserrat": "^5.2.6",
+    "@playwright/test": "^1.63.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^18.2.55",
@@ -46,8 +51,8 @@
     "@vitest/coverage-v8": "^4.0.18",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
-    "electron": "^40.4.1",
-    "electron-builder": "^26.7.0",
+    "electron": "^44.4.3",
+    "electron-builder": "^26.9.0",
     "fake-indexeddb": "^6.0.1",
     "jsdom": "^28.1.0",
     "typescript": "^5.3.3",
@@ -70,6 +75,14 @@
       "!dist/staticwebapp.config.json"
     ],
     "icon": "public/assets/logo-1024.png",
+    "electronFuses": {
+      "runAsNode": false,
+      "enableCookieEncryption": true,
+      "enableNodeOptionsEnvironmentVariable": false,
+      "enableNodeCliInspectArguments": false,
+      "enableEmbeddedAsarIntegrityValidation": true,
+      "onlyLoadAppFromAsar": true
+    },
     "win": {
       "target": [
         "nsis"
