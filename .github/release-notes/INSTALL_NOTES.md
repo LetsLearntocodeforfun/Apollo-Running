@@ -2,6 +2,8 @@
 
 Apollo is free and open source. It needs no account, and your data stays on your computer.
 
+**What's new in this version:** see the [changelog](https://github.com/LetsLearntocodeforfun/Apollo-Running/blob/main/CHANGELOG.md).
+
 | Your computer | Download this file |
 |---|---|
 | **Windows 10/11** | `Apollo-Setup-<version>.exe` |

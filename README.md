@@ -6,12 +6,12 @@
 
 <p align="center">
   <strong>The definitive marathon training platform.</strong><br />
-  Smart plans · Free sync via intervals.icu · Garmin/Strava/Zwift file import · Workouts to your watch · Race-day pacing and fueling<br />
+  Smart plans · Direct Garmin Connect sync · Free sync via intervals.icu · FIT/GPX/TCX and export import · Workouts to your watch · Race-day pacing and fueling<br />
   <em>Local-first. Zero subscriptions. No Apollo account, no Apollo servers — your data stays on your device.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/app%20tests-~1960%20passing-brightgreen" alt="About 1,960 app tests passing" />
+  <img src="https://img.shields.io/badge/app%20tests-~2000%20passing-brightgreen" alt="About 2,000 app tests passing" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
@@ -23,7 +23,7 @@
 
 - [Why Apollo](#why-apollo)
 - [Download & Install](#download--install)
-- [What's New in v1.0.7](#whats-new-in-v107)
+- [What's New in v1.0.8](#whats-new-in-v108)
 - [Features at a Glance](#features-at-a-glance)
 - [The Training Calendar](#the-training-calendar)
 - [How the App Works — Page by Page](#how-the-app-works--page-by-page)
@@ -62,6 +62,7 @@
 - [Structured Workouts & VDOT Pacing](#structured-workouts--vdot-pacing)
 - [Data Safety & Backups](#data-safety--backups)
 - [Integrations](#integrations)
+  - [Garmin Connect (direct)](#garmin-connect-direct--desktop-app)
   - [intervals.icu](#intervalsicu-free--recommended)
   - [Workouts to Your Watch](#workouts-to-your-watch)
   - [File & Archive Import](#file--archive-import-no-account-needed)
@@ -86,7 +87,7 @@ Apollo is different. It combines the depth of a professional coaching platform w
 
 What sets Apollo apart:
 
-- **Free sync with every major platform** — Connect a free [intervals.icu](https://intervals.icu) account and Apollo pulls every run, ride, and swim recorded on Garmin, COROS, Suunto, Polar, Wahoo, Zwift, and more — full history on the first sync, incremental after that. Prefer zero accounts? Drag in FIT/GPX/TCX files or your whole Garmin/Strava data export. Strava's paid API is supported too, but never required.
+- **Free sync with every major platform** — Connect **Garmin Connect** directly with your own free personal API key (desktop app): every activity, with routes, splits and laps from your watch's original files, and no other account in between. Or connect a free [intervals.icu](https://intervals.icu) account and Apollo pulls every run, ride, and swim recorded on COROS, Suunto, Polar, Wahoo, Zwift, and more — full history on the first sync, incremental after that. Prefer zero accounts? Drag in FIT/GPX/TCX files or your whole Garmin/Strava data export. Strava's paid API is supported too, but never required.
 - **Your plan on your wrist** — Push your training plan to the intervals.icu calendar with VDOT-calibrated paces, and intervals.icu delivers each structured workout to your Garmin, COROS, Suunto, or Wahoo watch.
 - **Recovery that reads your watch** — Turn on wellness sync and sleep, HRV, and resting heart rate come free from intervals.icu into a daily recovery check that compares today against *your* normal ranges and tells you when to back off.
 - **Plans based on the methods you know** — Hal Higdon, Hansons, Pfitzinger, Nike Run Club and FIRST. Each plan says how closely it follows the coach's published plan and links to the official source. Apollo is independent and not endorsed by any of them. Or build your own from scratch with the custom plan builder. Joining late? Apollo checks the week you'd join against your recent running and suggests a gentler plan or a later race if it's a big jump.
@@ -96,8 +97,8 @@ What sets Apollo apart:
 - **Export your plan anywhere** — One-click .ics calendar export with VDOT-paced workout descriptions. Works with Google Calendar, Outlook, and Apple Calendar.
 - **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
 - **Your data, your device** — localStorage + IndexedDB. Automatic backups checked after they're written (SHA-256), and a **Not saved** banner if a save ever fails. Export everything as JSON. Nothing leaves your machine unless you connect a service.
-- **Security-hardened** — OS-level credential encryption via Electron's safeStorage API, Content Security Policy headers, navigation guards, IPC key allowlisting, coordinate validation, and HTML entity escaping. Zero `eval()`, zero `dangerouslySetInnerHTML`, zero hardcoded secrets.
-- **About 1,960 app tests** — Plans, paces, sync, file import, backups and screens. Key formulas (Daniels VDOT, Riegel, CTL/ATL/TSB, carb and fluid targets) are checked against values from their published sources. Apollo gives training guidance, not medical advice.
+- **Security-hardened** — OS-level credential encryption via Electron's safeStorage API, Content Security Policy headers, navigation guards, IPC key allowlisting, a read-only allow-listed proxy for Garmin Connect, coordinate validation, and HTML entity escaping. Zero `eval()`, zero `dangerouslySetInnerHTML`, zero hardcoded secrets.
+- **About 2,000 app tests** — Plans, paces, sync (Garmin Connect, intervals.icu, Strava), file import, backups and screens. Key formulas (Daniels VDOT, Riegel, CTL/ATL/TSB, carb and fluid targets) are checked against values from their published sources. Apollo gives training guidance, not medical advice.
 
 ---
 
@@ -113,7 +114,7 @@ What sets Apollo apart:
 | Linux (any distribution) | `Apollo-<version>.AppImage` |
 | Debian / Ubuntu | `apollo-marathon_<version>_amd64.deb` |
 
-**Don't want to install anything?** [Use it in your browser](docs/INSTALL.md#use-it-in-your-browser) at **https://letslearntocodeforfun.github.io/Apollo-Running/** (live after the first deploy). Your data stays in that browser, and Strava sync is desktop-only.
+**Don't want to install anything?** [Use it in your browser](docs/INSTALL.md#use-it-in-your-browser) at **https://letslearntocodeforfun.github.io/Apollo-Running/** (live after the first deploy). Your data stays in that browser, and Strava and Garmin Connect sync are desktop-only.
 
 The first time you open Apollo, your computer asks you to confirm once. That's because the installers aren't signed with a paid publisher certificate yet:
 
@@ -125,7 +126,7 @@ The first time you open Apollo, your computer asks you to confirm once. That's b
 
 Every release includes `SHA256SUMS.txt` and GitHub build-provenance attestations, so you can check that your download is genuine. Why the prompt appears, and the free signing routes we're pursuing: [docs/SIGNING.md](docs/SIGNING.md).
 
-Apollo's guided onboarding then walks you through choosing a plan, setting your race date, picking your units and setting coaching preferences. To bring in your runs (free via intervals.icu, by importing files or exports, or via Strava if you have API access), see [Integrations](#integrations).
+Apollo's guided onboarding then walks you through choosing a plan, setting your race date, picking your units and setting coaching preferences. To bring in your runs (directly from Garmin Connect with a free personal API key, free via intervals.icu, by importing files or exports, or via Strava if you have API access), see [Integrations](#integrations).
 
 ### Run from source (developers)
 
@@ -141,14 +142,29 @@ Requires Node.js 22 or later.
 
 ---
 
-## What's New in v1.0.7
+## What's New in v1.0.8
 
-- **Use it in your browser** — a free web version on GitHub Pages (live after the first deploy). Your data stays in that browser; Strava sync is desktop-only. See [the install guide](docs/INSTALL.md#use-it-in-your-browser).
+**Direct Garmin Connect sync (desktop app).** Garmin now lets every Garmin Connect user create a free personal API key for their own data. Paste yours in **Settings › Connections › Garmin Connect** and Apollo imports your history straight from Garmin, with no intervals.icu or Strava account in between. [How to connect →](#garmin-connect-direct--desktop-app)
+
+- **Every sport, with the details** — runs, rides, swims and everything else; routes, per-mile/km splits, laps and best efforts come from your watch's original FIT files.
+- **One copy of each workout** — when the same activity also arrives through intervals.icu, Strava or a file import, Apollo keeps one copy and prefers Garmin's own numbers.
+- **Key-expiry reminders** — tell Apollo the expiry you picked (30 days to a year) and it warns you a week before. If Garmin rejects the key, Garmin sync pauses with a *Reconnect needed* banner instead of retrying silently; **Replace key** keeps your history and sync progress.
+- **Read-only and locked down** — the key is encrypted on your computer and sent only to Garmin. The app can only make read-only calls to an allow-list of Garmin endpoints.
+- **Ready for Garmin's new developer terms** — if intervals.icu stops passing Garmin activities to apps, Apollo keeps the Garmin activities it already has instead of treating them as deleted.
+
+Sending your plan to your watch still goes through intervals.icu (Garmin's personal API is read-only). The browser version can't connect to Garmin (Garmin's API doesn't accept requests from web browsers): import FIT files or a Garmin export there instead.
+
+**Also in this release.** v1.0.7 wasn't published on its own, so its changes ship in v1.0.8:
+
+- **Use it in your browser** — a free web version on GitHub Pages (live after the first deploy). Your data stays in that browser; Strava and Garmin Connect sync are desktop-only. See [the install guide](docs/INSTALL.md#use-it-in-your-browser).
 - **Safer saving** — a **Not saved** banner with *Retry* if a write ever fails, backups checked after they're written, and damaged data set aside instead of lost.
 - **Plans that follow their coach** — every built-in plan says how closely it follows the published plan and links to the official source. Joining late? A fitness check compares the week you'd join with your recent running.
 - **Race Day › Fuel** — an optional caffeine card, a sweat test (and a "salty sweater" option) that sets your fluid and sodium guidance, and one carb ceiling of 20–90 g/h.
 - **Charts that don't mislead** — the fitness & form chart shows your projected race-morning form, and heart-rate zones say when time in zone is estimated rather than measured.
 - **Privacy** — read-only Strava access, wellness sync off by default for new installs, and saving on close.
+- **Security updates** — Electron 44.9.1, plus updated React Router, Vite and Vitest.
+
+Full details are in the [changelog](CHANGELOG.md).
 
 ---
 
@@ -159,7 +175,8 @@ Requires Node.js 22 or later.
 | **8 marathon plans** | Hal Higdon (4), Hansons, Pfitzinger, Nike, FIRST — each with a fidelity label and official source link — plus a custom plan builder |
 | **Late-join fitness check** | Warns when the plan week you'd join is a big jump from your recent running, and offers a gentler plan or a later race |
 | **Plan edits** | Move or skip a day, convert it to an easy run or rest day, and restore the original |
-| **Free activity sync** | intervals.icu connection (free) pulls runs, rides, and swims from Garmin, COROS, Suunto, Polar, Wahoo, Zwift — full history, then incremental |
+| **Direct Garmin Connect sync** | Desktop app: connect with your own free Garmin personal API key — every activity, with routes, splits and laps from the watch's original files, plus key-expiry reminders |
+| **Free activity sync** | intervals.icu connection (free) pulls runs, rides, and swims from COROS, Suunto, Polar, Wahoo, Zwift and more — full history, then incremental |
 | **File & archive import** | Drag-and-drop FIT, GPX, TCX (and `.gz`), or an entire Garmin/Strava account export ZIP — no account needed |
 | **Workouts to your watch** | Push the plan to your intervals.icu calendar with VDOT paces; intervals.icu uploads it to Garmin, COROS, Suunto, and Wahoo watches |
 | **Recovery check** | Opt-in wellness sync: sleep, HRV, and resting HR from your watch (via intervals.icu) → daily status and training suggestion |
@@ -188,7 +205,7 @@ Requires Node.js 22 or later.
 | **Auto-sync on launch** | Opt-in automatic sync when the app opens, plus optional background re-sync while it's open (default hourly), with a 5-minute cooldown |
 | **Auto-updates** | Opt-in update checking, downloading, and installing (desktop) |
 | **Units** | Miles or kilometers, °F or °C, kg or lb |
-| **Web version** | The same app in your browser; data stays in that browser (Strava is desktop-only) |
+| **Web version** | The same app in your browser; data stays in that browser (Strava and Garmin Connect sync are desktop-only) |
 
 > Some science modules (ghost runner, bonk risk, glycogen and hydration models, what-if, and more) exist in the code but have no screen yet. See [Experimental (not in the app yet)](#experimental-not-in-the-app-yet).
 
@@ -299,7 +316,7 @@ Plan your race with course-specific pacing, fueling, and logistics. A **My race*
 
 Configuration and data management, in six tabs.
 
-- **Connections** — **intervals.icu (free, recommended)**: paste your API key once; Apollo verifies it, encrypts it at rest, and imports your full history. **Import activity files** (FIT/GPX/TCX, optionally `.gz`, or a whole Garmin Connect / Strava export ZIP; duplicates are merged automatically). **Strava (optional, desktop)**: for accounts with Strava API access, with read-only access. If the desktop keychain is unavailable (e.g. Linux without a keyring), Apollo says so instead of silently forgetting the key
+- **Connections** — **Garmin Connect (direct, desktop)**: paste your personal API key once; Apollo checks it, encrypts it at rest, imports your full history and reminds you before the key expires. **intervals.icu (free, recommended)**: paste your API key once; Apollo verifies it, encrypts it at rest, and imports your full history. **Import activity files** (FIT/GPX/TCX, optionally `.gz`, or a whole Garmin Connect / Strava export ZIP; duplicates are merged automatically). **Strava (optional, desktop)**: for accounts with Strava API access, with read-only access. If the desktop keychain is unavailable (e.g. Linux without a keyring), Apollo says so instead of silently forgetting the key
 - **Sync** — auto-sync on launch plus an optional background re-sync interval (5-minute cooldown), and **wellness data** (sleep, HRV, and resting HR; off by default for new installs) for the Recovery check and your HR profile — it never overrides values you entered yourself
 - **Athlete Profile** — units (distance, temperature, body weight), heart rate & body, recent race & goal (used for predictions and paces), and race fueling preferences (caffeine, sweat rate, salty sweater)
 - **Coaching** — daily recap and weekly readiness scheduling; adaptive training on/off, frequency, and aggressiveness; training plan options
@@ -348,8 +365,8 @@ Eight plans based on well-known coaching methods. Each one says how closely it f
 Connect a data source once — or import your files — and Apollo handles the rest.
 
 **How it works:**
-1. **First sync imports your full history** from every connected source (intervals.icu and/or Strava), year by year; after that, each sync is incremental (new and recently edited activities only)
-2. **Duplicates are merged automatically** — the same run recorded on your watch, synced to intervals.icu, and imported from a FIT file is stored once, keeping the richest data from each copy
+1. **First sync imports your full history** from every connected source (Garmin Connect, intervals.icu and/or Strava), year by year; after that, each sync is incremental (new and recently edited activities only)
+2. **Duplicates are merged automatically** — the same run recorded on your watch, synced to Garmin Connect and intervals.icu, and imported from a FIT file is stored once, keeping the richest data from each copy (Garmin Connect's own numbers win when sources disagree)
 3. Each run is matched to a plan day by date (if multiple runs on the same day, the longest one is used); **cross-training days** are fulfilled by rides, swims, Zwift, or strength sessions of 10+ minutes
 4. Matched workouts are auto-completed
 5. For each match, Apollo generates **coaching feedback** — distance analysis against the target, pace commentary tailored to the workout type (easy, tempo, speed, long), and weekly mileage status
@@ -369,7 +386,7 @@ This happens automatically when you open Today or the Plan page, on launch and i
 
 Every synced or imported activity with GPS is rendered as a pure SVG route visualization. No Leaflet. No Mapbox. No API keys. Works fully offline.
 
-- **Polyline decoding** — GPS tracks from intervals.icu streams, imported FIT/GPX/TCX files, or Strava are stored as compact encoded polylines and decoded into coordinates
+- **Polyline decoding** — GPS tracks from Garmin Connect original files, intervals.icu streams, imported FIT/GPX/TCX files, or Strava are stored as compact encoded polylines and decoded into coordinates
 - **Equirectangular projection** with latitude correction — coordinates mapped to SVG points
 - **Ramer-Douglas-Peucker simplification** — long routes stay performant
 - **Animated route drawing** — the path "draws itself" on first render
@@ -841,9 +858,29 @@ Use any combination of these — or none at all. Everything except Strava is fre
 
 | Source | Cost | What you get |
 |--------|------|--------------|
-| **[intervals.icu](https://intervals.icu)** *(recommended)* | Free | Automatic sync of runs, rides, swims, and strength from Garmin, COROS, Suunto, Polar, Wahoo, Zwift, and more — plus sleep, HRV, and resting HR for the recovery check, and plan delivery to your watch |
+| **Garmin Connect** *(direct, desktop app)* | Free (your own personal API key) | Read-only sync of every activity, with routes, splits, and laps from your watch's original files |
+| **[intervals.icu](https://intervals.icu)** *(recommended)* | Free | Automatic sync of runs, rides, swims, and strength from COROS, Suunto, Polar, Wahoo, Zwift, and more — plus sleep, HRV, and resting HR for the recovery check, and plan delivery to your watch (Garmin included) |
 | **File & archive import** | Free, no account | FIT, GPX, TCX (and `.gz`), Garmin Connect data export, Strava bulk export |
 | **Strava** | Requires Strava API access (desktop app) | Read-only OAuth sync of activities, splits, and laps |
+
+### Garmin Connect (direct — desktop app)
+
+Garmin now lets every Garmin Connect user create a **personal API key** for their own data. Apollo uses it to sync straight from Garmin Connect: no intervals.icu or Strava account in between, no developer approval, no server.
+
+**Setup (about two minutes):**
+1. Sign in to Garmin Connect on the web and open [Settings › Personal API Key](https://connect.garmin.com/app/settings/personalApiToken).
+2. Select **Create Key**, accept Garmin's terms, and choose how long the key lasts (30, 90 or 180 days, or one year).
+3. Copy the key (Garmin shows it only once). In Apollo, open **Settings › Connections › Garmin Connect**, paste it, optionally pick the expiry you chose, and click **Connect Garmin & import history**.
+
+Apollo checks the key, stores it encrypted (OS keychain), and imports your full history year by year. After that, each sync fetches only new and recently edited activities.
+
+**What Apollo fetches:** every activity type with distance, moving and elapsed time, pace/speed, elevation, heart rate (average + max), cadence, power (average + normalized), calories, and TSS for power-based activities. Garmin's activity lists carry no GPS, so Apollo downloads the **original file** from your watch for recent outdoor runs (the last 120 days, up to 12 per sync) and for any activity whose details you open. That's where the route map, per-mile/km splits, device laps, and best efforts come from. Multisport sessions are stored as their legs (run, ride, swim).
+
+**Good to know:**
+- **Keys expire.** Apollo reminds you a week before the expiry you chose. If Garmin rejects the key (expired, deleted, or mistyped), Garmin sync pauses with a *Reconnect needed* banner. Create a new key in Garmin Connect and choose **Replace key**: your history and sync progress are kept.
+- **Desktop only.** Garmin's API rejects requests from web browsers, so the browser version can't connect. Import FIT files or a Garmin export there instead.
+- **Read-only, for your own data.** Garmin's Personal API is meant for personal use and can't write to your account, so sending your plan to the watch still goes through intervals.icu ([Workouts to Your Watch](#workouts-to-your-watch)).
+- **Private by design.** The key is sent only to Garmin. Apollo's main process makes the calls, to one fixed Garmin address and only the read endpoints Apollo needs. Disconnecting removes the key from your computer; to revoke the key itself, delete it in Garmin Connect.
 
 ### intervals.icu (free — recommended)
 
@@ -913,11 +950,14 @@ Apollo fetches: activities, heart rate (average + max), cadence, elevation, suff
 
 **Rate limiting:** Apollo tracks Strava's rate limits via response headers and maintains a buffer below the 15-minute and daily caps. Token refresh is mutex-protected to prevent concurrent refresh races.
 
-If you connect both Strava and intervals.icu, activities are de-duplicated automatically.
+If you connect more than one source, activities are de-duplicated automatically.
 
 ### Garmin Devices
 
-Garmin's official Connect APIs are limited to approved business partners, so Apollo reaches Garmin the free way: automatically through intervals.icu (Garmin Connect → intervals.icu → Apollo, and planned workouts back to the watch), or manually by importing FIT files or your Garmin data export.
+Three free ways in: **directly** with your Garmin Connect personal API key ([desktop app](#garmin-connect-direct--desktop-app)), **through intervals.icu** (which also delivers Apollo's planned workouts to your watch), or **by importing** FIT files or your Garmin data export.
+
+> [!NOTE]
+> Garmin's relaunched developer program (October 2026) may stop intervals.icu from passing Garmin activities to apps like Apollo. If that happens, Apollo keeps the Garmin activities it already has (they aren't treated as deleted) and skips empty placeholder rows. Connect Garmin Connect directly to keep new ones coming.
 
 ---
 
@@ -930,15 +970,15 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 - **100% offline-capable** — all data lives in localStorage + IndexedDB on your machine
 - **No telemetry** — Apollo collects zero analytics, usage data, or crash reports
 - **No cloud accounts** — no login, no email, no phone number
-- **Every data connection is opt-in** — intervals.icu and Strava are optional; file import is parsed entirely on your device and works offline
+- **Every data connection is opt-in** — Garmin Connect, intervals.icu and Strava are optional; file import is parsed entirely on your device and works offline
 - **Health data stays local** — sleep, HRV, and resting-HR records synced from intervals.icu are stored only on your device (about the last 400 days) and are never sent anywhere else; switch the sync off any time in Settings
 - **Writes only what it owns** — sending your plan to the intervals.icu calendar creates, updates, and removes only events tagged with Apollo's own ID; your other workouts, notes, and past days are never modified
 
 ### Credential Security (Desktop)
 
-- **OS-level encryption** — your intervals.icu API key and Strava credentials/tokens are encrypted via Electron's `safeStorage` API (DPAPI on Windows, Keychain on macOS, libsecret on Linux)
+- **OS-level encryption** — your Garmin Connect personal API key, intervals.icu API key and Strava credentials/tokens are encrypted via Electron's `safeStorage` API (DPAPI on Windows, Keychain on macOS, libsecret on Linux)
 - **Encrypted-at-rest** — credentials stored as Base64 AES blobs in a JSON file in the app's userData directory, never in localStorage or IndexedDB
-- **Key allowlisting** — IPC handlers only accept a fixed set of credential keys (`intervals_credentials`, `strava_tokens`, `strava_credentials`, and the reserved `garmin_*` keys). Arbitrary key names are rejected.
+- **Key allowlisting** — IPC handlers only accept a fixed set of credential keys (`garmin_personal_api`, `intervals_credentials`, `strava_tokens`, `strava_credentials`, and the legacy `garmin_tokens` / `garmin_credentials` keys). Arbitrary key names are rejected.
 - **Web fallback** — in the browser (no OS keychain), the intervals.icu key is stored in browser storage with a warning; on a self-hosted Azure deployment, the Strava client secret stays in the Azure Functions backend
 
 ### Electron Hardening
@@ -946,13 +986,15 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 | Protection | Status |
 |-----------|--------|
 | `contextIsolation` | ✅ Enabled — renderer cannot access Node.js |
+| `sandbox` | ✅ Enabled for the renderer |
 | `nodeIntegration` | ✅ Disabled |
 | `webSecurity` | ✅ Always enabled (production and development) |
 | `webviewTag` | ✅ Disabled |
 | `nodeIntegrationInWorker` | ✅ Disabled |
 | `will-navigate` guard | ✅ Only allows `localhost:5173` and `file:` origins |
-| `setWindowOpenHandler` | ✅ All new windows denied; HTTPS URLs opened in OS browser |
-| `open-external` allowlist | ✅ HTTPS only, and only `intervals.icu`, `strava.com`, and `connect.garmin.com` |
+| `setWindowOpenHandler` | ✅ All new windows denied; allow-listed HTTPS URLs opened in OS browser |
+| `open-external` allowlist | ✅ HTTPS only, no credentials or custom ports; only activity platforms (`intervals.icu`, `strava.com`, `connect.garmin.com`), the official race and coach sites Apollo links to, and this project's GitHub releases page |
+| Garmin Connect proxy | ✅ The main process calls one fixed `https://` Garmin origin: the key-for-token exchange, then GET-only calls to an allow-list of read endpoints with numeric IDs, checked and encoded query values, JWT-shaped tokens, size caps and timeouts. Nothing is stored or logged there |
 | DevTools | ✅ Only in development builds |
 
 ### Web Security
@@ -969,11 +1011,11 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 |--------|-----------|
 | XSS | React JSX auto-escaping; zero `dangerouslySetInnerHTML`; dedicated `esc()` HTML encoder for race card; Blob URL pattern for print windows |
 | Code injection | Zero `eval()`, `new Function()`, `setTimeout(string)`, or `child_process` usage |
-| SSRF | All external URLs hardcoded (`intervals.icu`, `strava.com`); no user-controlled URL construction |
+| SSRF | All external hosts hardcoded (`intervals.icu`, `strava.com`, `personal.connectapi.garmin.com`); Garmin request URLs are built in the main process from an allow-list of paths with numeric IDs and validated query values; no user-controlled hosts |
 | Prototype pollution | No `Object.assign` with unvalidated external data; no `__proto__` access |
 | OAuth CSRF | Cryptographic state parameter (32 random bytes) validated on callback; single-use |
 | Token refresh | Mutex-protected to prevent concurrent refresh races |
-| API rate limiting | Strava rate limits tracked via response headers with configurable buffer; intervals.icu requests time out after 30 s and back off on 429/5xx |
+| API rate limiting | Strava rate limits tracked via response headers with configurable buffer; intervals.icu requests time out after 30 s and back off on 429/5xx; Garmin requests are spaced at least 0.5 s apart, time out (30 s, 90 s for files) and honour `Retry-After` on 429 |
 | Backup integrity | SHA-256 checksums with read-back verification; tamper detection on restore |
 | Backup restore | 10 MB file limit, 1 MB per-key limit, `apollo_*` key allowlist, credential keys excluded, safety backup before every import |
 | Activity file import | Parsed on-device by Apollo's own decoders (no third-party parsers); 512 MB per activity file, 1 GB per nested archive, at most 2 levels of nesting; decompression stops at each entry's declared size (zip-bomb guard) and every ZIP entry is CRC-32 verified |
@@ -990,7 +1032,7 @@ A guide to getting the most out of Apollo across your training block.
 ### Week 1 — Getting Started
 
 1. **Launch Apollo** and complete the onboarding — choose a plan, set your start date, pick units, configure coaching
-2. **Connect intervals.icu** in Settings (free — link your Garmin, COROS, Suunto, Polar, Wahoo, or Zwift account to intervals.icu first), or **import your files/export** if you'd rather not use any account. Strava works too if you have API access
+2. **Connect Garmin Connect** directly in Settings (desktop app, with your free personal API key) or **intervals.icu** (free — link your COROS, Suunto, Polar, Wahoo, or Zwift account to intervals.icu first), or **import your files/export** if you'd rather not use any account. Strava works too if you have API access
 3. **Send your plan to your watch** (optional) — push it to your intervals.icu calendar and today's workout appears on your device
 4. **Run your first planned workout** and record it on your watch as usual
 5. **Open Apollo** — your run syncs automatically, your day is marked complete, and you receive your first coaching feedback
@@ -1022,7 +1064,7 @@ A guide to getting the most out of Apollo across your training block.
 
 These modules exist in [`src/labs/`](src/labs/README.md) but **no screen uses them**, and several have known errors that must be fixed first. They aren't features yet, and their tests don't count toward the app total.
 
-Ghost runner · bonk risk · glycogen model · hydration calculator · what-if simulator · aerobic decoupling · running economy · fatigue resistance · pacing decay · race equivalence · post-race analysis · weather (Open-Meteo) · shoe tracking · Garmin direct sync.
+Ghost runner · bonk risk · glycogen model · hydration calculator · what-if simulator · aerobic decoupling · running economy · fatigue resistance · pacing decay · race equivalence · post-race analysis · weather (Open-Meteo) · shoe tracking · an old Garmin partner-API stub (superseded: direct Garmin sync now ships through the [Personal API](#garmin-connect-direct--desktop-app)).
 
 See [src/labs/README.md](src/labs/README.md) for what each was meant to do and what must be fixed before it gets a screen.
 
@@ -1143,9 +1185,9 @@ npm run test:watch    # watch mode
 npm run test:coverage # with coverage report
 ```
 
-**About 1,960 app tests** across 100 test files, all passing (`npx vitest run --exclude 'src/labs/**'`). `npm test` also runs the tests for the experimental modules in `src/labs/`; those are reported separately and don't count toward the app total (see [src/labs/README.md](src/labs/README.md#tests)).
+**About 2,000 app tests** across 102 test files, all passing (`npx vitest run --exclude 'src/labs/**'`). `npm test` also runs the tests for the experimental modules in `src/labs/`; those are reported separately and don't count toward the app total (see [src/labs/README.md](src/labs/README.md#tests)).
 
-The suites cover plans and the custom builder, VDOT paces and predictions, plan fidelity, sync (intervals.icu, Strava), file import (FIT/GPX/TCX/ZIP), de-duplication, backups and storage health, fitness & form, fueling, race strategy, race card, checklists, and the main screens.
+The suites cover plans and the custom builder, VDOT paces and predictions, plan fidelity, sync (Garmin Connect, intervals.icu, Strava), the desktop security policies (external links, navigation, the Garmin request allow-list), file import (FIT/GPX/TCX/ZIP), de-duplication, backups and storage health, fitness & form, fueling, race strategy, race card, checklists, and the main screens.
 
 ---
 
@@ -1158,9 +1200,9 @@ The suites cover plans and the custom builder, VDOT paces and predictions, plan 
 | **Charts** | Recharts 3 (analytics) + custom pure SVG (routes, splits, gauges) |
 | **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
 | **Web** | GitHub Pages (free web version); optional Azure Static Web Apps + Functions for Strava OAuth |
-| **Integrations** | intervals.icu REST API (free — activities, streams, wellness, sport settings, calendar events), Strava API v3 (optional — OAuth2, rate-limited, mutex-protected refresh), dependency-free FIT/GPX/TCX/ZIP parsing |
-| **Testing** | Vitest 4 with jsdom (about 1,960 app tests), Playwright Electron smoke test in CI, v8 coverage |
-| **Security** | CSP headers, navigation guards, IPC key allowlisting, SHA-256 backup verification |
+| **Integrations** | Garmin Connect Personal API (desktop — read-only, through an allow-listed main-process proxy; original FIT files for routes and splits), intervals.icu REST API (free — activities, streams, wellness, sport settings, calendar events), Strava API v3 (optional — OAuth2, rate-limited, mutex-protected refresh), dependency-free FIT/GPX/TCX/ZIP parsing |
+| **Testing** | Vitest 4 with jsdom (about 2,000 app tests), Playwright Electron smoke test in CI, v8 coverage |
+| **Security** | CSP headers, navigation guards, IPC key allowlisting, allow-listed Garmin request proxy, SHA-256 backup verification |
 | **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
 
 ---
@@ -1209,12 +1251,14 @@ src/
 ├── services/
 │   ├── activitySource.ts     Sync engine — every connected source, full/incremental sync, events
 │   ├── intervals.ts          intervals.icu API client (activities, streams, wellness, calendar events)
+│   ├── garmin.ts             Garmin Connect Personal API client (tokens, activity lists, original files)
+│   ├── garminFit.ts          Garmin original file (ZIP → FIT/GPX/TCX) → route, splits, laps, best efforts
 │   ├── planCalendarSync.ts   Plan → intervals.icu structured workouts (push, auto-update, remove)
 │   ├── wellness.ts           Sleep/HRV/resting-HR sync, recovery snapshot, threshold-pace check
 │   ├── crossTraining.ts      Cross-training load estimates and summaries
 │   ├── activity/
 │   │   ├── types.ts            Source-neutral Activity model
-│   │   ├── sports.ts           Sport categories (run / ride / swim / strength / other)
+│   │   ├── sports.ts           Sport categories + sport-name normalization shared by imports and live sources
 │   │   ├── streams.ts          Stream → route polyline + split derivation
 │   │   └── dedupe.ts           Cross-source duplicate detection and merging
 │   ├── fileImport/
@@ -1280,10 +1324,10 @@ src/
 │   ├── shoes.ts              Shoe, shoe status, usage types
 │   └── raceStrategy.ts       Marathon, strategy, pacing, elevation types
 │
-└── __tests__/                App tests (about 1,960 across 100 files)
+└── __tests__/                App tests (about 2,000 across 102 files)
     └── setup.ts              Test harness with in-memory persistence mock
 
-electron/                     Electron main process + secure preload
+electron/                     Electron main process, secure preload, and the pure security + Garmin request policies (security.ts, garminProxy.ts)
 api/                          Azure Functions (Strava token exchange)
 public/                       Static assets, PWA manifest, SWA config
 ```

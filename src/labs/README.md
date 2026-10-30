@@ -25,7 +25,7 @@ Issue IDs refer to the v1.0.7 reviews: nutrition (N-), race logistics (L-), race
 | `runningEconomy` | Efficiency trends and an "overtraining" alert | The "overtraining" alarm fires on 3 declining weekly means: 17.8% false positives on noise (A-22). EF mislabeled (A-21). Day-of-year is off by one across DST (`Math.floor(ms/86400000)`) (T-22). |
 | `weather` | Open-Meteo forecast and heat adjustments | **Unsafe copy:** "Increase fluid intake to 150–200%" (~line 279). **Privacy:** fetches even when disabled (U-09); the CSP would also block it. The humidity penalty applies in the cold and isn't Ely-based (U-14). U-15…U-17 still open. |
 | `shoeTracker` | Shoe mileage tracking (gear) | No known safety defect; hidden because there's no screen yet. Re-review units and date handling before building the Gear UI. |
-| `garmin` | Direct Garmin Connect sync | A stub: Garmin's API needs Developer Program approval. Garmin data reaches Apollo through intervals.icu or file import. The Electron IPC handlers (`garmin:*`) are placeholders too. |
+| `garmin` | Direct Garmin Connect sync (partner Developer Program, OAuth) | **Superseded in v1.0.8.** Direct Garmin sync now ships in the app through Garmin's Personal API (`src/services/garmin.ts`, desktop only), and the `garmin:*` IPC handlers serve that client (`electron/garminProxy.ts`). This stub is kept for reference only; don't wire it up. |
 
 ## Tests
 

@@ -133,7 +133,7 @@ It's the same app as the desktop version. Good to know:
 
 - **Your data stays in this browser** on this device (in the browser's own storage). Nothing is uploaded, and there is no account. A different browser, a private/incognito window or another computer starts empty.
 - **Clearing your browser's site data deletes your Apollo data.** Back it up regularly with **Settings → Data & Privacy → Download current data**. You can bring that file into the desktop app (or another browser) with **Import from file…**.
-- **Strava sync is available in the desktop app.** In the browser, connect **intervals.icu** (free; it collects activities from Garmin, COROS, Zwift and others) or import activity files (`.fit`, `.gpx`, `.tcx`, Strava/Garmin exports).
+- **Strava and Garmin Connect sync are available in the desktop app** (Garmin's API doesn't accept requests from web browsers). In the browser, connect **intervals.icu** (free; it collects activities from COROS, Suunto, Wahoo, Zwift and others) or import activity files (`.fit`, `.gpx`, `.tcx`, Strava/Garmin exports).
 - **Use one tab at a time.** If Apollo is open in two tabs, the second one shows a warning, because changes made in both could overwrite each other.
 - Updates arrive automatically the next time you open the page.
 
