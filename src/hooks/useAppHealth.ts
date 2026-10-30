@@ -49,5 +49,7 @@ export function useReconnectNotices(): ReconnectNotice[] {
 
 /** Display name of a live source. */
 export function sourceDisplayName(source: LiveActivitySource): string {
-  return source === 'intervals' ? 'intervals.icu' : source === 'strava' ? 'Strava' : source;
+  if (source === 'intervals') return 'intervals.icu';
+  if (source === 'garmin') return 'Garmin Connect';
+  return source === 'strava' ? 'Strava' : source;
 }

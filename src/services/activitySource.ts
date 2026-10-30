@@ -8,16 +8,18 @@
  * and regardless of which platform the athlete uses.
  *
  * Sources (in priority order):
- *   1. intervals.icu — free. Relays Garmin Connect, Zwift, Wahoo, COROS,
+ *   1. Garmin Connect — directly, with the athlete's personal API key
+ *      (v1.0.8; desktop app only, Garmin blocks browser requests).
+ *   2. intervals.icu — free. Relays Garmin Connect, Zwift, Wahoo, COROS,
  *      Suunto, Polar and more, including rides and other cross-training.
- *   2. Strava        — optional, for athletes who have Strava API access.
+ *   3. Strava        — optional, for athletes who have Strava API access.
  *
  * Sync model:
  *   - First sync per source imports the full history (year-by-year windows).
  *   - Later syncs are incremental (newest activity − 30 days overlap), so every
  *     daily activity — including late uploads and edits — lands in the store.
- *     intervals.icu activities deleted remotely inside that window are removed
- *     (conservatively — see reconcileIntervalsDeletions).
+ *     intervals.icu and Garmin activities deleted remotely inside that window
+ *     are removed (conservatively — see reconcileDeletions).
  *   - A source whose credentials were rejected is skipped until it is
  *     reconnected (connectionHealth.ts), unless a sync is forced.
  *   - One sync runs at a time; `cancelSync()` or a 5-minute watchdog stops it.
@@ -29,10 +31,14 @@ import {
   clearIntervalsCredentials,
   getStravaTokens,
   clearStravaTokens,
+  getGarminPersonalCredentials,
+  setGarminPersonalCredentials,
+  clearGarminPersonalCredentials,
 } from './storage';
 import * as stravaApi from './strava';
 import { isStravaAvailable } from '../utils/platform';
 import * as intervalsApi from './intervals';
+import * as garminApi from './garmin';
 import {
   getStoredActivities,
   getAllStoredActivities,
@@ -71,6 +77,12 @@ const EMPTY_YEARS_BEFORE_STOP = 3;
 /** intervals.icu lists don't include GPS — fetch route maps for recent runs, a few per sync. */
 const ROUTE_ENRICH_PER_SYNC = 30;
 const ROUTE_ENRICH_WINDOW_DAYS = 180;
+/**
+ * Garmin lists don't include GPS, splits or laps either: download the original
+ * FIT of recent outdoor runs, a few per sync (each is a 50 KB–2 MB file).
+ */
+const GARMIN_DETAIL_PER_SYNC = 12;
+const GARMIN_DETAIL_WINDOW_DAYS = 120;
 const STRAVA_PAGE_SIZE = 200;
 /** A sync running longer than this is stopped (watchdog), so one hung request can't block syncing. */
 const MAX_SYNC_AGE_MS = 5 * 60 * 1000;
@@ -81,8 +93,11 @@ const MAX_SYNC_AGE_MS = 5 * 60 * 1000;
 const RECONCILE_ALWAYS_ALLOWED = 3;
 const RECONCILE_MAX_SHARE = 0.5;
 
-/** Source priority: first connected source is the "primary" one. */
-const SOURCE_ORDER: LiveActivitySource[] = ['intervals', 'strava'];
+/**
+ * Source priority: first connected source is the "primary" one. Garmin
+ * Connect comes first because it is first-party (see activity/dedupe.ts).
+ */
+const SOURCE_ORDER: LiveActivitySource[] = ['garmin', 'intervals', 'strava'];
 
 // ── Connection status ─────────────────────────────────────────────────────────
 
@@ -94,18 +109,35 @@ export function isStravaConnected(): boolean {
   return !!getStravaTokens();
 }
 
+/** v1.0.8: a Garmin Connect personal API key is saved. */
+export function isGarminConnected(): boolean {
+  return !!getGarminPersonalCredentials();
+}
+
+function isSourceConnected(source: LiveActivitySource): boolean {
+  if (source === 'intervals') return isIntervalsConnected();
+  if (source === 'garmin') return isGarminConnected();
+  return isStravaConnected();
+}
+
 /** Connected live sources in priority order (file imports are not a connection). */
 export function getConnectedSources(): LiveActivitySource[] {
-  return SOURCE_ORDER.filter((s) => (s === 'intervals' ? isIntervalsConnected() : isStravaConnected()));
+  return SOURCE_ORDER.filter(isSourceConnected);
 }
 
 /**
  * Connected sources this build can actually sync. v1.0.7: the web version has
  * no backend for Strava's token refresh, so Strava is never called there, even
  * if tokens were saved earlier (they can still be disconnected in Settings).
+ * v1.0.8: Garmin's API rejects browser requests, so Garmin syncs only where
+ * the desktop app's main process can make them.
  */
 function getSyncableSources(): LiveActivitySource[] {
-  return getConnectedSources().filter((s) => s !== 'strava' || isStravaAvailable());
+  return getConnectedSources().filter((s) => {
+    if (s === 'strava') return isStravaAvailable();
+    if (s === 'garmin') return garminApi.isGarminTransportAvailable();
+    return true;
+  });
 }
 
 /** True when at least one live data source is connected. */
@@ -120,6 +152,7 @@ export function hasActivityData(): boolean {
 
 export function getSourceDisplayName(source: ActivitySource | string | null | undefined): string {
   if (source === 'intervals') return 'intervals.icu';
+  if (source === 'garmin') return 'Garmin Connect';
   if (source === 'file') return 'File import';
   return 'Strava';
 }
@@ -135,6 +168,11 @@ export function getActivityExternalUrl(a: Pick<Activity, 'id' | 'source' | 'sour
   if (a.source === 'file') return null;
   if (a.source === 'intervals') {
     return a.source_id ? `https://intervals.icu/activities/${encodeURIComponent(a.source_id)}` : null;
+  }
+  if (a.source === 'garmin') {
+    return a.source_id && /^\d+$/.test(a.source_id)
+      ? `https://connect.garmin.com/modern/activity/${a.source_id}`
+      : null;
   }
   // Strava records (and legacy records without a source) use Strava IDs
   return `https://www.strava.com/activities/${encodeURIComponent(a.source_id ?? String(a.id))}`;
@@ -602,6 +640,7 @@ async function runSync(run: SyncRun, full: boolean, plan: SyncPlan): Promise<Syn
     run.current = { source, result };
     try {
       if (source === 'intervals') await syncFromIntervals(run, result, doFull, state, report);
+      else if (source === 'garmin') await syncFromGarmin(run, result, doFull, state, report);
       else await syncFromStrava(run, result, doFull, state, report);
       if (run.signal.aborted) return summary; // stop() recorded this source
       run.current = null;
@@ -625,11 +664,20 @@ async function runSync(run: SyncRun, full: boolean, plan: SyncPlan): Promise<Syn
       run.settled.add(source);
       // Batches stored before the failure stay stored — count them.
       addCounts(summary, result);
-      // Rejected credentials are flagged by intervals.ts / strava.ts, which know
-      // whether the stored credentials were the ones rejected.
+      // Rejected credentials are flagged by intervals.ts / strava.ts / garmin.ts,
+      // which know whether the stored credentials were the ones rejected.
       const message = err instanceof Error ? err.message : String(err);
       summary.errors.push({ source, message });
       saveSourceSyncState(source, { lastError: message, lastErrorAt: new Date().toISOString() });
+    }
+  }
+
+  if (plan.sync.includes('garmin') && !summary.errors.some((e) => e.source === 'garmin')) {
+    try {
+      const patched = await enrichGarminDetails(progressReporter(run, 'garmin'), run.signal);
+      if (!run.signal.aborted) summary.updated += patched;
+    } catch {
+      // Routes and splits are a nice-to-have; they'll be retried next sync.
     }
   }
 
@@ -715,31 +763,90 @@ async function syncFromIntervals(
   report('Checking intervals.icu for new activities…', 0);
   const list = await intervalsApi.listIntervalsActivitiesDetailed({ oldest, newest, signal: run.signal });
   ingestInto(run, result, list.activities);
-  result.removed += reconcileIntervalsDeletions(oldest, newest, list);
+  result.removed += reconcileDeletions('intervals', oldest, newest, list.rawIds, list.rawCount, intervalsApi.toStoreId);
 }
 
 /**
- * Remove activities that were deleted on intervals.icu: stored records dated
- * strictly inside the window just listed whose IDs the list no longer
- * contains. Conservative on purpose — an incomplete reply must never wipe
- * history:
+ * Garmin Connect (v1.0.8): same model as intervals.icu — year windows back in
+ * time for the first import, then the newest activity − 30 days. Garmin
+ * filters on the activity's local start date, like intervals.icu.
+ */
+async function syncFromGarmin(
+  run: SyncRun,
+  result: SourceSyncResult,
+  full: boolean,
+  state: SourceSyncState,
+  report: ProgressReporter,
+): Promise<void> {
+  const tomorrow = addDays(new Date(), 1);
+
+  if (full) {
+    let windowEnd = tomorrow;
+    let emptyStreak = 0;
+    for (let year = 0; year < MAX_HISTORY_YEARS; year++) {
+      const windowStart = addDays(windowEnd, -365);
+      const message = `Importing Garmin Connect ${windowStart.getFullYear()}–${windowEnd.getFullYear()} history…`;
+      const before = result.fetched;
+      report(message, before);
+      const list = await garminApi.listGarminActivities({
+        startDate: toLocalDate(windowStart),
+        endDate: toLocalDate(windowEnd),
+        signal: run.signal,
+        onPage: (rows) => report(message, before + rows),
+      });
+      const stored = ingestInto(run, result, list.activities);
+      if (isStoreAtCap(stored)) {
+        result.storeFull = true;
+        break;
+      }
+      emptyStreak = list.rawCount === 0 ? emptyStreak + 1 : 0;
+      if (emptyStreak >= EMPTY_YEARS_BEFORE_STOP) break;
+      // Windows share their boundary date; duplicates are merged by ID.
+      windowEnd = windowStart;
+    }
+    return;
+  }
+
+  const oldest = toLocalDate(addDays(incrementalAnchor(state), -INCREMENTAL_OVERLAP_DAYS));
+  const newest = toLocalDate(tomorrow);
+  report('Checking Garmin Connect for new activities…', 0);
+  const list = await garminApi.listGarminActivities({ startDate: oldest, endDate: newest, signal: run.signal });
+  ingestInto(run, result, list.activities);
+  result.removed += reconcileDeletions('garmin', oldest, newest, list.rawIds, list.rawCount, garminApi.toGarminStoreId);
+}
+
+/**
+ * Remove activities that were deleted on the source (intervals.icu, Garmin
+ * Connect): stored records dated strictly inside the window just listed whose
+ * IDs the list no longer contains. Conservative on purpose — an incomplete
+ * reply must never wipe history:
  *   - needs a well-formed, non-empty list;
  *   - leaves the window's edge days alone (date-boundary differences);
- *   - only touches records whose identity is the intervals.icu ID, never
- *     legacy Strava records that intervals.icu data was merged into;
+ *   - only touches records whose identity is that source's ID, never legacy
+ *     Strava records (or other sources' records) its data was merged into;
  *   - removes at most max(RECONCILE_ALWAYS_ALLOWED, RECONCILE_MAX_SHARE × the
  *     window's records) per sync, otherwise nothing.
  * Survivors keep their local flags. No tombstone is written, so an activity
  * that reappears remotely is imported again. Returns how many were removed.
  */
-function reconcileIntervalsDeletions(oldest: string, newest: string, list: intervalsApi.IntervalsActivityList): number {
-  if (!list.rawIds || list.rawCount === 0) return 0;
-  const remote = new Set(list.rawIds);
+function reconcileDeletions(
+  source: 'intervals' | 'garmin',
+  oldest: string,
+  newest: string,
+  rawIds: string[] | null,
+  rawCount: number,
+  storeIdOf: (sourceId: string) => number | null,
+): number {
+  if (!rawIds || rawCount === 0) return 0;
+  const remote = new Set(rawIds);
   const all = getAllStoredActivities();
   const gone = new Set<number>();
   let inWindow = 0;
   for (const a of all) {
-    if (a.source !== 'intervals' || !a.source_id || a.id !== intervalsApi.toStoreId(a.source_id)) continue;
+    if (a.source !== source || !a.source_id || a.id !== storeIdOf(a.source_id)) continue;
+    // v1.0.8: intervals.icu may stop listing Garmin-origin activities because of
+    // Garmin's new terms. That isn't the athlete deleting them: keep them.
+    if (source === 'intervals' && /^GARMIN/i.test(a.origin ?? '')) continue;
     const day = dateKeyFromLocalIso(a.start_date_local);
     if (!day || day <= oldest || day >= newest) continue;
     inWindow++;
@@ -749,7 +856,7 @@ function reconcileIntervalsDeletions(oldest: string, newest: string, list: inter
   const limit = Math.max(RECONCILE_ALWAYS_ALLOWED, Math.floor(inWindow * RECONCILE_MAX_SHARE));
   if (gone.size > limit) {
     console.warn(
-      `[Apollo] intervals.icu no longer lists ${gone.size} of ${inWindow} recent activities; ` +
+      `[Apollo] ${getSourceDisplayName(source)} no longer lists ${gone.size} of ${inWindow} recent activities; ` +
         'keeping them because the reply looks incomplete.',
     );
     return 0;
@@ -822,6 +929,49 @@ async function enrichIntervalsRoutes(report: ProgressReporter, signal: AbortSign
       if (signal.aborted) return 0;
       if (err instanceof intervalsApi.IntervalsAuthError) throw err;
       // Transient failure — try again next sync.
+    }
+  }
+  if (signal.aborted || patched.length === 0) return 0;
+  storeActivities(patched);
+  return patched.length;
+}
+
+/**
+ * Garmin activity lists have no GPS, splits or laps. Download the original
+ * file of recent outdoor runs (newest first, a bounded number per sync) so
+ * route maps, splits, best efforts and effort recognition work. Files without
+ * a usable workout are marked with an empty polyline so they aren't fetched
+ * again. Stops (without writing) when `signal` aborts.
+ */
+async function enrichGarminDetails(report: ProgressReporter, signal: AbortSignal): Promise<number> {
+  const cutoff = Date.now() - GARMIN_DETAIL_WINDOW_DAYS * DAY_MS;
+  const candidates = getStoredActivities()
+    .filter(
+      (a) =>
+        a.source === 'garmin' &&
+        !!a.source_id &&
+        isRunActivity(a) &&
+        !a.trainer &&
+        (a.map?.summary_polyline === undefined || a.map?.summary_polyline === null) &&
+        Date.parse(a.start_date) >= cutoff,
+    )
+    .slice(0, GARMIN_DETAIL_PER_SYNC);
+  if (candidates.length === 0) return 0;
+
+  const patched: Activity[] = [];
+  for (const a of candidates) {
+    if (signal.aborted) return 0;
+    report(`Fetching routes and splits (${patched.length + 1}/${candidates.length})…`, patched.length);
+    try {
+      const detail = await garminApi.getGarminActivityDetail(a, undefined, { signal });
+      patched.push(detail ?? { ...a, map: { id: `garmin-${a.source_id}`, summary_polyline: '' } });
+    } catch (err) {
+      if (signal.aborted) return 0;
+      if (err instanceof garminApi.GarminAuthError) throw err;
+      // Network trouble, rate limits and server errors are retried next sync. A
+      // missing (404) or unreadable file is marked as checked so it isn't downloaded again.
+      const transient = err instanceof garminApi.GarminHttpError && err.status !== 404;
+      if (!transient) patched.push({ ...a, map: { id: `garmin-${a.source_id}`, summary_polyline: '' } });
     }
   }
   if (signal.aborted || patched.length === 0) return 0;
@@ -905,6 +1055,20 @@ export async function getActivityDetail(activityOrId: Activity | number): Promis
   } else if (base.source === 'intervals') {
     if (!isIntervalsConnected() || !base.source_id) return base;
     detail = await intervalsApi.getIntervalsActivityDetail(base);
+  } else if (base.source === 'garmin') {
+    // Already enriched from the original file at sync time: route checked ('' = no GPS) plus splits or laps.
+    const routeChecked = typeof base.map?.summary_polyline === 'string';
+    const enriched = routeChecked && !!(base.splits_metric?.length || base.laps?.length);
+    if (enriched || !isGarminConnected() || !garminApi.isGarminTransportAvailable() || !base.source_id) return base;
+    const fetched = await garminApi.getGarminActivityDetail(base);
+    if (!fetched) return base;
+    detail = { ...fetched, id: base.id };
+    // Keep everything the original file added so it works offline and isn't downloaded again.
+    try {
+      storeActivities([detail]);
+    } catch {
+      /* non-critical */
+    }
   } else {
     if (!isStravaConnected()) return base;
     const stravaId = base.source === 'strava' && base.source_id ? Number(base.source_id) : base.id;
@@ -915,7 +1079,7 @@ export async function getActivityDetail(activityOrId: Activity | number): Promis
 
   // Persist a newly discovered route so maps and effort recognition work offline.
   const poly = detail.map?.summary_polyline;
-  if (poly && !base.map?.summary_polyline) {
+  if (poly && !base.map?.summary_polyline && base.source !== 'garmin') {
     try {
       storeActivities([{ ...base, map: { id: detail.map?.id ?? `route-${base.id}`, summary_polyline: poly } }]);
     } catch {
@@ -969,6 +1133,17 @@ export async function getAthlete(): Promise<AthleteProfile | null> {
       }
     }
   }
+  if (!value) {
+    // Garmin's profile settings carry only a display name, so it is the last choice.
+    const garmin = getGarminPersonalCredentials();
+    if (garmin && garminApi.isGarminTransportAvailable()) {
+      try {
+        value = await garminApi.getGarminAthlete();
+      } catch {
+        if (garmin.displayName) value = garminApi.garminAthleteProfile(garmin.displayName);
+      }
+    }
+  }
   if (value) athleteCache = { at: Date.now(), value };
   return value;
 }
@@ -1012,10 +1187,54 @@ export async function connectIntervals(apiKey: string, athleteId?: string): Prom
   return athlete;
 }
 
+/** Expiry periods Garmin offers when creating a personal API key. */
+export const GARMIN_KEY_VALIDITY_DAYS: readonly number[] = [30, 90, 180, 365];
+
+export interface ConnectGarminOptions {
+  /**
+   * The expiry period the athlete chose when creating the key (30, 90, 180 or
+   * 365 days), so Apollo can warn before it runs out. Omit when unknown.
+   */
+  keyValidDays?: number;
+  /**
+   * Replacing an expired or expiring key for the same account: keep the sync
+   * progress so the next sync is incremental instead of a full re-import.
+   */
+  replace?: boolean;
+}
+
+/**
+ * v1.0.8: verify a Garmin Connect personal API key and save it (encrypted on
+ * desktop). The next sync imports the athlete's full history (unless
+ * `replace`). Desktop only.
+ */
+export async function connectGarmin(apiKey: string, options: ConnectGarminOptions = {}): Promise<AthleteProfile> {
+  if (!garminApi.isGarminTransportAvailable()) throw new garminApi.GarminUnavailableError();
+  const key = apiKey.trim();
+  if (!key) throw new Error('Paste your Garmin personal API key first.');
+  const { displayName } = await garminApi.verifyGarminKey(key);
+  const now = new Date();
+  const days = options.keyValidDays;
+  const validDays = typeof days === 'number' && Number.isFinite(days) && days > 0 && days <= 400 ? days : undefined;
+  await setGarminPersonalCredentials({
+    apiKey: key,
+    displayName: displayName ?? undefined,
+    connectedAt: now.toISOString(),
+    keyExpiresAt: validDays ? new Date(now.getTime() + validDays * DAY_MS).toISOString() : undefined,
+  });
+  if (!options.replace) resetSourceSyncState('garmin');
+  clearNeedsReconnect('garmin');
+  athleteCache = null;
+  return garminApi.garminAthleteProfile(displayName);
+}
+
 /** Disconnect a source. Already-synced history stays on this device. */
 export function disconnectSource(source: LiveActivitySource): void {
   if (source === 'intervals') clearIntervalsCredentials();
-  else clearStravaTokens();
+  else if (source === 'garmin') {
+    clearGarminPersonalCredentials();
+    garminApi.forgetGarminToken();
+  } else clearStravaTokens();
   resetSourceSyncState(source);
   clearNeedsReconnect(source);
   athleteCache = null;

@@ -26,11 +26,14 @@ const DISTANCE_TOLERANCE_MIN_M = 100;
 
 /**
  * Higher wins when two sources disagree:
- * intervals.icu > Strava > legacy (pre-migration Strava cache, no `source`) > file.
+ * Garmin Connect > intervals.icu > Strava > legacy (pre-migration Strava cache, no `source`) > file.
+ * Garmin Connect (v1.0.8) is first-party: intervals.icu and Strava relay the
+ * same recording, so the direct copy wins and the relays only fill gaps
+ * (e.g. intervals.icu's training load).
  * File imports therefore only fill in what a platform copy is missing (splits,
  * laps, routes) and never overwrite names or stats the athlete already sees.
  */
-const SOURCE_PRIORITY: Record<ActivitySource, number> = { intervals: 3, strava: 2, file: 0 };
+const SOURCE_PRIORITY: Record<ActivitySource, number> = { garmin: 4, intervals: 3, strava: 2, file: 0 };
 const LEGACY_PRIORITY = 1;
 
 function priority(source: ActivitySource | undefined): number {

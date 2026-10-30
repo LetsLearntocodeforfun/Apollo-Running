@@ -87,6 +87,9 @@
 
   /* ── Brand colors ── */
   --strava: #fc4c02;
+  /* Garmin Connect blue (v1.0.8 direct Garmin sync) */
+  --garmin: #11a9ed;
+  --garmin-dim: rgba(17, 169, 237, 0.14);
 
   /* ── Typography ── */
   /* Self-hosted variable fonts (imported in main.tsx); system fonts as fallback */

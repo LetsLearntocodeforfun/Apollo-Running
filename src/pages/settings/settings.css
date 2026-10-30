@@ -29,6 +29,9 @@
 .settings-card--strava {
   border-left-color: var(--strava);
 }
+.settings-card--garmin {
+  border-left-color: var(--garmin);
+}
 .settings-card--success {
   border-left-color: var(--color-success);
 }
@@ -62,6 +65,9 @@
 .settings-brand-strava {
   color: var(--strava);
 }
+.settings-brand-garmin {
+  color: var(--garmin);
+}
 
 .settings-badge {
   font-family: var(--font-display);
@@ -84,6 +90,10 @@
 .settings-badge--strava {
   background: var(--color-error-dim);
   color: var(--strava);
+}
+.settings-badge--garmin {
+  background: var(--garmin-dim);
+  color: var(--garmin);
 }
 .settings-badge--success {
   background: var(--color-success-dim);

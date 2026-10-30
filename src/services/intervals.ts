@@ -435,15 +435,23 @@ function defaultName(type: string, startLocal: string): string {
  * Returns null for records the API can't serve (activities intervals.icu
  * imported from Strava are not available to third-party apps) or that lack
  * the basics.
+ *
+ * v1.0.8: Garmin's relaunched developer terms (Oct 2026) also stop
+ * intervals.icu from passing Garmin data to API apps; it plans to return
+ * stubs with the Garmin ID, like Strava rows. A Garmin row without duration
+ * or distance is such a stub and is skipped — connect Garmin Connect directly
+ * instead (garmin.ts).
  */
 export function mapIntervalsActivity(raw: IcuActivity): Activity | null {
   if (!raw || raw.id == null || !raw.type || !raw.start_date_local) return null;
-  if ((raw.source ?? '').toUpperCase() === 'STRAVA') return null;
+  const origin = (raw.source ?? '').toUpperCase();
+  if (origin === 'STRAVA') return null;
 
   const type = raw.type;
   const isRun = isRunActivity({ type });
   const distance = num(raw.distance) ?? num(raw.icu_distance) ?? 0;
   const moving = num(raw.moving_time) ?? num(raw.elapsed_time) ?? num(raw.icu_recording_time) ?? 0;
+  if (origin.startsWith('GARMIN') && !(moving > 0) && !(distance > 0)) return null;
   const elapsed = num(raw.elapsed_time) ?? num(raw.icu_recording_time) ?? moving;
   const startLocal = toStravaStyleLocal(raw.start_date_local);
 

@@ -1,13 +1,16 @@
 /**
- * Settings › Connections — intervals.icu (free, recommended), activity file
- * import, Strava (optional) and how Garmin / Zwift reach Apollo through
- * intervals.icu.
+ * Settings › Connections — Garmin Connect (direct, desktop; v1.0.8),
+ * intervals.icu (free), activity file import, Strava (optional) and how
+ * Zwift, COROS, Suunto and other devices reach Apollo through intervals.icu.
  */
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ConfirmDialog } from '../../components/ui';
 import ImportActivities from '../../components/ImportActivities';
+import GarminConnectCard from './GarminConnectCard';
+import { useNeedsReconnect } from '../../hooks/useNeedsReconnect';
+import { ReconnectBanner } from './ReconnectBanner';
 import {
   getIntervalsCredentials,
   getStravaCredentials,
@@ -29,12 +32,7 @@ import {
 import { runSync, type AutoSyncReport } from '../../services/autoSync';
 import { getStravaAuthUrl, isWeb } from '../../services/stravaWeb';
 import { isStravaAvailable, STRAVA_DESKTOP_ONLY_NOTE } from '../../utils/platform';
-import {
-  clearNeedsReconnect,
-  getNeedsReconnect,
-  onNeedsReconnectChanged,
-  type NeedsReconnectState,
-} from '../../services/connectionHealth';
+import { clearNeedsReconnect } from '../../services/connectionHealth';
 import {
   StatusLine,
   formatCount,
@@ -96,52 +94,6 @@ function intervalsImportOptions(onProgress: (p: SyncProgress) => void): Paramete
 
 const INTERVALS_DORMANT_TIP =
   'Tip: free intervals.icu accounts go dormant after a long time without logging in, and then stop collecting new activities from your watch and Zwift. Log in to intervals.icu every few weeks. If new runs stop arriving, log in, click \u201cDownload Old Data\u201d on the Garmin box to catch up, then sync again.';
-
-/** A source's needs-reconnect state (credentials rejected), kept current. */
-function useNeedsReconnect(source: LiveSource): NeedsReconnectState | null {
-  const [state, setState] = useState<NeedsReconnectState | null>(() => getNeedsReconnect(source));
-  useEffect(() => {
-    setState(getNeedsReconnect(source));
-    return onNeedsReconnectChanged(() => setState(getNeedsReconnect(source)));
-  }, [source]);
-  return state;
-}
-
-interface ReconnectBannerProps {
-  source: LiveSource;
-  state: NeedsReconnectState;
-  busy: boolean;
-  onRetry: () => void;
-  /** Extra action, e.g. "Connect Strava again". */
-  children?: ReactNode;
-}
-
-/** "Reconnect needed" banner on a card whose saved credentials were rejected. */
-function ReconnectBanner({ source, state, busy, onRetry, children }: ReconnectBannerProps) {
-  const name = source === 'intervals' ? 'intervals.icu' : 'Strava';
-  return (
-    <div className="settings-reconnect">
-      <p className="settings-reconnect-title">
-        <span aria-hidden="true">⚠ </span>Reconnect needed — {name} sync is paused
-      </p>
-      <p className="settings-reconnect-reason">
-        {state.reason}
-        {state.since ? ` (since ${formatSyncTime(state.since)})` : ''}
-      </p>
-      <p className="settings-hint">
-        {source === 'intervals'
-          ? 'If you changed or revoked your API key, disconnect and connect again with the new key. Otherwise, retry.'
-          : 'Connect Strava again to renew access, or retry if the problem was temporary.'}
-      </p>
-      <div className="settings-actions">
-        <button type="button" className="btn btn-secondary" disabled={busy} onClick={onRetry}>
-          Retry
-        </button>
-        {children}
-      </div>
-    </div>
-  );
-}
 
 export default function ConnectionsTab() {
   const keychainError = useKeychainError();
@@ -405,7 +357,10 @@ export default function ConnectionsTab() {
 
   return (
     <>
-      {/* ── intervals.icu (free, recommended source) ── */}
+      {/* ── Garmin Connect, direct (v1.0.8; desktop) ── */}
+      <GarminConnectCard />
+
+      {/* ── intervals.icu (free source for Zwift, COROS, Suunto, Wahoo, Polar…) ── */}
       <div className={`card settings-card ${intervalsInfo ? 'settings-card--teal' : 'settings-card--gold'}`}>
         <h2 className="card-title settings-card-title">
           <span className="settings-brand-intervals">intervals.icu</span>

@@ -385,9 +385,13 @@ describe('incremental window', () => {
 });
 
 describe('remote deletion reconcile (intervals.icu)', () => {
+  // v1.0.8: Garmin-origin rows are never auto-removed (intervals.icu may stop
+  // listing them because of Garmin's terms), so these use another platform.
+  const wahoo = (id: number, n: number) => icu(id, n, { source: 'WAHOO' });
+
   it('removes an activity deleted on intervals.icu, keeping edge-day, legacy and flagged records', async () => {
     connect();
-    const legacyRun = icu(6, 8);
+    const legacyRun = wahoo(6, 8);
     // Record cached by an earlier Apollo version from Strava; intervals.icu data merges into it.
     storeActivities([
       {
@@ -403,7 +407,7 @@ describe('remote deletion reconcile (intervals.icu)', () => {
         kudos_count: 3,
       },
     ]);
-    fakeIntervals([icu(1, 1), icu(2, 5), icu(3, 10), icu(4, 15), icu(5, 31), legacyRun]);
+    fakeIntervals([wahoo(1, 1), wahoo(2, 5), wahoo(3, 10), wahoo(4, 15), wahoo(5, 31), legacyRun]);
     await syncActivities();
     expect(getAllStoredActivities()).toHaveLength(6);
 
@@ -412,7 +416,7 @@ describe('remote deletion reconcile (intervals.icu)', () => {
 
     // i3 was deleted on intervals.icu. i5 (on the window's first day) and i6
     // (merged into the legacy record) aren't listed either but must survive.
-    fakeIntervals([icu(1, 1), icu(2, 5), icu(4, 15)]);
+    fakeIntervals([wahoo(1, 1), wahoo(2, 5), wahoo(4, 15)]);
     const removed: number[] = [];
     const unsubscribe = onActivitiesUpdated((s) => removed.push(s.removed ?? 0));
     const summary = await syncActivities();
@@ -429,7 +433,7 @@ describe('remote deletion reconcile (intervals.icu)', () => {
 
   it('keeps everything when the reply is missing too many activities', async () => {
     connect();
-    const remote = Array.from({ length: 8 }, (_, i) => icu(i + 1, i + 1));
+    const remote = Array.from({ length: 8 }, (_, i) => wahoo(i + 1, i + 1));
     fakeIntervals(remote);
     await syncActivities();
 
@@ -447,13 +451,26 @@ describe('remote deletion reconcile (intervals.icu)', () => {
 
   it('never removes anything on an empty reply', async () => {
     connect();
-    fakeIntervals([icu(1, 1), icu(2, 2)]);
+    fakeIntervals([wahoo(1, 1), wahoo(2, 2)]);
     await syncActivities();
 
     fakeIntervals([]);
     const summary = await syncActivities();
     expect(summary.removed).toBe(0);
     expect(getAllStoredActivities()).toHaveLength(2);
+  });
+
+  it('keeps Garmin-origin activities that intervals.icu stops listing (Garmin terms, v1.0.8)', async () => {
+    connect();
+    fakeIntervals([wahoo(1, 1), icu(2, 5), wahoo(3, 10), wahoo(4, 15)]);
+    await syncActivities();
+
+    // i2 (from Garmin) disappears from the API along with a deleted Wahoo ride.
+    fakeIntervals([wahoo(1, 1), wahoo(4, 15)]);
+    const summary = await syncActivities();
+    expect(summary.removed).toBe(1);
+    expect(storedIds()).toEqual(expect.arrayContaining(['i1', 'i2', 'i4']));
+    expect(storedIds()).not.toContain('i3');
   });
 });
 

@@ -8,6 +8,40 @@ declare global {
     athlete: { id: number; firstname: string; lastname: string; profile: string };
   }
 
+  /** Reply of `garmin:obtain-token` (electron/main.ts). */
+  interface GarminTokenReply {
+    ok: boolean;
+    /** HTTP status, or 0 when Garmin couldn't be reached. */
+    status: number;
+    retryAfter: number | null;
+    /** Bearer token (a JWT) when ok. */
+    token?: string;
+    /** 'network' | 'timeout' | 'too-large' | 'bad-token' … (never secret). */
+    error?: string;
+  }
+
+  /** A `garmin:request` call: an allow-listed GET (electron/garminProxy.ts). */
+  interface GarminProxyRequest {
+    path: string;
+    query?: Record<string, string | number | boolean>;
+    accessToken: string;
+    /** 'file' for original activity files (bytes); JSON otherwise. */
+    accept?: 'json' | 'file';
+  }
+
+  /** Reply of `garmin:request`. */
+  interface GarminProxyReply {
+    ok: boolean;
+    /** HTTP status, or 0 when Garmin couldn't be reached. */
+    status: number;
+    retryAfter: number | null;
+    /** JSON (and error) bodies as text. */
+    text?: string;
+    /** File downloads (`accept: 'file'`). */
+    bytes?: Uint8Array;
+    error?: string;
+  }
+
   interface UpdateState {
     status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
     version: string | null;
@@ -31,9 +65,10 @@ declare global {
       }) => Promise<StravaTokenResponse>;
     };
     oauth: { startServer: () => Promise<{ code: string; scope?: string }> };
+    /** v1.0.8 (DS-01): Garmin Connect Personal API, proxied by the main process (Garmin blocks CORS). */
     garmin: {
-      getAuthUrl: (config: { clientId: string; codeChallenge: string; state: string }) => Promise<string | null>;
-      exchangeCode: (p: unknown) => Promise<{ error?: string }>;
+      obtainToken: (apiKey: string) => Promise<GarminTokenReply>;
+      request: (req: GarminProxyRequest) => Promise<GarminProxyReply>;
     };
     openExternal: (url: string) => Promise<void>;
     secureStorage: {

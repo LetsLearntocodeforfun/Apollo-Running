@@ -134,10 +134,18 @@ const PILL_STYLE: CSSProperties = {
   whiteSpace: 'nowrap',
 };
 
+/** Pill colours per live source (file imports use a neutral outline). */
+const SOURCE_PILL_COLORS: Record<string, { background: string; color: string }> = {
+  intervals: { background: 'var(--apollo-teal-dim)', color: 'var(--apollo-teal)' },
+  garmin: { background: 'var(--garmin-dim)', color: 'var(--garmin)' },
+  strava: { background: 'rgba(252, 76, 2, 0.12)', color: 'var(--strava)' },
+};
+
 /** Where the activity was synced from, plus an "Indoor" pill for trainer / Zwift / treadmill sessions. */
 function SourceBadges({ activity }: { activity: Activity }) {
-  const isIntervals = activity.source === 'intervals';
   const isFile = activity.source === 'file';
+  // Legacy records without a source were synced from Strava.
+  const colors = SOURCE_PILL_COLORS[activity.source ?? 'strava'] ?? SOURCE_PILL_COLORS.strava;
   return (
     <>
       <span
@@ -149,11 +157,7 @@ function SourceBadges({ activity }: { activity: Activity }) {
                 color: 'var(--text-secondary)',
                 border: '1px solid var(--border)',
               }
-            : {
-                ...PILL_STYLE,
-                background: isIntervals ? 'var(--apollo-teal-dim)' : 'rgba(252, 76, 2, 0.12)',
-                color: isIntervals ? 'var(--apollo-teal)' : 'var(--strava)',
-              }
+            : { ...PILL_STYLE, ...colors }
         }
       >
         {getSourceDisplayName(activity.source)}

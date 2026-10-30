@@ -12,9 +12,18 @@ const GARMIN_KEY = 'garmin_tokens';
 const STRAVA_CREDENTIALS = 'strava_credentials';
 const GARMIN_CREDENTIALS = 'garmin_credentials';
 const INTERVALS_CREDENTIALS = 'intervals_credentials';
+/** v1.0.8 (DS-01): Garmin Connect Personal API key + cached bearer token. */
+const GARMIN_PERSONAL = 'garmin_personal_api';
 
 /** Keys that hold sensitive data and should use encrypted storage in Electron */
-const SENSITIVE_KEYS = new Set([STRAVA_KEY, GARMIN_KEY, STRAVA_CREDENTIALS, GARMIN_CREDENTIALS, INTERVALS_CREDENTIALS]);
+const SENSITIVE_KEYS = new Set([
+  STRAVA_KEY,
+  GARMIN_KEY,
+  STRAVA_CREDENTIALS,
+  GARMIN_CREDENTIALS,
+  INTERVALS_CREDENTIALS,
+  GARMIN_PERSONAL,
+]);
 
 export interface StravaTokens {
   access_token: string;
@@ -42,6 +51,30 @@ export interface IntervalsCredentials {
   athleteName?: string;
   /** ISO timestamp of when the key was verified and saved. */
   connectedAt?: string;
+}
+
+/**
+ * Garmin Connect Personal API access (v1.0.8, DS-01). The athlete creates a
+ * personal API key in Garmin Connect › Settings › Personal API Key. Apollo
+ * mints short-lived bearer tokens from it in the desktop app (Garmin blocks
+ * browser requests, so the web version can't use it).
+ */
+export interface GarminPersonalCredentials {
+  /** The personal API key. Garmin shows it only once. */
+  apiKey: string;
+  /** Display name captured when the key was verified. */
+  displayName?: string;
+  /** ISO timestamp of when the key was verified and saved. */
+  connectedAt?: string;
+  /**
+   * When the key expires (ISO), from the period the athlete chose when creating
+   * it (30, 90 or 180 days, or one year). Absent when they didn't say.
+   */
+  keyExpiresAt?: string;
+  /** Cached bearer token minted from the key (valid ≤ 24 h; Garmin has no refresh tokens). */
+  accessToken?: string;
+  /** When `accessToken` expires, epoch milliseconds. */
+  accessTokenExpiresAt?: number;
 }
 
 // ── Environment Detection ─────────────────────────────────────────────────────
@@ -374,6 +407,47 @@ export function setIntervalsCredentials(creds: IntervalsCredentials): Promise<bo
 /** Remove intervals.icu credentials (disconnect). */
 export function clearIntervalsCredentials(): void {
   removeSecure(INTERVALS_CREDENTIALS);
+}
+
+function optionalString(v: unknown): string | undefined {
+  return typeof v === 'string' && v ? v : undefined;
+}
+
+/** Retrieve the stored Garmin Connect Personal API credentials, or null if not connected. */
+export function getGarminPersonalCredentials(): GarminPersonalCredentials | null {
+  try {
+    const raw = getSecure(GARMIN_PERSONAL);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<GarminPersonalCredentials> | null;
+    if (!parsed || typeof parsed.apiKey !== 'string' || !parsed.apiKey) return null;
+    const token = optionalString(parsed.accessToken);
+    const tokenExpiresAt = parsed.accessTokenExpiresAt;
+    const hasToken = !!token && typeof tokenExpiresAt === 'number' && Number.isFinite(tokenExpiresAt);
+    return {
+      apiKey: parsed.apiKey,
+      displayName: optionalString(parsed.displayName),
+      connectedAt: optionalString(parsed.connectedAt),
+      keyExpiresAt: optionalString(parsed.keyExpiresAt),
+      accessToken: hasToken ? token : undefined,
+      accessTokenExpiresAt: hasToken ? tokenExpiresAt : undefined,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Persist Garmin Personal API credentials (encrypted at rest on desktop).
+ * Resolves to whether they were persisted (false: usable this session only —
+ * see getSecureStorageError).
+ */
+export function setGarminPersonalCredentials(creds: GarminPersonalCredentials): Promise<boolean> {
+  return setSecure(GARMIN_PERSONAL, JSON.stringify(creds));
+}
+
+/** Remove the Garmin Personal API key and any cached token (disconnect). */
+export function clearGarminPersonalCredentials(): void {
+  removeSecure(GARMIN_PERSONAL);
 }
 
 /**

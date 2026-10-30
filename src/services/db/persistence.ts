@@ -30,6 +30,7 @@ const CREDENTIAL_KEYS = new Set([
   'strava_credentials',
   'garmin_tokens',
   'garmin_credentials',
+  'garmin_personal_api',
   'intervals_credentials',
 ]);
 

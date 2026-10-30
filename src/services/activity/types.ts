@@ -16,10 +16,12 @@
 
 /**
  * Where an activity came from:
- *  - 'intervals' / 'strava' — live sources Apollo syncs from automatically
+ *  - 'intervals' / 'strava' / 'garmin' — live sources Apollo syncs from
+ *    automatically ('garmin' = Garmin Connect directly, via the Personal API;
+ *    desktop app only, v1.0.8)
  *  - 'file' — imported from a FIT/GPX/TCX file or a Strava/Garmin export archive
  */
-export type ActivitySource = 'strava' | 'intervals' | 'file';
+export type ActivitySource = 'strava' | 'intervals' | 'garmin' | 'file';
 
 /** Sources Apollo can connect to and sync from automatically. */
 export type LiveActivitySource = Exclude<ActivitySource, 'file'>;

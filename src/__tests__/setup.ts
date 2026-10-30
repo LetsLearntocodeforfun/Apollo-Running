@@ -52,13 +52,19 @@ vi.mock('@/services/db/persistence', () => ({
     'strava_credentials',
     'garmin_tokens',
     'garmin_credentials',
+    'garmin_personal_api',
     'intervals_credentials',
   ]),
   isApolloKey: (key: string) =>
     key.startsWith('apollo_') ||
-    ['strava_tokens', 'strava_credentials', 'garmin_tokens', 'garmin_credentials', 'intervals_credentials'].includes(
-      key,
-    ),
+    [
+      'strava_tokens',
+      'strava_credentials',
+      'garmin_tokens',
+      'garmin_credentials',
+      'garmin_personal_api',
+      'intervals_credentials',
+    ].includes(key),
   LOCAL_MIRROR_MAX_CHARS: 4_000_000,
   DEGRADED_MAX_WRITE_CHARS: 256 * 1024,
 }));

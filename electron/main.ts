@@ -27,6 +27,20 @@ import {
   parseUpdaterPrefs,
   type TrustedAppLocation,
 } from './security';
+import {
+  GARMIN_FILE_TIMEOUT_MS,
+  GARMIN_JSON_TIMEOUT_MS,
+  GARMIN_MAX_FILE_BYTES,
+  GARMIN_MAX_JSON_BYTES,
+  GARMIN_MAX_TOKEN_LENGTH,
+  GARMIN_PERSONAL_API_ORIGIN,
+  GARMIN_TOKEN_PATH,
+  buildGarminApiUrl,
+  garminAcceptHeader,
+  parseGarminAccept,
+  parseGarminTokenBody,
+  parseRetryAfter,
+} from './garminProxy';
 
 let mainWindow: BrowserWindow | null = null;
 let oauthServer: http.Server | null = null;
@@ -584,14 +598,103 @@ handleTrusted('oauth:start-server', async () => {
   return pending.result;
 });
 
-// Garmin: placeholder for when you have API access (OAuth 2.0 + PKCE)
-handleTrusted('garmin:get-auth-url', (_, _config: { clientId: string; codeChallenge: string; state: string }) => {
-  // Garmin uses PKCE; implement when you have Garmin Developer Program access
-  return null;
+// ----- Garmin Connect Personal API (v1.0.8, DS-01) -----
+// Garmin's Personal API answers every CORS preflight with 403, so the app's
+// renderer can't call it with fetch. These two handlers make the requests from
+// the main process instead. The policy (fixed origin, allow-listed read
+// endpoints, checked query, JWT-shaped token) lives in ./garminProxy.
+// Nothing is stored here and nothing secret is logged: the renderer keeps the
+// key (encrypted at rest) and sends the key, or a bearer token minted from
+// it, with each call. Failures come back as values ({ ok: false, status }),
+// not exceptions, so the renderer can tell a rejected key (401) from a
+// network problem (status 0).
+
+interface GarminCallResult {
+  /** HTTP status, or 0 when Garmin couldn't be reached (network error / timeout). */
+  status: number;
+  retryAfter: number | null;
+  /** Response body, or null when it was larger than allowed or the call failed. */
+  bytes: Uint8Array | null;
+  /** 'network' | 'timeout' | 'too-large' | 'insecure-redirect'. Never contains secrets. */
+  error?: string;
+}
+
+/** One Garmin call with a timeout that also covers reading the body, and a size cap. */
+async function garminCall(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  maxBytes: number,
+): Promise<GarminCallResult> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...init, signal: controller.signal });
+    const retryAfter = parseRetryAfter(res.headers.get('retry-after'));
+    // File downloads may redirect to storage; only ever accept an https destination.
+    if (res.url && !res.url.startsWith('https://')) {
+      controller.abort();
+      return { status: res.status, retryAfter, bytes: null, error: 'insecure-redirect' };
+    }
+    const declared = Number(res.headers.get('content-length'));
+    if (Number.isFinite(declared) && declared > maxBytes) {
+      controller.abort();
+      return { status: res.status, retryAfter, bytes: null, error: 'too-large' };
+    }
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength > maxBytes) return { status: res.status, retryAfter, bytes: null, error: 'too-large' };
+    return { status: res.status, retryAfter, bytes };
+  } catch {
+    return { status: 0, retryAfter: null, bytes: null, error: controller.signal.aborted ? 'timeout' : 'network' };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Exchange a Personal API key for a bearer token (a JWT valid ≤ 24 h; Garmin has no refresh tokens). */
+handleTrusted('garmin:obtain-token', async (_, apiKey: unknown) => {
+  const key = requireString(apiKey, 'Garmin API key', 4096);
+  const reply = await garminCall(
+    `${GARMIN_PERSONAL_API_ORIGIN}${GARMIN_TOKEN_PATH}`,
+    { method: 'POST', headers: { Accept: '*/*', Authorization: `ApiKey ${key}` }, redirect: 'error' },
+    GARMIN_JSON_TIMEOUT_MS,
+    GARMIN_MAX_TOKEN_LENGTH,
+  );
+  if (reply.status < 200 || reply.status >= 300 || !reply.bytes) {
+    return { ok: false, status: reply.status, retryAfter: reply.retryAfter, error: reply.error };
+  }
+  const token = parseGarminTokenBody(new TextDecoder().decode(reply.bytes));
+  if (!token) return { ok: false, status: reply.status, retryAfter: null, error: 'bad-token' };
+  return { ok: true, status: reply.status, retryAfter: null, token };
 });
 
-handleTrusted('garmin:exchange-code', async () => {
-  return { error: 'Garmin integration requires Garmin Connect Developer Program approval.' };
+/**
+ * GET an allow-listed Personal API endpoint with a bearer token. JSON replies
+ * come back as text; original activity files (`accept: 'file'`) as bytes.
+ */
+handleTrusted('garmin:request', async (_, request: unknown) => {
+  const req = request && typeof request === 'object' ? (request as Record<string, unknown>) : {};
+  const url = buildGarminApiUrl(req.path, req.query);
+  if (!url) throw new Error('Blocked: not an allowed Garmin Connect request.');
+  const token = requireString(req.accessToken, 'Garmin access token', GARMIN_MAX_TOKEN_LENGTH);
+  const accept = parseGarminAccept(req.accept);
+  const isFile = accept === 'file';
+  const reply = await garminCall(
+    url,
+    {
+      method: 'GET',
+      headers: { Accept: garminAcceptHeader(accept), Authorization: `Bearer ${token}` },
+      redirect: isFile ? 'follow' : 'error',
+    },
+    isFile ? GARMIN_FILE_TIMEOUT_MS : GARMIN_JSON_TIMEOUT_MS,
+    isFile ? GARMIN_MAX_FILE_BYTES : GARMIN_MAX_JSON_BYTES,
+  );
+  const ok = reply.status >= 200 && reply.status < 300;
+  if (!reply.bytes) return { ok: false, status: reply.status, retryAfter: reply.retryAfter, error: reply.error };
+  if (ok && isFile) return { ok, status: reply.status, retryAfter: null, bytes: reply.bytes };
+  const text = new TextDecoder().decode(reply.bytes);
+  // Error bodies are short JSON ({"error":"…","status":400}); cap them anyway.
+  return { ok, status: reply.status, retryAfter: reply.retryAfter, text: ok ? text : text.slice(0, 500) };
 });
 
 handleTrusted('open-external', (_, targetUrl: unknown) => {
@@ -668,6 +771,8 @@ const ALLOWED_SECURE_KEYS = new Set([
   'strava_credentials',
   'garmin_tokens',
   'garmin_credentials',
+  // v1.0.8 (DS-01): Garmin Connect Personal API key + cached bearer token.
+  'garmin_personal_api',
   'intervals_credentials',
 ]);
 

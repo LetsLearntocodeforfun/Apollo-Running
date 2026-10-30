@@ -12,9 +12,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     startServer: () => ipcRenderer.invoke('oauth:start-server'),
   },
   garmin: {
-    getAuthUrl: (config: { clientId: string; codeChallenge: string; state: string }) =>
-      ipcRenderer.invoke('garmin:get-auth-url', config),
-    exchangeCode: (payload: unknown) => ipcRenderer.invoke('garmin:exchange-code', payload),
+    /** v1.0.8 (DS-01): exchange a Personal API key for a bearer token (main process; Garmin blocks CORS). */
+    obtainToken: (apiKey: string) => ipcRenderer.invoke('garmin:obtain-token', apiKey),
+    /** GET an allow-listed Personal API endpoint (see electron/garminProxy.ts). */
+    request: (req: {
+      path: string;
+      query?: Record<string, string | number | boolean>;
+      accessToken: string;
+      accept?: 'json' | 'file';
+    }) => ipcRenderer.invoke('garmin:request', req),
   },
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   secureStorage: {
