@@ -6,6 +6,14 @@
 
 ### 33 plans, each labeled honestly
 - **33 built-in schedules:** 29 marathon plans across Hal Higdon (8), Pete Pfitzinger (7), Jack Daniels `2Q` (4), Hansons (3), FIRST, Jeff Galloway, Nike Run Club and four plans designed by Apollo, plus **4 base-building and post-marathon blocks** (`8-Week Aerobic Base Builder`, `12-Week Performance Base`, `4-Week Post-Marathon Reverse Taper`, `6-Week Off-Season Maintenance`).
+  - **25 are new in v1.0.9:**
+    - Hal Higdon `Novice Supreme`, `Personal Best`, `Intermediate 2` and `Advanced 2`;
+    - Pete Pfitzinger `12/55 Method`, `12/70 Method`, `18/70 Method (Doubles)`, `18/85 Elite Method (Doubles)`, and `Multiple Marathoning` (12- and 8-week);
+    - Jack Daniels `2Q Marathon` for up to 40, 41–55, 56–70 and 71–85 mpw;
+    - Hansons `Just Finish` and `Advanced`;
+    - Jeff Galloway `Run-Walk-Run (20-Week)`;
+    - the four plans designed by Apollo and the four blocks.
+  - The 8 plans from v1.0.8 keep their IDs and schedules, so progress on them carries over.
 - **Four new Hal Higdon plans follow his published schedules day for day**, transcribed from the tables on halhigdon.com: `Novice Supreme` (30 weeks), `Personal Best` (30 weeks), `Intermediate 2` and `Advanced 2`.
 - **"Designed by Apollo":** Apollo's own plans (`Boston Qualifier (BQ) 18/60`, `Time-on-Feet Endurance (3h Cap)`, `Norwegian-Style Sub-Threshold`, `Canova-Style Specific Block 16/75` and the four blocks) carry this label and cite no coach or book. Coach-based plans keep their fidelity label (*Follows the published schedule*, *Built from the published method* or *Simplified version*) and official links.
 - **Names match the schedules:** for example `12/70 Method` and `18/85 Elite Method (Doubles)`. The v1.0.8 Hansons plan is now called `Beginner` (was *Beginner (Just Finish)*), because v1.0.9 adds a separate Hansons `Just Finish` plan; its schedule and ID are unchanged.

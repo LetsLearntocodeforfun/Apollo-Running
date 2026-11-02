@@ -2,7 +2,27 @@
 
 Apollo is free and open source. It needs no account, and your data stays on your computer.
 
-**What's new in this version:** see the [changelog](https://github.com/LetsLearntocodeforfun/Apollo-Running/blob/main/CHANGELOG.md).
+<!-- Release highlights: refresh this section for every release. -->
+
+### What's new in v1.0.9
+
+- **33 training plans, each labeled honestly.** 25 new plans:
+  - four Hal Higdon plans transcribed day for day (`Novice Supreme`, `Personal Best`, `Intermediate 2`, `Advanced 2`);
+  - Pete Pfitzinger's `12/55` to `18/85` methods and multiple-marathon plans;
+  - Jack Daniels' `2Q` for up to 40 to 85 miles a week;
+  - Hansons `Just Finish` and `Advanced`, and Jeff Galloway's `Run-Walk-Run`;
+  - four plans designed by Apollo, and four base and recovery blocks.
+- **Portable plans:** export and import any plan as an `.apollo-plan.json` file.
+- **Aerobic durability (Pa:HR & Efficiency Factor), a shoe garage and a training journal.**
+- **Course `.gpx` upload** for any race, fitted to the official distance.
+- **Desktop backup folder and CSV export.**
+- **Tighter local-first security:**
+  - the desktop window can reach only intervals.icu and Strava; everything else is blocked;
+  - update checks no longer send a device ID;
+  - spellcheck never downloads dictionaries on Windows or Linux.
+- **Illustrated Quick-Start Guide and Training Program Guide.**
+
+Your data stays where it is: storage is unchanged from v1.0.8. Full details are in the [changelog](https://github.com/LetsLearntocodeforfun/Apollo-Running/blob/main/CHANGELOG.md).
 
 | Your computer | Download this file |
 |---|---|

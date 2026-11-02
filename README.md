@@ -6,12 +6,12 @@
 
 <p align="center">
   <strong>The definitive marathon training platform.</strong><br />
-  Smart plans · Direct Garmin Connect sync · Free sync via intervals.icu · FIT/GPX/TCX and export import · Workouts to your watch · Race-day pacing and fueling<br />
+  33 training plans · Direct Garmin Connect sync · Free sync via intervals.icu · FIT/GPX/TCX and export import · Workouts to your watch · Race-day pacing and fueling<br />
   <em>Local-first. Zero subscriptions. No Apollo account, no Apollo servers — your data stays on your device.</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/app%20tests-~2000%20passing-brightgreen" alt="About 2,000 app tests passing" />
+  <img src="https://img.shields.io/badge/app%20tests-~2400%20passing-brightgreen" alt="About 2,400 app tests passing" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
   <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
@@ -229,7 +229,7 @@ Full details are in the [changelog](CHANGELOG.md).
 | **Printable race card** | One-page race companion with splits, fuel cues, pace bands, 5K checkpoints, segment summaries, and mantras |
 | **Calendar export** | One-click .ics export with VDOT-paced workout descriptions for Google/Outlook/Apple Calendar |
 | **Auto-sync on launch** | Opt-in automatic sync when the app opens, plus optional background re-sync while it's open (default hourly), with a 5-minute cooldown |
-| **Auto-updates** | Opt-in update checking, downloading, and installing (desktop) |
+| **Auto-updates** | Opt-in update checking, downloading, and installing (desktop); update checks carry no device ID |
 | **Units** | Miles or kilometers, °F or °C, kg or lb |
 | **Web version** | The same app in your browser; data stays in that browser (Strava and Garmin Connect sync are desktop-only) |
 
