@@ -9,6 +9,7 @@ import {
   PLAN_NOTE_TAXONOMY,
   createCustomPlanFromScratch,
   customLongRunLimits,
+  dayTotalMiles,
   describeCustomPlanNotice,
   getPlanById,
   getWorkoutKind,
@@ -21,7 +22,7 @@ import { getRaceDayRef } from '@/services/planProgress';
 
 const QUALITY = new Set(['tempo', 'speed', 'strength', 'marathon_pace']);
 const isRunDay = (d: PlanDay) => d.type === 'run' || d.type === 'race' || d.type === 'marathon';
-const trainingMiles = (days: PlanDay[]) => days.reduce((s, d) => s + (d.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
+const trainingMiles = (days: PlanDay[]) => days.reduce((s, d) => s + (d.type === 'run' ? dayTotalMiles(d) : 0), 0);
 /** v1.0.7 (T-8): the custom builder's notices as text (miles). */
 const notes = (plan: TrainingPlan) => (plan.buildNotices ?? []).map((n) => describeCustomPlanNotice(n)).join(' ');
 
@@ -44,6 +45,28 @@ const EXPECTED: Record<string, Expected> = {
   'pfitzinger-18-55': { weeks: 18, runDays: [5, 5], longest: 20, peak: [52, 58] },
   'nike-run-club-marathon': { weeks: 18, runDays: [5, 5], longest: 20, peak: [36, 44] },
   first: { weeks: 16, runDays: [3, 3], longest: 20, peak: [30, 38] },
+  // Expanded marathon library (21 plans)
+  'hal-higdon-novice-supreme': { weeks: 30, runDays: [4, 4], longest: 20, peak: [38, 42] },
+  'hal-higdon-intermediate-2': { weeks: 18, runDays: [4, 5], longest: 20, peak: [48, 52] },
+  'hal-higdon-advanced-2': { weeks: 18, runDays: [5, 6], longest: 20, peak: [54, 58] },
+  'hal-higdon-personal-best': { weeks: 30, runDays: [4, 6], longest: 20, peak: [42, 46] },
+  'pfitzinger-12-55': { weeks: 12, runDays: [5, 5], longest: 20, peak: [53, 57] },
+  'pfitzinger-12-70': { weeks: 12, runDays: [6, 6], longest: 21, peak: [68, 72] },
+  'pfitzinger-18-70': { weeks: 18, runDays: [6, 6], longest: 22, peak: [68, 73] },
+  'pfitzinger-18-85': { weeks: 18, runDays: [6, 7], longest: 22, peak: [83, 85] },
+  'pfitzinger-multi-12': { weeks: 12, runDays: [4, 5], longest: 19, peak: [50, 54] },
+  'apollo-multi-8': { weeks: 8, runDays: [4, 5], longest: 17, peak: [46, 50] },
+  'daniels-2q-40': { weeks: 18, runDays: [5, 5], longest: 15, peak: [38, 42] },
+  'daniels-2q-55': { weeks: 18, runDays: [5, 5], longest: 19, peak: [53, 57] },
+  'daniels-2q-70': { weeks: 18, runDays: [6, 6], longest: 20, peak: [68, 72] },
+  'daniels-2q-85': { weeks: 18, runDays: [7, 7], longest: 22, peak: [83, 87] },
+  'hansons-just-finish': { weeks: 18, runDays: [5, 5], longest: 16, peak: [40, 44] },
+  'hansons-advanced': { weeks: 18, runDays: [6, 6], longest: 16, peak: [57, 62] },
+  'galloway-run-walk': { weeks: 20, runDays: [3, 3], longest: 20, peak: [26, 30] },
+  'apollo-time-based-endurance': { weeks: 18, runDays: [4, 4], longest: 16, peak: [29, 33] },
+  'apollo-norwegian-70': { weeks: 18, runDays: [6, 6], longest: 21, peak: [64, 70] },
+  'apollo-canova-75': { weeks: 16, runDays: [6, 7], longest: 22, peak: [72, 77] },
+  'apollo-bq-60': { weeks: 18, runDays: [5, 6], longest: 21, peak: [57, 62] },
 };
 
 /** Shared fidelity rules for any marathon plan. */
@@ -122,7 +145,10 @@ describe('Higdon plans', () => {
     for (const plan of higdon) {
       plan.weeks.forEach((week, w) => {
         if (week.days.some((d) => d.type === 'race' || d.type === 'marathon')) return;
-        const runs = week.days.filter((d) => d.type === 'run');
+        // Steady runs only: a timed tempo or repeat session carries Apollo's distance
+        // estimate (warm-up and cool-down included), which can exceed a short
+        // base-phase long run (Personal Best weeks 3 and 11).
+        const runs = week.days.filter((d) => d.type === 'run' && d.note !== 'Tempo' && d.note !== 'Speed');
         const longest = Math.max(...runs.map((d) => d.distanceMi ?? 0));
         const longDay = runs.find((d) => d.distanceMi === longest && d.note === 'Long');
         expect(longDay, `${plan.id} week ${w + 1}`).toBeDefined();
@@ -142,8 +168,121 @@ describe('Higdon plans', () => {
     expect(getWorkoutKind(a1.weeks[14].days[5])).toBe('marathon_pace');
   });
 
-  it('describe the plans as "based on"', () => {
-    for (const plan of BUILT_IN_PLANS) expect(plan.description).toMatch(/^Based on/);
+  it('describe coach plans as "based on" and Apollo’s own plans as "designed by Apollo"', () => {
+    for (const plan of BUILT_IN_PLANS) {
+      if (plan.attribution?.fidelity === 'original') expect(plan.description, plan.id).toMatch(/^Designed by Apollo/);
+      else expect(plan.description, plan.id).toMatch(/^Based on/);
+    }
+  });
+});
+
+/** Compact day text for comparing with Hal Higdon's published tables. */
+function dayText(d: PlanDay): string {
+  if (d.type === 'rest') return 'Rest';
+  if (d.type === 'cross') return d.label === 'Cross' ? 'Cross' : d.label;
+  if (d.type === 'marathon') return 'Marathon';
+  return d.label;
+}
+
+describe('Higdon published schedules (v1.0.9: transcribed from halhigdon.com)', () => {
+  const plan = (id: string) => getPlanById(id)!;
+  const week = (id: string, w: number) => plan(id).weeks[w - 1].days.map(dayText);
+
+  it('Novice Supreme is 30 weeks: Higdon’s 12-week novice base (Sunday walks), then Novice 1', () => {
+    expect(plan('hal-higdon-novice-supreme').weeks).toHaveLength(30);
+    expect(week('hal-higdon-novice-supreme', 1)).toEqual([
+      'Rest',
+      '1.5 mi run',
+      '3 mi run',
+      '1.5 mi run',
+      'Rest',
+      // Higdon: "a long run of only 3 miles in the first week of training".
+      '3 mi long run',
+      '30 min walk',
+    ]);
+    expect(week('hal-higdon-novice-supreme', 11)[6]).toBe('60 min walk');
+    expect(week('hal-higdon-novice-supreme', 12)[5]).toBe('6 mi long run');
+    // Week 20 is a 13-mile Saturday run, not a half marathon, in the Novice Supreme table.
+    expect(week('hal-higdon-novice-supreme', 20).slice(5)).toEqual(['13 mi long run', 'Cross']);
+    expect(plan('hal-higdon-novice-supreme').halfMarathonWeek).toBeUndefined();
+    // Weeks 13–30 match Novice 1's distances, apart from that week.
+    const n1 = plan('hal-higdon-novice-1');
+    for (let w = 0; w < 18; w++) {
+      if (w === 7) continue;
+      const sup = plan('hal-higdon-novice-supreme').weeks[12 + w].days.map((d) => d.distanceMi ?? 0);
+      expect(sup, `week ${13 + w}`).toEqual(n1.weeks[w].days.map((d) => d.distanceMi ?? 0));
+    }
+  });
+
+  it('Personal Best is 30 weeks with Higdon’s speed base and tune-up races', () => {
+    const pb = plan('hal-higdon-personal-best');
+    expect(pb.weeks).toHaveLength(30);
+    expect(week('hal-higdon-personal-best', 1)).toEqual([
+      '3 mi run',
+      '3 mi run',
+      '3 × hill repeats',
+      '3 mi run',
+      'Rest',
+      '30 min tempo',
+      '6 mi long run',
+    ]);
+    expect(week('hal-higdon-personal-best', 2)[5]).toBe('30 min fartlek');
+    expect(week('hal-higdon-personal-best', 7)[2]).toBe('8 × 200 m');
+    const races = pb.weeks.flatMap((w, i) => w.days.filter((d) => d.type === 'race').map((d) => `${i + 1}:${d.label}`));
+    expect(races).toEqual(['6:5K race', '9:8K race', '12:10K race', '18:15K race', '24:Half Marathon']);
+    expect(pb.halfMarathonWeek).toBe(23);
+  });
+
+  it('Advanced 2 and Intermediate 2 match the published cells that previously differed', () => {
+    expect(week('hal-higdon-advanced-2', 1)).toEqual([
+      '3 mi run',
+      '3 × hill repeats',
+      '3 mi run',
+      '30 min tempo',
+      'Rest',
+      '5 mi marathon pace',
+      '10 mi long run',
+    ]);
+    expect(week('hal-higdon-advanced-2', 2)[3]).toBe('3 mi marathon pace');
+    expect(week('hal-higdon-advanced-2', 18)[1]).toBe('4 × 400 m');
+    expect(plan('hal-higdon-intermediate-2').weeks[8].days[2].distanceMi).toBe(9);
+    expect(plan('hal-higdon-intermediate-2').weeks[16].days[5].distanceMi).toBe(4);
+  });
+
+  it('label every Higdon transcription as following the published schedule', () => {
+    for (const id of [
+      'hal-higdon-novice-supreme',
+      'hal-higdon-intermediate-2',
+      'hal-higdon-advanced-2',
+      'hal-higdon-personal-best',
+    ]) {
+      expect(plan(id).attribution?.fidelity, id).toBe('published-schedule');
+    }
+  });
+});
+
+describe('plan-wide rules (v1.0.9)', () => {
+  it('no plan label shows floating-point noise', () => {
+    for (const plan of BUILT_IN_PLANS) {
+      for (const week of plan.weeks) {
+        for (const d of week.days) {
+          for (const label of [d.label, d.secondary?.label]) {
+            if (label) expect(label, plan.id).not.toMatch(/\d\.\d{3,}/);
+          }
+        }
+      }
+    }
+  });
+
+  it('the last 18+ mile run comes at least 3 weeks before race week', () => {
+    for (const plan of BUILT_IN_PLANS) {
+      const raceWeek = plan.weeks.length - 1;
+      let last18 = -1;
+      plan.weeks.forEach((w, i) => {
+        if (w.days.some((d) => d.type === 'run' && (d.distanceMi ?? 0) >= 18)) last18 = i;
+      });
+      if (last18 >= 0) expect(raceWeek - last18, plan.id).toBeGreaterThanOrEqual(3);
+    }
   });
 });
 

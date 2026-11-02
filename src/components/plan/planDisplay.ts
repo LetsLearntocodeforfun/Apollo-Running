@@ -49,11 +49,22 @@ export function workoutTitle(day: PlanDay): string {
   return title.charAt(0).toUpperCase() + title.slice(1);
 }
 
-/** "Tempo run · 8.0 km" (or with a custom separator, e.g. ", " for screen-reader labels). */
+/** "Tempo run · 8.0 km" (or with a custom separator, e.g. ", " for screen-reader labels). Includes PM double when present. */
 export function workoutSummary(day: PlanDay, separator = ' · '): string {
   const title = workoutTitle(day);
   if (day.type === 'rest' || day.distanceMi == null || !(day.distanceMi > 0)) return title;
-  return `${title}${separator}${formatMiles(day.distanceMi)}`;
+  const primary = `${title}${separator}${formatMiles(day.distanceMi)}`;
+  if (day.secondary && day.secondary.distanceMi > 0) {
+    return `${primary} + PM ${formatMiles(day.secondary.distanceMi)}`;
+  }
+  return primary;
+}
+
+/** Unit-formatted summary of a day's optional PM double session, or null. */
+export function secondarySummary(day: PlanDay | null | undefined): string | null {
+  if (!day?.secondary || !(day.secondary.distanceMi > 0)) return null;
+  const kind = day.secondary.note === 'Recovery' ? 'PM recovery' : 'PM easy';
+  return `${kind} · ${formatMiles(day.secondary.distanceMi)}`;
 }
 
 /** Workout-day progress for one plan week. */

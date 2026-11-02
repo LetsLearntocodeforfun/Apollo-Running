@@ -14,12 +14,16 @@
  */
 import { useId, useMemo, useState, type ReactNode } from 'react';
 import {
+  CUSTOM_DOUBLE_PM_MI,
+  CUSTOM_DOUBLES_MIN_WEEK_MI,
+  CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI,
   createCustomPlanFromScratch,
   describeCustomPlanNotice,
   getPlanOverview,
   type CustomDayType,
   type TrainingPlan,
 } from '../data/plans';
+import { downloadPlanJson } from '../services/planImportExport';
 import { getCurrentTrainingPaces, getSavedTrainingPaces } from '../services/paceCalculator';
 import { getWorkoutTargetForDay } from '../services/workoutTargets';
 import { detectPhases, type PhaseName, type TrainingPhase } from '../services/periodization';
@@ -33,7 +37,7 @@ import {
   unitLabel,
   type DistanceUnit,
 } from '../services/unitPreferences';
-import { workoutTitle } from './plan/planDisplay';
+import { secondarySummary, workoutTitle } from './plan/planDisplay';
 import { readRecentFitness } from './plan/RaceDatePlanSetup';
 import './plan/PlanBuilder.css';
 
@@ -70,12 +74,12 @@ const PHASE_SHORT: Record<PhaseName, string> = {
 const WEEKS_MIN = 10;
 const WEEKS_MAX = 30;
 const RUN_DAYS_MIN = 3;
-const RUN_DAYS_MAX = 6;
+const RUN_DAYS_MAX = 7;
 const CURRENT_MIN_MI = 8;
-const CURRENT_MAX_MI = 80;
+const CURRENT_MAX_MI = 90;
 const PEAK_GAP_MI = 4;
 const PEAK_FLOOR_MI = 12;
-const PEAK_MAX_MI = 90;
+const PEAK_MAX_MI = 110;
 /** Tolerance for miles ↔ km round trips. */
 const EPS = 1e-6;
 
@@ -91,6 +95,8 @@ interface PlanBuilderProps {
     runningDays?: number;
     currentWeeklyMiles?: number;
     peakWeeklyMiles?: number;
+    enableDoubles?: boolean;
+    isTimeBased?: boolean;
   };
 }
 
@@ -125,6 +131,15 @@ function getDefaultAssignments(runningDays: number): Record<number, CustomDayTyp
       assignments[2] = 'easy'; // Wed
       assignments[3] = 'marathon_pace'; // Thu
       assignments[5] = 'medium_long'; // Sat
+      assignments[6] = 'long'; // Sun
+      break;
+    case 7:
+      assignments[0] = 'easy'; // Mon
+      assignments[1] = 'tempo'; // Tue
+      assignments[2] = 'medium_long'; // Wed
+      assignments[3] = 'easy'; // Thu
+      assignments[4] = 'marathon_pace'; // Fri
+      assignments[5] = 'easy'; // Sat
       assignments[6] = 'long'; // Sun
       break;
     default:
@@ -371,6 +386,8 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
   const [runningDays, setRunningDays] = useState(initial.runningDays);
   const [currentMiles, setCurrentMiles] = useState(initial.currentMiles);
   const [peakMiles, setPeakMiles] = useState(initial.peakMiles);
+  const [enableDoubles, setEnableDoubles] = useState(initialConfig?.enableDoubles ?? false);
+  const [isTimeBased, setIsTimeBased] = useState(initialConfig?.isTimeBased ?? false);
   /** Announces an automatic peak change (V21) so it isn't silent. */
   const [peakNote, setPeakNote] = useState('');
 
@@ -410,8 +427,22 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
       dayAssignments: assignments,
       longestRecentRunMi: recentFitness?.longestRunMi ?? null,
       easyPaceSecPerMi: savedPaces ? Math.round((savedPaces.easy.min + savedPaces.easy.max) / 2) : null,
+      enableDoubles,
+      isTimeBased,
     });
-  }, [step, name, totalWeeks, assignedRunDays, currentMiles, peakMiles, assignments, recentFitness, savedPaces]);
+  }, [
+    step,
+    name,
+    totalWeeks,
+    assignedRunDays,
+    currentMiles,
+    peakMiles,
+    assignments,
+    recentFitness,
+    savedPaces,
+    enableDoubles,
+    isTimeBased,
+  ]);
 
   const overview = useMemo(() => {
     if (!previewPlan) return [];
@@ -427,6 +458,8 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
     current: `${uid}-current`,
     peak: `${uid}-peak`,
     peakHint: `${uid}-peak-hint`,
+    doubles: `${uid}-doubles`,
+    timeBased: `${uid}-time-based`,
     configIssues: `${uid}-config-issues`,
     assignIssues: `${uid}-assign-issues`,
     longRunHint: `${uid}-long-run-hint`,
@@ -555,6 +588,41 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
               </p>
             </RangeField>
           </div>
+
+          <div className="pb-options-row">
+            <label htmlFor={ids.doubles} className="pb-check-option">
+              <input
+                id={ids.doubles}
+                type="checkbox"
+                checked={enableDoubles}
+                onChange={(e) => setEnableDoubles(e.target.checked)}
+              />
+              <span>
+                <strong>AM/PM recovery doubles</strong>
+                <span className="pb-hint">
+                  In weeks of {formatWhole(CUSTOM_DOUBLES_MIN_WEEK_MI, unit)} or more,{' '}
+                  {formatWhole(CUSTOM_DOUBLE_PM_MI, unit)} of easy running moves to an afternoon recovery run on an easy
+                  or tempo day (two days from {formatWhole(CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI, unit)}). The last two weeks
+                  stay single runs.
+                </span>
+              </span>
+            </label>
+
+            <label htmlFor={ids.timeBased} className="pb-check-option">
+              <input
+                id={ids.timeBased}
+                type="checkbox"
+                checked={isTimeBased}
+                onChange={(e) => setIsTimeBased(e.target.checked)}
+              />
+              <span>
+                <strong>Time-on-feet targets</strong>
+                <span className="pb-hint">
+                  Adds target workout durations in minutes based on your easy pace so you can train by time or distance.
+                </span>
+              </span>
+            </label>
+          </div>
         </div>
 
         <IssueList id={ids.configIssues} issues={configIssues} />
@@ -586,7 +654,7 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
         <div className="plan-builder-header">
           <h2 className="plan-builder-title">Assign Workout Types</h2>
           <p className="plan-builder-subtitle">
-            Choose what type of workout goes on each day. You need exactly one long run day and 3–6 total running days.
+            Choose what type of workout goes on each day. You need exactly one long run day and 3–7 total running days.
           </p>
         </div>
 
@@ -726,6 +794,8 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
             {previewPlan.totalWeeks} weeks · {assignedRunDays} run days/week · {Math.round(toUnit(currentMiles, unit))}→
             {Math.round(toUnit(peakMiles, unit))} {unitLabel(unit)}/week · Peak: {formatMiles(peakWeekMiles, 1, unit)}
             /week
+            {previewPlan.hasDoubles ? ' · AM/PM doubles' : ''}
+            {previewPlan.isTimeBased ? ' · Time-based' : ''}
           </p>
         </div>
 
@@ -855,12 +925,25 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
                                 unit,
                               )
                             : '';
+                          const pmText = secondarySummary(day);
                           return (
                             <tr key={dayIdx}>
                               <td className="plan-builder-cell-day">{DAY_NAMES[dayIdx]}</td>
-                              <td>{workoutTitle(day)}</td>
+                              <td>
+                                {workoutTitle(day)}
+                                {pmText && <span className="pb-secondary-pill"> + {pmText}</span>}
+                                {day.durationMin != null && day.durationMin > 0 && (
+                                  <span className="pb-duration-pill"> ~{day.durationMin} min</span>
+                                )}
+                              </td>
                               <td className="plan-builder-cell-dist">
                                 {day.distanceMi != null ? formatMiles(day.distanceMi, 1, unit) : '—'}
+                                {day.secondary && (
+                                  <span className="pb-secondary-dist">
+                                    {' '}
+                                    + {formatMiles(day.secondary.distanceMi, 1, unit)} PM
+                                  </span>
+                                )}
                               </td>
                               {vdot > 0 && <td className="plan-builder-cell-pace">{paceStr || '—'}</td>}
                             </tr>
@@ -878,6 +961,9 @@ export default function PlanBuilder({ onComplete, onCancel, initialConfig }: Pla
         <div className="plan-builder-actions">
           <button type="button" className="btn btn-primary" onClick={handleAcceptPlan}>
             <span aria-hidden="true">✓</span> Accept This Plan
+          </button>
+          <button type="button" className="btn btn-secondary" onClick={() => downloadPlanJson(previewPlan)}>
+            Export plan
           </button>
           <button type="button" className="btn btn-secondary" onClick={() => setStep('assign-days')}>
             <span aria-hidden="true">←</span> Edit Days

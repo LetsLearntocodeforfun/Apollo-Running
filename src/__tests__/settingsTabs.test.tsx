@@ -40,6 +40,7 @@ import {
 import { getNeedsReconnect, setNeedsReconnect } from '../services/connectionHealth';
 import { APP_VERSION } from '../version';
 import { addDays, todayKey } from '../utils/localDate';
+import { clearStorageDegraded, markStorageDegraded } from '../services/storageHealth';
 
 function LocationProbe() {
   const location = useLocation();
@@ -200,6 +201,51 @@ describe('Delete all data', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Delete everything' }));
     expect(await within(dialog).findByText('The disk is locked.')).toBeTruthy();
     expect(reloadApp).not.toHaveBeenCalled();
+  });
+
+  it('v1.0.9: with a synced backup folder, says its snapshots stay and the folder is disconnected', async () => {
+    const folderState: DesktopBackupFolderState = {
+      folderPath: '/Users/ana/Library/Mobile Documents/Apollo',
+      maxFiles: 10,
+      lastSyncedAt: null,
+      lastFileName: null,
+      lastError: null,
+      folderReachable: true,
+    };
+    (window as { electronAPI?: unknown }).electronAPI = {
+      backupFolder: {
+        getState: vi.fn(async () => folderState),
+        chooseFolder: vi.fn(),
+        clearFolder: vi.fn(async () => ({ ...folderState, folderPath: null })),
+        writeSnapshot: vi.fn(),
+      },
+    };
+    renderSettings('/settings?tab=data');
+    expect(await screen.findByText(/disconnects your synced backup folder/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all data…' }));
+    const dialog = screen.getByRole('dialog');
+    expect(within(dialog).getByText(/Snapshots already in your synced backup folder are not deleted/)).toBeTruthy();
+  });
+
+  it('without a synced folder, the dialog makes no folder promise', () => {
+    renderSettings('/settings?tab=data');
+    fireEvent.click(screen.getByRole('button', { name: 'Delete all data…' }));
+    expect(within(screen.getByRole('dialog')).queryByText(/synced backup folder/)).toBeNull();
+  });
+});
+
+describe('v1.0.9: exports while storage is degraded', () => {
+  afterEach(() => clearStorageDegraded());
+
+  it('CSV export refuses calmly instead of downloading a file that could be missing rows', () => {
+    const createObjectURL = vi.fn(() => 'blob:test');
+    (URL as unknown as { createObjectURL: typeof createObjectURL }).createObjectURL = createObjectURL;
+    markStorageDegraded('IndexedDB failed to open');
+    renderSettings('/settings?tab=data');
+    const card = screen.getByTestId('csv-exports-card');
+    fireEvent.click(within(card).getByRole('button', { name: 'Activities' }));
+    expect(within(card).getByText(/Storage is unavailable right now/)).toBeTruthy();
+    expect(createObjectURL).not.toHaveBeenCalled();
   });
 });
 

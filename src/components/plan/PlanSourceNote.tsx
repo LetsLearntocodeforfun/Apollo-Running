@@ -6,11 +6,12 @@
  * original one click away.
  */
 
-import { PLAN_FIDELITY_LABEL, PLAN_INDEPENDENCE_NOTICE, type TrainingPlan } from '../../data/plans';
+import { PLAN_INDEPENDENCE_NOTICE, planFidelityLabel, type TrainingPlan } from '../../data/plans';
 import './plan.css';
 
 export interface PlanSourceNoteProps {
-  plan: Pick<TrainingPlan, 'name' | 'attribution'>;
+  /** v1.0.9: with its `id`, an imported plan is badged as imported (see planFidelityLabel). */
+  plan: Pick<TrainingPlan, 'name' | 'attribution'> & { id?: string };
   /** Hide the independence notice (when the page shows it once already). */
   hideNotice?: boolean;
   /** Extra class names for layout. */
@@ -30,8 +31,7 @@ export function PlanSourceNote({ plan, hideNotice = false, className }: PlanSour
   return (
     <aside className={`plan-source-note${className ? ` ${className}` : ''}`} aria-label={`About the ${plan.name} plan`}>
       <p className="plan-source-fidelity">
-        <span className={`plan-fidelity-badge plan-fidelity-${a.fidelity}`}>{PLAN_FIDELITY_LABEL[a.fidelity]}</span>{' '}
-        {a.note}
+        <span className={`plan-fidelity-badge plan-fidelity-${a.fidelity}`}>{planFidelityLabel(plan)}</span> {a.note}
       </p>
       {a.sources.length > 0 && (
         <ul className="plan-source-links">

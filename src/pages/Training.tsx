@@ -1,9 +1,18 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CUSTOM_PLAN_ID, planAttributionLine, setCustomPlan, type PlanDay, type TrainingPlan } from '../data/plans';
+import {
+  CUSTOM_PLAN_ID,
+  getPlanById,
+  hasMarathonDay,
+  planAttributionLine,
+  setCustomPlan,
+  type PlanDay,
+  type TrainingPlan,
+} from '../data/plans';
 import PlanBuilder from '../components/PlanBuilder';
 import {
   getActivePlan,
+  getActivePlanRaceDate,
   setActivePlan,
   isDayCompleted,
   toggleDayCompleted,
@@ -16,7 +25,6 @@ import {
 } from '../services/planProgress';
 import { getEffectivePlan, onPlanOverlayChanged } from '../services/planOverlay';
 import { onPlanEvent, PLAN_PROGRESS_CHANGED_EVENT } from '../services/planEvents';
-import { getRaceDate } from '../services/journey';
 import {
   isActivitySourceConnected,
   hasActivityData,
@@ -61,9 +69,11 @@ import {
   formatDayLabel,
   formatMediumDate,
   isWorkoutDay,
+  secondarySummary,
   workoutTitle,
   type ProgressStats,
 } from '../components/plan/planDisplay';
+import { downloadPlanJson } from '../services/planImportExport';
 import { todayKey as getTodayKey, weekdayShort } from '../utils/localDate';
 import '../components/plan/plan.css';
 
@@ -238,6 +248,16 @@ const DayRow = memo(function DayRow({
               {formatMiles(day.distanceMi)}
             </span>
           )}
+          {day.secondary && (
+            <span style={{ color: 'var(--apollo-teal)', marginLeft: '0.45rem', fontSize: 'var(--text-xs)' }}>
+              + {secondarySummary(day)}
+            </span>
+          )}
+          {day.durationMin != null && day.durationMin > 0 && (
+            <span style={{ color: 'var(--text-muted)', marginLeft: '0.45rem', fontSize: 'var(--text-xs)' }}>
+              (~{day.durationMin} min{day.runWalkRatio ? ` · ${day.runWalkRatio}` : ''})
+            </span>
+          )}
           {badge && (
             <span style={{ marginLeft: '0.5rem' }}>
               <DayBadgeChip badge={badge} />
@@ -410,7 +430,13 @@ export default function Training() {
   const todayKey = getTodayKey();
   const connected = isActivitySourceConnected();
   const sourceName = getActiveSourceName();
-  const raceDate = active ? getRaceDate() : null;
+  // v1.0.9: the race date the plan owns. A block without a race day has none, so its last
+  // day shows instead (the athlete's own race stays on Today and in the Race Day hub).
+  const raceDate = active ? getActivePlanRaceDate() : null;
+  const blockEndDate =
+    active && plan && !raceDate && !hasMarathonDay(plan) && plan.weeks.length > 0
+      ? getDateKeyForDay(active.startDate, plan.weeks.length - 1, 6)
+      : null;
   const todayPos = active && plan ? getWeekDayForDate(active.startDate, plan.weeks.length, todayKey) : null;
 
   const refresh = useCallback(() => {
@@ -545,6 +571,16 @@ export default function Training() {
     announce('You stopped following the plan. Your completed days are kept.');
   };
 
+  /**
+   * v1.0.9: exports the plan itself, not this instance of it (race-date placement,
+   * moves and skips): a race placed on another weekday would put the marathon before
+   * the plan's last day, and Apollo can't import such a file.
+   */
+  const handleExportPlan = () => {
+    const base = active ? getPlanById(active.planId) : undefined;
+    if (base) downloadPlanJson(base);
+  };
+
   const handleCustomPlanSaved = (custom: TrainingPlan) => {
     setCustomPlan(custom);
     setShowBuilder(false);
@@ -667,6 +703,7 @@ export default function Training() {
               <p style={{ color: 'var(--text-secondary)', margin: '0.25rem 0 0', fontSize: 'var(--text-sm)' }}>
                 {planAttributionLine(plan)} · Week 1 began {formatMediumDate(active.startDate)}
                 {raceDate ? ` · Race day ${formatMediumDate(raceDate)}` : ''}
+                {blockEndDate ? ` · Block ends ${formatMediumDate(blockEndDate)}` : ''}
                 {todayPos ? ` · Week ${todayPos.weekIndex + 1} of ${plan.weeks.length}` : ''}
               </p>
               {progress && (
@@ -706,6 +743,9 @@ export default function Training() {
                 }}
               >
                 Change plan or race date
+              </button>
+              <button type="button" className="btn btn-ghost" onClick={handleExportPlan}>
+                Export plan
               </button>
               <button type="button" className="btn btn-ghost" onClick={() => setConfirmStop(true)}>
                 Stop plan
@@ -809,10 +849,9 @@ export default function Training() {
                     <div
                       key={wi}
                       style={{
-                        border: '1px solid var(--border)',
+                        border: `1px solid ${isExpanded ? 'var(--border-strong)' : 'var(--border)'}`,
                         borderRadius: 'var(--radius-md)',
                         overflow: 'visible',
-                        ...(isExpanded ? { borderColor: 'var(--border-strong)' } : {}),
                       }}
                     >
                       <h3 style={{ margin: 0, fontSize: 'var(--text-base)' }}>

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { runSync } from '../services/autoSync';
-import { syncPlanCalendarIfChanged } from '../services/planCalendarSync';
 import { getLastActivitySyncTime, isActivitySourceConnected, isSyncRunning } from '../services/activitySource';
 import {
   APP_PREFS_CHANGED_EVENT,
@@ -9,6 +8,14 @@ import {
   markAutoSyncRan,
 } from '../services/appPreferences';
 import { isStorageDegraded } from '../services/storageHealth';
+
+function syncCalendarInBackground(): void {
+  void import('../services/planCalendarSync')
+    .then(({ syncPlanCalendarIfChanged }) => syncPlanCalendarIfChanged())
+    .catch(() => {
+      /* syncPlanCalendarIfChanged never throws; guard chunk load failure */
+    });
+}
 
 /** Show a status message; autoHideMs = 0 keeps it up (progress messages). */
 export type ShowStatus = (message: string | null, autoHideMs?: number) => void;
@@ -88,9 +95,9 @@ export function useAutoSync(showStatus: ShowStatus): void {
   // The service only calls intervals.icu when the plan or paces changed (or a
   // day has passed), and never throws.
   useEffect(() => {
-    void syncPlanCalendarIfChanged();
+    syncCalendarInBackground();
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void syncPlanCalendarIfChanged();
+      if (document.visibilityState === 'visible') syncCalendarInBackground();
     };
     document.addEventListener('visibilitychange', onVisible);
     window.addEventListener('focus', onVisible);

@@ -3,10 +3,11 @@
  * can contact, backups (create, download, import, restore) and "Delete all data".
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConfirmDialog } from '../../components/ui';
 import {
   estimateStorageUsage,
+  isStorageDegraded,
   isStoragePersisted,
   requestPersistentStorage,
   type StorageUsageEstimate,
@@ -23,9 +24,11 @@ import {
   importFromFile,
   restoreFromBackupDetailed,
   setBackupConfig,
+  syncSnapshotToDesktopFolder,
   type BackupConfig,
   type BackupRecord,
 } from '../../services/backupService';
+import { exportActivitiesCsv, exportJournalCsv, exportSplitsCsv, exportWellnessCsv } from '../../services/csvExport';
 import { deleteAllLocalData } from '../../services/dataManager';
 import {
   discardQuarantined,
@@ -36,7 +39,7 @@ import {
 } from '../../services/db/quarantine';
 import { normalizeActionResult, type ActionOutcome } from './backupResult';
 import { reloadApp } from './appReload';
-import { StatusLine, formatSize, useStatus } from './shared';
+import { StatusLine, formatCount, formatSize, useStatus } from './shared';
 
 const DELETE_PHRASE = 'DELETE';
 
@@ -96,6 +99,7 @@ type BackupBadge = { label: string; tone: 'neutral' | 'success' | 'warning' | 'e
 
 export default function DataTab() {
   const isDesktop = typeof window !== 'undefined' && !!window.electronAPI;
+  const hasDesktopBackupFolder = isDesktop && !!window.electronAPI?.backupFolder;
   const destinations = useMemo(() => getNetworkDestinations(isDesktop ? 'desktop' : 'web'), [isDesktop]);
   const defaultContacts = destinations.filter((d) => d.defaultOn);
 
@@ -112,17 +116,48 @@ export default function DataTab() {
   const [pendingRestore, setPendingRestore] = useState<BackupRecord | null>(null);
   const backupStatus = useStatus();
 
+  const [folderState, setFolderState] = useState<DesktopBackupFolderState | null>(null);
+  const [folderBusy, setFolderBusy] = useState(false);
+  const folderStatus = useStatus();
+  const csvStatus = useStatus();
+
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteText, setDeleteText] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  const refreshBackupFolder = useCallback(() => {
+    const api = typeof window !== 'undefined' ? window.electronAPI?.backupFolder : undefined;
+    if (!api) return;
+    void api
+      .getState()
+      .then((next) => {
+        if (mountedRef.current) setFolderState(next);
+      })
+      .catch(() => {
+        /* ignore */
+      });
+  }, []);
 
   /** U3: health and history are state, recomputed after every action. */
   const refreshBackups = useCallback(() => {
     setBackupConfigState(getBackupConfig());
     setBackupHealth(getBackupHealth());
     setBackupRecords(getBackupRecords());
-  }, []);
+    refreshBackupFolder();
+  }, [refreshBackupFolder]);
+
+  useEffect(() => {
+    refreshBackupFolder();
+  }, [refreshBackupFolder]);
 
   useEffect(() => {
     window.addEventListener(BACKUPS_CHANGED_EVENT, refreshBackups);
@@ -283,6 +318,84 @@ export default function DataTab() {
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Some data could not be deleted. Try again.');
       setDeleting(false);
+    }
+  };
+
+  const handleChooseBackupFolder = async () => {
+    const api = window.electronAPI?.backupFolder;
+    if (!api) return;
+    setFolderBusy(true);
+    try {
+      const reply = await api.chooseFolder();
+      setFolderState(reply.state);
+      if (reply.canceled) return;
+      if (reply.error) {
+        folderStatus.error(reply.error);
+        return;
+      }
+      folderStatus.success(
+        'Synced backup folder connected. Future backups will mirror compressed .json.gz snapshots there.',
+      );
+    } catch (e) {
+      folderStatus.error(e instanceof Error ? e.message : 'Could not choose backup folder.');
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
+  const handleSyncFolderNow = async () => {
+    setFolderBusy(true);
+    folderStatus.info('Writing compressed snapshot to synced folder…');
+    try {
+      const res = await syncSnapshotToDesktopFolder();
+      if (res.state) setFolderState(res.state);
+      if (res.ok) {
+        const name = res.state?.lastFileName ? ` (${res.state.lastFileName})` : '';
+        folderStatus.success(`Snapshot synced to folder${name}.`);
+      } else if (res.empty) {
+        folderStatus.info(res.error ?? 'There\u2019s no Apollo data to back up yet.');
+      } else {
+        folderStatus.error(res.error ?? 'Could not write snapshot to synced folder.');
+      }
+    } catch (e) {
+      folderStatus.error(e instanceof Error ? e.message : 'Could not write snapshot to synced folder.');
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
+  const handleDisconnectBackupFolder = async () => {
+    const api = window.electronAPI?.backupFolder;
+    if (!api) return;
+    setFolderBusy(true);
+    try {
+      const next = await api.clearFolder();
+      setFolderState(next);
+      folderStatus.info('Disconnected synced backup folder. Existing .json.gz snapshots in that folder were kept.');
+    } catch (e) {
+      folderStatus.error(e instanceof Error ? e.message : 'Could not disconnect backup folder.');
+    } finally {
+      setFolderBusy(false);
+    }
+  };
+
+  const handleCsvExport = (run: () => { rowCount: number; filename: string }, singular: string, plural: string) => {
+    if (isStorageDegraded()) {
+      // v1.0.9: same rule as backups and downloads — never a file that could be missing rows.
+      csvStatus.error(
+        'Storage is unavailable right now, so Apollo didn\u2019t create a CSV that could be missing data. Restart Apollo and try again.',
+      );
+      return;
+    }
+    try {
+      const { rowCount, filename } = run();
+      if (rowCount === 0) {
+        csvStatus.info(`No ${plural} stored on this device yet.`);
+      } else {
+        csvStatus.success(`Downloaded ${formatCount(rowCount, singular, plural)} as ${filename}.`);
+      }
+    } catch (e) {
+      csvStatus.error(e instanceof Error ? e.message : 'The CSV export could not be created.');
     }
   };
 
@@ -458,7 +571,7 @@ export default function DataTab() {
             Import from file…
             <input
               type="file"
-              accept=".json,application/json"
+              accept=".json,.gz,application/json,application/gzip"
               className="sr-only"
               disabled={backupBusy}
               onChange={(e) => {
@@ -469,7 +582,10 @@ export default function DataTab() {
             />
           </label>
         </div>
-        <p className="settings-hint">Downloads and imports are JSON files. API keys and tokens are never included.</p>
+        <p className="settings-hint">
+          Downloads and imports are JSON (<code>.json</code> or <code>.json.gz</code>) files. API keys and tokens are
+          never included.
+        </p>
         <StatusLine status={backupStatus.status}>
           {needsReload && (
             <>
@@ -480,6 +596,69 @@ export default function DataTab() {
             </>
           )}
         </StatusLine>
+
+        {hasDesktopBackupFolder && (
+          <div data-testid="synced-backup-folder">
+            <h3 className="settings-subheading">Backup folder</h3>
+            {folderState?.folderPath ? (
+              <>
+                <p className="settings-hint">
+                  Folder: <code className="settings-code">{folderState.folderPath}</code>
+                  {!folderState.folderReachable ? ' (currently unreachable)' : ''} · keeps the latest{' '}
+                  {backupConfig.maxBackups} compressed <code className="settings-code">.json.gz</code> snapshots.
+                </p>
+                {folderState.lastSyncedAt && (
+                  <p className="settings-hint">
+                    Last saved {formatBackupTime(folderState.lastSyncedAt)}
+                    {folderState.lastFileName ? ` (${folderState.lastFileName})` : ''}.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="settings-hint">
+                Optional: mirror compressed backups to an external drive or synced folder on this computer.
+              </p>
+            )}
+            {folderState?.lastError && <p className="settings-error-text">{folderState.lastError}</p>}
+            <div className="settings-actions">
+              <button
+                type="button"
+                className="btn btn-secondary"
+                disabled={folderBusy || backupBusy}
+                onClick={() => {
+                  void handleChooseBackupFolder();
+                }}
+              >
+                {folderState?.folderPath ? 'Change folder…' : 'Choose folder…'}
+              </button>
+              {folderState?.folderPath && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={folderBusy || backupBusy}
+                    onClick={() => {
+                      void handleSyncFolderNow();
+                    }}
+                  >
+                    {folderBusy ? 'Saving…' : 'Save snapshot now'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    disabled={folderBusy || backupBusy}
+                    onClick={() => {
+                      void handleDisconnectBackupFolder();
+                    }}
+                  >
+                    Disconnect folder
+                  </button>
+                </>
+              )}
+            </div>
+            <StatusLine status={folderStatus.status} />
+          </div>
+        )}
 
         {recentBackups.length > 0 && (
           <>
@@ -530,6 +709,48 @@ export default function DataTab() {
           </>
         )}
         <p className="settings-hint">Backups use SHA-256 checksums to detect corruption. Nothing is sent anywhere.</p>
+      </div>
+
+      <div className="card settings-card" data-testid="csv-exports-card">
+        <h2 className="card-title settings-card-title">Export as CSV</h2>
+        <p className="settings-lead">
+          Download your training records as standard UTF-8 spreadsheets for your own analysis or archive.
+        </p>
+        <div className="settings-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleCsvExport(exportActivitiesCsv, 'activity', 'activities')}
+          >
+            Activities
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleCsvExport(exportSplitsCsv, 'split', 'splits')}
+          >
+            Splits
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleCsvExport(exportWellnessCsv, 'wellness record', 'wellness records')}
+          >
+            Wellness
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => handleCsvExport(exportJournalCsv, 'journal entry', 'journal entries')}
+          >
+            Training journal
+          </button>
+        </div>
+        <p className="settings-hint">
+          Activity and split files include metric and imperial columns. Every file starts with a UTF-8 byte-order mark
+          for spreadsheet apps, and text fields are quoted and protected against spreadsheet formulas.
+        </p>
+        <StatusLine status={csvStatus.status} />
       </div>
 
       {quarantined.length > 0 && (
@@ -584,6 +805,9 @@ export default function DataTab() {
           Permanently removes your activities, training plan, settings, the backups stored in Apollo and your saved
           connections from this device. Files you downloaded are not affected. Download a copy first if you might want
           it later.
+          {folderState?.folderPath
+            ? ' Apollo also disconnects your synced backup folder; the snapshots already in it stay there until you delete them.'
+            : ''}
         </p>
         <div className="settings-actions">
           <button type="button" className="btn ui-btn-danger" onClick={() => setDeleteOpen(true)}>
@@ -651,7 +875,12 @@ export default function DataTab() {
         open={deleteOpen}
         tone="danger"
         title="Delete all Apollo data on this device?"
-        message="This permanently deletes your activities, training plan, settings, backups stored in Apollo and saved connections (API keys and tokens). It can't be undone."
+        message={
+          'This permanently deletes your activities, training plan, settings, backups stored in Apollo and saved connections (API keys and tokens). It can\u2019t be undone.' +
+          (folderState?.folderPath
+            ? ' Snapshots already in your synced backup folder are not deleted; Apollo disconnects the folder.'
+            : '')
+        }
         confirmLabel={deleting ? 'Deleting…' : 'Delete everything'}
         onConfirm={() => {
           void confirmDeleteAll();

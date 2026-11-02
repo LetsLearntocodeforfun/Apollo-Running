@@ -1,10 +1,10 @@
 /**
- * Network inventory (v1.0.6) — every destination Apollo can contact, why,
- * when, and what is sent. Settings › Data & Privacy lists these so the
- * "nothing leaves your device unless you connect a service" promise is
- * checkable. Keep this in sync with the code (intervals.ts, strava.ts,
- * stravaWeb.ts, electron/main.ts) and the CSP (vite.config.ts,
- * public/staticwebapp.config.json).
+ * Network inventory (v1.0.6, updated v1.0.9) — every destination Apollo can
+ * contact, why, when, and what is sent. Settings › Data & Privacy lists these
+ * so the "nothing leaves your device unless you connect a service" promise is
+ * checkable. Keep this in sync with the code (garmin.ts, intervals.ts,
+ * strava.ts, stravaWeb.ts, electron/garminProxy.ts, electron/main.ts) and the
+ * CSP (vite.config.ts, vite.config.web.ts, public/staticwebapp.config.json).
  */
 
 /** Which build contacts a destination. */
@@ -29,6 +29,18 @@ export interface NetworkDestination {
 
 /** Every network destination of the app. None is contacted by default. */
 export const NETWORK_DESTINATIONS: readonly NetworkDestination[] = [
+  {
+    id: 'garmin-personal-api',
+    host: 'personal.connectapi.garmin.com',
+    purpose:
+      'Desktop: read your Garmin Connect activities, splits, original FIT/GPX/TCX files and basic profile settings (read-only).',
+    trigger:
+      'Only after you add a Garmin Connect Personal API key in the desktop app: when you verify the key, sync (manually, or on launch / in the background if you turned that on), or open an activity.',
+    dataSent:
+      'Your Garmin Personal API key (to mint a short-lived bearer token) or that bearer token, date ranges and activity IDs — sent by the desktop main process over HTTPS. Original-file downloads may be redirected to Garmin\u2019s file-storage host; Apollo accepts the file only from an HTTPS address.',
+    defaultOn: false,
+    platform: 'desktop',
+  },
   {
     id: 'intervals-api',
     host: 'intervals.icu',
@@ -72,10 +84,11 @@ export const NETWORK_DESTINATIONS: readonly NetworkDestination[] = [
   },
   {
     id: 'github-releases',
-    host: 'github.com, objects.githubusercontent.com',
+    host: 'github.com, release-assets.githubusercontent.com',
     purpose: 'Desktop: check for and download app updates (GitHub Releases of LetsLearntocodeforfun/Apollo-Running).',
     trigger: 'Only if you turn on automatic update checks, or click Check for updates / Open download page.',
-    dataSent: 'A standard HTTPS request: your IP address, the app version and platform. No account or training data.',
+    dataSent:
+      'Standard HTTPS requests that ask for the update files for your platform; GitHub sees your IP address, as any website would. The update library (electron-updater) adds a random device ID to each update check; Apollo removes it before the request leaves your computer. No account or training data. github.com lists the releases; GitHub serves the files themselves from release-assets.githubusercontent.com.',
     defaultOn: false,
     platform: 'desktop',
   },

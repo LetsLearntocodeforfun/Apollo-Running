@@ -455,6 +455,8 @@ describe('Aerobic Decoupling — Edge Cases', () => {
       }));
     const result = calculateDecoupling(splits, 8, 1, '2025-01-01');
     expect(result).not.toBeNull();
+    expect(result!.decouplingPct).toBe(0);
+    expect(result!.rating).toBe('excellent');
   });
 
   it('handles fewer than 6 splits (returns null)', () => {
@@ -479,7 +481,7 @@ describe('Aerobic Decoupling — Edge Cases', () => {
     expect(calculateDecoupling(splits, 10, 3, '2025-01-01')).toBeNull();
   });
 
-  it('handles extremely high HR (200+ bpm)', () => {
+  it('handles extremely high HR (190-199 bpm) with positive drift', () => {
     const splits = Array(10)
       .fill(0)
       .map((_, i) => ({
@@ -490,9 +492,11 @@ describe('Aerobic Decoupling — Edge Cases', () => {
     const result = calculateDecoupling(splits, 10, 4, '2025-01-01');
     expect(result).not.toBeNull();
     expect(isFinite(result!.decouplingPct)).toBe(true);
+    expect(isFinite(result!.efOverall)).toBe(true);
+    expect(result!.decouplingPct).toBeGreaterThan(0);
   });
 
-  it('handles one anomalous pace split', () => {
+  it('handles one isolated anomalous pace split', () => {
     const splits = Array(10)
       .fill(0)
       .map((_, i) => ({
@@ -501,9 +505,9 @@ describe('Aerobic Decoupling — Edge Cases', () => {
         avgHR: 150,
       }));
     const result = calculateDecoupling(splits, 10, 5, '2025-01-01');
-    if (result) {
-      expect(isFinite(result.decouplingPct)).toBe(true);
-    }
+    expect(result).not.toBeNull();
+    expect(isFinite(result!.decouplingPct)).toBe(true);
+    expect(result!.splitsUsed).toBe(9);
   });
 });
 

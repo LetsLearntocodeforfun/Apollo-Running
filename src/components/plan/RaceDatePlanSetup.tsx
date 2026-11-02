@@ -8,12 +8,17 @@
  * at. "Advanced: choose a start date" keeps the old start-date flow; start dates
  * snap to the Monday of their week (shown in the preview).
  *
+ * v1.0.9: a plan without a race day (a base, recovery or maintenance block) has
+ * no race date to place it by. It always starts on a chosen start date, and the
+ * preview gives the block's first and last day instead of a race day. That's
+ * derived from the plan, so `useStartDate` stays the athlete's own choice.
+ *
  * Persisting is the caller's job: `planSetupToStartInput()` → `previewStartPlan()`
  * (confirm when progress would be cleared) → `startPlan()`.
  */
 
 import { useMemo } from 'react';
-import { BUILT_IN_PLANS } from '../../data/plans';
+import { BUILT_IN_PLANS, getPlanById, hasMarathonDay } from '../../data/plans';
 import type { TrainingPlan } from '../../data/plans';
 import {
   checkJoinFitness,
@@ -69,9 +74,24 @@ export function initialPlanSetupValue(today: string = todayKey()): PlanSetupValu
   return { raceDate, useStartDate: false, startDate: '' };
 }
 
-/** Why the value can't be used yet, or null when it's complete. */
-export function planSetupError(v: PlanSetupValue, today: string = todayKey()): string | null {
-  if (v.useStartDate) {
+/**
+ * v1.0.9: true when `plan` is placed by its start date with this value: the
+ * athlete chose "Advanced: choose a start date", or the plan has no race day.
+ */
+function placesByStartDate(v: PlanSetupValue, plan?: Pick<TrainingPlan, 'weeks'> | null): boolean {
+  return v.useStartDate || (!!plan && !hasMarathonDay(plan));
+}
+
+/**
+ * Why the value can't be used yet, or null when it's complete. Pass the plan so
+ * a plan without a race day (v1.0.9) is checked for a start date, not a race date.
+ */
+export function planSetupError(
+  v: PlanSetupValue,
+  today: string = todayKey(),
+  plan?: Pick<TrainingPlan, 'weeks'> | null,
+): string | null {
+  if (placesByStartDate(v, plan)) {
     return isDateKey(v.startDate) ? null : 'Choose a start date.';
   }
   if (!isDateKey(v.raceDate)) return 'Choose your race date.';
@@ -85,8 +105,9 @@ export function planSetupToStartInput(
   v: PlanSetupValue,
   today: string = todayKey(),
 ): StartPlanInput | null {
-  if (planSetupError(v, today)) return null;
-  return v.useStartDate ? { planId, startDate: v.startDate } : { planId, raceDate: v.raceDate };
+  const plan = getPlanById(planId) ?? null;
+  if (planSetupError(v, today, plan)) return null;
+  return placesByStartDate(v, plan) ? { planId, startDate: v.startDate } : { planId, raceDate: v.raceDate };
 }
 
 export interface RaceDatePlanSetupProps {
@@ -136,7 +157,7 @@ function JoinFitnessWarning({
   candidatePlans: readonly TrainingPlan[];
   idPrefix: string;
 }) {
-  if (value.useStartDate || planSetupError(value, today) || !fitness) return null;
+  if (placesByStartDate(value, plan) || planSetupError(value, today, plan) || !fitness) return null;
   const placement = placePlan(plan, value.raceDate, today);
   const check = checkJoinFitness(plan, placement, fitness);
   if (!check || check.safe) return null;
@@ -200,10 +221,40 @@ function JoinFitnessWarning({
   );
 }
 
+/**
+ * v1.0.9: preview for a plan without a race day (a base, recovery or maintenance
+ * block): its first and last day — there is no race day to show.
+ */
+function BlockPreview({ plan, value, today }: { plan: TrainingPlan; value: PlanSetupValue; today: string }) {
+  const weeks = plan.weeks.length;
+  if (!isDateKey(value.startDate)) {
+    return <p className="plan-setup-muted">Pick a start date to see when the block runs.</p>;
+  }
+  const start = snapToMonday(value.startDate);
+  const end = getDateKeyForDay(start, Math.max(0, weeks - 1), 6);
+  const snapped = start !== value.startDate;
+  const elapsedWeeks = Math.floor(daysBetween(start, today) / 7);
+  return (
+    <>
+      <p className="plan-setup-summary">
+        Week 1 starts <strong>{formatLongDate(start)}</strong> · the block ends <strong>{formatLongDate(end)}</strong>
+      </p>
+      <ul className="plan-setup-notes">
+        {snapped && <li>Plans start on a Monday, so your start date snaps to {formatLongDate(start)}.</li>}
+        {elapsedWeeks > 0 && elapsedWeeks < weeks && (
+          <li>That start date is in the past — you’ll join at week {elapsedWeeks + 1}.</li>
+        )}
+        {elapsedWeeks >= weeks && <li>That whole block would already be over — pick a later start date.</li>}
+      </ul>
+    </>
+  );
+}
+
 function PlacementPreview({ plan, value, today }: { plan: TrainingPlan; value: PlanSetupValue; today: string }) {
+  if (!hasMarathonDay(plan)) return <BlockPreview plan={plan} value={value} today={today} />;
   const raceRef = getRaceDayRef(plan);
   const planWeeks = raceRef.weekIndex + 1;
-  const error = planSetupError(value, today);
+  const error = planSetupError(value, today, plan);
 
   if (value.useStartDate) {
     if (error) return <p className="plan-setup-muted">{error}</p>;
@@ -264,7 +315,10 @@ function PlacementPreview({ plan, value, today }: { plan: TrainingPlan; value: P
   );
 }
 
-/** Race date input + live placement preview + optional start date. */
+/**
+ * Race date input + live placement preview + optional start date. v1.0.9: a plan
+ * without a race day gets a start date input only (see the module doc).
+ */
 export function RaceDatePlanSetup({
   plan,
   value,
@@ -282,34 +336,39 @@ export function RaceDatePlanSetup({
   // v1.0.7 (T-3): recent training for the join check (read from stored activities unless given).
   const storedFitness = useMemo(() => (fitness === undefined ? readRecentFitness(today) : null), [fitness, today]);
   const recentFitness = fitness === undefined ? storedFitness : fitness;
+  const isBlock = !hasMarathonDay(plan);
 
   return (
     <div className="plan-setup">
-      <div className="plan-setup-field">
-        <label htmlFor={raceId}>Race date</label>
-        <input
-          id={raceId}
-          type="date"
-          className="plan-setup-input"
-          value={value.raceDate}
-          min={today}
-          disabled={value.useStartDate}
-          aria-describedby={previewId}
-          onChange={(e) => onChange({ ...value, raceDate: e.target.value })}
-        />
-      </div>
+      {!isBlock && (
+        <>
+          <div className="plan-setup-field">
+            <label htmlFor={raceId}>Race date</label>
+            <input
+              id={raceId}
+              type="date"
+              className="plan-setup-input"
+              value={value.raceDate}
+              min={today}
+              disabled={value.useStartDate}
+              aria-describedby={previewId}
+              onChange={(e) => onChange({ ...value, raceDate: e.target.value })}
+            />
+          </div>
 
-      <div className="plan-setup-check">
-        <input
-          id={advId}
-          type="checkbox"
-          checked={value.useStartDate}
-          onChange={(e) => onChange({ ...value, useStartDate: e.target.checked })}
-        />
-        <label htmlFor={advId}>Advanced: choose a start date instead</label>
-      </div>
+          <div className="plan-setup-check">
+            <input
+              id={advId}
+              type="checkbox"
+              checked={value.useStartDate}
+              onChange={(e) => onChange({ ...value, useStartDate: e.target.checked })}
+            />
+            <label htmlFor={advId}>Advanced: choose a start date instead</label>
+          </div>
+        </>
+      )}
 
-      {value.useStartDate && (
+      {(isBlock || value.useStartDate) && (
         <div className="plan-setup-field">
           <label htmlFor={startId}>Start date</label>
           <input
@@ -320,7 +379,10 @@ export function RaceDatePlanSetup({
             aria-describedby={previewId}
             onChange={(e) => onChange({ ...value, startDate: e.target.value })}
           />
-          <p className="plan-setup-muted">Plans start on a Monday — other days snap to the Monday of that week.</p>
+          <p className="plan-setup-muted">
+            {isBlock ? 'This block has no race day, so it starts on the date you choose. ' : ''}
+            Plans start on a Monday — other days snap to the Monday of that week.
+          </p>
         </div>
       )}
 

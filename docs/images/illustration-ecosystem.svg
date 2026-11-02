@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="1200" height="540" role="img" aria-labelledby="eco-title eco-desc">
+  <title id="eco-title">Apollo Local-First Training Ecosystem</title>
+  <desc id="eco-desc">How training data flows from watches and files into Apollo's private on-device database, powers VDOT and readiness coaching, and pushes structured workouts back to your wrist.</desc>
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0B1724" />
+      <stop offset="100%" stop-color="#112236" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#B88924" />
+      <stop offset="50%" stop-color="#D4A537" />
+      <stop offset="100%" stop-color="#ECC86A" />
+    </linearGradient>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#162C44" />
+      <stop offset="100%" stop-color="#102133" />
+    </linearGradient>
+    <marker id="arrowGold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#D4A537" />
+    </marker>
+    <marker id="arrowTeal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8.5 5 L 0 8.5 z" fill="#2EC4B6" />
+    </marker>
+  </defs>
+
+  <!-- Canvas and Art Deco frame -->
+  <rect width="1200" height="540" rx="14" fill="url(#bgGrad)" />
+  <rect x="14" y="14" width="1172" height="512" rx="10" fill="none" stroke="#D4A537" stroke-opacity="0.28" stroke-width="1" />
+  <path d="M 14 42 L 42 14 M 1158 14 L 1186 42 M 14 498 L 42 526 M 1158 526 L 1186 498" stroke="#D4A537" stroke-opacity="0.55" stroke-width="1.5" fill="none" />
+
+  <!-- Header -->
+  <text x="600" y="54" text-anchor="middle" fill="#D4A537" font-family="Montserrat, Inter, -apple-system, sans-serif" font-size="12" font-weight="700" letter-spacing="3">HOW APOLLO WORKS · 100% LOCAL-FIRST ARCHITECTURE</text>
+  <text x="600" y="84" text-anchor="middle" fill="#E8EDF2" font-family="Montserrat, Inter, -apple-system, sans-serif" font-size="22" font-weight="700">Your Watch, Your Computer, Zero Subscriptions or Cloud Accounts</text>
+
+  <!-- COLUMN 1: DATA SOURCES -->
+  <text x="185" y="128" text-anchor="middle" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="600" letter-spacing="1.8">1 · BRING YOUR RUNS IN</text>
+
+  <!-- Source 1: Garmin Direct -->
+  <rect x="48" y="144" width="274" height="78" rx="8" fill="url(#cardGrad)" stroke="#D4A537" stroke-opacity="0.45" stroke-width="1.2" />
+  <circle cx="76" cy="171" r="6" fill="#D4A537" />
+  <text x="92" y="175" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700">Garmin Connect (Direct)</text>
+  <text x="68" y="196" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11.5">Desktop · Free Personal API Key</text>
+  <text x="68" y="212" fill="#2EC4B6" font-family="Inter, -apple-system, sans-serif" font-size="11">Original watch FIT routes, splits &amp; laps</text>
+
+  <!-- Source 2: intervals.icu -->
+  <rect x="48" y="234" width="274" height="84" rx="8" fill="url(#cardGrad)" stroke="#2EC4B6" stroke-opacity="0.5" stroke-width="1.2" />
+  <circle cx="76" cy="261" r="6" fill="#2EC4B6" />
+  <text x="92" y="265" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700">intervals.icu (Free Hub)</text>
+  <text x="68" y="286" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11.5">COROS · Suunto · Polar · Wahoo · Zwift</text>
+  <text x="68" y="303" fill="#2EC4B6" font-family="Inter, -apple-system, sans-serif" font-size="11">+ Sleep, HRV &amp; Resting HR wellness sync</text>
+
+  <!-- Source 3: Offline Files -->
+  <rect x="48" y="330" width="274" height="78" rx="8" fill="url(#cardGrad)" stroke="#334E68" stroke-width="1.2" />
+  <circle cx="76" cy="357" r="6" fill="#E8EDF2" />
+  <text x="92" y="361" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700">Drag &amp; Drop Files / Archives</text>
+  <text x="68" y="382" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11.5">FIT · GPX · TCX · .gz · Export .zip</text>
+  <text x="68" y="398" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11">Parsed 100% offline — zero accounts</text>
+
+  <!-- Source 4: Strava -->
+  <rect x="48" y="420" width="274" height="62" rx="8" fill="url(#cardGrad)" stroke="#334E68" stroke-width="1" />
+  <circle cx="76" cy="445" r="5" fill="#FC6719" />
+  <text x="92" y="449" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="13.5" font-weight="600">Strava (Optional OAuth)</text>
+  <text x="68" y="469" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11">Read-only sync · Auto de-duplicated</text>
+
+  <!-- Arrows Column 1 -> Column 2 -->
+  <path d="M 324 183 C 368 183, 376 250, 418 250" fill="none" stroke="#D4A537" stroke-width="1.8" marker-end="url(#arrowGold)" />
+  <path d="M 324 276 L 418 276" fill="none" stroke="#2EC4B6" stroke-width="1.8" marker-end="url(#arrowTeal)" />
+  <path d="M 324 369 C 368 369, 376 304, 418 304" fill="none" stroke="#D4A537" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrowGold)" />
+  <path d="M 324 451 C 374 451, 382 328, 418 328" fill="none" stroke="#94A6B8" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrowGold)" />
+
+  <!-- COLUMN 2: APOLLO ON-DEVICE ENGINE -->
+  <text x="600" y="128" text-anchor="middle" fill="#D4A537" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="700" letter-spacing="1.8">2 · YOUR DEVICE (PRIVATE VAULT &amp; COACH)</text>
+
+  <rect x="424" y="144" width="352" height="338" rx="12" fill="#132840" stroke="url(#goldGrad)" stroke-width="2" />
+
+  <!-- Sub-box A: Storage and Security -->
+  <rect x="444" y="164" width="312" height="90" rx="7" fill="#0D1C2E" stroke="#D4A537" stroke-opacity="0.32" />
+  <text x="460" y="186" fill="#ECC86A" font-family="Inter, -apple-system, sans-serif" font-size="12.5" font-weight="700">Dual Persistence &amp; OS Keychain</text>
+  <text x="460" y="206" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• IndexedDB + localStorage auto-healing</text>
+  <text x="460" y="224" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• SHA-256 verified backups + Cloud Folder sync</text>
+  <text x="460" y="242" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11">• API keys encrypted via OS Keychain / DPAPI</text>
+
+  <!-- Sub-box B: Smart Matching -->
+  <rect x="444" y="266" width="312" height="92" rx="7" fill="#0D1C2E" stroke="#2EC4B6" stroke-opacity="0.35" />
+  <text x="460" y="288" fill="#2EC4B6" font-family="Inter, -apple-system, sans-serif" font-size="12.5" font-weight="700">Smart Auto-Sync &amp; Plan Overlay</text>
+  <text x="460" y="308" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Cross-source duplicate merge (Garmin priority)</text>
+  <text x="460" y="326" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Flexible ±2-day plan matching + cross-training</text>
+  <text x="460" y="344" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11">• Non-destructive Move, Skip &amp; Adaptive Undo</text>
+
+  <!-- Sub-box C: Physiology Engine -->
+  <rect x="444" y="370" width="312" height="94" rx="7" fill="#0D1C2E" stroke="#D4A537" stroke-opacity="0.32" />
+  <text x="460" y="392" fill="#ECC86A" font-family="Inter, -apple-system, sans-serif" font-size="12.5" font-weight="700">Physiology &amp; Coaching Models</text>
+  <text x="460" y="412" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Daniels VDOT + Riegel race predictions</text>
+  <text x="460" y="430" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Banister CTL / ATL / TSB + Race-Morning Form</text>
+  <text x="460" y="448" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Pa:HR Aerobic Durability · HRV Recovery · Shoes</text>
+
+  <!-- Arrows Column 2 -> Column 3 -->
+  <path d="M 778 210 C 818 210, 826 190, 868 190" fill="none" stroke="#2EC4B6" stroke-width="1.8" marker-end="url(#arrowTeal)" />
+  <path d="M 778 312 L 868 312" fill="none" stroke="#D4A537" stroke-width="1.8" marker-end="url(#arrowGold)" />
+  <path d="M 778 416 C 818 416, 826 432, 868 432" fill="none" stroke="#D4A537" stroke-width="1.8" marker-end="url(#arrowGold)" />
+
+  <!-- COLUMN 3: OUTPUTS and EXECUTION -->
+  <text x="1015" y="128" text-anchor="middle" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11" font-weight="600" letter-spacing="1.8">3 · TRAIN &amp; RACE WITH CLARITY</text>
+
+  <!-- Output 1: Watch Delivery -->
+  <rect x="874" y="144" width="278" height="96" rx="8" fill="url(#cardGrad)" stroke="#2EC4B6" stroke-opacity="0.55" stroke-width="1.2" />
+  <text x="894" y="170" fill="#2EC4B6" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700">Workouts on Your Wrist</text>
+  <text x="894" y="191" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">Structured warmup, reps &amp; VDOT paces</text>
+  <text x="894" y="209" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11">Sent via intervals.icu → Garmin, COROS,</text>
+  <text x="894" y="225" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11">Suunto &amp; Wahoo + 1-click .ics Calendar</text>
+
+  <!-- Output 2: Daily Coaching -->
+  <rect x="874" y="256" width="278" height="106" rx="8" fill="url(#cardGrad)" stroke="#D4A537" stroke-opacity="0.45" stroke-width="1.2" />
+  <text x="894" y="282" fill="#ECC86A" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700">Daily &amp; Weekly Coaching</text>
+  <text x="894" y="303" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Today Hero workout &amp; Recovery status</text>
+  <text x="894" y="321" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Weekly Readiness (A+ to D) &amp; Recaps</text>
+  <text x="894" y="339" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Art Deco SVG maps &amp; Gold route tiers</text>
+
+  <!-- Output 3: Race Day System -->
+  <rect x="874" y="378" width="278" height="104" rx="8" fill="url(#cardGrad)" stroke="#D4A537" stroke-opacity="0.45" stroke-width="1.2" />
+  <text x="894" y="404" fill="#ECC86A" font-family="Inter, -apple-system, sans-serif" font-size="14" font-weight="700">Complete Race-Day System</text>
+  <text x="894" y="425" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Majors &amp; GPX grade-adjusted splits</text>
+  <text x="894" y="443" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Carb loading, 20–90 g/h gel &amp; sweat plan</text>
+  <text x="894" y="461" fill="#E8EDF2" font-family="Inter, -apple-system, sans-serif" font-size="11.5">• Printable Race Card &amp; CSV/JSON exports</text>
+
+  <!-- Footer caption -->
+  <text x="600" y="512" text-anchor="middle" fill="#94A6B8" font-family="Inter, -apple-system, sans-serif" font-size="11.5">No Apollo account · No telemetry · Uninstalling keeps your data · Move machines any time via JSON or Synced Backup Folder</text>
+</svg>

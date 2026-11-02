@@ -21,6 +21,7 @@ import {
   saveStrategy,
 } from '@/services/raceStrategy';
 import { WORLD_MAJOR_MARATHONS, getMarathonById, getWorldMajorsByDate, getNextWorldMajor } from '@/data/worldMajors';
+import { todayKey } from '@/utils/localDate';
 
 // ── World Majors Data Integrity ───────────────────────────────────────────────
 
@@ -118,19 +119,24 @@ describe('World Major Marathons Database', () => {
     expect(tokyo!.city).toBe('Tokyo');
   });
 
-  it('getNextWorldMajor returns the soonest upcoming major (or null when all have passed)', () => {
-    const now = Date.now();
-    const upcoming = WORLD_MAJOR_MARATHONS.filter((m) => new Date(m.date).getTime() > now).sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
-    );
-    const next = getNextWorldMajor();
-    if (upcoming.length === 0) {
-      expect(next).toBeNull();
-    } else {
-      expect(next).not.toBeNull();
-      expect(next!.id).toBe(upcoming[0].id);
-      expect(new Date(next!.date).getTime()).toBeGreaterThan(now);
-    }
+  it('getNextWorldMajor returns the soonest edition on or after a given day', () => {
+    // v1.0.9: fixed days instead of the wall clock (the old version broke on NYC race day 2026).
+    expect(getNextWorldMajor('2026-10-12')!.id).toBe('nyc');
+    expect(getNextWorldMajor('2026-10-12')!.date).toBe('2026-11-01');
+    // Race day itself still counts as next (the Race Day screen shows it all day).
+    expect(getNextWorldMajor('2026-11-01')!.id).toBe('nyc');
+    expect(getNextWorldMajor('2026-11-01')!.date).toBe('2026-11-01');
+    // The day after, the next one is Tokyo 2027 (an estimated date).
+    const tokyo = getNextWorldMajor('2026-11-02')!;
+    expect(tokyo.id).toBe('tokyo');
+    expect(tokyo.date).toBe('2027-03-07');
+    expect(tokyo.dateEstimated).toBe(true);
+    // Past the last known editions, the usual scheduling rules keep it upcoming.
+    const later = getNextWorldMajor('2030-11-15')!;
+    expect(later.date >= '2030-11-15').toBe(true);
+    expect(later.dateEstimated).toBe(true);
+    // Whatever today is, the default call returns an edition on or after today.
+    expect(getNextWorldMajor()!.date >= todayKey()).toBe(true);
   });
 });
 

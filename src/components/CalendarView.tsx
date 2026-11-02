@@ -53,7 +53,7 @@ import {
   todayKey as getTodayKey,
   weekdayMon0,
 } from '../utils/localDate';
-import { formatLongDate, workoutSummary, workoutTitle } from './plan/planDisplay';
+import { formatLongDate, secondarySummary, workoutSummary, workoutTitle } from './plan/planDisplay';
 import './CalendarView.css';
 
 /** Icon for a stored cross-training category (falls back safely for unknown values). */
@@ -356,7 +356,10 @@ const DayCell = memo(function DayCell({
                     <span>{formatMiles(day.planDay.distanceMi)}</span>
                   </>
                 ) : (
-                  <span>{formatMiles(day.planDay.distanceMi)}</span>
+                  <span>
+                    {formatMiles(day.planDay.distanceMi)}
+                    {day.planDay.secondary ? ` + ${formatMiles(day.planDay.secondary.distanceMi)} PM` : ''}
+                  </span>
                 )}
               </span>
             )
@@ -523,6 +526,26 @@ function DayDetail({
               <div className="cal-detail-stat">
                 <span className="cal-detail-stat-label">Distance</span>
                 <span className="cal-detail-stat-value">{formatMiles(planDay.distanceMi)}</span>
+              </div>
+            )}
+            {planDay.secondary && (
+              <div className="cal-detail-stat">
+                <span className="cal-detail-stat-label">PM Double</span>
+                <span className="cal-detail-stat-value" style={{ color: 'var(--apollo-teal)' }}>
+                  {secondarySummary(planDay)}
+                </span>
+              </div>
+            )}
+            {planDay.durationMin != null && planDay.durationMin > 0 && (
+              <div className="cal-detail-stat">
+                <span className="cal-detail-stat-label">Target Time</span>
+                <span className="cal-detail-stat-value">~{planDay.durationMin} min</span>
+              </div>
+            )}
+            {planDay.runWalkRatio && (
+              <div className="cal-detail-stat">
+                <span className="cal-detail-stat-label">Run-Walk</span>
+                <span className="cal-detail-stat-value">{planDay.runWalkRatio}</span>
               </div>
             )}
             {planDay.note && (

@@ -6,6 +6,8 @@ Apollo is a free, open-source marathon training app for **Windows, macOS and Lin
 
 **Don't want to install anything?** [Use it in your browser](#use-it-in-your-browser) instead.
 
+**Already installed?** Continue with the **[Illustrated Quick-Start Guide](QUICK_START_GUIDE.md)** (first-run setup, watch sync, and page-by-page visual tour) and the **[Training Program Guide](TRAINING_PROGRAM_GUIDE.md)** (choosing among all 33 plans, calibrating VDOT & heart-rate zones, and structuring a full marathon cycle).
+
 ---
 
 ## 1. Pick the right file
@@ -138,6 +140,15 @@ It's the same app as the desktop version. Good to know:
 - Updates arrive automatically the next time you open the page.
 
 To move to the desktop app later: download your data in the browser, install the desktop app, then use **Import from file…**.
+
+---
+
+## Next steps
+
+Once Apollo opens on your computer or in your browser:
+
+1. **[Illustrated Quick-Start Guide](QUICK_START_GUIDE.md)** — Walk through the 5-step onboarding wizard, connect Garmin Connect, `intervals.icu`, or offline `.fit`/`.gpx`/`.tcx`/`.zip` files, and tour every screen with screenshots.
+2. **[Training Program Guide](TRAINING_PROGRAM_GUIDE.md)** — Learn how to choose the right schedule from Apollo's 33 built-in plans, calibrate VDOT paces and 5 heart-rate zones, read `CTL`/`ATL`/`TSB` and `Pa:HR` durability, and execute taper, fueling, and race day.
 
 ---
 

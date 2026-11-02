@@ -10,7 +10,7 @@
  */
 
 import { persistence } from './db/persistence';
-import { getPlanById } from '../data/plans';
+import { getPlanById, isMarathonBuildPlan } from '../data/plans';
 import type { DayType, TrainingPlan } from '../data/plans';
 import {
   addDays,
@@ -42,7 +42,10 @@ export interface ActivePlan {
   planId: string;
   /** YYYY-MM-DD. Day index 0 of week 0; a Monday for plans started with `startPlan`. */
   startDate: string;
-  /** YYYY-MM-DD goal race date. Set by `startPlan`; derived from the plan when absent. */
+  /**
+   * YYYY-MM-DD goal race date. Set by `startPlan`; derived from the plan when absent.
+   * v1.0.9: never set (and ignored) for a plan without a race day.
+   */
   raceDate?: string;
   /** First week (0-based) the athlete actually trains — weeks before it were skipped. */
   joinedWeekIndex?: number;
@@ -233,22 +236,35 @@ export function formatDateKey(date: Date): string {
 // ── Race day & placement (V4) ───────────────────────────────────────────────
 
 /**
- * Grid position of the plan's goal race: the last `marathon` day; else the last
- * `race` day of the final week; else the final day of the plan.
+ * v1.0.9: grid position of the plan's goal race — its last `marathon` day — or
+ * null when the plan has none (base, recovery and maintenance blocks). Such a
+ * plan never has a race date, race week or race day: it is placed by its start
+ * date, and the athlete's own race (My Race) stays their race date.
  */
-export function getRaceDayRef(plan: TrainingPlan): PlanDayRef {
+export function getPlanRaceDayRef(plan: TrainingPlan): PlanDayRef | null {
   for (let w = plan.weeks.length - 1; w >= 0; w--) {
     const days = plan.weeks[w]?.days ?? [];
     for (let d = days.length - 1; d >= 0; d--) {
       if (days[d]?.type === 'marathon') return { weekIndex: w, dayIndex: d };
     }
   }
-  const lastW = Math.max(0, plan.weeks.length - 1);
-  const lastDays = plan.weeks[lastW]?.days ?? [];
-  for (let d = lastDays.length - 1; d >= 0; d--) {
-    if (lastDays[d]?.type === 'race') return { weekIndex: lastW, dayIndex: d };
-  }
-  return { weekIndex: lastW, dayIndex: 6 };
+  return null;
+}
+
+/**
+ * Grid position of the plan's goal race (its last `marathon` day), for the race
+ * guards of the plan overlay and day menu: race day can't be changed and nothing
+ * is scheduled after it.
+ *
+ * v1.0.9: a plan without a race day (see {@link getPlanRaceDayRef}) has no race in
+ * its grid, so this returns the day just after its final day
+ * (`{ weekIndex: weeks.length, dayIndex: 0 }`): every plan day counts as before
+ * race day, stays editable, and nothing is trimmed. That position is outside the
+ * grid — don't index the plan with it; use `getPlanRaceDayRef` to ask whether a
+ * plan has a race day at all.
+ */
+export function getRaceDayRef(plan: TrainingPlan): PlanDayRef {
+  return getPlanRaceDayRef(plan) ?? { weekIndex: plan.weeks.length, dayIndex: 0 };
 }
 
 /** Monday on or before `dateKey` (plans use day index 0 = Monday). */
@@ -278,10 +294,12 @@ export interface PlanPlacement {
  * if fewer weeks remain than the plan needs, the athlete joins at
  * `planWeeks − weeksAvailable`. A race on a different weekday than the plan's
  * race day is handled by `getEffectivePlan()` (the race-week schedule shifts).
+ * v1.0.9: the app places a plan without a race day by its start date instead;
+ * given one here, its final day is anchored on `raceDate`.
  */
 export function placePlan(plan: TrainingPlan, raceDate: string, today: string = todayKey()): PlanPlacement {
   const race = normalizeStartKey(raceDate);
-  const ref = getRaceDayRef(plan);
+  const ref = getPlanRaceDayRef(plan) ?? { weekIndex: Math.max(0, plan.weeks.length - 1), dayIndex: 6 };
   const raceMonday = mondayOf(race);
   const startDate = addDays(raceMonday, -7 * ref.weekIndex);
   const planWeeks = ref.weekIndex + 1;
@@ -450,6 +468,9 @@ export function checkJoinFitness(
 /**
  * v1.0.7 (T-3): plans (other than `excludeId`) that the runner can join safely for
  * this race date, gentlest join week first.
+ * v1.0.9: only marathon-build plans are offered — never a multi-marathon bridge
+ * (it assumes a marathon was just run), a base or recovery block, or any plan
+ * without a `marathon` day (see `isMarathonBuildPlan`).
  */
 export function saferPlansForRace(
   plans: readonly TrainingPlan[],
@@ -460,7 +481,7 @@ export function saferPlansForRace(
 ): TrainingPlan[] {
   if (!fitness) return [];
   return plans
-    .filter((p) => p.id !== excludeId)
+    .filter((p) => p.id !== excludeId && isMarathonBuildPlan(p))
     .map((p) => {
       const placement = placePlan(p, raceDate, today);
       return {
@@ -489,17 +510,30 @@ export function isLegacyActivePlan(active: ActivePlan): boolean {
  * The race date of an active plan: `active.raceDate`, else derived from the
  * start date + the plan's race day (legacy length-changed plans keep their old
  * race date). Null when it can't be determined.
+ * v1.0.9: always null for a plan without a race day (base, recovery and
+ * maintenance blocks), even when an earlier build stored a `raceDate` for it.
  */
 export function resolveActivePlanRaceDate(active: ActivePlan, plan?: TrainingPlan | null): string | null {
+  const base = plan ?? getPlanById(active.planId);
+  if (base && !getPlanRaceDayRef(base)) return null;
   if (active.raceDate && isDateKey(active.raceDate)) return active.raceDate;
   const legacyWeeks = LEGACY_PLAN_WEEKS[active.planId];
   if (legacyWeeks && isLegacyActivePlan(active)) {
     return getDateKeyForDay(active.startDate, legacyWeeks - 1, 6);
   }
-  const base = plan ?? getPlanById(active.planId);
   if (!base) return null;
-  const ref = getRaceDayRef(base);
-  return getDateKeyForDay(active.startDate, ref.weekIndex, ref.dayIndex);
+  const ref = getPlanRaceDayRef(base);
+  return ref ? getDateKeyForDay(active.startDate, ref.weekIndex, ref.dayIndex) : null;
+}
+
+/**
+ * v1.0.9: the race date the active plan owns, or null — with no active plan, or
+ * when the active plan has no race day (a base, recovery or maintenance block):
+ * then the athlete's own My Race date is their race date.
+ */
+export function getActivePlanRaceDate(): string | null {
+  const active = getActivePlan();
+  return active ? resolveActivePlanRaceDate(active) : null;
 }
 
 // ── Plan instances (V18) ────────────────────────────────────────────────────
@@ -583,7 +617,10 @@ function clearPlanInstanceData(planId: string): void {
 
 export interface StartPlanInput {
   planId: string;
-  /** Goal race date (YYYY-MM-DD). Takes precedence over `startDate`. */
+  /**
+   * Goal race date (YYYY-MM-DD). Takes precedence over `startDate`.
+   * v1.0.9: ignored for a plan without a race day (it starts on `startDate`).
+   */
   raceDate?: string;
   /** Explicit start date; snapped to the Monday on or before it. */
   startDate?: string;
@@ -603,12 +640,14 @@ export interface StartPlanPreview {
 /** Compute (without saving) the ActivePlan and clean-up `startPlan(input)` would produce. */
 export function previewStartPlan(input: StartPlanInput, today: string = todayKey()): StartPlanPreview {
   const plan = getPlanById(input.planId);
+  // v1.0.9: null for a plan without a race day (base, recovery, maintenance).
+  const raceRef = plan ? getPlanRaceDayRef(plan) : null;
   let startDate: string;
   let raceDate: string | undefined;
   let joinedWeekIndex = 0;
   let placement: PlanPlacement | null = null;
 
-  if (input.raceDate && isDateKey(input.raceDate) && plan) {
+  if (input.raceDate && isDateKey(input.raceDate) && plan && raceRef) {
     placement = placePlan(plan, input.raceDate, today);
     startDate = placement.startDate;
     raceDate = placement.raceDate;
@@ -616,15 +655,13 @@ export function previewStartPlan(input: StartPlanInput, today: string = todayKey
   } else {
     if (input.startDate) startDate = snapToMonday(input.startDate);
     else startDate = weekdayMon0(today) === 0 ? today : addDays(mondayOf(today), 7);
-    if (input.raceDate && isDateKey(input.raceDate)) raceDate = input.raceDate;
-    else if (plan) {
-      const ref = getRaceDayRef(plan);
-      raceDate = getDateKeyForDay(startDate, ref.weekIndex, ref.dayIndex);
-    }
+    // A plan without a race day gets no race date: the athlete's My Race date stays theirs.
+    if (!plan && input.raceDate && isDateKey(input.raceDate)) raceDate = input.raceDate;
+    else if (raceRef) raceDate = getDateKeyForDay(startDate, raceRef.weekIndex, raceRef.dayIndex);
     if (plan) {
-      const ref = getRaceDayRef(plan);
+      const lastWeek = raceRef ? raceRef.weekIndex : Math.max(0, plan.weeks.length - 1);
       const elapsedWeeks = Math.floor(daysBetween(startDate, mondayOf(today)) / 7);
-      joinedWeekIndex = Math.max(0, Math.min(ref.weekIndex, elapsedWeeks));
+      joinedWeekIndex = Math.max(0, Math.min(lastWeek, elapsedWeeks));
     }
   }
 
@@ -649,6 +686,8 @@ export function previewStartPlan(input: StartPlanInput, today: string = todayKey
  * Start (or re-place) a plan. With `raceDate` the plan is placed race-date-first
  * (see {@link placePlan}); with only `startDate` it is snapped to Monday and the
  * race date derived; with neither it starts next Monday (today if Monday).
+ * v1.0.9: a plan without a race day (base, recovery, maintenance) is always
+ * placed by its start date and gets no race date.
  *
  * A new instance (different planId or startDate from the one the plan's stored
  * progress belongs to) clears that plan's completions, sync meta and overlay —
@@ -662,6 +701,32 @@ export function startPlan(input: StartPlanInput, today: string = todayKey()): Ac
   writeMarks(marks);
   setActivePlan(preview.active);
   return preview.active;
+}
+
+/**
+ * v1.0.9: what is stored for `planId` across all its instances — completed days,
+ * activity matches and overlay changes (moves and skips). Same shape as
+ * `StartPlanPreview.clears`, so `describeClears()` can word it.
+ */
+export function getStoredPlanProgress(planId: string): StartPlanPreview['clears'] {
+  return countPlanEntries(planId);
+}
+
+/**
+ * v1.0.9: forget everything stored for a plan that no longer exists (e.g. a
+ * removed imported plan): its completions, activity matches, overlay and instance
+ * mark. Nothing is left orphaned, and a later plan that gets the same id starts
+ * clean. Refuses — returns false, changes nothing — for the active plan.
+ */
+export function forgetPlanProgress(planId: string): boolean {
+  if (getActivePlan()?.planId === planId) return false;
+  clearPlanInstanceData(planId);
+  const marks = readMarks();
+  if (Object.prototype.hasOwnProperty.call(marks, planId)) {
+    delete marks[planId];
+    writeMarks(marks);
+  }
+  return true;
 }
 
 /** First-boot welcome: has the user completed the "pick a plan?" flow (yes or no). */

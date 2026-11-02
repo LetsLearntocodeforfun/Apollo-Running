@@ -138,17 +138,18 @@ export function importAllData(backup: unknown): boolean {
     return false;
   }
 
-  // Import only allowed keys — reject anything outside the safe set
-  // Never import credential keys from external files for security
+  // Import only allowed keys — reject credentials, backups, quarantine, caches,
+  // device-state flags, oversized keys, and prototype-polluting keys.
   try {
     const allowed: Record<string, string> = {};
-    Object.entries(backupData.data).forEach(([key, value]) => {
-      if (typeof value !== 'string') return;
-      if (CREDENTIAL_KEYS.has(key)) return;
+    for (const [key, value] of Object.entries(backupData.data)) {
+      if (typeof value !== 'string') continue;
+      if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
+      if (key.length > 128 || CREDENTIAL_KEYS.has(key) || isExcludedFromExport(key)) continue;
       if (isApolloKey(key)) {
         allowed[key] = value;
       }
-    });
+    }
     if (Object.keys(allowed).length === 0) return false;
     persistence.bulkSet(allowed);
     return true;
@@ -173,6 +174,9 @@ export function clearAllData(): void {
  * device — the in-memory cache, IndexedDB (including keys that never loaded),
  * localStorage, and on desktop the encrypted credential store. Backups stored
  * in the app are deleted too. Downloaded export files are not touched.
+ * v1.0.9: on desktop the synced backup folder is disconnected (Apollo forgets
+ * the folder and stops writing to it); snapshots already in that folder are the
+ * user's own files and are left in place.
  *
  * Callers should confirm first (ConfirmDialog) and reload the app afterwards
  * (`window.location.reload()`) so no module keeps stale in-memory state.
@@ -193,6 +197,13 @@ export async function deleteAllLocalData(): Promise<void> {
     for (const key of doomed) localStorage.removeItem(key);
   } catch {
     /* localStorage unavailable */
+  }
+  // v1.0.9: forget the synced backup folder (best effort; its files stay where they are).
+  try {
+    const folder = typeof window !== 'undefined' ? window.electronAPI?.backupFolder : undefined;
+    if (folder && typeof folder.clearFolder === 'function') await folder.clearFolder();
+  } catch (err) {
+    console.warn('[Apollo] Could not disconnect the synced backup folder:', err);
   }
   if (failedCredentials.length > 0) {
     throw new Error(

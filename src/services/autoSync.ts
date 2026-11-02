@@ -25,7 +25,7 @@ import {
   type SyncProgress,
   type SyncSummary,
 } from './activitySource';
-import { getPlanById, getWorkoutKind, type TrainingPlan, type PlanDay } from '../data/plans';
+import { dayTotalMiles, getPlanById, getWorkoutKind, type TrainingPlan, type PlanDay } from '../data/plans';
 import {
   getActivePlan,
   getDateKeyForDay,
@@ -59,7 +59,6 @@ import {
 import { analyzeCompliance, saveComplianceResult } from './complianceAnalysis';
 import { noteForKind } from './workoutTargets';
 import { estimateActivityLoad, formatHoursMinutes } from './crossTraining';
-import { syncPlanCalendarIfChanged } from './planCalendarSync';
 import { syncWellness } from './wellness';
 
 /** Result of a single auto-sync match */
@@ -143,7 +142,7 @@ function readWeekActuals(): WeekActualsStore | null {
 function getPlannedWeeklyMileage(plan: TrainingPlan, weekIndex: number): number {
   const week = plan.weeks[weekIndex];
   if (!week) return 0;
-  return week.days.reduce((sum, day) => sum + (day.distanceMi ?? 0), 0);
+  return week.days.reduce((sum, day) => sum + dayTotalMiles(day), 0);
 }
 
 /**
@@ -675,7 +674,11 @@ export function refreshPlanFromStoredActivities(): SyncResult[] {
   }
   // Paces may have changed (new race prediction): keep the watch calendar current.
   // No-op unless auto-update is on; cheap when nothing changed; never throws.
-  void syncPlanCalendarIfChanged();
+  void import('./planCalendarSync')
+    .then(({ syncPlanCalendarIfChanged }) => syncPlanCalendarIfChanged())
+    .catch(() => {
+      /* syncPlanCalendarIfChanged never throws; guard chunk load failure */
+    });
   return results;
 }
 

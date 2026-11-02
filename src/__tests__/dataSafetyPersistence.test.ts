@@ -3,6 +3,8 @@
  * persistence layer and Dexie schema (fake-indexeddb):
  * - PX-03: failed writes are tracked, reported to subscribers and recovered by retry.
  * - PX-04: the version 1 → 2 upgrade moves backup payloads out of kvStore.
+ * - v1.0.9: version 4 folds activity rows left by 1.0.9 development builds back
+ *   into kvStore and stays readable by 1.0.8 (downgrade-safe).
  */
 
 import 'fake-indexeddb/auto';
@@ -163,7 +165,8 @@ describe('PX-04: Dexie version 2 moves backups to their own table', () => {
 
     const upgraded = new ApolloDatabase(NAME);
     await upgraded.open();
-    expect(upgraded.verno).toBe(2);
+    expect(upgraded.verno).toBe(4);
+    expect(upgraded.tables.map((t) => t.name).sort()).toEqual(['backups', 'kvStore']);
     expect((await upgraded.kvStore.toCollection().primaryKeys()).sort()).toEqual([
       'apollo_activities_store',
       'apollo_backup_registry',
@@ -174,11 +177,128 @@ describe('PX-04: Dexie version 2 moves backups to their own table', () => {
     upgraded.close();
   });
 
-  it('a fresh database opens at version 2 with an empty backups table', async () => {
+  it('a fresh database opens at version 4 with only kvStore and an empty backups table', async () => {
     const fresh = new ApolloDatabase(NAME);
     await fresh.open();
-    expect(fresh.verno).toBe(2);
+    expect(fresh.verno).toBe(4);
+    expect(fresh.tables.map((t) => t.name).sort()).toEqual(['backups', 'kvStore']);
     expect(await fresh.backups.count()).toBe(0);
     fresh.close();
+  });
+});
+
+describe('v1.0.9: activity rows from 1.0.9 development builds return to kvStore (downgrade-safe)', () => {
+  const NAME = 'ApolloPrereleaseRecoveryTest';
+  const run = (id: number, day: number, name = `Run ${id}`) => ({
+    id,
+    name,
+    type: 'Run',
+    sport_type: 'Run',
+    source: 'intervals',
+    distance: 8000,
+    moving_time: 2400,
+    elapsed_time: 2400,
+    start_date: `2026-10-${String(day).padStart(2, '0')}T12:00:00Z`,
+    start_date_local: `2026-10-${String(day).padStart(2, '0')}T07:00:00Z`,
+    kudos_count: 0,
+  });
+
+  /** A database exactly as a 1.0.9 development build left it (schema version 3). */
+  async function seedDevelopmentBuild(rows: unknown[], kvRows: KVEntry[] = []): Promise<void> {
+    const dev = new Dexie(NAME);
+    dev.version(1).stores({ kvStore: 'key' });
+    dev.version(2).stores({ kvStore: 'key', backups: 'id' });
+    dev.version(3).stores({ kvStore: 'key', backups: 'id', activities: 'id, start_date_local, sport_type, source' });
+    await dev.open();
+    if (kvRows.length) await dev.table('kvStore').bulkPut(kvRows);
+    await dev.table('activities').bulkPut(rows);
+    dev.close();
+  }
+
+  const row = (activity: ReturnType<typeof run>) => ({
+    id: activity.id,
+    start_date_local: activity.start_date_local,
+    sport_type: activity.sport_type,
+    source: activity.source,
+    data: activity,
+    updatedAt: 1,
+  });
+
+  afterEach(async () => {
+    await Dexie.delete(NAME);
+  });
+
+  it('moves the rows back into apollo_activities_store (newest first) and drops the table', async () => {
+    await seedDevelopmentBuild([row(run(1, 1)), row(run(3, 3)), row(run(2, 2))]);
+    const upgraded = new ApolloDatabase(NAME);
+    await upgraded.open();
+    expect(upgraded.verno).toBe(4);
+    expect(upgraded.tables.map((t) => t.name).sort()).toEqual(['backups', 'kvStore']);
+    const list = JSON.parse((await upgraded.kvStore.get('apollo_activities_store'))!.value) as { id: number }[];
+    expect(list.map((a) => a.id)).toEqual([3, 2, 1]);
+    upgraded.close();
+  });
+
+  it('keeps the kvStore copy on matching IDs and adds activities only the table had', async () => {
+    const kvList = [run(2, 2, 'Edited after downgrade'), run(4, 4)];
+    await seedDevelopmentBuild(
+      [row(run(1, 1)), row(run(2, 2, 'Stale name'))],
+      [{ key: 'apollo_activities_store', value: JSON.stringify(kvList), updatedAt: 5 }],
+    );
+    const upgraded = new ApolloDatabase(NAME);
+    await upgraded.open();
+    const list = JSON.parse((await upgraded.kvStore.get('apollo_activities_store'))!.value) as {
+      id: number;
+      name: string;
+    }[];
+    expect(list.map((a) => a.id)).toEqual([4, 2, 1]);
+    expect(list.find((a) => a.id === 2)?.name).toBe('Edited after downgrade');
+    upgraded.close();
+  });
+
+  it('quarantines an unreadable kvStore list instead of overwriting it', async () => {
+    await seedDevelopmentBuild(
+      [row(run(1, 1))],
+      [{ key: 'apollo_activities_store', value: '[{"id":1,"trunc', updatedAt: 5 }],
+    );
+    const upgraded = new ApolloDatabase(NAME);
+    await upgraded.open();
+    const keys = (await upgraded.kvStore.toCollection().primaryKeys()) as string[];
+    const quarantineKey = keys.find((k) => k.startsWith('apollo_quarantine_apollo_activities_store_'));
+    expect(quarantineKey).toBeDefined();
+    expect((await upgraded.kvStore.get(quarantineKey!))?.value).toBe('[{"id":1,"trunc');
+    const index = JSON.parse((await upgraded.kvStore.get('apollo_quarantine_index'))!.value) as {
+      key: string;
+      originalKey: string;
+    }[];
+    expect(index).toEqual([expect.objectContaining({ key: quarantineKey, originalKey: 'apollo_activities_store' })]);
+    const list = JSON.parse((await upgraded.kvStore.get('apollo_activities_store'))!.value) as { id: number }[];
+    expect(list.map((a) => a.id)).toEqual([1]);
+    upgraded.close();
+  });
+
+  it('ignores rows without a numeric id and leaves kvStore alone when nothing is usable', async () => {
+    await seedDevelopmentBuild([{ id: 7, data: { name: 'no id inside' }, updatedAt: 1 }]);
+    const upgraded = new ApolloDatabase(NAME);
+    await upgraded.open();
+    expect(await upgraded.kvStore.get('apollo_activities_store')).toBeUndefined();
+    expect(upgraded.tables.map((t) => t.name).sort()).toEqual(['backups', 'kvStore']);
+    upgraded.close();
+  });
+
+  it('stays readable by 1.0.8 after the upgrade (downgrade-safe)', async () => {
+    await seedDevelopmentBuild([row(run(1, 1)), row(run(2, 2))]);
+    const upgraded = new ApolloDatabase(NAME);
+    await upgraded.open();
+    upgraded.close();
+
+    // The 1.0.8 schema declares only versions 1 and 2.
+    const v108 = new Dexie(NAME);
+    v108.version(1).stores({ kvStore: 'key' });
+    v108.version(2).stores({ kvStore: 'key', backups: 'id' });
+    await v108.open();
+    const entry = (await v108.table('kvStore').get('apollo_activities_store')) as KVEntry | undefined;
+    expect((JSON.parse(entry!.value) as { id: number }[]).map((a) => a.id)).toEqual([2, 1]);
+    v108.close();
   });
 });

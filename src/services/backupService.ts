@@ -311,6 +311,11 @@ export async function createBackup(
     console.info(
       `[Apollo Backup] Created backup ${id} (${record.keyCount} keys, ${formatBytes(record.sizeBytes)}, checksum: ${checksum.slice(0, 12)}…)`,
     );
+    if (typeof window !== 'undefined' && window.electronAPI?.backupFolder) {
+      void mirrorPayloadToDesktopFolder(backupData, checksum, getBackupConfig().maxBackups).catch(() => {
+        /* best-effort mirror: never fail or slow down local IndexedDB backups */
+      });
+    }
     return record;
   } catch (err) {
     const message = errorMessage(err);
@@ -854,8 +859,15 @@ export async function downloadBackup(backupId: string): Promise<boolean> {
 /**
  * Download the current live data as a backup file (without storing in registry).
  * The checksum covers the canonical compact JSON of `{ metadata, data }`.
+ * Throws while storage is degraded: data that only lives in IndexedDB may be
+ * missing from memory, and a download that looks complete must be complete.
  */
 export async function downloadCurrentData(): Promise<void> {
+  if (isStorageDegraded()) {
+    throw new Error(
+      'Storage is unavailable right now, so Apollo didn\u2019t create a download that could be missing data. Restart Apollo and try again.',
+    );
+  }
   const backupData = exportAllData({ purpose: 'export' });
   const checksum = await sha256(JSON.stringify(backupData));
 
@@ -870,6 +882,81 @@ export async function downloadCurrentData(): Promise<void> {
   };
 
   triggerDownload(JSON.stringify(exportWithChecksum, null, 2), `apollo-export-${dateStamp(new Date())}.json`);
+}
+
+// ── Desktop Synced-Folder Mirroring (Epic 2C) ─────────────────────────────────
+
+async function mirrorPayloadToDesktopFolder(
+  backupData: BackupData,
+  checksum: string,
+  maxBackups: number,
+): Promise<void> {
+  const api = typeof window !== 'undefined' ? window.electronAPI?.backupFolder : undefined;
+  if (!api) return;
+  // v1.0.9: nothing to mirror yet (a brand-new profile). Not a failure, so don't send it.
+  if (!(backupData.metadata.keyCount > 0)) return;
+  if (typeof api.getState === 'function') {
+    const state = await api.getState();
+    if (!state?.folderPath) return;
+  }
+  const exportWithChecksum = {
+    ...backupData,
+    metadata: {
+      ...backupData.metadata,
+      checksum,
+    },
+  };
+  const res = await api.writeSnapshot(JSON.stringify(exportWithChecksum), maxBackups);
+  if (!res?.ok) {
+    // The main process records `lastError` in the folder state, which the Data tab shows.
+    console.warn('[Apollo Backup] Synced folder copy was not saved:', res?.error ?? 'unknown error');
+  }
+  emitBackupsChanged();
+}
+
+/**
+ * Explicitly write the current athlete data snapshot (with embedded SHA-256
+ * checksum) as a compressed `.json.gz` file into the configured desktop synced
+ * backup folder.
+ */
+export async function syncSnapshotToDesktopFolder(): Promise<{
+  ok: boolean;
+  error?: string;
+  /** v1.0.9: true when there was simply no Apollo data to copy yet (not a failure). */
+  empty?: boolean;
+  state?: DesktopBackupFolderState;
+}> {
+  const api = typeof window !== 'undefined' ? window.electronAPI?.backupFolder : undefined;
+  if (!api) {
+    return { ok: false, error: 'Synced folder backups are available only in the Apollo desktop app.' };
+  }
+  if (isStorageDegraded()) {
+    // Same rule as createBackup: an incomplete snapshot must never rotate good copies out of the folder.
+    return {
+      ok: false,
+      error:
+        'Storage is unavailable right now, so nothing was copied to the backup folder. Restart Apollo and try again.',
+    };
+  }
+  try {
+    const backupData = exportAllData({ purpose: 'backup' });
+    if (!(backupData.metadata.keyCount > 0)) {
+      return { ok: false, empty: true, error: 'There\u2019s no Apollo data to back up yet.' };
+    }
+    const checksum = await sha256(JSON.stringify(backupData));
+    const exportWithChecksum = {
+      ...backupData,
+      metadata: {
+        ...backupData.metadata,
+        checksum,
+      },
+    };
+    const res = await api.writeSnapshot(JSON.stringify(exportWithChecksum), getBackupConfig().maxBackups);
+    if (res.ok) emitBackupsChanged();
+    return res;
+  } catch (err) {
+    return { ok: false, error: errorMessage(err) };
+  }
 }
 
 // ── Import ────────────────────────────────────────────────────────────────────
@@ -908,7 +995,15 @@ function isGzip(bytes: Uint8Array): boolean {
   return bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
 }
 
-async function gunzipToText(bytes: Uint8Array): Promise<string> {
+/** A .json.gz backup that expands past the import limit (a guard against gzip bombs). */
+class DecompressedTooLargeError extends Error {}
+
+/**
+ * Un-gzip to text, stopping as soon as the output passes `maxBytes` (the same
+ * limit as an uncompressed import), so a few-MB crafted file can't expand to
+ * gigabytes and exhaust memory.
+ */
+async function gunzipToText(bytes: Uint8Array, maxBytes: number = MAX_IMPORT_FILE_BYTES): Promise<string> {
   const ds = new DecompressionStream('gzip');
   const writer = ds.writable.getWriter();
   void writer
@@ -920,10 +1015,19 @@ async function gunzipToText(bytes: Uint8Array): Promise<string> {
   const reader = ds.readable.getReader();
   const decoder = new TextDecoder();
   const parts: string[] = [];
+  let total = 0;
   for (;;) {
     const { done, value } = await reader.read();
     if (done) break;
-    parts.push(decoder.decode(value as Uint8Array, { stream: true }));
+    const chunk = value as Uint8Array;
+    total += chunk.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {
+        /* already failing */
+      });
+      throw new DecompressedTooLargeError();
+    }
+    parts.push(decoder.decode(chunk, { stream: true }));
   }
   parts.push(decoder.decode());
   return parts.join('');
@@ -940,7 +1044,12 @@ async function readImportText(file: File): Promise<string> {
     }
     try {
       return await gunzipToText(bytes);
-    } catch {
+    } catch (err) {
+      if (err instanceof DecompressedTooLargeError) {
+        throw new Error(
+          `The compressed file expands to more than ${formatBytes(MAX_IMPORT_FILE_BYTES)}, which is larger than Apollo can import.`,
+        );
+      }
       throw new Error('The compressed file is damaged and could not be opened.');
     }
   }

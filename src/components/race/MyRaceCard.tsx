@@ -2,6 +2,8 @@
  * "My race" header card of the Race Day hub (v1.0.6): race picker, race date
  * (read-only from the active plan, editable otherwise), countdown, start
  * time + time zone + wave, goal time and the race-day strategy.
+ * v1.0.9: a plan without a race day (a base, recovery or maintenance block)
+ * doesn't own the race date, so the date stays editable while it's active.
  */
 import { Link } from 'react-router-dom';
 import { getAllMarathons, formatDurationSec } from '../../services/raceStrategy';
@@ -69,7 +71,16 @@ const GOAL_SOURCE_TEXT: Record<string, string> = {
 
 /** The hub's header card. All writes happen in response to user input. */
 export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
-  const { ctx, myRace, hasActivePlan, raceDateMismatch, goalSource, mismatchedStrategy, raceMissing } = state;
+  const {
+    ctx,
+    myRace,
+    hasActivePlan,
+    planOwnsRaceDate,
+    raceDateMismatch,
+    goalSource,
+    mismatchedStrategy,
+    raceMissing,
+  } = state;
   const race = ctx.race;
   const marathons = getAllMarathons();
   const majors = marathons.filter((m) => m.isWorldMajor);
@@ -131,7 +142,7 @@ export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
         </div>
 
         <div className="rd-field">
-          {hasActivePlan ? (
+          {planOwnsRaceDate ? (
             <>
               <p className="rd-label">Race date</p>
               <p className="rd-value">{formatRaceDate(ctx.raceDate)}</p>
@@ -153,6 +164,9 @@ export default function MyRaceCard({ state, onChooseRace, onGoToTab }: Props) {
               />
               {state.raceDateSource === 'race' && (
                 <p className="rd-hint">The race's next date. Change it if you're running another year.</p>
+              )}
+              {hasActivePlan && (
+                <p className="rd-hint">Your current plan has no race day, so your race date is set here.</p>
               )}
             </>
           )}

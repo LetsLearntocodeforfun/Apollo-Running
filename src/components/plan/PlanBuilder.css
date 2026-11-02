@@ -318,6 +318,52 @@
   color: var(--pb-phase-color);
 }
 
+/* Doubles and time-based options */
+.pb-options-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.pb-check-option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: var(--text-sm);
+  cursor: pointer;
+}
+
+.pb-check-option:has(input:checked) {
+  border-color: var(--apollo-gold);
+  background: var(--apollo-gold-dim);
+}
+
+.pb-check-option input[type='checkbox'] {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  accent-color: var(--apollo-gold);
+  flex-shrink: 0;
+}
+
+.pb-check-option .pb-hint {
+  display: block;
+}
+
+.pb-secondary-pill,
+.pb-duration-pill,
+.pb-secondary-dist {
+  font-size: var(--text-xs);
+  color: var(--apollo-teal);
+  font-weight: var(--weight-medium);
+}
+
 @media (max-width: 640px) {
   .pb-chart {
     height: 110px;

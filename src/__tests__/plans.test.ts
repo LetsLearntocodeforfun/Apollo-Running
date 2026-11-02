@@ -57,6 +57,13 @@ describe('Built-in Plans', () => {
     },
   );
 
+  /**
+   * v1.0.9: plans whose long runs are capped by time on purpose. Daniels limits the
+   * long run to about 150 minutes, which is ~15 mi at easy pace for the up-to-40 mpw
+   * plan (its description says "long runs kept to about 2½ hours").
+   */
+  const LONG_RUN_MINIMUM_MI: Record<string, number> = { 'daniels-2q-40': 15 };
+
   it.each(BUILT_IN_PLANS.map((p) => [p.id, p] as [string, TrainingPlan]))(
     'plan "%s" should have progressive long runs up to at least 16 miles',
     (_id, plan) => {
@@ -67,7 +74,7 @@ describe('Built-in Plans', () => {
 
       if (longRunDistances.length > 0) {
         const maxLong = Math.max(...longRunDistances);
-        expect(maxLong).toBeGreaterThanOrEqual(16);
+        expect(maxLong).toBeGreaterThanOrEqual(LONG_RUN_MINIMUM_MI[plan.id] ?? 16);
       }
     },
   );

@@ -55,15 +55,83 @@ export function localName(qualifiedName: string): string {
   return (colon >= 0 ? qualifiedName.slice(colon + 1) : qualifiedName).toLowerCase();
 }
 
-const ATTRIBUTE_RE = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+/**
+ * Whitespace between attributes: everything JavaScript's `\s` matches (as the
+ * v1.0.8 attribute regex did), so a no-break space (U+00A0) or other Unicode
+ * space some exporters write between attributes still separates them.
+ */
+function isAttrSpace(c: number): boolean {
+  if (c <= 32) return c === 32 || (c >= 9 && c <= 13);
+  if (c < 0xa0) return false;
+  return (
+    c === 0xa0 ||
+    c === 0x1680 ||
+    (c >= 0x2000 && c <= 0x200a) ||
+    c === 0x2028 ||
+    c === 0x2029 ||
+    c === 0x202f ||
+    c === 0x205f ||
+    c === 0x3000 ||
+    c === 0xfeff
+  );
+}
 
+/**
+ * Attributes of a start tag (`source` is everything after the element name).
+ * A single linear pass: a regex here backtracked quadratically on a long run
+ * of name characters without `=` (an import could hang on a crafted file).
+ * Reads exactly what the old pattern did: names are any run without
+ * whitespace, `=`, `/` or `>`; values may be double-quoted, single-quoted or
+ * bare; junk between attributes and attributes without a value are skipped.
+ */
 function parseAttributes(source: string): Record<string, string> {
   const attrs: Record<string, string> = {};
   if (source.indexOf('=') < 0) return attrs;
-  ATTRIBUTE_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = ATTRIBUTE_RE.exec(source)) !== null) {
-    attrs[localName(m[1])] = decodeEntities(m[2] ?? m[3] ?? m[4] ?? '');
+  const len = source.length;
+  let i = 0;
+  while (i < len) {
+    while (i < len && (isAttrSpace(source.charCodeAt(i)) || source.charCodeAt(i) === 47)) i++;
+    if (i >= len) break;
+    const nameStart = i;
+    while (i < len) {
+      const c = source.charCodeAt(i);
+      if (isAttrSpace(c) || c === 61 /* = */ || c === 47 /* / */ || c === 62 /* > */) break;
+      i++;
+    }
+    if (i === nameStart) {
+      i++; // a stray '=' or '>' can't start a name: step over it
+      continue;
+    }
+    const name = source.slice(nameStart, i);
+    while (i < len && isAttrSpace(source.charCodeAt(i))) i++;
+    if (i >= len) break;
+    if (source.charCodeAt(i) !== 61) continue; // an attribute without a value, or junk: the next name starts here
+    i++; // '='
+    while (i < len && isAttrSpace(source.charCodeAt(i))) i++;
+    if (i >= len) break;
+    const q = source.charCodeAt(i);
+    let value: string;
+    if (q === 34 || q === 39) {
+      const close = source.indexOf(q === 34 ? '"' : "'", i + 1);
+      if (close < 0) {
+        continue; // unterminated quote: like the old pattern, rescan from the quote as a possible name
+      }
+      value = source.slice(i + 1, close);
+      i = close + 1;
+    } else {
+      const valueStart = i;
+      while (i < len) {
+        const c = source.charCodeAt(i);
+        if (isAttrSpace(c) || c === 34 || c === 39 || c === 62) break;
+        i++;
+      }
+      value = source.slice(valueStart, i);
+      if (i === valueStart) {
+        i++;
+        continue;
+      }
+    }
+    attrs[localName(name)] = decodeEntities(value);
   }
   return attrs;
 }

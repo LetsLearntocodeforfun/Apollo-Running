@@ -6,7 +6,13 @@ import PlanBuilder from '../components/PlanBuilder';
 import { persistence } from '../services/db/persistence';
 import { setDistanceUnit } from '../services/unitPreferences';
 import { calculateTrainingPaces, saveTrainingPaces } from '../services/paceCalculator';
-import type { TrainingPlan } from '../data/plans';
+import {
+  CUSTOM_DOUBLE_PM_MI,
+  CUSTOM_DOUBLES_MIN_WEEK_MI,
+  CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI,
+  createCustomPlanFromScratch,
+  type TrainingPlan,
+} from '../data/plans';
 
 type BuilderProps = Parameters<typeof PlanBuilder>[0];
 
@@ -167,12 +173,64 @@ describe('PlanBuilder', () => {
     for (const day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']) {
       fireEvent.change(screen.getByLabelText(`${day} workout`), { target: { value: 'easy' } });
     }
-    expect(screen.getByRole('alert').textContent).toMatch(/at most 6 running days \(you have 7\)/i);
-
-    fireEvent.change(screen.getByLabelText('Mon workout'), { target: { value: 'cross' } });
+    // 7 running days is now supported for high-mileage marathoners
     expect(screen.getByRole('alert').textContent).toBe('');
     expect(button(/^Next: Preview Plan/).disabled).toBe(false);
     expect(button(/^Next: Preview Plan/).getAttribute('aria-describedby')).toBeNull();
+  });
+
+  it('supports 7 running days, AM/PM recovery doubles, and time-on-feet targets', () => {
+    const { onComplete } = renderBuilder({
+      initialConfig: {
+        runningDays: 7,
+        currentWeeklyMiles: 50,
+        peakWeeklyMiles: 75,
+        enableDoubles: true,
+        isTimeBased: true,
+      },
+    });
+    expect(slider('Running Days per Week').value).toBe('7');
+    goToAssign();
+    expect(screen.getByText(/7 running days assigned/)).toBeTruthy();
+    goToPreview();
+    expect(screen.getByText(/AM\/PM doubles/)).toBeTruthy();
+    expect(screen.getByText(/Time-based/)).toBeTruthy();
+    fireEvent.click(button(/Accept This Plan/));
+    const built = onComplete.mock.calls[0][0];
+    expect(built.hasDoubles).toBe(true);
+    expect(built.isTimeBased).toBe(true);
+    expect(built.weeks.some((w) => w.days.some((d) => !!d.secondary))).toBe(true);
+    expect(built.weeks.some((w) => w.days.some((d) => (d.durationMin ?? 0) > 0))).toBe(true);
+  });
+
+  it('v1.0.9: the doubles hint says what the builder does (no run-day minimum)', () => {
+    renderBuilder();
+    const hint = screen.getByText(/afternoon recovery run/);
+    expect(hint.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+      'In weeks of 55 mi or more, 4 mi of easy running moves to an afternoon recovery run on an easy or tempo day ' +
+        '(two days from 75 mi). The last two weeks stay single runs.',
+    );
+    expect(document.body.textContent).not.toMatch(/5\+ run days/);
+
+    // The behaviour it describes — also with only 4 run days.
+    const plan = createCustomPlanFromScratch({
+      name: 'Four-day doubles',
+      totalWeeks: 18,
+      runningDays: 4,
+      currentWeeklyMiles: 50,
+      peakWeeklyMiles: 80,
+      enableDoubles: true,
+    });
+    expect(plan.hasDoubles).toBe(true);
+    const doubles = plan.weeks.map((w) => w.days.filter((d) => d.secondary));
+    expect(Math.max(...doubles.map((d) => d.length))).toBe(2);
+    expect(doubles.slice(-2).every((d) => d.length === 0)).toBe(true);
+    for (const day of doubles.flat()) {
+      expect(day.secondary).toMatchObject({ distanceMi: CUSTOM_DOUBLE_PM_MI, note: 'Recovery' });
+      expect(['Easy', 'Tempo']).toContain(day.note);
+    }
+    expect(CUSTOM_DOUBLES_MIN_WEEK_MI).toBe(55);
+    expect(CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI).toBe(75);
   });
 
   it('preview: phase-coloured bars are labelled buttons with a text legend; accordions expose aria-expanded/controls', () => {

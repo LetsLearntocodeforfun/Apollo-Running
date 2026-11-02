@@ -1,12 +1,14 @@
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   shell,
   safeStorage,
   session,
   type IpcMainEvent,
   type IpcMainInvokeEvent,
+  type OpenDialogOptions,
   type WebContents,
 } from 'electron';
 import { autoUpdater, type UpdateInfo } from 'electron-updater';
@@ -15,16 +17,29 @@ import fs from 'fs';
 import http from 'http';
 import { randomBytes } from 'crypto';
 import { pathToFileURL } from 'url';
+import { promisify } from 'util';
+import { gzip } from 'zlib';
 import {
+  BACKUP_SNAPSHOT_PREFIX,
   RELEASES_URL,
   checkOAuthCallback,
+  clampBackupFolderRetention,
   corruptStoreBackupName,
+  createBlockedRequestReporter,
+  filterUpdaterRequestHeaders,
+  formatBackupSnapshotName,
   getAllowedExternalUrl,
   isAllowedPermission,
+  isAllowedRendererRequestUrl,
   isAllowedSubframeNavigation,
   isAllowedTopLevelNavigation,
+  isDisallowedBackupDirectory,
+  isManagedBackupSnapshotName,
+  isOwnStaleSnapshotTempFile,
   isTrustedSenderUrl,
   parseUpdaterPrefs,
+  selectSnapshotsToPrune,
+  validateBackupSnapshotPayload,
   type TrustedAppLocation,
 } from './security';
 import {
@@ -97,8 +112,8 @@ function trustedLocation(): TrustedAppLocation {
   };
 }
 
-/** Only the app's own top frame may call privileged IPC handlers. */
-function isTrustedSender(event: IpcMainInvokeEvent): boolean {
+/** Only the app's own top frame may call privileged IPC handlers or listeners. */
+function isTrustedSender(event: IpcMainInvokeEvent | IpcMainEvent): boolean {
   const frame = event.senderFrame;
   if (!frame) return false;
   return isTrustedSenderUrl(frame.url, frame.parent === null, trustedLocation());
@@ -128,13 +143,55 @@ function openExternalIfAllowed(targetUrl: unknown): boolean {
 
 // ----- Session hardening -----
 
-/** Deny every web permission except sanitized clipboard writes ("Copy" buttons). */
+/**
+ * Spellcheck runs only where it is the operating system's own spellchecker:
+ * macOS. On Windows and Linux, Chromium's built-in spellchecker uses Hunspell
+ * dictionaries, which Electron downloads from Google's CDN by default. That
+ * is a network request the user never asked for, and Apollo promises not to
+ * make any. Electron's docs for session.setSpellCheckerDictionaryDownloadURL:
+ * "By default Electron will download hunspell dictionaries from the Chromium
+ * CDN … On macOS, the OS spellchecker is used and therefore we do not download
+ * any dictionary files." Electron has no supported switch that keeps only an
+ * OS spellchecker on Windows and still rules the download out, so spellcheck
+ * is off on Windows and Linux.
+ */
+const USE_OS_SPELLCHECKER = process.platform === 'darwin';
+
+/**
+ * Deny every web permission except sanitized clipboard writes ("Copy" buttons),
+ * and enforce a session-level network & `file://` allow-list so the renderer
+ * can never read arbitrary local files outside its bundle or contact unexpected hosts.
+ * Requests that don't come from a renderer follow the same allow-list (v1.0.9).
+ * electron-updater needs no exception: it makes its requests on its own
+ * session (partition 'electron-updater'), which this filter never sees.
+ * Blocked requests are logged with console.warn in every build (the first
+ * BLOCKED_REQUEST_LOG_LIMIT per run, then one summary line), so a feature the
+ * filter breaks can be diagnosed in the field.
+ */
 function applySessionSecurity(): void {
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((_webContents, permission, callback) => {
     callback(isAllowedPermission(permission));
   });
   ses.setPermissionCheckHandler((_webContents, permission) => isAllowedPermission(permission));
+  const reportBlockedRequest = createBlockedRequestReporter((message) => console.warn(message));
+  ses.webRequest.onBeforeRequest((details, callback) => {
+    const allowed = isAllowedRendererRequestUrl(details.url, trustedLocation(), { allowDevTools: isDev });
+    if (!allowed) reportBlockedRequest(details.url, typeof details.webContentsId === 'number');
+    callback({ cancel: !allowed });
+  });
+  if (!USE_OS_SPELLCHECKER) {
+    // Together with webPreferences.spellcheck: turn the spellchecker off for the
+    // whole session, and say so in the log if a dictionary download starts
+    // anyway. Electron saves this setting in the profile, so turning spellcheck
+    // back on here later also needs ses.setSpellCheckerEnabled(true).
+    ses.setSpellCheckerEnabled(false);
+    ses.on('spellcheck-dictionary-download-begin', (_event, languageCode) => {
+      console.warn(
+        `[Apollo] Unexpected spellcheck dictionary download (${languageCode}); spellcheck should be off here.`,
+      );
+    });
+  }
 }
 
 // Any other web contents (there shouldn't be any) gets the same lock-down.
@@ -210,6 +267,9 @@ function createWindow() {
       devTools: isDev,
       nodeIntegrationInWorker: false,
       webviewTag: false,
+      // macOS only: elsewhere Chromium's spellchecker downloads dictionaries
+      // from Google's CDN (see USE_OS_SPELLCHECKER).
+      spellcheck: USE_OS_SPELLCHECKER,
     },
     title: 'Apollo',
     backgroundColor: '#0D1B2A',
@@ -372,6 +432,7 @@ app.on('before-quit', () => {
 });
 
 ipcMain.on('lifecycle:flush-ready', (event: IpcMainEvent, ready: unknown) => {
+  if (!isTrustedSender(event)) return;
   if (ready === true) flushReadyContents.add(event.sender);
   else flushReadyContents.delete(event.sender);
 });
@@ -382,7 +443,7 @@ function requestRendererFlush(win: BrowserWindow): Promise<void> {
   return new Promise((resolve) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const onDone = (event: IpcMainEvent) => {
-      if (event.sender === contents) finish();
+      if (event.sender === contents && isTrustedSender(event)) finish();
     };
     const finish = () => {
       if (timer) clearTimeout(timer);
@@ -402,6 +463,8 @@ function requestRendererFlush(win: BrowserWindow): Promise<void> {
 if (hasSingleInstanceLock) {
   app.whenReady().then(() => {
     applySessionSecurity();
+    // Before the window exists, so before any update check can be requested.
+    applyUpdaterPrivacy();
     createWindow();
   });
 }
@@ -860,6 +923,446 @@ handleTrusted('secure-storage:is-available', () => {
   return encryptionUnavailableReason() === null;
 });
 
+// ----- Synced-Folder Auto-Backups (Epic 2C) -----
+// Mirrors verified athlete backup snapshots as compressed `.json.gz` files into
+// a user-chosen folder (iCloud Drive, Dropbox, OneDrive, NAS, or USB drive).
+// Security invariants:
+//  - Folder path is chosen ONLY via native OS dialog (`backup:choose-folder`),
+//    persisted in `userData`, and never accepted as an IPC parameter.
+//  - Snapshot filenames are generated exclusively in the main process
+//    (`formatBackupSnapshotName`) and retention pruning only touches files
+//    matching `isManagedBackupSnapshotName`.
+// v1.0.9 hardening:
+//  - All I/O on the chosen folder is asynchronous, and the reachability check
+//    gives up after BACKUP_FOLDER_PROBE_TIMEOUT_MS, so a slow or disconnected
+//    NAS or cloud mount can't freeze the app. (The small config file in
+//    `userData` is local and still read and written synchronously.)
+//  - Snapshot writes run one at a time. Pruning never deletes the snapshot just
+//    written, nor snapshots with an invalid or far-future date
+//    (`selectSnapshotsToPrune`); only Apollo's own stale temp files are swept
+//    (`isOwnStaleSnapshotTempFile`).
+//  - Error text sent to the app is generic. File paths and system error
+//    messages are only logged here (console.warn).
+
+const BACKUP_FOLDER_CONFIG_PATH = path.join(app.getPath('userData'), 'backup-folder-config.json');
+/** How long the folder reachability check waits before treating the folder as unreachable. */
+const BACKUP_FOLDER_PROBE_TIMEOUT_MS = 3000;
+const gzipAsync = promisify(gzip);
+
+/** Shown in Settings as is: no file paths or system error text (those are logged instead). */
+const BACKUP_FOLDER_MESSAGES = {
+  notConfigured: 'No synced backup folder is configured.',
+  unreachable: 'Backup folder is currently unreachable.',
+  nothingToBackUp: "There's no Apollo data to back up yet.",
+  invalidSnapshot: "This backup didn't pass Apollo's safety checks, so it wasn't written to the folder.",
+  writeFailed:
+    "Apollo couldn't write the backup to the folder. Check that the folder is available and has free space, then try again.",
+  saveSettingFailed: "Apollo couldn't save the backup folder setting. Please try again.",
+} as const;
+
+interface BackupFolderConfig {
+  folderPath: string | null;
+  maxFiles: number;
+  lastSyncedAt: string | null;
+  lastFileName: string | null;
+  lastError: string | null;
+}
+
+interface DesktopBackupFolderState extends BackupFolderConfig {
+  folderReachable: boolean;
+}
+
+const DEFAULT_BACKUP_FOLDER_CONFIG: BackupFolderConfig = {
+  folderPath: null,
+  maxFiles: 10,
+  lastSyncedAt: null,
+  lastFileName: null,
+  lastError: null,
+};
+
+function readBackupFolderConfig(): BackupFolderConfig {
+  if (!fs.existsSync(BACKUP_FOLDER_CONFIG_PATH)) return { ...DEFAULT_BACKUP_FOLDER_CONFIG };
+  try {
+    const raw = fs.readFileSync(BACKUP_FOLDER_CONFIG_PATH, 'utf-8');
+    const parsed: unknown = JSON.parse(raw);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const rec = parsed as Record<string, unknown>;
+      const rawFolder = typeof rec.folderPath === 'string' && rec.folderPath.trim() ? rec.folderPath : null;
+      const folderPath = rawFolder && !isDisallowedBackupDirectory(rawFolder) ? rawFolder : null;
+      return {
+        folderPath,
+        maxFiles: clampBackupFolderRetention(rec.maxFiles, DEFAULT_BACKUP_FOLDER_CONFIG.maxFiles),
+        lastSyncedAt: typeof rec.lastSyncedAt === 'string' ? rec.lastSyncedAt : null,
+        lastFileName:
+          typeof rec.lastFileName === 'string' && isManagedBackupSnapshotName(rec.lastFileName)
+            ? rec.lastFileName
+            : null,
+        lastError: typeof rec.lastError === 'string' ? rec.lastError : null,
+      };
+    }
+  } catch (err) {
+    console.warn('[Apollo] Could not read backup-folder-config.json; using defaults:', err);
+  }
+  return { ...DEFAULT_BACKUP_FOLDER_CONFIG };
+}
+
+function writeBackupFolderConfig(config: BackupFolderConfig): void {
+  const dir = path.dirname(BACKUP_FOLDER_CONFIG_PATH);
+  fs.mkdirSync(dir, { recursive: true });
+  const tmpPath = `${BACKUP_FOLDER_CONFIG_PATH}.${process.pid}.${Date.now()}.tmp`;
+  try {
+    const fd = fs.openSync(tmpPath, 'w', 0o600);
+    try {
+      fs.writeFileSync(fd, JSON.stringify(config, null, 2), 'utf-8');
+      fs.fsyncSync(fd);
+    } finally {
+      fs.closeSync(fd);
+    }
+    fs.renameSync(tmpPath, BACKUP_FOLDER_CONFIG_PATH);
+  } catch (err) {
+    try {
+      fs.unlinkSync(tmpPath);
+    } catch {
+      /* temp file may not exist */
+    }
+    console.error('[Apollo] Failed to write backup folder config:', err);
+    throw err;
+  }
+}
+
+/** Folder checks in flight, by path: a hung mount ties up at most one I/O thread per folder. */
+const backupFolderProbes = new Map<string, Promise<string | null>>();
+
+/** Real path of `folderPath` when it is an allowed, existing directory, else null. Never rejects. */
+function probeBackupDirectory(folderPath: string): Promise<string | null> {
+  const inFlight = backupFolderProbes.get(folderPath);
+  if (inFlight) return inFlight;
+  const probe: Promise<string | null> = (async () => {
+    const real = await fs.promises.realpath(folderPath);
+    if (isDisallowedBackupDirectory(real)) return null;
+    return (await fs.promises.stat(real)).isDirectory() ? real : null;
+  })()
+    .catch(() => null)
+    .finally(() => {
+      if (backupFolderProbes.get(folderPath) === probe) backupFolderProbes.delete(folderPath);
+    });
+  backupFolderProbes.set(folderPath, probe);
+  return probe;
+}
+
+/**
+ * Real path of the configured folder, or null when it is disallowed, missing,
+ * not a directory, or doesn't answer within BACKUP_FOLDER_PROBE_TIMEOUT_MS
+ * (a slow or disconnected NAS / cloud mount counts as unreachable).
+ */
+async function resolveSafeBackupDirectory(folderPath: string | null): Promise<string | null> {
+  if (!folderPath || isDisallowedBackupDirectory(folderPath)) return null;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timedOut = new Promise<null>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(
+        `[Apollo] Backup folder did not respond within ${BACKUP_FOLDER_PROBE_TIMEOUT_MS} ms; treating it as unreachable.`,
+      );
+      resolve(null);
+    }, BACKUP_FOLDER_PROBE_TIMEOUT_MS);
+  });
+  try {
+    return await Promise.race([probeBackupDirectory(folderPath), timedOut]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function isBackupDirectoryReachable(folderPath: string | null): Promise<boolean> {
+  return (await resolveSafeBackupDirectory(folderPath)) !== null;
+}
+
+/** The config plus folder reachability. Pass `knownReachable` when it was just established. */
+async function toBackupFolderState(
+  config: BackupFolderConfig,
+  knownReachable?: boolean,
+): Promise<DesktopBackupFolderState> {
+  return {
+    ...config,
+    folderReachable: knownReachable ?? (await isBackupDirectoryReachable(config.folderPath)),
+  };
+}
+
+handleTrusted('backup:get-folder', () => {
+  return toBackupFolderState(readBackupFolderConfig());
+});
+
+handleTrusted('backup:choose-folder', async () => {
+  const dialogOptions: OpenDialogOptions = {
+    title: 'Choose backup folder',
+    buttonLabel: 'Use folder',
+    properties: ['openDirectory', 'createDirectory'],
+  };
+  const result =
+    mainWindow && !mainWindow.isDestroyed()
+      ? await dialog.showOpenDialog(mainWindow, dialogOptions)
+      : await dialog.showOpenDialog(dialogOptions);
+  // The dialog (and the folder checks below) can take a while, and a snapshot
+  // may finish meanwhile, so the setting is read when it is used, not before.
+
+  if (result.canceled || result.filePaths.length === 0) {
+    return { canceled: true, state: await toBackupFolderState(readBackupFolderConfig()) };
+  }
+
+  const chosen = result.filePaths[0];
+  if (isDisallowedBackupDirectory(chosen)) {
+    return {
+      canceled: false,
+      error: 'Please choose a dedicated subfolder rather than a drive or network share root.',
+      state: await toBackupFolderState(readBackupFolderConfig()),
+    };
+  }
+
+  let realChosen: string;
+  try {
+    if (!(await fs.promises.stat(chosen)).isDirectory()) {
+      return {
+        canceled: false,
+        error: 'The selected path is not a folder.',
+        state: await toBackupFolderState(readBackupFolderConfig()),
+      };
+    }
+    realChosen = await fs.promises.realpath(chosen);
+    if (isDisallowedBackupDirectory(realChosen)) {
+      return {
+        canceled: false,
+        error: 'Please choose a dedicated subfolder rather than a drive or network share root.',
+        state: await toBackupFolderState(readBackupFolderConfig()),
+      };
+    }
+    await fs.promises.access(realChosen, fs.constants.W_OK);
+  } catch (err) {
+    console.warn('[Apollo] Could not use the chosen backup folder:', err);
+    return {
+      canceled: false,
+      error: 'Apollo does not have permission to write to that folder.',
+      state: await toBackupFolderState(readBackupFolderConfig()),
+    };
+  }
+
+  const current = readBackupFolderConfig();
+  const sameFolder = current.folderPath === chosen;
+  const next: BackupFolderConfig = {
+    folderPath: chosen,
+    maxFiles: current.maxFiles,
+    lastSyncedAt: sameFolder ? current.lastSyncedAt : null,
+    lastFileName: sameFolder ? current.lastFileName : null,
+    lastError: null,
+  };
+  try {
+    writeBackupFolderConfig(next);
+  } catch {
+    // writeBackupFolderConfig logged the details; the app gets a generic message.
+    return {
+      canceled: false,
+      error: BACKUP_FOLDER_MESSAGES.saveSettingFailed,
+      state: await toBackupFolderState(current),
+    };
+  }
+  return { canceled: false, state: await toBackupFolderState(next) };
+});
+
+handleTrusted('backup:clear-folder', () => {
+  const current = readBackupFolderConfig();
+  const next: BackupFolderConfig = {
+    folderPath: null,
+    maxFiles: current.maxFiles,
+    lastSyncedAt: null,
+    lastFileName: null,
+    lastError: null,
+  };
+  try {
+    writeBackupFolderConfig(next);
+  } catch {
+    /* return cleared state even if userData write failed */
+  }
+  return toBackupFolderState(next);
+});
+
+interface FolderSnapshotResult {
+  ok: boolean;
+  error?: string;
+  state: DesktopBackupFolderState;
+}
+
+/** Snapshot writes run one at a time, in the order they were requested. Never rejects. */
+let snapshotWriteQueue: Promise<unknown> = Promise.resolve();
+
+handleTrusted('backup:write-folder-snapshot', (_, rawJson: unknown, rawMaxFiles?: unknown) => {
+  const run = snapshotWriteQueue.then(() =>
+    writeFolderSnapshot(rawJson, rawMaxFiles).catch(async (err: unknown): Promise<FolderSnapshotResult> => {
+      console.warn('[Apollo] Synced-folder snapshot failed unexpectedly:', err);
+      return {
+        ok: false,
+        error: BACKUP_FOLDER_MESSAGES.writeFailed,
+        state: await toBackupFolderState(readBackupFolderConfig()),
+      };
+    }),
+  );
+  snapshotWriteQueue = run.catch(() => undefined);
+  return run;
+});
+
+/**
+ * Record how a snapshot attempt went in the folder config and build the reply.
+ * If the user chose another folder (or disconnected) while the attempt ran,
+ * their new setting is kept as it is.
+ */
+async function finishSnapshotAttempt(
+  folderPath: string,
+  patch: Partial<BackupFolderConfig>,
+  outcome: { ok: boolean; error?: string },
+  knownReachable?: boolean,
+): Promise<FolderSnapshotResult> {
+  const latest = readBackupFolderConfig();
+  if (latest.folderPath !== folderPath) {
+    return { ...outcome, state: await toBackupFolderState(latest) };
+  }
+  const next: BackupFolderConfig = { ...latest, ...patch };
+  try {
+    writeBackupFolderConfig(next);
+  } catch {
+    /* best effort: writeBackupFolderConfig logged why */
+  }
+  return { ...outcome, state: await toBackupFolderState(next, knownReachable) };
+}
+
+/**
+ * Validate, compress and atomically write one snapshot into the configured
+ * folder, then prune and sweep it. Runs inside snapshotWriteQueue.
+ */
+async function writeFolderSnapshot(rawJson: unknown, rawMaxFiles: unknown): Promise<FolderSnapshotResult> {
+  const config = readBackupFolderConfig();
+  if (!config.folderPath || isDisallowedBackupDirectory(config.folderPath)) {
+    return {
+      ok: false,
+      error: BACKUP_FOLDER_MESSAGES.notConfigured,
+      state: await toBackupFolderState(config),
+    };
+  }
+  const folderPath = config.folderPath;
+
+  const validated = validateBackupSnapshotPayload(rawJson);
+  if (!validated.ok) {
+    console.warn('[Apollo] Synced-folder snapshot rejected:', validated.error);
+    const errText =
+      validated.reason === 'empty' ? BACKUP_FOLDER_MESSAGES.nothingToBackUp : BACKUP_FOLDER_MESSAGES.invalidSnapshot;
+    return finishSnapshotAttempt(folderPath, { lastError: errText }, { ok: false, error: errText });
+  }
+
+  const maxFiles = clampBackupFolderRetention(rawMaxFiles ?? config.maxFiles, config.maxFiles);
+
+  let realFolder = await resolveSafeBackupDirectory(folderPath);
+  if (realFolder) {
+    try {
+      await fs.promises.access(realFolder, fs.constants.W_OK);
+    } catch (accessErr) {
+      console.warn('[Apollo] Backup folder is not writable:', accessErr);
+      realFolder = null;
+    }
+  }
+  if (!realFolder) {
+    const errText = BACKUP_FOLDER_MESSAGES.unreachable;
+    return finishSnapshotAttempt(folderPath, { maxFiles, lastError: errText }, { ok: false, error: errText }, false);
+  }
+
+  const fileName = formatBackupSnapshotName(new Date());
+  if (!isManagedBackupSnapshotName(fileName)) {
+    return {
+      ok: false,
+      error: 'Generated snapshot filename failed validation.',
+      state: await toBackupFolderState(config, true),
+    };
+  }
+
+  const targetPath = path.join(realFolder, fileName);
+  const tmpPath = `${targetPath}.${process.pid}.${Date.now()}.${randomBytes(4).toString('hex')}.tmp`;
+  try {
+    try {
+      if (!(await fs.promises.lstat(targetPath)).isFile()) {
+        throw new Error('Target snapshot path is not a regular file.');
+      }
+    } catch (statErr) {
+      if ((statErr as NodeJS.ErrnoException)?.code !== 'ENOENT') throw statErr;
+    }
+
+    const compressed = await gzipAsync(Buffer.from(validated.json, 'utf-8'), { level: 6 });
+    const handle = await fs.promises.open(tmpPath, 'wx', 0o600);
+    try {
+      await handle.writeFile(compressed);
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+    await fs.promises.rename(tmpPath, targetPath);
+  } catch (err) {
+    await fs.promises.unlink(tmpPath).catch(() => {
+      /* temp file may not exist */
+    });
+    console.warn('[Apollo] Could not write backup snapshot:', err);
+    const errText = BACKUP_FOLDER_MESSAGES.writeFailed;
+    return finishSnapshotAttempt(folderPath, { maxFiles, lastError: errText }, { ok: false, error: errText });
+  }
+
+  await pruneBackupFolder(realFolder, fileName, maxFiles);
+
+  return finishSnapshotAttempt(
+    folderPath,
+    { maxFiles, lastSyncedAt: new Date().toISOString(), lastFileName: fileName, lastError: null },
+    { ok: true },
+    true,
+  );
+}
+
+/**
+ * After a successful write: delete Apollo's oldest snapshots beyond `maxFiles`
+ * (never the one just written, see selectSnapshotsToPrune), then Apollo's own
+ * temp files from interrupted writes once they are over an hour old. Problems
+ * are only logged: the new snapshot is already safely in place.
+ */
+async function pruneBackupFolder(realFolder: string, justWritten: string, maxFiles: number): Promise<void> {
+  let names: string[];
+  try {
+    names = await fs.promises.readdir(realFolder);
+  } catch (scanErr) {
+    console.warn('[Apollo] Could not scan backup folder for pruning:', scanErr);
+    return;
+  }
+  const now = new Date();
+
+  // Prune ONLY Apollo's own auto-backup snapshots beyond maxFiles.
+  for (const oldName of selectSnapshotsToPrune(names, justWritten, maxFiles, now)) {
+    if (oldName === justWritten || !isManagedBackupSnapshotName(oldName)) continue;
+    try {
+      const oldPath = path.join(realFolder, oldName);
+      if ((await fs.promises.lstat(oldPath)).isFile()) {
+        await fs.promises.unlink(oldPath);
+      }
+    } catch (unlinkErr) {
+      console.warn(`[Apollo] Could not prune old backup snapshot ${oldName}:`, unlinkErr);
+    }
+  }
+
+  // Sweep temp files left by Apollo's own interrupted writes (strict name match, > 1 h old).
+  for (const name of names) {
+    if (!name.startsWith(BACKUP_SNAPSHOT_PREFIX) || !name.endsWith('.tmp')) continue;
+    try {
+      const staleTmpPath = path.join(realFolder, name);
+      const stats = await fs.promises.lstat(staleTmpPath);
+      if (stats.isFile() && isOwnStaleSnapshotTempFile(name, stats.mtimeMs, now)) {
+        await fs.promises.unlink(staleTmpPath);
+      }
+    } catch (sweepErr) {
+      console.warn(`[Apollo] Could not remove stale backup temp file ${name}:`, sweepErr);
+    }
+  }
+}
+
 // ----- Auto-Updater -----
 // Uses electron-updater with GitHub releases. Opt-in only — the renderer
 // sends preferences via IPC and the main process respects them.
@@ -879,6 +1382,32 @@ const MANUAL_DOWNLOAD_URL = `${RELEASES_URL}/latest`;
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = false;
 autoUpdater.logger = isDev ? console : null;
+
+/**
+ * Keep electron-updater's per-install ID on this computer. electron-updater
+ * sends `x-user-staging-id`, a random ID it keeps in userData/.updaterId, with
+ * every update check. filterUpdaterRequestHeaders (./security) removes it from
+ * every request on the updater's session (checks and downloads) before the
+ * request leaves, and always answers, so updates never stall.
+ * Staged-rollout decisions are made locally: electron-updater compares that ID
+ * with the release's `stagingPercentage` on this computer (isStagingMatch), and
+ * GitHub Releases ignores the header, so removing it doesn't change which
+ * update a user receives.
+ * `autoUpdater.netSession` is the session electron-updater makes its requests
+ * on (partition 'electron-updater'), created with electron-updater's own
+ * options (no HTTP cache), which can't be changed once a session exists.
+ * A session has a single onBeforeSendHeaders listener: nothing else registers
+ * one on this session, and another registration would replace this one.
+ * Called once, after the app is ready and before the first window. If the
+ * listener can't be registered, the error is logged and the window still opens.
+ */
+function applyUpdaterPrivacy(): void {
+  try {
+    autoUpdater.netSession.webRequest.onBeforeSendHeaders(filterUpdaterRequestHeaders);
+  } catch (err) {
+    console.warn('[Apollo] Could not register the update-check privacy filter:', err);
+  }
+}
 
 type UpdateStatus = 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
 

@@ -200,17 +200,45 @@ describe('coach tempo shapes (T-4 follow-up)', () => {
     });
   });
 
-  it('cruise intervals only for tempos without a coach shape (custom plans)', () => {
+  it('cruise intervals only where the plan names them (Daniels) or for long custom tempos', () => {
     for (const plan of BUILT_IN_PLANS) {
       for (const w of plan.weeks)
         for (const d of w.days) {
-          expect(getWorkoutTargetForDay(d, VDOT)?.description ?? '', `${plan.id} "${d.label}"`).not.toMatch(
-            /^Cruise intervals/,
-          );
+          const description = getWorkoutTargetForDay(d, VDOT)?.description ?? '';
+          // v1.0.9: Daniels' 2Q plans prescribe cruise intervals themselves; every other
+          // built-in tempo keeps its coach's shape and is never converted to cruise reps.
+          if (/cruise intervals/i.test(d.label)) {
+            expect(description, `${plan.id} "${d.label}"`).toMatch(/^Cruise intervals/);
+          } else {
+            expect(description, `${plan.id} "${d.label}"`).not.toMatch(/^Cruise intervals/);
+          }
         }
     }
     const custom: PlanDay = { type: 'run', label: '10 mi tempo', distanceMi: 10, note: 'Tempo' };
     expect(getWorkoutTargetForDay(custom, VDOT)!.description).toMatch(/^Cruise intervals/);
+  });
+
+  it("Daniels' named cruise intervals keep the plan's rep count for every runner (Today = watch)", () => {
+    for (const id of ['daniels-2q-40', 'daniels-2q-55', 'daniels-2q-70', 'daniels-2q-85']) {
+      const plan = getPlanById(id)!;
+      const weeks = plan.weeks.filter((w) => w.days.some((d) => /cruise intervals/i.test(d.label)));
+      expect(weeks.length, id).toBeGreaterThan(0);
+      for (const w of weeks) {
+        const day = w.days.find((d) => /cruise intervals/i.test(d.label))!;
+        const reps = Number(/^(\d+) × 1 mi cruise intervals/.exec(day.label)![1]);
+        // Daniels: T-pace running in one session stays at or under ~10% of the week's mileage.
+        const weekMi = w.days.reduce((sum, d) => sum + (d.distanceMi ?? 0) + (d.secondary?.distanceMi ?? 0), 0);
+        expect(reps, `${id} w${w.weekNumber}`).toBeLessThanOrEqual(Math.max(2, weekMi * 0.1));
+        // Slow, average and fast runners all see the plan's reps, never a continuous tempo.
+        for (const vdot of [35, 50, 65]) {
+          const t = targetForDay(day, vdot)!;
+          expect(t.category).toBe('tempo');
+          expect(t.description).toMatch(/^Cruise intervals/);
+          expect(t.intervals![0].repeats, `${id} w${w.weekNumber} @ VDOT ${vdot}`).toBe(reps);
+        }
+        expect(watchOf(day).description).toContain(`Cruise intervals ${reps}x\n- 1mi `);
+      }
+    }
   });
 });
 

@@ -13,6 +13,9 @@ import { persistence } from '../services/db/persistence';
 import { updateAthleteProfile } from '../services/athleteProfile';
 import { addDays, todayKey } from '../utils/localDate';
 import Progress from '../pages/Progress';
+import { getPlanById } from '../data/plans';
+import { importAndSavePlanText, serializePlanToJson } from '../services/planImportExport';
+import { startPlan } from '../services/planProgress';
 
 const { calculateRacePrediction } = vi.hoisted(() => ({
   calculateRacePrediction: vi.fn<() => RacePrediction | null>(() => null),
@@ -263,5 +266,25 @@ describe('Progress page', () => {
     expect(calculateRacePrediction.mock.calls.length).toBe(callsBefore + 1);
     expect(screen.getByText('3:59:00')).toBeTruthy();
     expect(screen.queryByText(PREDICTION_EMPTY)).toBeNull();
+  });
+});
+
+describe('v1.0.9: race countdown byline', () => {
+  beforeEach(() => persistence.clear());
+
+  it("names a built-in plan's coach, but marks an imported plan as imported and unverified", () => {
+    const raceDate = addDays(todayKey(), 70);
+    startPlan({ planId: 'hal-higdon-novice-1', raceDate });
+    const { unmount } = renderProgress('/progress?tab=overview');
+    expect(screen.getByText(/Novice 1 by Hal Higdon/)).toBeTruthy();
+    unmount();
+
+    const imported = importAndSavePlanText(serializePlanToJson(getPlanById('hal-higdon-novice-1')!));
+    expect(imported.ok).toBe(true);
+    const plan = imported.ok ? imported.plan : null;
+    startPlan({ planId: plan!.id, raceDate });
+    renderProgress('/progress?tab=overview');
+    expect(screen.getByText(/Imported, not verified by Apollo · author listed as “Hal Higdon”/)).toBeTruthy();
+    expect(screen.queryByText(/by Hal Higdon/)).toBeNull();
   });
 });

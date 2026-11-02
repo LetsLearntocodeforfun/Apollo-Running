@@ -22,6 +22,7 @@ import { persistence } from './db/persistence';
 import {
   getActivePlan,
   getDateKeyForDay,
+  getPlanRaceDayRef,
   getRaceDayRef,
   isDayCompleted,
   makePlanInstanceId,
@@ -331,10 +332,15 @@ export function getEffectiveDay(ref: DayRef): PlanDay | null {
   return plan?.weeks[ref.weekIndex]?.days[ref.dayIndex] ?? null;
 }
 
-/** Race day of the effective plan (on the race date), or null when no plan is active. */
+/**
+ * Race day of the effective plan (on the race date), or null when no plan is active.
+ * v1.0.9: also null when the plan has no race day (a base, recovery or maintenance
+ * block), like `getPlanRaceDayRef` — never the out-of-grid position `getRaceDayRef`
+ * uses for the edit guards.
+ */
 export function getEffectiveRaceDayRef(): DayRef | null {
   const plan = getEffectivePlan();
-  return plan ? getRaceDayRef(plan) : null;
+  return plan ? getPlanRaceDayRef(plan) : null;
 }
 
 // ── Mutations ───────────────────────────────────────────────────────────────
@@ -643,7 +649,20 @@ export function applyAdaptiveChanges(changes: AdaptiveWeekChange[], summary: str
         if (day.type !== 'run' || !(day.distanceMi && day.distanceMi > 0)) continue;
         if (editError(ctx, ref)) continue;
         const mi = Math.max(1, roundTenth(day.distanceMi * mult));
-        next.set(refKey(ref), { ...clone(day), distanceMi: mi, label: relabelDistance(day.label, mi) });
+        const cloned = clone(day);
+        if (cloned.secondary && cloned.secondary.distanceMi > 0) {
+          if (mult <= 0.7) {
+            delete cloned.secondary;
+          } else {
+            const pmMi = Math.max(2, roundTenth(cloned.secondary.distanceMi * mult));
+            cloned.secondary = {
+              ...cloned.secondary,
+              distanceMi: pmMi,
+              label: relabelDistance(cloned.secondary.label, pmMi),
+            };
+          }
+        }
+        next.set(refKey(ref), { ...cloned, distanceMi: mi, label: relabelDistance(day.label, mi) });
       }
     }
     for (const ov of ch.dayOverrides ?? []) {

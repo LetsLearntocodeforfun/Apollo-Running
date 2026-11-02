@@ -8,7 +8,9 @@
  * The goal time is NOT stored here: the single goal store is
  * `athleteProfile.goalMarathonSec` (a strategy keeps its own target time).
  * The race date is read through `journey.getRaceDate()` (active plan first);
- * `date` here is only written when there is no active plan.
+ * `date` here is only written when no active plan owns the race date: no plan is
+ * active, or (v1.0.9) the active plan has no race day (a base, recovery or
+ * maintenance block). `getRaceDate()` then returns this date.
  *
  * Stored under `apollo_my_race` (covered by backup/export/clear via the
  * `apollo_` prefix). Reads never throw; invalid fields are dropped; legacy

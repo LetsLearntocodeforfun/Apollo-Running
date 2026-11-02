@@ -16,7 +16,7 @@ import type { RaceStrategy } from '@/types/raceStrategy';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {
-  persistence.removeItem('apollo_post_race_reports');
+  persistence.clear();
 });
 
 // ── Test Fixtures ─────────────────────────────────────────────────────────────

@@ -12,6 +12,7 @@ import {
   getCachedPeriodization,
 } from '@/services/periodization';
 import type { TrainingPlan, PlanWeek } from '@/data/plans';
+import { BUILT_IN_PLANS, SUPPLEMENTAL_PLANS } from '@/data/plans';
 import { persistence } from '@/services/db/persistence';
 
 beforeEach(() => {
@@ -228,6 +229,53 @@ describe('detectPhases', () => {
       weeks: [],
     };
     expect(detectPhases(emptyPlan)).toEqual([]);
+  });
+});
+
+// ── v1.0.9: plans without a race day ────────────────────────────────────────
+
+describe('detectPhases — plans without a marathon day (v1.0.9)', () => {
+  it('gives the base, recovery and maintenance blocks one base phase — no taper or race week', () => {
+    expect(SUPPLEMENTAL_PLANS.length).toBeGreaterThan(0);
+    for (const block of SUPPLEMENTAL_PLANS) {
+      const phases = detectPhases(block);
+      expect(
+        phases.map((p) => [p.name, p.startWeek, p.endWeek]),
+        block.id,
+      ).toEqual([['base', 0, block.weeks.length - 1]]);
+      expect(phases[0].label).toBe('Base Building');
+      // Every week of the block resolves to that phase.
+      for (let w = 0; w < block.weeks.length; w++) {
+        expect(getPeriodization(block, w).currentPhase?.name, `${block.id} week ${w + 1}`).toBe('base');
+      }
+    }
+  });
+
+  it('a tune-up race alone does not make a race week', () => {
+    const block: TrainingPlan = {
+      id: 'imported-club-block',
+      name: 'Club block',
+      author: 'Club',
+      description: '',
+      totalWeeks: 3,
+      weeks: [
+        makeWeek(1, [{ mi: 4 }, { mi: 5 }, { mi: 0 }, { mi: 6 }, { mi: 0 }, { mi: 10 }]),
+        makeWeek(2, [{ mi: 4 }, { mi: 5 }, { mi: 0 }, { mi: 6 }, { mi: 0 }, { mi: 12 }]),
+        makeWeek(3, [{ mi: 3 }, { mi: 4 }, { mi: 0 }, { mi: 0 }, { mi: 0 }, { mi: 13.1, type: 'race' }]),
+      ],
+    };
+    expect(detectPhases(block).map((p) => p.name)).toEqual(['base']);
+  });
+
+  it('every marathon plan still ends in a race week on its last week', () => {
+    for (const plan of BUILT_IN_PLANS) {
+      const phases = detectPhases(plan);
+      expect(phases[phases.length - 1], plan.id).toMatchObject({
+        name: 'race',
+        startWeek: plan.weeks.length - 1,
+        endWeek: plan.weeks.length - 1,
+      });
+    }
   });
 });
 

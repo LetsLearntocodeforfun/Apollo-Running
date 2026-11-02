@@ -21,6 +21,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import RecoveryCard from '../components/RecoveryCard';
 import { useStoreVersion } from '../hooks/useStoreVersion';
 import { getActivePlan } from '../services/planProgress';
+import { isImportedPlanId, planAttributionLine } from '../data/plans';
 import { getEffectivePlan } from '../services/planOverlay';
 import { getJourneyState, type JourneyState } from '../services/journey';
 import { isActivitySourceConnected } from '../services/activitySource';
@@ -364,7 +365,7 @@ function countdownText(daysToRace: number | null): string | null {
   return `Race was ${ago} day${ago === 1 ? '' : 's'} ago`;
 }
 
-function CountdownCard({ journey, planAuthor }: { journey: JourneyState; planAuthor: string | null }) {
+function CountdownCard({ journey, planByline }: { journey: JourneyState; planByline: string | null }) {
   const titleId = 'progress-countdown-title';
   if (!journey.planName && journey.daysToRace === null) {
     return (
@@ -399,7 +400,7 @@ function CountdownCard({ journey, planAuthor }: { journey: JourneyState; planAut
         {journey.planName && (
           <li>
             {journey.planName}
-            {planAuthor ? ` by ${planAuthor}` : ''}
+            {planByline ?? ''}
           </li>
         )}
         {journey.raceDate && <li>Race day {formatDayLabel(journey.raceDate, true)}</li>}
@@ -573,7 +574,8 @@ interface OverviewData {
   prediction: RacePrediction | null;
   goalMarathonSec: number | null;
   journey: JourneyState;
-  planAuthor: string | null;
+  /** " by <author>", or for an imported plan " · Imported, not verified by Apollo…" (v1.0.9). */
+  planByline: string | null;
   hasPlan: boolean;
   adherence: TrainingAdherence | null;
   readiness: ReadinessScore | null;
@@ -599,7 +601,14 @@ function readOverview(fresh: boolean): OverviewData {
     prediction,
     goalMarathonSec: getAthleteProfile().goalMarathonSec ?? null,
     journey: getJourneyState(),
-    planAuthor: plan?.author ?? null,
+    // v1.0.9: an imported plan's author is only what its file says, so say it was imported.
+    planByline: !plan
+      ? null
+      : isImportedPlanId(plan.id)
+        ? ` · ${planAttributionLine(plan)}`
+        : plan.author
+          ? ` by ${plan.author}`
+          : null,
     hasPlan,
     adherence,
     readiness,
@@ -617,7 +626,7 @@ export function OverviewPanel() {
   return (
     <>
       <PredictionCard prediction={data.prediction} goalMarathonSec={data.goalMarathonSec} computed={data.computed} />
-      <CountdownCard journey={data.journey} planAuthor={data.planAuthor} />
+      <CountdownCard journey={data.journey} planByline={data.planByline} />
       {data.hasPlan && data.adherence && <AdherenceCard adherence={data.adherence} />}
       {data.hasPlan && data.readiness && <ReadinessCard readiness={data.readiness} history={data.allReadiness} />}
       {/* Today's recovery (sleep / HRV / resting HR via intervals.icu) — independent of the plan */}

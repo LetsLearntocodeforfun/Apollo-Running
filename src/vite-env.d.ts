@@ -42,6 +42,15 @@ declare global {
     error?: string;
   }
 
+  interface DesktopBackupFolderState {
+    folderPath: string | null;
+    maxFiles: number;
+    lastSyncedAt: string | null;
+    lastFileName: string | null;
+    lastError: string | null;
+    folderReachable: boolean;
+  }
+
   interface UpdateState {
     status: 'idle' | 'checking' | 'available' | 'not-available' | 'downloading' | 'downloaded' | 'error';
     version: string | null;
@@ -70,12 +79,23 @@ declare global {
       obtainToken: (apiKey: string) => Promise<GarminTokenReply>;
       request: (req: GarminProxyRequest) => Promise<GarminProxyReply>;
     };
-    openExternal: (url: string) => Promise<void>;
+    /** Opens an allow-listed https URL in the OS browser; resolves false when it was refused. */
+    openExternal: (url: string) => Promise<boolean>;
     secureStorage: {
       set: (key: string, value: string) => Promise<{ success: boolean; encrypted?: boolean; error?: string }>;
       get: (key: string) => Promise<string | null>;
       remove: (key: string) => Promise<{ success: boolean; error?: string }>;
       isAvailable: () => Promise<boolean>;
+    };
+    /** Synced-folder auto-backups (iCloud, Dropbox, OneDrive, or local drive). Optional for web/test mocks. */
+    backupFolder?: {
+      getState: () => Promise<DesktopBackupFolderState>;
+      chooseFolder: () => Promise<{ canceled: boolean; error?: string; state: DesktopBackupFolderState }>;
+      clearFolder: () => Promise<DesktopBackupFolderState>;
+      writeSnapshot: (
+        rawJson: string,
+        maxFiles?: number,
+      ) => Promise<{ ok: boolean; error?: string; state: DesktopBackupFolderState }>;
     };
     updater: {
       getState: () => Promise<UpdateState>;

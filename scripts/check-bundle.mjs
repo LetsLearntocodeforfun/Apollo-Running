@@ -18,7 +18,11 @@ import { gzipSync } from 'node:zlib';
 
 // v1.0.7 baseline: ~589 KiB raw / ~197 KiB gzip (entry + vendor-react).
 // v1.0.6 preloaded ~955 KiB because React was bundled inside vendor-charts.
-const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 640);
+// v1.0.9: ~646 KiB raw / ~212 KiB gzip. The 25-plan library (src/data/planLibrary.ts,
+// ~33 KiB minified) loads with the app because plan lookups (getPlanById) are
+// synchronous and Today needs the active plan; the raw budget moved from 640 to 670.
+// The gzip budget is unchanged.
+const BUDGET_KB = Number(process.env.BUNDLE_BUDGET_KB ?? 670);
 const BUDGET_GZIP_KB = Number(process.env.BUNDLE_BUDGET_GZIP_KB ?? 215);
 const FORBIDDEN = [/vendor-charts/i, /recharts/i];
 

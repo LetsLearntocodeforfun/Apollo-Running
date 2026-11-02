@@ -20,8 +20,9 @@ import {
   CUSTOM_PLAN_ID,
   getCustomPlan,
   getPlanById,
-  getPlanOverview,
+  getPlanStats,
   planAttributionLine,
+  planMatchesSearch,
   setCustomPlan,
   type TrainingPlan,
 } from '../data/plans';
@@ -214,8 +215,12 @@ function describeRecentRace(race: RecentRace): string {
 
 // ── Plans ────────────────────────────────────────────────────────────────────
 
+/**
+ * Peak weekly training miles, as the plan chooser shows them (v1.0.9: the race
+ * itself isn't counted, so both screens agree — e.g. Galloway peaks at 28, not 31).
+ */
 function peakWeeklyMiles(plan: TrainingPlan): number {
-  return Math.max(0, ...getPlanOverview(plan).map((w) => w.totalMiles));
+  return getPlanStats(plan).peakMiles;
 }
 
 /** A start waiting for the "Restart this plan?" confirmation. */
@@ -325,7 +330,25 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
   // Connect
   const [connectChoice, setConnectChoice] = useState<ConnectChoice | null>(null);
 
+  // Plan filter in onboarding
+  const [planSearch, setPlanSearch] = useState('');
+  const [planTierFilter, setPlanTierFilter] = useState<'all' | 'beginner' | 'intermediate' | 'advanced' | 'time'>(
+    'all',
+  );
+
   const planPeaks = useMemo(() => BUILT_IN_PLANS.map((plan) => ({ plan, peakMi: peakWeeklyMiles(plan) })), []);
+
+  const filteredPlanPeaks = useMemo(() => {
+    return planPeaks.filter(({ plan }) => {
+      if (plan.id === planChoice) return true;
+      if (planTierFilter === 'beginner' && plan.tier !== 'beginner' && plan.category !== 'first-marathon') return false;
+      if (planTierFilter === 'intermediate' && plan.tier !== 'intermediate') return false;
+      if (planTierFilter === 'advanced' && plan.tier !== 'advanced' && plan.tier !== 'elite') return false;
+      if (planTierFilter === 'time' && !plan.isTimeBased && plan.category !== 'time-run-walk') return false;
+      // v1.0.9: same tokenized search as the plan chooser ("Daniels 2Q", "pfitzinger 18").
+      return planMatchesSearch(plan, planSearch);
+    });
+  }, [planPeaks, planChoice, planTierFilter, planSearch]);
 
   // Focus the new step's heading so keyboard and screen-reader users start at the top.
   useEffect(() => {
@@ -462,7 +485,7 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
       }
       const input = planSetupToStartInput(planChoice, setup);
       if (!input) {
-        setPlanError(planSetupError(setup) ?? 'Choose your race date.');
+        setPlanError(planSetupError(setup, undefined, selectedPlan) ?? 'Choose your race date.');
         return;
       }
       const preview = previewStartPlan(input);
@@ -483,16 +506,52 @@ export default function WelcomeFlow({ onComplete }: { onComplete: () => void }) 
         <p className="welcome-text">
           Pick a plan, then enter your race date — Apollo places the plan so race day lands on it.
         </p>
+        <div className="wf-plan-filter" role="search" aria-label="Filter marathon plans">
+          <label htmlFor="welcome-plan-search" className="sr-only">
+            Search marathon plans
+          </label>
+          <input
+            id="welcome-plan-search"
+            type="search"
+            className="wf-input"
+            placeholder="Search Higdon, Pfitzinger, Daniels 2Q, Hansons, Galloway…"
+            value={planSearch}
+            onChange={(e) => setPlanSearch(e.target.value)}
+          />
+          <div className="wf-filter-pills" role="group" aria-label="Experience level">
+            {(
+              [
+                ['all', 'All'],
+                ['beginner', 'First marathon'],
+                ['intermediate', 'Intermediate'],
+                ['advanced', 'Advanced'],
+                ['time', 'Time / run-walk'],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                className={`wf-filter-pill ${planTierFilter === id ? 'wf-filter-pill--active' : ''}`}
+                aria-pressed={planTierFilter === id}
+                onClick={() => setPlanTierFilter(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <fieldset className="wf-fieldset">
           <legend className="wf-legend">Training plan</legend>
-          <div className="wf-option-list">
-            {planPeaks.map(({ plan, peakMi }) => (
+          <div className="wf-option-list wf-option-list--scroll">
+            {filteredPlanPeaks.map(({ plan, peakMi }) => (
               <RadioOption
                 key={plan.id}
                 name="welcome-plan"
                 value={plan.id}
                 checked={planChoice === plan.id}
                 onSelect={choosePlan}
+                tag={plan.hasDoubles ? 'AM/PM doubles' : plan.isTimeBased ? 'Time / run-walk' : undefined}
                 title={plan.name}
                 sub={`${planAttributionLine(plan)} · ${plan.totalWeeks} weeks · peak ~${formatMiles(peakMi, 0, unit)} a week`}
               />

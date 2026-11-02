@@ -37,7 +37,17 @@ import {
 } from '../services/splitService';
 import { SplitAnalysisPanel, SplitSummaryBadge } from '../components/SplitAnalysis';
 import { ActivityActions, DuplicatesBanner } from '../components/activities/ActivityManagement';
+import ShoeGaragePanel from '../components/ShoeGaragePanel';
 import { getHiddenActivities } from '../services/activity/manage';
+import {
+  createActivityShoeResolver,
+  extractActivityLocalDate,
+  formatShoeDistance,
+  getActiveShoes,
+  getActivityShoeInfo,
+  onShoesChanged,
+  setActivityShoe,
+} from '../services/shoeTracker';
 import {
   formatDistance as fmtDist,
   formatPace as fmtPace,
@@ -532,6 +542,20 @@ function ActivityDetail({
             color="var(--text-secondary)"
           />
         )}
+        {isRun &&
+          !activity.hidden &&
+          (() => {
+            const shoeInfo = getActivityShoeInfo(a.id, extractActivityLocalDate(a));
+            if (!shoeInfo.shoe) return null;
+            return (
+              <DetailStat
+                label="Shoe"
+                value={shoeInfo.shoe.name}
+                sub={`${formatShoeDistance(shoeInfo.shoe.totalMiles, undefined, 0)} total`}
+                color="var(--apollo-gold)"
+              />
+            );
+          })()}
       </div>
 
       {/* Split analysis (runs only) */}
@@ -584,11 +608,86 @@ function ActivityDetail({
         )}
       </div>
 
+      {/* Gear: assign or change shoe for this run */}
+      {isRun &&
+        !activity.hidden &&
+        (() => {
+          const runLocalDate = extractActivityLocalDate(a);
+          const runShoeInfo = getActivityShoeInfo(a.id, runLocalDate);
+          const shoes = getActiveShoes();
+          if (shoes.length === 0 && !runShoeInfo.shoe) return null;
+          const runLabel = a.name || getSportLabel(a);
+          return (
+            <div
+              style={{
+                marginTop: '0.75rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                flexWrap: 'wrap',
+                fontSize: 'var(--text-sm)',
+                color: 'var(--text-secondary)',
+              }}
+            >
+              <label
+                htmlFor={`shoe-select-${a.id}`}
+                style={{
+                  fontSize: '0.72rem',
+                  fontFamily: 'var(--font-display)',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  color: 'var(--text-muted)',
+                }}
+              >
+                Shoe
+              </label>
+              <select
+                id={`shoe-select-${a.id}`}
+                aria-label={`Shoe for ${runLabel}`}
+                value={runShoeInfo.shoe?.id ?? ''}
+                onChange={(e) => {
+                  const chosenId = e.target.value || null;
+                  setActivityShoe(a.id, chosenId, {
+                    distanceM: a.distance,
+                    date: runLocalDate,
+                  });
+                }}
+                style={{
+                  fontSize: 'var(--text-sm)',
+                  padding: '0.28rem 0.6rem',
+                  borderRadius: 'var(--radius-sm)',
+                  background: 'var(--bg-surface)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--border-input)',
+                  minHeight: 32,
+                  maxWidth: 280,
+                }}
+              >
+                <option value="">No shoe</option>
+                {shoes.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                    {s.isDefault ? ' (default)' : ''}
+                  </option>
+                ))}
+                {runShoeInfo.shoe &&
+                  runShoeInfo.shoe.status === 'retired' &&
+                  !shoes.some((s) => s.id === runShoeInfo.shoe?.id) && (
+                    <option value={runShoeInfo.shoe.id}>{runShoeInfo.shoe.name} (retired)</option>
+                  )}
+              </select>
+              {runShoeInfo.source === 'default' && (
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Assigned from default</span>
+              )}
+            </div>
+          );
+        })()}
+
       {/* Manage: hide from stats, or delete from this device (B18). The list record carries `hidden`. */}
       <div style={{ marginTop: '0.75rem' }}>
         <ActivityActions activity={activity} onDone={onDone} />
       </div>
-      {/* Gear mount point (deferred to 1.0.7): a <ShoePicker activityId={a.id} /> slot goes here. */}
     </div>
   );
 }
@@ -612,8 +711,11 @@ export default function Activities() {
   // Hidden activities (B18): browsed through the "Hidden" filter, where they can be unhidden.
   const [showHidden, setShowHidden] = useState(false);
   const [hidden, setHidden] = useState<Activity[]>(() => getHiddenActivities());
+  const [, setShoeRevision] = useState(0);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const maxHR = getHRProfile().maxHR;
+
+  useEffect(() => onShoesChanged(() => setShoeRevision((r) => r + 1)), []);
 
   useEffect(() => {
     if (!available) {
@@ -731,6 +833,8 @@ export default function Activities() {
   for (const a of base) counts[sportFilterOf(a)] += 1;
   const visible = sportFilter === 'all' ? base : base.filter((a) => sportFilterOf(a) === sportFilter);
   const activeFilterLabel = SPORT_FILTERS.find((f) => f.key === sportFilter)?.label.toLowerCase() ?? 'activities';
+  // Every row's shoe from one read of the shoe store per render, not a full recount per row.
+  const shoeInfoFor = createActivityShoeResolver();
 
   return (
     <div>
@@ -807,10 +911,10 @@ export default function Activities() {
       {/* Same workout stored twice (B18): merge or keep both */}
       <DuplicatesBanner onNotice={handleManaged} />
 
-      {/*
-        Filters. Gear mount point (deferred to 1.0.7): when Activities gets views, switch this area to
-        Tabs/TabPanel from components/ui with ?tab= in the URL and add a "Gear" tab. No placeholder until then.
-      */}
+      {/* Collapsible Shoe Rotation & Gear tracker */}
+      <ShoeGaragePanel onNotice={(msg) => setImportNote(msg)} />
+
+      {/* Sport & Hidden filters */}
       <div
         role="group"
         aria-label="Filter activities"
@@ -911,6 +1015,8 @@ export default function Activities() {
                   const topTier = recognition?.paceTier ?? recognition?.hrEfficiencyTier ?? null;
                   const cachedSplits = isRun ? getCachedSplitAnalysis(a.id) : null;
                   const metrics = getRowMetrics(a, maxHR);
+                  const runLabel = a.name || getSportLabel(a);
+                  const runShoeInfo = isRun && !a.hidden ? shoeInfoFor(a.id, extractActivityLocalDate(a)) : null;
 
                   return (
                     <li
@@ -968,7 +1074,7 @@ export default function Activities() {
                             <span aria-hidden="true" style={{ marginRight: '0.4rem' }}>
                               {getSportIcon(a)}
                             </span>
-                            {a.name || getSportLabel(a)}
+                            {runLabel}
                             {topTier && <TierDot tier={topTier} />}
                           </strong>
                           <div
@@ -984,6 +1090,7 @@ export default function Activities() {
                           >
                             <span>
                               {formatDate(a.start_date_local)} · {getSportLabel(a)}
+                              {runShoeInfo?.shoe ? ` · ${runShoeInfo.shoe.name}` : ''}
                             </span>
                             <SourceBadges activity={a} />
                             {cachedSplits && <SplitSummaryBadge analysis={cachedSplits} />}

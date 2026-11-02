@@ -5,7 +5,7 @@
  */
 import { getMyRace, type MyRace } from '../../services/myRace';
 import { getRaceDate } from '../../services/journey';
-import { getActivePlan } from '../../services/planProgress';
+import { getActivePlan, getActivePlanRaceDate } from '../../services/planProgress';
 import { getMarathon, getRaceDistanceMi, getStrategyById } from '../../services/raceStrategy';
 import { normalizeMarathonId } from '../../data/worldMajors';
 import { daysBetween, isDateKey, todayKey } from '../../utils/localDate';
@@ -43,13 +43,18 @@ export function defaultTabForDays(daysToRace: number | null): RaceDayTab {
 export interface RaceDayState {
   ctx: RaceDayContext;
   myRace: MyRace;
-  /** True when a training plan is active (the plan owns the race date). */
+  /** True when a training plan is active. */
   hasActivePlan: boolean;
+  /**
+   * v1.0.9: true when the active plan owns the race date (it has a race day). A
+   * base, recovery or maintenance block doesn't, so the My Race date stays editable.
+   */
+  planOwnsRaceDate: boolean;
   /** Where `ctx.raceDate` came from. */
   raceDateSource: 'plan' | 'my-race' | 'race' | null;
   /**
-   * With an active plan: the selected race's calendar date when it differs
-   * from the plan's race date (show a notice linking to the plan), else null.
+   * When the plan owns the race date: the selected race's calendar date when it
+   * differs from the plan's race date (show a notice linking to the plan), else null.
    */
   raceDateMismatch: { planDate: string; raceDate: string } | null;
   /** Where `ctx.goalTimeSec` came from. */
@@ -65,17 +70,18 @@ export function buildRaceDayState(today: string = todayKey()): RaceDayState {
   const myRace = getMyRace();
   const race = myRace.raceId ? (getMarathon(myRace.raceId) ?? null) : null;
   const hasActivePlan = getActivePlan() !== null;
+  const planOwnsRaceDate = getActivePlanRaceDate() !== null;
 
   const journeyDate = getRaceDate(); // plan race date → My Race date → null
   const raceEditionDate = race && isDateKey(race.date) ? race.date : null;
   let raceDate: string | null = journeyDate;
-  let raceDateSource: RaceDayState['raceDateSource'] = journeyDate ? (hasActivePlan ? 'plan' : 'my-race') : null;
+  let raceDateSource: RaceDayState['raceDateSource'] = journeyDate ? (planOwnsRaceDate ? 'plan' : 'my-race') : null;
   if (!raceDate && raceEditionDate) {
     raceDate = raceEditionDate;
     raceDateSource = 'race';
   }
   const raceDateMismatch =
-    hasActivePlan && journeyDate && raceEditionDate && journeyDate !== raceEditionDate
+    planOwnsRaceDate && journeyDate && raceEditionDate && journeyDate !== raceEditionDate
       ? { planDate: journeyDate, raceDate: raceEditionDate }
       : null;
 
@@ -117,6 +123,7 @@ export function buildRaceDayState(today: string = todayKey()): RaceDayState {
     },
     myRace,
     hasActivePlan,
+    planOwnsRaceDate,
     raceDateSource,
     raceDateMismatch,
     goalSource,

@@ -35,6 +35,21 @@ contextBridge.exposeInMainWorld('electronAPI', {
     /** Check if OS-level encryption is available */
     isAvailable: (): Promise<boolean> => ipcRenderer.invoke('secure-storage:is-available'),
   },
+  backupFolder: {
+    /** Read current synced-folder backup configuration and folder reachability */
+    getState: (): Promise<DesktopBackupFolderState> => ipcRenderer.invoke('backup:get-folder'),
+    /** Prompt the user to choose a synced backup folder via native OS dialog */
+    chooseFolder: (): Promise<{ canceled: boolean; error?: string; state: DesktopBackupFolderState }> =>
+      ipcRenderer.invoke('backup:choose-folder'),
+    /** Disconnect synced backup folder without deleting existing snapshot files */
+    clearFolder: (): Promise<DesktopBackupFolderState> => ipcRenderer.invoke('backup:clear-folder'),
+    /** Validate, gzip-compress, atomically write, and prune `.json.gz` snapshots in main process */
+    writeSnapshot: (
+      rawJson: string,
+      maxFiles?: number,
+    ): Promise<{ ok: boolean; error?: string; state: DesktopBackupFolderState }> =>
+      ipcRenderer.invoke('backup:write-folder-snapshot', rawJson, maxFiles),
+  },
   updater: {
     /** Get current update state */
     getState: (): Promise<UpdateState> => ipcRenderer.invoke('updater:get-state'),
@@ -79,6 +94,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     },
   },
 });
+
+interface DesktopBackupFolderState {
+  folderPath: string | null;
+  maxFiles: number;
+  lastSyncedAt: string | null;
+  lastFileName: string | null;
+  lastError: string | null;
+  folderReachable: boolean;
+}
 
 // Type used by the updater bridge (mirrors main process UpdateState)
 interface UpdateState {

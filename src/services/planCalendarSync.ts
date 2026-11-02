@@ -75,7 +75,7 @@ import {
 
 const STATE_KEY = 'apollo_icu_plan_push';
 const EXTERNAL_ID_PREFIX = 'apollo:';
-const EXTERNAL_ID_RE = /^apollo:(.+):(\d{4}-\d{2}-\d{2}):w(\d+)d([1-7])$/;
+const EXTERNAL_ID_RE = /^apollo:(.+):(\d{4}-\d{2}-\d{2}):w(\d+)d([1-7])(?::pm)?$/;
 const KM_PER_MILE = 1.609344;
 const METERS_PER_MILE = 1609.344;
 
@@ -727,6 +727,27 @@ export function buildPlanWorkouts(
       };
       if (kind !== 'cross') workout.target = 'PACE';
       out.push(workout);
+
+      if (day.secondary && day.secondary.distanceMi > 0) {
+        const pmKind: WorkoutKind = day.secondary.note === 'Recovery' ? 'recovery' : 'easy';
+        const pmDay: PlanDay = {
+          type: 'run',
+          label: day.secondary.label,
+          distanceMi: day.secondary.distanceMi,
+          note: day.secondary.note,
+        };
+        const pmSpec = buildSpec(pmDay, pmKind, ctx);
+        out.push({
+          external_id: `${planExternalId(plan.id, startDate, weekIndex, dayIndex)}:pm`,
+          date,
+          category: 'WORKOUT',
+          type: 'Run',
+          name: `PM ${pmSpec.name}`,
+          description: [pmSpec.note, ...pmSpec.sections.map((s) => renderSection(s, ctx.unit))].join('\n\n'),
+          moving_time: estimateSeconds(pmSpec.sections),
+          target: 'PACE',
+        });
+      }
     });
   });
   return out;

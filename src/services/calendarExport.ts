@@ -280,7 +280,12 @@ export function generateCalendarEvents(
   const from = exportFromDate(startDate, options);
 
   const workouts = buildPlanWorkouts(plan, startDate, { from, unit, paces, vdot: paces?.vdot ?? null });
-  const byDate = new Map(workouts.map((w) => [w.date, w]));
+  const byDate = new Map<string, PlannedWorkout[]>();
+  for (const w of workouts) {
+    const existing = byDate.get(w.date);
+    if (existing) existing.push(w);
+    else byDate.set(w.date, [w]);
+  }
 
   const events: CalendarEvent[] = [];
   plan.weeks.forEach((week, weekIndex) => {
@@ -288,19 +293,27 @@ export function generateCalendarEvents(
       const date = getDateKeyForDay(startDate, weekIndex, dayIndex);
       if (date < from) return;
       const weekNumber = weekIndex + 1;
-      const base = { uid: calendarEventUid(plan.id, startDate, date), date, weekNumber, dayOfWeek: dayIndex };
-      const workout = byDate.get(date);
-      if (workout) {
-        events.push({
-          ...base,
-          summary: workout.name,
-          description: workoutDescription(workout, weekNumber, plan),
-          durationMin: Math.max(1, Math.round(workout.moving_time / 60)),
-          kind: 'workout',
+      const dayWorkouts = byDate.get(date);
+      if (dayWorkouts && dayWorkouts.length > 0) {
+        dayWorkouts.forEach((workout, idx) => {
+          const uidDate = idx === 0 ? date : `${date}-pm${idx > 1 ? idx : ''}`;
+          events.push({
+            uid: calendarEventUid(plan.id, startDate, uidDate),
+            date,
+            weekNumber,
+            dayOfWeek: dayIndex,
+            summary: workout.name,
+            description: workoutDescription(workout, weekNumber, plan),
+            durationMin: Math.max(1, Math.round(workout.moving_time / 60)),
+            kind: 'workout',
+          });
         });
       } else if (day?.type === 'rest' && options.includeRestDays) {
         events.push({
-          ...base,
+          uid: calendarEventUid(plan.id, startDate, date),
+          date,
+          weekNumber,
+          dayOfWeek: dayIndex,
           summary: day.skipped ? 'Rest day (skipped workout)' : 'Rest day',
           description: restDescription(day, weekNumber, plan),
           durationMin: 0,

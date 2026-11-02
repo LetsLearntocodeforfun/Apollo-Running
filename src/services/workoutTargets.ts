@@ -136,14 +136,21 @@ const MAX_CONTINUOUS_THRESHOLD_MI = 3.5;
 /** Cruise intervals: 1-mile reps at threshold with a 1-minute jog, at most 6 reps. */
 const CRUISE_MAX_REPS = 6;
 const CRUISE_REST_SEC = 60;
+/**
+ * v1.0.9: a plan that names its own cruise intervals, e.g. Jack Daniels'
+ * "4 × 1 mi cruise intervals (T pace)". Daniels prescribes these himself, so
+ * they are the coach's shape, not Apollo's long-tempo conversion.
+ */
+const PLAN_CRUISE_RE = /(\d+)\s*[×x]\s*1\s*mi(?:le)?\s+cruise\s+intervals?\b/i;
 
 /** Structure of a tempo session, shared by Today and the watch push. */
 export interface TempoStructure {
   /**
-   * `threshold`: continuous at T pace; `cruise`: 1-mile reps at T pace (plans
-   * without a coach-specified shape); `first_short` / `first_mid`: FIRST's short /
-   * mid tempo; `progressive`: Hal Higdon's build-and-ease tempo; `continuous`:
-   * one continuous run, marathon pace then at most ~25 min at T (Nike).
+   * `threshold`: continuous at T pace; `cruise`: 1-mile reps at T pace (named by
+   * the plan, or a long tempo in a plan without a coach-specified shape);
+   * `first_short` / `first_mid`: FIRST's short / mid tempo; `progressive`: Hal
+   * Higdon's build-and-ease tempo; `continuous`: one continuous run, marathon
+   * pace then at most ~25 min at T (Nike).
    */
   style: 'threshold' | 'cruise' | 'first_short' | 'first_mid' | 'progressive' | 'continuous';
   /** Work pace (sec/mi), null without paces (progressive: about 10K pace for the middle block). */
@@ -153,6 +160,8 @@ export interface TempoStructure {
   repeats: number;
   /** Recovery jog between cruise reps (s); 0 for continuous tempos. */
   restSec: number;
+  /** `cruise`: true when the plan itself names the reps (kept at any pace). */
+  planReps?: boolean;
   /** `continuous`: miles at marathon pace before the threshold block. */
   mpMi?: number;
   /** `progressive`: minutes building up, near 10K pace, and easing back. */
@@ -192,6 +201,21 @@ export function getTempoStructure(
     };
   }
   const threshold = paces?.threshold ?? null;
+  // v1.0.9: the plan names its own cruise intervals (Daniels' "4 × 1 mi cruise
+  // intervals (T pace)"): keep its rep count at any pace, as speed sessions keep
+  // the plan's own reps (T-10), so Today and the watch match the plan's label.
+  const planCruise = PLAN_CRUISE_RE.exec(label);
+  if (planCruise && Number(planCruise[1]) > 0) {
+    const repeats = Number(planCruise[1]);
+    return {
+      style: 'cruise',
+      paceSecPerMi: threshold,
+      workMi: repeats,
+      repeats,
+      restSec: CRUISE_REST_SEC,
+      planReps: true,
+    };
+  }
   if (day?.tempoShape === 'progressive') {
     // Hal Higdon: easy start, build to about 10K pace in the middle, ease back down.
     const fromLabel = /(\d+)\s*min\s+tempo/i.exec(label);
@@ -602,37 +626,45 @@ function buildTempoTarget(paces: TrainingPaces, distanceMi?: number, day?: Targe
     return target;
   }
 
+  // v1.0.7 (T-4): a long tempo in a plan without a coach shape becomes cruise
+  // intervals (1-mile reps at T with 1-minute jogs, at most 6), not ~an hour of
+  // continuous threshold running. v1.0.9: a plan that names its own cruise
+  // intervals (Daniels) keeps its rep count, whatever the distance.
+  if (tempo.style === 'cruise') {
+    const warmupMi = 1;
+    const cooldownMi = 1;
+    const totalMi = distanceMi ?? tempo.repeats + warmupMi + cooldownMi;
+    const extraEasy = Math.max(0, totalMi - warmupMi - cooldownMi - tempo.repeats) / 2;
+    target.description =
+      `Cruise intervals at threshold pace — comfortably hard, with short jogs between reps. ` +
+      (tempo.planReps
+        ? `Keep every rep at the same controlled effort.`
+        : `Splitting a long tempo into 1-mile reps keeps the threshold work at the right effort.`);
+    target.intervals = [
+      {
+        workDurationMin: Math.round((paces.threshold / 60) * 10) / 10,
+        restDurationMin: tempo.restSec / 60,
+        targetPaceSecPerMi: paces.threshold,
+        repeats: tempo.repeats,
+        description:
+          `${fmtMi(warmupMi + extraEasy)}mi warmup → ${tempo.repeats}×1mi at tempo (1min jog) → ` +
+          `${fmtMi(cooldownMi + extraEasy)}mi cooldown`,
+      },
+    ];
+    target.expectedAveragePace = averageRange([
+      { mi: warmupMi + extraEasy, pace: easyMid(paces) },
+      { mi: tempo.repeats, pace: paces.threshold },
+      { sec: tempo.repeats * tempo.restSec, pace: jogPace(paces) },
+      { mi: cooldownMi + extraEasy, pace: easyMid(paces) },
+    ]);
+    return target;
+  }
+
   // For longer tempo runs (6+ mi), structure as tempo intervals with warmup/cooldown
   if (distanceMi && distanceMi >= 6) {
     const warmupMi = 1;
     const cooldownMi = 1;
     const tempoMi = distanceMi - warmupMi - cooldownMi;
-    if (tempo.style === 'cruise') {
-      // v1.0.7 (T-4): a long tempo becomes cruise intervals (1-mile reps at T with
-      // 1-minute jogs, at most 6), not ~an hour of continuous threshold running.
-      const extraEasy = Math.max(0, tempoMi - tempo.repeats) / 2;
-      target.description =
-        `Cruise intervals at threshold pace — comfortably hard, with short jogs between reps. ` +
-        `Splitting a long tempo into 1-mile reps keeps the threshold work at the right effort.`;
-      target.intervals = [
-        {
-          workDurationMin: Math.round((paces.threshold / 60) * 10) / 10,
-          restDurationMin: tempo.restSec / 60,
-          targetPaceSecPerMi: paces.threshold,
-          repeats: tempo.repeats,
-          description:
-            `${fmtMi(warmupMi + extraEasy)}mi warmup → ${tempo.repeats}×1mi at tempo (1min jog) → ` +
-            `${fmtMi(cooldownMi + extraEasy)}mi cooldown`,
-        },
-      ];
-      target.expectedAveragePace = averageRange([
-        { mi: warmupMi + extraEasy, pace: easyMid(paces) },
-        { mi: tempo.repeats, pace: paces.threshold },
-        { sec: tempo.repeats * tempo.restSec, pace: jogPace(paces) },
-        { mi: cooldownMi + extraEasy, pace: easyMid(paces) },
-      ]);
-      return target;
-    }
     const tempoMin = Math.round((tempoMi * paces.threshold) / 60);
     target.intervals = [
       {

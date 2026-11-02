@@ -329,6 +329,16 @@ describe('export → import round trip (V2, V3, U5)', () => {
     expect(persistence.getItem('apollo_plan')).toBe(JSON.stringify({ id: 'gz' }));
   });
 
+  it('v1.0.9: refuses to download current data while storage is degraded (it could be missing data)', async () => {
+    persistence.setItem('apollo_plan', JSON.stringify({ id: 'p' }));
+    markStorageDegraded('test');
+    await expect(downloadCurrentData()).rejects.toThrow(/Storage is unavailable/);
+    expect(captured).toBeNull();
+    clearStorageDegraded();
+    await downloadCurrentData();
+    expect(captured).not.toBeNull();
+  });
+
   it('refuses to import while storage is degraded', async () => {
     markStorageDegraded('test');
     const file = new File(

@@ -14,6 +14,7 @@
  */
 
 import type { TrainingPlan, PlanWeek } from '../data/plans';
+import { hasMarathonDay } from '../data/plans';
 import { persistence } from './db/persistence';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -155,10 +156,15 @@ export function analyzeWeek(week: PlanWeek): WeekProfile {
  * 3. Peak: highest-mileage weeks (typically 2-4 weeks)
  * 4. Build: weeks between base and peak with increasing quality workouts
  * 5. Base: early weeks with mostly easy running and gradual mileage increase
+ *
+ * v1.0.9: a plan without a `marathon` day (a base, recovery or maintenance block)
+ * builds to no race, so it has no taper or race week: the whole block is one base
+ * phase. Its highest weeks aren't "peak" race training either.
  */
 export function detectPhases(plan: TrainingPlan): TrainingPhase[] {
   const totalWeeks = plan.weeks.length;
   if (totalWeeks === 0) return [];
+  if (!hasMarathonDay(plan)) return [makePhase('base', 0, totalWeeks - 1)];
 
   const profiles = plan.weeks.map(analyzeWeek);
   const phases: TrainingPhase[] = [];

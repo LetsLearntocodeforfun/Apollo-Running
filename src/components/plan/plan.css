@@ -414,6 +414,9 @@
   margin: 0;
   padding: 0;
   border: 0;
+  max-height: 26rem;
+  overflow-y: auto;
+  padding-right: var(--space-1);
 }
 
 .plan-plan-picker legend {
@@ -423,11 +426,18 @@
   color: var(--text-secondary);
 }
 
+.plan-plan-option-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
 .plan-plan-option {
+  flex: 1;
   display: flex;
   align-items: flex-start;
   gap: var(--space-2);
-  min-height: 32px;
+  min-height: 36px;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -443,6 +453,18 @@
   margin-top: 0.2rem;
 }
 
+.plan-plan-option-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.plan-plan-option-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+}
+
 .plan-plan-option-name {
   font-weight: 600;
   color: var(--text);
@@ -450,8 +472,123 @@
 
 .plan-plan-option-meta {
   display: block;
+  margin-top: 2px;
   font-size: var(--text-xs);
   color: var(--text-muted);
+}
+
+/* ── Smart Plan Finder & Tags ──────────────────────────────────────────── */
+.plan-finder {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+}
+
+.plan-finder-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.plan-finder-search-wrap {
+  flex: 1 1 16rem;
+}
+
+.plan-finder-search,
+.plan-finder-select {
+  width: 100%;
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--border-input);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--text-sm);
+}
+
+.plan-finder-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.plan-finder-pill {
+  min-height: 32px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plan-finder-pill:hover {
+  border-color: var(--apollo-gold);
+  color: var(--text);
+}
+
+.plan-finder-pill--active {
+  border-color: var(--apollo-gold);
+  background: var(--apollo-gold-dim);
+  color: var(--apollo-gold);
+}
+
+.plan-finder-count {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.plan-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.plan-tag--match {
+  border-color: var(--apollo-gold);
+  background: var(--apollo-gold-dim);
+  color: var(--apollo-gold);
+}
+
+.plan-tag--doubles {
+  border-color: var(--apollo-teal);
+  background: var(--apollo-teal-dim);
+  color: var(--apollo-teal);
+}
+
+.plan-tag--time {
+  border-color: var(--color-info);
+  background: var(--color-info-dim);
+  color: var(--text);
+}
+
+.plan-tag--imported {
+  border-color: var(--apollo-orange);
+  background: var(--apollo-orange-dim);
+  color: var(--apollo-orange);
+}
+
+.plan-chooser-desc {
+  margin: var(--space-3) 0 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
 }
 
 /* ── Plan source note (v1.0.7): fidelity, official links, independence ── */
@@ -497,6 +634,12 @@
 .plan-fidelity-representative {
   border-color: var(--color-warning);
   background: var(--color-warning-dim);
+}
+
+/* v1.0.9: plans designed by Apollo itself (no coach's published plan behind them). */
+.plan-fidelity-original {
+  border-color: var(--accent);
+  background: var(--accent-dim);
 }
 
 .plan-source-links {

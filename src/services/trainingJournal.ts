@@ -114,10 +114,20 @@ export function deleteJournalEntry(date: string): void {
   saveJournalStore(store);
 }
 
+/**
+ * Get all stored journal entries sorted newest first, regardless of whether the
+ * journal UI toggle is currently enabled (so historical entries can always be exported).
+ */
+export function getAllStoredJournalEntries(): JournalEntry[] {
+  return Object.values(getJournalStore())
+    .filter((e): e is JournalEntry => !!e && typeof e === 'object' && typeof e.date === 'string')
+    .sort((a, b) => b.date.localeCompare(a.date));
+}
+
 /** Get all journal entries sorted by date descending */
 export function getAllJournalEntries(): JournalEntry[] {
   if (!isJournalEnabled()) return [];
-  return Object.values(getJournalStore()).sort((a, b) => b.date.localeCompare(a.date));
+  return getAllStoredJournalEntries();
 }
 
 /** Get recent journal entries */

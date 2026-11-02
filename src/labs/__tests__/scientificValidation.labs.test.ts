@@ -454,11 +454,12 @@ describe('Aerobic Decoupling — Scientific Validation', () => {
     const result = calculateDecoupling(splits, 12, 1, '2025-01-01');
     expect(result).not.toBeNull();
     expect(Math.abs(result!.decouplingPct)).toBeLessThan(1);
+    expect(result!.efFirstHalf).toBeCloseTo(1.341, 2);
     expect(result!.rating).toBe('excellent');
   });
 
-  it('moderate cardiac drift = ~7% decoupling (adequate per Friel)', () => {
-    // Second half: HR rises 7% while pace stays same
+  it('moderate cardiac drift = ~6.25% decoupling (moderate per Friel)', () => {
+    // Second half: HR rises from 150 to 160 while pace stays constant (EF drops 6.25%)
     const splits = [
       ...Array(6)
         .fill(0)
@@ -469,12 +470,11 @@ describe('Aerobic Decoupling — Scientific Validation', () => {
     ];
     const result = calculateDecoupling(splits, 12, 2, '2025-01-01');
     expect(result).not.toBeNull();
-    expect(result!.decouplingPct).toBeGreaterThanOrEqual(4);
-    expect(result!.decouplingPct).toBeLessThanOrEqual(10);
-    expect(result!.rating).toBe('adequate');
+    expect(result!.decouplingPct).toBeCloseTo(6.25, 1);
+    expect(result!.rating).toBe('moderate');
   });
 
-  it('severe drift produces needs_work rating (>10%)', () => {
+  it('severe cardiac drift produces high rating (> 8%)', () => {
     const splits = [
       ...Array(6)
         .fill(0)
@@ -486,7 +486,24 @@ describe('Aerobic Decoupling — Scientific Validation', () => {
     const result = calculateDecoupling(splits, 12, 3, '2025-01-01');
     expect(result).not.toBeNull();
     expect(result!.decouplingPct).toBeGreaterThan(10);
-    expect(result!.rating).toBe('needs_work');
+    expect(result!.rating).toBe('high');
+  });
+
+  it('slowing pace with steady/rising HR produces positive Pa:HR drift (A-02 regression)', () => {
+    // Halves split by moving time (3,060 s each): half 1 = miles 1-6 at 8:00/mi @ 150 bpm plus 3 min of mile 7
+    // (EF1 = 1.330); half 2 = 9:00/mi @ 155 bpm (EF2 = 1.154) -> +13.24% drift
+    const splits = [
+      ...Array(6)
+        .fill(0)
+        .map((_, i) => ({ mile: i + 1, paceSec: 480, avgHR: 150 })),
+      ...Array(6)
+        .fill(0)
+        .map((_, i) => ({ mile: i + 7, paceSec: 540, avgHR: 155 })),
+    ];
+    const result = calculateDecoupling(splits, 12, 6, '2025-01-02');
+    expect(result).not.toBeNull();
+    expect(result!.decouplingPct).toBeGreaterThan(13);
+    expect(result!.rating).toBe('high');
   });
 
   it('rejects short runs (< 8 miles)', () => {

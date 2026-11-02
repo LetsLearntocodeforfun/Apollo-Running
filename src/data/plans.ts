@@ -13,8 +13,33 @@
  */
 
 import { persistence } from '../services/db/persistence';
+import { EXPANDED_MARATHON_PLANS, SUPPLEMENTAL_PLANS } from './planLibrary';
+
+export { SUPPLEMENTAL_PLANS };
 
 export type DayType = 'rest' | 'run' | 'cross' | 'race' | 'marathon';
+
+/** Optional PM secondary session for high-mileage double days (e.g. Pfitzinger 18/70, 18/85, Norwegian). */
+export interface PlanSecondarySession {
+  label: string;
+  distanceMi: number;
+  note: 'Recovery' | 'Easy';
+  durationMin?: number;
+}
+
+export type PlanTier = 'beginner' | 'intermediate' | 'advanced' | 'elite' | 'specialty';
+
+export type PlanCategory =
+  | 'first-marathon'
+  | 'classic-build'
+  | 'high-volume'
+  | 'low-days'
+  | 'threshold-doubles'
+  | 'bq-performance'
+  | 'masters-longevity'
+  | 'time-run-walk'
+  | 'multi-marathon'
+  | 'base-recovery';
 
 export interface PlanDay {
   type: DayType;
@@ -41,6 +66,12 @@ export interface PlanDay {
    * Without it, long tempos become cruise intervals (custom plans).
    */
   tempoShape?: 'progressive' | 'continuous';
+  /** Optional PM recovery/easy double session. `distanceMi` stays the primary AM session so watch targets stay accurate. */
+  secondary?: PlanSecondarySession;
+  /** Optional duration target in minutes (for time-based and run-walk plans). */
+  durationMin?: number;
+  /** Optional run/walk cadence note (e.g. "4 min run / 1 min walk"). */
+  runWalkRatio?: string;
 }
 
 export interface PlanWeek {
@@ -61,15 +92,26 @@ export interface TrainingPlan {
   attribution?: PlanAttribution;
   /** v1.0.7 (T-8): honest notes from the custom builder (long-run caps, timeline too short). */
   buildNotices?: CustomPlanNotice[];
+  /** Experience / purpose tier for Smart Plan Finder filtering. */
+  tier?: PlanTier;
+  /** Primary methodology / goal category. */
+  category?: PlanCategory;
+  /** Searchable / display tags. */
+  tags?: string[];
+  /** True when the plan prioritizes duration / run-walk caps. */
+  isTimeBased?: boolean;
+  /** True when peak weeks include AM/PM double sessions. */
+  hasDoubles?: boolean;
 }
 
 /**
  * How closely Apollo's version of a plan follows the coach's published plan (v1.0.7):
  * - `published-schedule`: the same weekly structure and distances as the coach's published schedule;
  * - `method`: generated from the method's published principles (not a copy of its tables);
- * - `representative`: a simplified plan in the style of the original (some elements missing).
+ * - `representative`: a simplified plan in the style of the original (some elements missing);
+ * - `original` (v1.0.9): designed by Apollo itself, following no coach's published plan.
  */
-export type PlanFidelity = 'published-schedule' | 'method' | 'representative';
+export type PlanFidelity = 'published-schedule' | 'method' | 'representative' | 'original';
 
 /** An official place to get the coach's own plan or guidance. */
 export interface PlanSource {
@@ -94,7 +136,32 @@ export const PLAN_FIDELITY_LABEL: Record<PlanFidelity, string> = {
   'published-schedule': 'Follows the published schedule',
   method: 'Built from the published method',
   representative: 'Simplified version',
+  original: 'Designed by Apollo',
 };
+
+/**
+ * v1.0.9: id prefix of plans imported from `.apollo-plan.json` files (see
+ * planImportExport.ts). Built-in and custom plan ids never start with it.
+ */
+export const IMPORTED_PLAN_ID_PREFIX = 'imported-';
+
+/** v1.0.9: author recorded for an imported plan whose file doesn't list one. */
+export const IMPORTED_PLAN_UNKNOWN_AUTHOR = 'Unknown author';
+
+/** v1.0.9: true for the id of a plan imported from a plan file. */
+export function isImportedPlanId(id: unknown): boolean {
+  return typeof id === 'string' && id.startsWith(IMPORTED_PLAN_ID_PREFIX);
+}
+
+/**
+ * v1.0.9: badge label for how closely a plan follows its source (PlanSourceNote),
+ * or null without an attribution. An imported plan is labeled as imported: Apollo
+ * can't tell how closely it follows anyone's plan.
+ */
+export function planFidelityLabel(plan: Pick<TrainingPlan, 'attribution'> & { id?: string }): string | null {
+  if (isImportedPlanId(plan.id)) return 'Imported plan';
+  return plan.attribution ? PLAN_FIDELITY_LABEL[plan.attribution.fidelity] : null;
+}
 
 /**
  * Shown wherever coach plans are listed (v1.0.7). Coach and brand names say
@@ -106,8 +173,18 @@ export const PLAN_INDEPENDENCE_NOTICE =
   'or brand made, licensed or endorses Apollo’s version. For the official plan and full coaching, ' +
   'use the links to the coach’s own website, book or app.';
 
-/** One line for plan lists and headers, e.g. "Follows Hal Higdon’s published schedule". */
-export function planAttributionLine(plan: Pick<TrainingPlan, 'author' | 'attribution'>): string {
+/**
+ * One line for plan lists and headers, e.g. "Follows Hal Higdon’s published schedule".
+ * v1.0.9: an imported plan says so plainly — "Imported, not verified by Apollo",
+ * with the author its file lists quoted as listed (never as a coach's own plan).
+ */
+export function planAttributionLine(plan: Pick<TrainingPlan, 'author' | 'attribution'> & { id?: string }): string {
+  if (isImportedPlanId(plan.id)) {
+    const listed = typeof plan.author === 'string' ? plan.author.trim() : '';
+    return listed && listed !== IMPORTED_PLAN_UNKNOWN_AUTHOR
+      ? `Imported, not verified by Apollo · author listed as “${listed}”`
+      : 'Imported, not verified by Apollo';
+  }
   const a = plan.attribution;
   if (!a) return plan.author;
   switch (a.fidelity) {
@@ -115,6 +192,8 @@ export function planAttributionLine(plan: Pick<TrainingPlan, 'author' | 'attribu
       return `Follows ${a.coach}’s published schedule`;
     case 'method':
       return `Built from the ${a.coach} method`;
+    case 'original':
+      return `Designed by ${a.coach}`;
     case 'representative':
     default:
       return `Inspired by ${a.coach} (simplified)`;
@@ -139,6 +218,10 @@ export interface CustomPlanBuilderInput {
   longestRecentRunMi?: number | null;
   /** v1.0.7 (T-8): easy pace (sec/mi) for the ~3.5 h long-run cap; defaults to 10:30/mi. */
   easyPaceSecPerMi?: number | null;
+  /** Add PM recovery doubles on peak weeks (≥ 55 mpw) so primary runs stay comfortable. */
+  enableDoubles?: boolean;
+  /** Annotate run days with estimated minutes based on easy pace. */
+  isTimeBased?: boolean;
 }
 
 /** Workout types available for custom plan day assignment */
@@ -146,6 +229,7 @@ export type CustomDayType = 'easy' | 'long' | 'tempo' | 'speed' | 'marathon_pace
 
 export const CUSTOM_PLAN_ID = 'custom-built-marathon-plan';
 const CUSTOM_PLAN_STORAGE_KEY = 'apollo_custom_marathon_plan';
+const IMPORTED_PLANS_STORAGE_KEY = 'apollo_imported_plans';
 
 /** Canonical workout kind of a plan day (v1.0.6). */
 export type PlanWorkoutKind =
@@ -349,7 +433,7 @@ function buildHansonsBeginner(): TrainingPlan {
   });
   return {
     id: 'hansons-beginner',
-    name: 'Beginner (Just Finish)',
+    name: 'Beginner',
     author: 'Hansons',
     description:
       'Based on the Hansons Marathon Method beginner program. Six days of running with Wednesday off, and the long run caps at 16 miles. Speed work comes first, then strength, plus a Thursday tempo at goal marathon pace. It builds cumulative fatigue and ends with a ~10-day taper.',
@@ -823,6 +907,38 @@ FIRST.attribution = {
   sources: [{ label: 'FIRST at Furman University', url: 'https://www.furman.edu/first/', kind: 'website' }],
 };
 
+HAL_HIGDON_NOVICE_1.tier = 'beginner';
+HAL_HIGDON_NOVICE_1.category = 'first-marathon';
+HAL_HIGDON_NOVICE_1.tags = ['4-days', 'first-timers', 'cross-training'];
+
+HAL_HIGDON_NOVICE_2.tier = 'beginner';
+HAL_HIGDON_NOVICE_2.category = 'first-marathon';
+HAL_HIGDON_NOVICE_2.tags = ['4-days', 'pace-runs', 'step-up'];
+
+HANSONS_BEGINNER.tier = 'intermediate';
+HANSONS_BEGINNER.category = 'classic-build';
+HANSONS_BEGINNER.tags = ['6-days', '16-mi-cap', 'cumulative-fatigue'];
+
+HAL_HIGDON_INTERMEDIATE_1.tier = 'intermediate';
+HAL_HIGDON_INTERMEDIATE_1.category = 'classic-build';
+HAL_HIGDON_INTERMEDIATE_1.tags = ['5-days', 'pace-runs', 'two-20-milers'];
+
+HAL_HIGDON_ADVANCED_1.tier = 'advanced';
+HAL_HIGDON_ADVANCED_1.category = 'classic-build';
+HAL_HIGDON_ADVANCED_1.tags = ['6-days', 'hills-tempo-800s', 'pr-focused'];
+
+PFITZINGER_18_55.tier = 'advanced';
+PFITZINGER_18_55.category = 'classic-build';
+PFITZINGER_18_55.tags = ['5-days', '55-mpw', 'medium-long-runs'];
+
+NIKE_RUN_CLUB.tier = 'intermediate';
+NIKE_RUN_CLUB.category = 'classic-build';
+NIKE_RUN_CLUB.tags = ['5-days', 'speed-and-tempo', 'digital-guided'];
+
+FIRST.tier = 'intermediate';
+FIRST.category = 'low-days';
+FIRST.tags = ['3-days', 'cross-training', 'run-less-run-faster'];
+
 export const BUILT_IN_PLANS: TrainingPlan[] = [
   HAL_HIGDON_NOVICE_1,
   HAL_HIGDON_NOVICE_2,
@@ -832,7 +948,17 @@ export const BUILT_IN_PLANS: TrainingPlan[] = [
   PFITZINGER_18_55,
   NIKE_RUN_CLUB,
   FIRST,
+  ...EXPANDED_MARATHON_PLANS,
 ];
+
+/** Complete built-in library: all marathon plans plus base & post-marathon recovery blocks. */
+export const ALL_BUILT_IN_PLANS: TrainingPlan[] = [...BUILT_IN_PLANS, ...SUPPLEMENTAL_PLANS];
+
+/** Total planned distance for a day, including an optional PM double session. */
+export function dayTotalMiles(day: PlanDay | null | undefined): number {
+  if (!day) return 0;
+  return (day.distanceMi ?? 0) + (day.secondary?.distanceMi ?? 0);
+}
 
 /** Long-run day to keep when several days are marked 'long': Sunday, then Saturday, then the last. */
 function pickLongDay(candidates: number[]): number {
@@ -862,11 +988,24 @@ function buildCustomRaceWeek(runDays: number[], crossDays: Set<number>, training
   return days;
 }
 
+/**
+ * v1.0.9: optional PM recovery doubles of the custom builder (`enableDoubles`). A
+ * week whose target is at least `CUSTOM_DOUBLES_MIN_WEEK_MI` gets one PM run of
+ * `CUSTOM_DOUBLE_PM_MI` on its first easy or tempo day, and a second one from
+ * `CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI`; the PM miles come out of the week's easy
+ * runs. The last two weeks never get doubles. The number of run days isn't checked.
+ */
+export const CUSTOM_DOUBLES_MIN_WEEK_MI = 55;
+/** Weekly target (mi) from which a second PM double is added. */
+export const CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI = 75;
+/** Distance of each PM recovery double (mi). */
+export const CUSTOM_DOUBLE_PM_MI = 4;
+
 export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): TrainingPlan {
   const totalWeeks = clamp(Math.round(input.totalWeeks), 10, 30);
-  const runningDays = clamp(Math.round(input.runningDays), 3, 6);
-  const baseMiles = clamp(input.currentWeeklyMiles, 8, 80);
-  const peakMiles = clamp(Math.max(input.peakWeeklyMiles, baseMiles + 4), baseMiles + 4, 90);
+  const runningDays = clamp(Math.round(input.runningDays), 3, 7);
+  const baseMiles = clamp(input.currentWeeklyMiles, 8, 90);
+  const peakMiles = clamp(Math.max(input.peakWeeklyMiles, baseMiles + 4), baseMiles + 4, 110);
   const raceWeek = totalWeeks - 1;
   /** Last build week: the peak long run lands 3 weeks before race week (V10). */
   const lastBuildWeek = totalWeeks - 4;
@@ -877,6 +1016,7 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     4: [1, 2, 4, 6],
     5: [1, 2, 3, 5, 6],
     6: [0, 1, 2, 3, 5, 6],
+    7: [0, 1, 2, 3, 4, 5, 6],
   };
 
   // Build the ordered run-day list and per-day workout types
@@ -945,11 +1085,15 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
   /** Longest run so far: the 30-day longest when known; the plan's own long runs after that. */
   let longestSoFar = limits.recentLongestMi;
   let growthLimited = false;
+  let anyDoublesAdded = false;
 
   const qualityTypes: CustomDayType[] = ['tempo', 'speed', 'marathon_pace'];
   const qualityCount = runDays.filter((d) => qualityTypes.includes(dayTypes[d])).length;
   const medLongCount = runDays.filter((d) => dayTypes[d] === 'medium_long').length;
   const easyCount = runDays.filter((d) => dayTypes[d] === 'easy').length;
+  const paceMinPerMi =
+    (input.easyPaceSecPerMi && input.easyPaceSecPerMi > 240 ? input.easyPaceSecPerMi : DEFAULT_EASY_PACE_SEC_PER_MI) /
+    60;
   // v1.0.7 (T-11): the optional marathon-pace finish is set by withCustomMpFinish() below.
 
   const weeks: PlanWeek[] = [];
@@ -977,7 +1121,15 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     weekMiles = roundToTenth(weekMiles);
 
     if (w === raceWeek) {
-      weeks.push({ weekNumber: w + 1, days: buildCustomRaceWeek(runDays, crossDays, weekMiles) });
+      const rwDays = buildCustomRaceWeek(runDays, crossDays, weekMiles);
+      if (input.isTimeBased) {
+        for (const rd of rwDays) {
+          if (rd.type === 'run' && rd.distanceMi) {
+            rd.durationMin = Math.max(20, Math.round(rd.distanceMi * paceMinPerMi));
+          }
+        }
+      }
+      weeks.push({ weekNumber: w + 1, days: rwDays });
       continue;
     }
 
@@ -993,9 +1145,20 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     }
     const longMiles = Math.max(2, Math.min(roundHalf(longRaw), floorHalf(longCap)));
     longestSoFar = Math.max(longestSoFar ?? 0, longMiles);
+
+    // Optional PM recovery doubles on high-mileage build weeks
+    const doubleCandidates = runDays.filter((d) => dayTypes[d] === 'easy' || dayTypes[d] === 'tempo');
+    const maxDoubleDays =
+      input.enableDoubles && w < raceWeek - 1 && weekMiles >= CUSTOM_DOUBLES_MIN_WEEK_MI && doubleCandidates.length > 0
+        ? Math.min(doubleCandidates.length, weekMiles >= CUSTOM_DOUBLES_TWO_DAYS_WEEK_MI ? 2 : 1)
+        : 0;
+    const pmPerDouble = CUSTOM_DOUBLE_PM_MI;
+    const totalPmMiles = maxDoubleDays * pmPerDouble;
+
     const qualityMiles = roundHalf(clamp(weekMiles * 0.16, 3, 10));
     const medLongMiles = roundHalf(Math.min(clamp(weekMiles * 0.2, 5, 14), Math.max(longMiles, 5)));
-    const remainingMiles = weekMiles - longMiles - qualityMiles * qualityCount - medLongMiles * medLongCount;
+    const remainingMiles =
+      weekMiles - longMiles - qualityMiles * qualityCount - medLongMiles * medLongCount - totalPmMiles;
     // Round easy days down so the week never exceeds its target volume.
     // v1.0.7: and keep them shorter than the long run (3-day plans put most of the week on two easy days).
     const easyMiles = Math.min(
@@ -1027,6 +1190,31 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
       }
     }
 
+    if (maxDoubleDays > 0) {
+      for (let i = 0; i < maxDoubleDays; i++) {
+        const targetIdx = doubleCandidates[i];
+        days[targetIdx] = {
+          ...days[targetIdx],
+          secondary: {
+            label: `${pmPerDouble} mi PM recovery`,
+            distanceMi: pmPerDouble,
+            note: 'Recovery',
+            ...(input.isTimeBased ? { durationMin: Math.round(pmPerDouble * paceMinPerMi) } : {}),
+          },
+        };
+        anyDoublesAdded = true;
+      }
+    }
+
+    if (input.isTimeBased) {
+      for (let d = 0; d < 7; d++) {
+        const pd = days[d];
+        if (pd.type === 'run' && pd.distanceMi) {
+          days[d] = { ...pd, durationMin: Math.max(20, Math.round(pd.distanceMi * paceMinPerMi)) };
+        }
+      }
+    }
+
     weeks.push({ weekNumber: w + 1, days });
   }
 
@@ -1048,10 +1236,13 @@ export function createCustomPlanFromScratch(input: CustomPlanBuilderInput): Trai
     name: input.name.trim() || 'Custom Marathon Plan',
     author: 'You + Apollo Builder',
     description:
-      `Built from scratch for ${runDays.length} running days/week, starting near ${baseMiles} mpw and peaking around ${peakMiles} mpw. ` +
+      `Built from scratch for ${runDays.length} running days/week${anyDoublesAdded ? ' with peak-block PM recovery doubles' : ''}, ` +
+      `starting near ${baseMiles} mpw and peaking around ${peakMiles} mpw. ` +
       `Long runs build to ${peakLong} mi (the last one 3 weeks before race day), followed by a 3-week taper.`,
     totalWeeks,
     weeks,
+    ...(anyDoublesAdded ? { hasDoubles: true } : {}),
+    ...(input.isTimeBased ? { isTimeBased: true } : {}),
     ...(buildNotices.length > 0 ? { buildNotices } : {}),
   });
 }
@@ -1195,21 +1386,117 @@ export function describeCustomPlanNotice(
   );
 }
 
-/** Training miles of a plan week (race days excluded). */
-function weekTrainingMiles(week: PlanWeek): number {
-  return week.days.reduce((sum, d) => sum + (d.type === 'run' ? (d.distanceMi ?? 0) : 0), 0);
+/** Training miles of a plan week (race days excluded; includes PM doubles). */
+export function weekTrainingMiles(week: PlanWeek): number {
+  return week.days.reduce((sum, d) => sum + (d.type === 'run' ? dayTotalMiles(d) : 0), 0);
+}
+
+/** Computed summary statistics for Smart Plan Finder cards and filters. */
+export interface PlanStats {
+  entryMiles: number;
+  peakMiles: number;
+  longestRunMi: number;
+  minRunDays: number;
+  maxRunDays: number;
+  avgRunDays: number;
+  hasDoubles: boolean;
+  isMarathonPlan: boolean;
+}
+
+export function getPlanStats(plan: TrainingPlan): PlanStats {
+  const entryWeeks = plan.weeks.slice(0, Math.min(3, plan.weeks.length));
+  const entryMiles = roundToTenth(
+    entryWeeks.reduce((s, w) => s + weekTrainingMiles(w), 0) / Math.max(1, entryWeeks.length),
+  );
+  const peakMiles = roundToTenth(Math.max(0, ...plan.weeks.map(weekTrainingMiles)));
+  let longestRunMi = 0;
+  let hasDoubles = Boolean(plan.hasDoubles);
+  let isMarathonPlan = false;
+  const runCounts: number[] = [];
+
+  for (const week of plan.weeks) {
+    let count = 0;
+    for (const d of week.days) {
+      if (d.type === 'run' || d.type === 'race' || d.type === 'marathon') count++;
+      if (d.type === 'marathon') isMarathonPlan = true;
+      if (d.type === 'run' && (d.distanceMi ?? 0) > longestRunMi) longestRunMi = d.distanceMi ?? 0;
+      if (d.secondary && d.secondary.distanceMi > 0) hasDoubles = true;
+    }
+    runCounts.push(count);
+  }
+
+  const minRunDays = runCounts.length > 0 ? Math.min(...runCounts) : 0;
+  const maxRunDays = runCounts.length > 0 ? Math.max(...runCounts) : 0;
+  const avgRunDays = runCounts.length > 0 ? roundToTenth(runCounts.reduce((a, b) => a + b, 0) / runCounts.length) : 0;
+
+  return {
+    entryMiles,
+    peakMiles,
+    longestRunMi,
+    minRunDays,
+    maxRunDays,
+    avgRunDays,
+    hasDoubles,
+    isMarathonPlan,
+  };
+}
+
+/**
+ * v1.0.9: true when the plan has a `marathon` day (its race day). Base, recovery
+ * and maintenance blocks have none, so they never get a race date or race week.
+ */
+export function hasMarathonDay(plan: Pick<TrainingPlan, 'weeks'>): boolean {
+  return plan.weeks.some((week) => (week?.days ?? []).some((d) => d?.type === 'marathon'));
+}
+
+/**
+ * v1.0.9: a plan Apollo may suggest to a runner: it builds to a marathon (has a
+ * `marathon` day) and is neither a multi-marathon bridge (which assumes a
+ * marathon was just run) nor a base or recovery block.
+ */
+export function isMarathonBuildPlan(plan: Pick<TrainingPlan, 'weeks' | 'category'>): boolean {
+  if (plan.category === 'multi-marathon' || plan.category === 'base-recovery') return false;
+  return hasMarathonDay(plan);
+}
+
+/** Lower-case text plan search looks in: name, author, coach, tags and category (+ "doubles"). */
+function planSearchText(plan: TrainingPlan): string {
+  return [
+    plan.name,
+    plan.author,
+    plan.attribution?.coach,
+    ...(plan.tags ?? []),
+    plan.category,
+    plan.hasDoubles ? 'doubles' : undefined,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' ')
+    .toLowerCase();
+}
+
+/**
+ * v1.0.9: tokenized, case-insensitive plan search. Every word of `query` must
+ * appear in the plan's name, author, coach, tags or category (AND), so
+ * "Daniels 2Q" and "pfitzinger 18" find those plans. A blank query matches all.
+ */
+export function planMatchesSearch(plan: TrainingPlan, query: string): boolean {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const text = planSearchText(plan);
+  return tokens.every((token) => text.includes(token));
 }
 
 /**
  * Rank built-in plans for a runner (V21). Entry fit compares current weekly miles
  * with the plan's weeks 1–3: starting well above current volume costs more than
  * starting below it. Plans peaking above ~3× current volume are penalised as too
- * steep a ramp.
+ * steep a ramp. v1.0.9: only marathon-build plans are ranked (see
+ * {@link isMarathonBuildPlan}); multi-marathon bridges and blocks stay in their own filters.
  */
 export function suggestPlansForRunner(weeklyMiles: number, runningDays: number): PlanRecommendation[] {
   const miles = clamp(weeklyMiles, 0, 120);
   const days = clamp(runningDays, 1, 7);
-  const plans = BUILT_IN_PLANS;
+  const plans = BUILT_IN_PLANS.filter(isMarathonBuildPlan);
   const scored = plans.map((plan): PlanRecommendation => {
     const entryWeeks = plan.weeks.slice(0, 3);
     const entry = roundToTenth(
@@ -1265,11 +1552,53 @@ export function setCustomPlan(plan: TrainingPlan | null): void {
   writeStorage(CUSTOM_PLAN_STORAGE_KEY, plan);
 }
 
+/** Community / user-imported plans saved from `.apollo-plan.json` files. */
+export function getImportedPlans(): TrainingPlan[] {
+  const stored = readStorage<TrainingPlan[]>(IMPORTED_PLANS_STORAGE_KEY);
+  if (!Array.isArray(stored)) return [];
+  return stored.filter((p) => p && typeof p.id === 'string' && Array.isArray(p.weeks));
+}
+
+export function saveImportedPlan(plan: TrainingPlan): TrainingPlan {
+  // v1.0.9: importing never replaces a plan. A taken id (imported, built-in or
+  // custom) gets the first free `-2`, `-3`, … suffix, and a name another imported
+  // plan already uses gets a matching " (2)", " (3)", … so both stay recognisable.
+  const existing = getImportedPlans();
+  const takenIds = new Set([CUSTOM_PLAN_ID, ...ALL_BUILT_IN_PLANS.map((p) => p.id), ...existing.map((p) => p.id)]);
+  let id = plan.id;
+  for (let n = 2; takenIds.has(id); n++) id = `${plan.id}-${n}`;
+  const nameKey = (name: string) => name.trim().toLowerCase();
+  const takenNames = new Set(existing.map((p) => nameKey(String(p.name ?? ''))));
+  let name = plan.name;
+  for (let n = 2; takenNames.has(nameKey(name)); n++) name = `${plan.name} (${n})`;
+  const saved: TrainingPlan = id === plan.id && name === plan.name ? plan : { ...plan, id, name };
+  writeStorage(IMPORTED_PLANS_STORAGE_KEY, [...existing, saved]);
+  return saved;
+}
+
+/** Storage key of the active plan (owned by planProgress.ts; read here so the active plan is never deleted). */
+const ACTIVE_PLAN_STORAGE_KEY = 'apollo_active_plan';
+
+/**
+ * Remove an imported plan. v1.0.9: returns false and changes nothing when the
+ * plan isn't stored or is the active plan (switch to another plan first).
+ */
+export function deleteImportedPlan(id: string): boolean {
+  const stored = getImportedPlans();
+  if (!stored.some((p) => p.id === id)) return false;
+  if (readStorage<{ planId?: unknown }>(ACTIVE_PLAN_STORAGE_KEY)?.planId === id) return false;
+  const next = stored.filter((p) => p.id !== id);
+  writeStorage(IMPORTED_PLANS_STORAGE_KEY, next.length > 0 ? next : null);
+  return true;
+}
+
 export function getPlanById(id: string): TrainingPlan | undefined {
   const builtIn = BUILT_IN_PLANS.find((p) => p.id === id);
   if (builtIn) return builtIn;
+  const supplemental = SUPPLEMENTAL_PLANS.find((p) => p.id === id);
+  if (supplemental) return supplemental;
   if (id === CUSTOM_PLAN_ID) return getCustomPlan() ?? undefined;
-  return undefined;
+  return getImportedPlans().find((p) => p.id === id);
 }
 
 /** All plan days in order for progress keying: planId -> weekIndex -> dayIndex (0–6). */
@@ -1295,10 +1624,10 @@ export function getPlanOverview(plan: TrainingPlan): PlanWeekSummary[] {
     let totalMiles = 0;
     let longRunMiles = 0;
     for (const day of week.days) {
-      const mi = day.distanceMi ?? 0;
-      totalMiles += mi;
+      totalMiles += dayTotalMiles(day);
+      const primaryMi = day.distanceMi ?? 0;
       if (day.type === 'run' || day.type === 'race' || day.type === 'marathon') {
-        if (mi > longRunMiles) longRunMiles = mi;
+        if (primaryMi > longRunMiles) longRunMiles = primaryMi;
       }
     }
     return {

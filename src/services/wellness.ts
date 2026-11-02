@@ -387,6 +387,12 @@ export function getWellnessRange(from: string, to: string): WellnessRecord[] {
     .map((d) => ({ ...store[d] }));
 }
 
+/** Every stored wellness record on this device, oldest first. */
+export function getAllWellnessRecords(): WellnessRecord[] {
+  const store = readStore();
+  return storedDates(store).map((d) => ({ ...store[d] }));
+}
+
 /** Sync bookkeeping plus how much data is stored. */
 export function getWellnessSyncState(): WellnessSyncState {
   const state = readState();

@@ -19,11 +19,22 @@
 
 ---
 
+## User Guides & Documentation
+
+New to Apollo or planning your next marathon build? Start here:
+
+- **[Illustrated Quick-Start Guide](docs/QUICK_START_GUIDE.md)** — Local-first overview, desktop vs. browser comparison, 5-step onboarding walkthrough, Garmin / `intervals.icu` / offline `.fit`–`.zip` setup, and an illustrated visual tour of every screen.
+- **[Training Program Guide](docs/TRAINING_PROGRAM_GUIDE.md)** — In-depth coaching manual covering macrocycle periodization, all **33 built-in plans** (29 marathon + 4 base/recovery blocks), VDOT & 5-zone HR calibration, `CTL`/`ATL`/`TSB` form management, `Pa:HR` & Efficiency Factor durability, shoe rotation, taper, race-day fueling, and post-marathon reverse taper.
+- **[Step-by-Step Install Guide](docs/INSTALL.md)** — Plain-English installation for Windows, macOS, Linux, and browser mode, plus SHA-256 & Sigstore verification.
+
+---
+
 ## Table of Contents
 
+- [User Guides & Documentation](#user-guides--documentation)
 - [Why Apollo](#why-apollo)
 - [Download & Install](#download--install)
-- [What's New in v1.0.8](#whats-new-in-v108)
+- [What's New in v1.0.9](#whats-new-in-v109)
 - [Features at a Glance](#features-at-a-glance)
 - [The Training Calendar](#the-training-calendar)
 - [How the App Works — Page by Page](#how-the-app-works--page-by-page)
@@ -90,15 +101,15 @@ What sets Apollo apart:
 - **Free sync with every major platform** — Connect **Garmin Connect** directly with your own free personal API key (desktop app): every activity, with routes, splits and laps from your watch's original files, and no other account in between. Or connect a free [intervals.icu](https://intervals.icu) account and Apollo pulls every run, ride, and swim recorded on COROS, Suunto, Polar, Wahoo, Zwift, and more — full history on the first sync, incremental after that. Prefer zero accounts? Drag in FIT/GPX/TCX files or your whole Garmin/Strava data export. Strava's paid API is supported too, but never required.
 - **Your plan on your wrist** — Push your training plan to the intervals.icu calendar with VDOT-calibrated paces, and intervals.icu delivers each structured workout to your Garmin, COROS, Suunto, or Wahoo watch.
 - **Recovery that reads your watch** — Turn on wellness sync and sleep, HRV, and resting heart rate come free from intervals.icu into a daily recovery check that compares today against *your* normal ranges and tells you when to back off.
-- **Plans based on the methods you know** — Hal Higdon, Hansons, Pfitzinger, Nike Run Club and FIRST. Each plan says how closely it follows the coach's published plan and links to the official source. Apollo is independent and not endorsed by any of them. Or build your own from scratch with the custom plan builder. Joining late? Apollo checks the week you'd join against your recent running and suggests a gentler plan or a later race if it's a big jump.
+- **33 plans across the coaching traditions you trust** — **29 built-in marathon plans** across Hal Higdon (8), Pete Pfitzinger (7), Jack Daniels `2Q` (4), Hansons (3), FIRST, Jeff Galloway, Nike Run Club, and four plans designed by Apollo (BQ, Time-on-Feet, Norwegian-style sub-threshold, Canova-style specific block), plus **4 base-building & post-marathon recovery blocks**, a custom plan builder, and portable `.apollo-plan.json` (`apollo.training-plan.v1`) plan import/export. Each coach-based plan states how closely it follows the coach's published schedule and links to the official source; Apollo's own plans are labeled **Designed by Apollo**. Apollo is independent and not endorsed by any of them. Joining late? Apollo checks the week you'd join against your recent running and suggests a gentler plan or a later race if it's a big jump.
 - **Race-day fueling you can follow** — A carb-loading plan (Burke 2011), an in-race carb plan within 20–90 g/h (Jeukendrup 2014), a fluid ceiling from your own sweat test, and an optional caffeine card (Goldstein 2010), all on the Race Day › Fuel tab.
-- **Coaching that explains itself** — Race predictions from your recent races (Daniels VDOT and Riegel). Adaptive recommendations you can apply and undo. Automatic training-phase detection, and a fitness & form chart (CTL/ATL/TSB) that shows your projected race-morning form.
-- **Race day as a system, not a hope** — Mile-by-mile pacing for six of the seven World Marathon Majors (Sydney coming) or any race you add, a race-morning timeline, course-specific training tips, a race-week checklist, and a printable race card.
+- **Coaching that explains itself** — Race predictions from your recent races (Daniels VDOT and Riegel). Long-run aerobic durability (`Pa:HR` decoupling & grade-adjusted Efficiency Factor). Adaptive recommendations you can apply and undo. Automatic training-phase detection, and a fitness & form chart (CTL/ATL/TSB) that shows your projected race-morning form.
+- **Race day as a system, not a hope** — Mile-by-mile pacing for six of the seven World Marathon Majors (Sydney coming) or any custom race (including `.gpx` course uploads), a race-morning timeline, course-specific training tips, a race-week checklist, and a printable race card.
 - **Export your plan anywhere** — One-click .ics calendar export with VDOT-paced workout descriptions. Works with Google Calendar, Outlook, and Apple Calendar.
-- **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
-- **Your data, your device** — localStorage + IndexedDB. Automatic backups checked after they're written (SHA-256), and a **Not saved** banner if a save ever fails. Export everything as JSON. Nothing leaves your machine unless you connect a service.
+- **Every run tells a richer story** — Route maps rendered as Art Deco artwork. Split-level pacing breakdowns. Shoe rotation and foam-retirement tracking. Effort recognition that remembers every time you've run that neighborhood loop and tells you exactly how today compared.
+- **Your data, your device** — localStorage + IndexedDB. Automatic backups checked after they're written (SHA-256), an optional desktop backup folder (for iCloud/OneDrive/NAS mirroring), and a **Not saved** banner if a save ever fails. Export everything as JSON or CSV. Nothing leaves your machine unless you connect a service.
 - **Security-hardened** — OS-level credential encryption via Electron's safeStorage API, Content Security Policy headers, navigation guards, IPC key allowlisting, a read-only allow-listed proxy for Garmin Connect, coordinate validation, and HTML entity escaping. Zero `eval()`, zero `dangerouslySetInnerHTML`, zero hardcoded secrets.
-- **About 2,000 app tests** — Plans, paces, sync (Garmin Connect, intervals.icu, Strava), file import, backups and screens. Key formulas (Daniels VDOT, Riegel, CTL/ATL/TSB, carb and fluid targets) are checked against values from their published sources. Apollo gives training guidance, not medical advice.
+- **Over 2,400 app tests** — Plans, paces, sync (Garmin Connect, intervals.icu, Strava), file import, aerobic durability, shoe tracking, backups and screens. Key formulas (Daniels VDOT, Riegel, CTL/ATL/TSB, Minetti grade cost, carb and fluid targets) are checked against values from their published sources. Apollo gives training guidance, not medical advice.
 
 ---
 
@@ -122,7 +133,7 @@ The first time you open Apollo, your computer asks you to confirm once. That's b
 - **macOS 15+:** *System Settings → Privacy & Security → Open Anyway*.
 - **macOS 14 and earlier:** *Control-click → Open*.
 
-**[Step-by-step install guide →](docs/INSTALL.md)**
+**[Step-by-step install guide →](docs/INSTALL.md)** · **[Illustrated Quick-Start Guide →](docs/QUICK_START_GUIDE.md)** · **[Training Program Guide →](docs/TRAINING_PROGRAM_GUIDE.md)**
 
 Every release includes `SHA256SUMS.txt` and GitHub build-provenance attestations, so you can check that your download is genuine. Why the prompt appears, and the free signing routes we're pursuing: [docs/SIGNING.md](docs/SIGNING.md).
 
@@ -142,7 +153,20 @@ Requires Node.js 22 or later.
 
 ---
 
-## What's New in v1.0.8
+## What's New in v1.0.9
+
+- **33 plans, each labeled honestly** — 29 built-in marathon plans across Hal Higdon (8), Pete Pfitzinger (7), Jack Daniels `2Q` (4), Hansons (3), FIRST, Jeff Galloway, Nike Run Club and four plans designed by Apollo, plus 4 base-building and post-marathon blocks. The four new Hal Higdon plans (`Novice Supreme`, `Personal Best`, `Intermediate 2`, `Advanced 2`) follow his published schedules day for day; Apollo's own plans say **Designed by Apollo**. Search and category filters in the Plan Chooser.
+- **Portable plans** — export any plan as `.apollo-plan.json` (`apollo.training-plan.v1`) and import it elsewhere. Imports are checked, always saved as a new plan and labeled *Imported plan* (not verified by Apollo).
+- **Aerobic durability (`Pa:HR` & Efficiency Factor)** — on **Progress › Heart Rate**, heart-rate drift between the two halves of steady runs (split by moving time; `≤ 5%` counts as coupled) and a grade-adjusted Efficiency Factor (`m/min/bpm`) with multi-week trends.
+- **Shoe garage & training journal** — track mileage per pair with retirement warnings before race day (duplicate copies of a run count once), and log effort (`RPE 1–10`), feel and fueling notes for any activity.
+- **Course `.gpx` upload** — on **Race Day › Strategy**, any race's route becomes an elevation profile and grade-adjusted splits. GPS noise is smoothed out, and a course within 3% of the race distance is fitted to finish exactly at it (42.195 km for a marathon).
+- **Desktop backup folder & CSV export** — mirror verified backups as `.json.gz` snapshots to a folder you choose (iCloud Drive, OneDrive, a NAS), checked by the desktop app before they're written; export activities, splits, wellness and journal entries as `.csv` from **Settings › Data & Privacy**.
+- **Tighter local-first security** — the desktop window can reach only intervals.icu and Strava, can load only Apollo's own files, and every message to the main process is checked. Update checks no longer carry a device ID, and spellcheck runs only on macOS, so Windows and Linux never download dictionaries from Google.
+- **Illustrated guides** — the **[Quick-Start Guide](docs/QUICK_START_GUIDE.md)** and the **[Training Program Guide](docs/TRAINING_PROGRAM_GUIDE.md)**.
+
+Storage is unchanged from v1.0.8, so going back to v1.0.8 stays safe.
+
+### Highlights from v1.0.8 & v1.0.7
 
 **Direct Garmin Connect sync (desktop app).** Garmin now lets every Garmin Connect user create a free personal API key for their own data. Paste yours in **Settings › Connections › Garmin Connect** and Apollo imports your history straight from Garmin, with no intervals.icu or Strava account in between. [How to connect →](#garmin-connect-direct--desktop-app)
 
@@ -154,7 +178,7 @@ Requires Node.js 22 or later.
 
 Sending your plan to your watch still goes through intervals.icu (Garmin's personal API is read-only). The browser version can't connect to Garmin (Garmin's API doesn't accept requests from web browsers): import FIT files or a Garmin export there instead.
 
-**Also in this release.** v1.0.7 wasn't published on its own, so its changes ship in v1.0.8:
+**Also from v1.0.7 / v1.0.8:**
 
 - **Use it in your browser** — a free web version on GitHub Pages (live after the first deploy). Your data stays in that browser; Strava and Garmin Connect sync are desktop-only. See [the install guide](docs/INSTALL.md#use-it-in-your-browser).
 - **Safer saving** — a **Not saved** banner with *Retry* if a write ever fails, backups checked after they're written, and damaged data set aside instead of lost.
@@ -172,7 +196,7 @@ Full details are in the [changelog](CHANGELOG.md).
 
 | Feature | What It Does |
 |---------|-------------|
-| **8 marathon plans** | Hal Higdon (4), Hansons, Pfitzinger, Nike, FIRST — each with a fidelity label and official source link — plus a custom plan builder |
+| **33 built-in plans** | 29 marathon plans across Hal Higdon (8), Pfitzinger (7), Daniels `2Q` (4), Hansons (3), FIRST, Galloway, Nike Run Club, and Apollo Coaching Lab (4) + 4 base/recovery blocks + custom plan builder + `.apollo-plan.json` (`apollo.training-plan.v1`) import/export |
 | **Late-join fitness check** | Warns when the plan week you'd join is a big jump from your recent running, and offers a gentler plan or a later race |
 | **Plan edits** | Move or skip a day, convert it to an easy run or rest day, and restore the original |
 | **Direct Garmin Connect sync** | Desktop app: connect with your own free Garmin personal API key — every activity, with routes, splits and laps from the watch's original files, plus key-expiry reminders |
@@ -185,17 +209,19 @@ Full details are in the [changelog](CHANGELOG.md).
 | **Smart auto-sync** | Matches synced or imported runs to plan days, auto-completes workouts, generates coaching feedback |
 | **Route maps** | Pure SVG visualization of every run — offline, no API keys, with animated drawing effects |
 | **Effort recognition** | Tracks repeated routes, awards Gold/Silver/Bronze for pace and HR efficiency |
+| **Shoe rotation & gear** | Track shoe mileage, default trainers, retirement limits, and race-day wear projections on Activities |
+| **Training journal** | Log post-run RPE (`1–10`), feel tags, and fueling notes alongside any activity |
 | **Split analysis** | Per-mile/km pacing charts, consistency grading, interval detection, pattern recognition |
 | **Race predictions** | Daniels VDOT from your recent races (blended with Riegel) for marathon, half, 10K, and 5K, with a confidence level |
 | **Weekly readiness** | 5-factor score (A+ to D) with coaching tips for the week ahead |
 | **Daily recaps** | Grade + coach message comparing your actual effort to the plan |
 | **Adaptive coaching** | Detects overtraining, schedule gaps, and race week — suggests plan changes you can apply and undo |
-| **HR zone analysis** | 5-zone model, distribution chart that says when time in zone is estimated, HR trend, 80/20 guidance |
+| **HR zone & durability analysis** | 5-zone model, honest *estimated* vs. measured zone labeling, 30-day HR trend, 80/20 guidance, plus steady-run **Pa:HR decoupling** and grade-adjusted **Efficiency Factor (`m/min/bpm`)** |
 | **Fitness & form chart** | CTL/ATL/TSB with the race date marked and your projected race-morning form |
 | **Training periodization** | Phase ribbon (Base → Build → Peak → Taper → Race) with phase-aware coaching tips |
-| **Structured workouts** | VDOT-paced targets for easy, tempo, interval, repetition, and long runs |
-| **Data backups** | Automatic SHA-256 checked backups, export/import, one-click restore, and a **Not saved** banner if a save fails |
-| **Race strategy** | Grade-adjusted pacing for six of the seven World Marathon Majors (Sydney coming) and any race you add, with elevation charts |
+| **Structured workouts** | VDOT-paced targets for easy, tempo, interval, repetition, marathon-pace, and long runs |
+| **Data backups & exports** | Automatic SHA-256 checked backups, optional desktop backup folder, JSON & CSV export, one-click restore, and a **Not saved** banner if a save fails |
+| **Race strategy & GPX courses** | Grade-adjusted pacing for six of the seven World Marathon Majors (Sydney coming) and any custom marathon or uploaded `.gpx` course, with elevation charts |
 | **Race fueling** | Carb loading, an in-race carb and gel plan (20–90 g/h), hydration from your sweat test, and an optional caffeine card |
 | **Race morning timeline** | Alarm, breakfast, travel, warm-up, corral — all timed back from the gun |
 | **Course training** | Course-specific preparation tips for the six Majors in Apollo, plus generic hilly/flat advice |
@@ -220,7 +246,7 @@ The crown jewel of the Plan page. A full monthly calendar view that shows your e
 - **Workout icons** indicate the session type (🟢 Easy · 🟡 Long · 🟠 Tempo · 🔴 Speed · 🏁 Race · 🏅 Marathon)
 - **Distance** displayed per day — with actual/planned shown side-by-side when an activity is synced or imported
 - **Mini progress bars** visualize how close your actual distance came to the plan target
-- **Completion badges** — gold ✓ for auto-synced days (intervals.icu, Strava, or file import), green ✓ for manually completed; cross-training days show the sport icon and duration
+- **Completion badges** — gold ✓ for auto-synced days (Garmin Connect, intervals.icu, Strava, or file import), green ✓ for manually completed; cross-training days show the sport icon and duration
 - Today is highlighted with a gold ring and filled badge so you never lose your place
 
 **Weekly summary column:**
@@ -260,18 +286,18 @@ Your home base. Everything you need in one view.
 - **Adaptive recommendations** — coaching cards when Apollo detects something actionable (overtraining, schedule gap, race week)
 - **Cross-training this week** and **recent activities** with route thumbnails and effort tier indicators
 
-Opening Today syncs when a data source (intervals.icu or Strava) is connected and a plan is active — or, if Apollo synced in the last 10 minutes, simply re-matches what's already on your device. Imported files are matched to the plan the moment they land. No manual action needed.
+Opening Today syncs when a data source (Garmin Connect, intervals.icu, or Strava) is connected and a plan is active — or, if Apollo synced in the last 10 minutes, simply re-matches what's already on your device. Imported files are matched to the plan the moment they land. No manual action needed.
 
 ### ⚡ Plan
 
 Where your plan lives.
 
-- **Plan chooser** — all eight built-in plans as cards, each with its fidelity label, official source link, and the independence notice; or build a custom plan. Set your race date and Apollo places the plan; if the race is close, a fitness check warns when the week you'd join is a big jump and offers gentler plans or a later race
+- **Plan chooser** — all **33 built-in plans** (29 marathon plans + 4 base/recovery blocks) with search and category filters, each showing its fidelity label, official source link, and independence notice; or build a custom plan or import a `.apollo-plan.json` (`apollo.training-plan.v1`) plan. Set your race date and Apollo places the plan; if the race is close, a fitness check warns when the week you'd join is a big jump and offers gentler plans or a later race
 - **Phase ribbon** — base, build, peak, and taper across your block
 - **Calendar view** — the monthly training calendar described above
 - **Week-by-week checklist** — expandable day rows with checkboxes, dates, workout labels, sync badges, tier badges, route thumbnails, and detailed metrics
 - **Day actions** — move or skip a day, convert it to an easy run or rest day, or restore the original (completed days can't be changed)
-- **Export** — *Send your plan to your watch* (intervals.icu calendar, as structured workouts with your VDOT paces; optional auto-update keeps the next 4 weeks in step) and a .ics [calendar export](#calendar-export)
+- **Export** — *Send your plan to your watch* (intervals.icu calendar, as structured workouts with your VDOT paces; optional auto-update keeps the next 4 weeks in step), a .ics [calendar export](#calendar-export), and portable `.apollo-plan.json` (`apollo.training-plan.v1`) export
 - **Smart Auto-Sync card** — manual sync trigger, last sync timestamp, and detailed results for every matched activity
 
 ### 🏅 Activities
@@ -279,12 +305,14 @@ Where your plan lives.
 Your complete training history — runs, rides, swims, strength, and indoor sessions.
 
 - **Sport filters** — All / Runs / Rides / Other, with counts
-- **Source badges** — where each activity came from (intervals.icu, Strava, or file import), plus an *Indoor* pill for trainer, Zwift, and treadmill sessions
+- **Source badges** — where each activity came from (Garmin Connect, intervals.icu, Strava, or file import), plus an *Indoor* pill for trainer, Zwift, and treadmill sessions
+- **Shoe rotation & gear** — add your running shoes (`Manage shoes`), pick a default trainer, set retirement mileage limits, and get race-day foam warnings before marathon week
 - **Import files** — add FIT/GPX/TCX files or a full Garmin/Strava export right from the Activities page (drag-and-drop or file picker)
 - **Paginated activity list** — 30 per page, each row showing route thumbnail, activity name with tier dot, date, and sport-appropriate metrics (pace, elevation, and HR for runs; speed, power, and HR for rides; HR and training load for everything else)
 - **Expandable detail panel** (click any activity):
   - Full-size route map with animation, mile markers, and compass (any sport with GPS)
-  - Stats grid: distance, duration, pace, elevation, HR (avg + max), cadence, power, training load
+  - Stats grid: distance, duration, pace, elevation, HR (avg + max), cadence, power, training load, and assigned shoe
+  - **Training journal** — log RPE (`1–10`), feel tags, and workout/fueling notes
   - **Split analysis** — tabbed view with pace bar chart, per-split table, per-lap table, consistency grade, pattern detection, interval detection, and coaching insights
   - **Effort recognition** — effort count, route name, pace and HR efficiency tiers, and data-driven insight messages
 
@@ -298,7 +326,7 @@ Your coaching and analytics hub, in five tabs.
 
 **Trends** — 7 days, 30 days, 90 days, 6 months, or all time, with summary stats, weekly distance, pace progression, heart-rate efficiency (pace vs HR), cross-training hours by sport, a consistency heatmap, personal records, and recent runs.
 
-**Heart Rate** — Your heart-rate profile, five running zones with BPM ranges, zone distribution for the last 30 days (labelled *estimated* when there's no second-by-second heart rate, with the estimated share shown), and a 30-day HR trend.
+**Heart Rate** — Your heart-rate profile, five running zones with BPM ranges, zone distribution for the last 30 days (labelled *estimated* when there's no second-by-second heart rate, with the estimated share shown), a 30-day HR trend, and **Aerobic Durability (`Pa:HR` decoupling & grade-adjusted Efficiency Factor)** across continuous steady runs.
 
 **Recaps** — Today's recap with grade, distance vs plan, pace, duration, HR zone, and coach message, plus recent recaps.
 
@@ -306,7 +334,7 @@ Your coaching and analytics hub, in five tabs.
 
 Plan your race with course-specific pacing, fueling, and logistics. A **My race** card at the top links your race to your plan; five tabs below open on the one that fits how close the race is.
 
-- **Strategy** — browse six of the seven World Marathon Majors (Sydney coming) plus your custom races, pick a target time and pacing strategy, and get a mile-by-mile plan adjusted for elevation, with an interactive elevation chart. See [Race Strategy](#race-strategy)
+- **Strategy** — browse six of the seven World Marathon Majors (Sydney coming) plus your custom races (including `.gpx` course uploads), pick a target time and pacing strategy, and get a mile-by-mile plan adjusted for elevation, with an interactive elevation chart. See [Race Strategy](#race-strategy)
 - **Fuel** — race fueling plan, optional caffeine card, carb loading, and hydration with a sweat test. See [Race Fueling](#race-fueling)
 - **Race Week** — the [race week checklist](#race-week-checklist) and the [printable race card](#printable-race-card)
 - **Race Morning** — a [timeline](#race-morning-timeline) timed back from the gun
@@ -320,7 +348,7 @@ Configuration and data management, in six tabs.
 - **Sync** — auto-sync on launch plus an optional background re-sync interval (5-minute cooldown), and **wellness data** (sleep, HRV, and resting HR; off by default for new installs) for the Recovery check and your HR profile — it never overrides values you entered yourself
 - **Athlete Profile** — units (distance, temperature, body weight), heart rate & body, recent race & goal (used for predictions and paces), and race fueling preferences (caffeine, sweat rate, salty sweater)
 - **Coaching** — daily recap and weekly readiness scheduling; adaptive training on/off, frequency, and aggressiveness; training plan options
-- **Data & Privacy** — storage and backup health (*Protected / Needs attention / At risk*), automatic and manual backups, export/import as JSON, per-backup download and restore, a list of the services Apollo can contact, any damaged data that was set aside, and *Delete all data*
+- **Data & Privacy** — storage and backup health (*Protected / Needs attention / At risk*), automatic and manual backups, optional desktop **Backup folder**, export/import as JSON, **Export as CSV**, per-backup download and restore, a list of the services Apollo can contact, any damaged data that was set aside, and *Delete all data*
 - **About** — version, opt-in auto-updates on desktop (check, download, install), a note on the web version, and the training plans & coaches notice
 
 ---
@@ -330,33 +358,32 @@ Configuration and data management, in six tabs.
 On first launch, Apollo walks you through a short setup:
 
 1. **Units** — miles or kilometers
-2. **Training plan** — pick a built-in plan (with its fidelity label and source), build a custom plan, or skip for now; set your race date and an optional goal time. If the race is close, the late-join fitness check runs here too
+2. **Training plan** — pick from all 33 built-in plans (with fidelity labels and official source links), build a custom plan, import a JSON plan, or skip for now; set your race date and an optional goal time. If the race is close, the late-join fitness check runs here too
 3. **Recent race** *(optional)* — a recent race result sets your VDOT, paces, and prediction
-4. **Add your runs** — connect intervals.icu, import files, or decide later
+4. **Add your runs** — connect Garmin Connect (desktop), connect intervals.icu, import files, or decide later
 5. **Done** — a summary of your setup, including when week 1 starts; change any of it later in Settings or on the Plan page
 
-You're running in under two minutes.
+You're running in under two minutes. See the **[Illustrated Quick-Start Guide](docs/QUICK_START_GUIDE.md)** for screenshots of every step.
 
 ---
 
 ## Built-In Marathon Plans
 
-Eight plans based on well-known coaching methods. Each one says how closely it follows the coach's published plan and links to the official source, so the original is always one click away.
+Apollo ships with **33 built-in schedules** (**29 marathon plans** + **4 base-building & post-marathon recovery blocks**). Each coach-based plan states how closely it follows the published coaching method and links directly to the official source; Apollo's own plans are labeled **Designed by Apollo**. For full peak-mileage, longest-run, days-per-week, and runner-matching tables across all 33 plans, see **[Part 2 of the Training Program Guide](docs/TRAINING_PROGRAM_GUIDE.md#part-2-selecting-placing-or-building-your-plan)**.
 
-| Plan | Follows | Fidelity | Days/Week | Official source |
-|------|---------|----------|-----------|-----------------|
-| Novice 1 | Hal Higdon | Follows the published schedule | 4 + cross | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/novice-1-marathon/) |
-| Novice 2 | Hal Higdon | Follows the published schedule | 4 + cross | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/novice-2-marathon/) |
-| Intermediate 1 | Hal Higdon | Follows the published schedule | 5 + cross | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/intermediate-1-marathon/) |
-| Advanced 1 | Hal Higdon | Follows the published schedule | 6 | [Free on halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/advanced-1-marathon/) |
-| Beginner (Just Finish) | Hansons Marathon Method | Built from the published method | 6 | [Luke Humphrey Running](https://lukehumphreyrunning.com/) |
-| 18/55 | Pete Pfitzinger | Simplified version (no LT/VO₂max sessions or tune-up races yet) | 5 | [*Advanced Marathoning* (Human Kinetics)](https://us.humankinetics.com/products/advanced-marathoning-4th-edition) |
-| Marathon Plan | Nike Run Club | Simplified version | 5 | [Nike Run Club app (free)](https://www.nike.com/nrc-app) |
-| Run Less, Run Faster | FIRST | Built from the published method | 3 + 2 cross | [FIRST at Furman University](https://www.furman.edu/first/) |
+| Coaching Family | Included Plans | Weeks | Peak Volume | Official Source |
+|---|---|---|---|---|
+| **Hal Higdon** *(8)* | `Novice 1`, `Novice 2`, `Novice Supreme (30-Week)`, `Personal Best (30-Week)`, `Intermediate 1`, `Intermediate 2`, `Advanced 1`, `Advanced 2` | 18–30w | 36–59 mi/wk | [halhigdon.com](https://www.halhigdon.com/training-programs/marathon-training/) |
+| **Pete Pfitzinger** *(7)* | `18/55`, `12/55 Method`, `12/70 Method`, `18/70 Method (Doubles)`, `18/85 Elite Method (Doubles)`, `Multiple Marathoning (12-Week & 8-Week)` | 8–18w | 48–85 mi/wk | [*Advanced Marathoning* (Human Kinetics)](https://us.humankinetics.com/products/advanced-marathoning-4th-edition) |
+| **Jack Daniels `2Q`** *(4)* | `2Q Marathon (Up to 40 mpw)`, `(41–55 mpw)`, `(56–70 mpw)`, `(71–85 mpw)` | 18w | 40–85 mi/wk | [*Daniels' Running Formula* (Human Kinetics)](https://us.humankinetics.com/products/daniels-running-formula-4th-edition) |
+| **Hansons** *(3)* | `Just Finish`, `Beginner`, `Advanced` | 18w | 42–59 mi/wk | [Luke Humphrey Running](https://lukehumphreyrunning.com/) |
+| **FIRST · Galloway · NRC** *(3)* | `Run Less, Run Faster` (3 days + 2 cross), `Run-Walk-Run (20-Week)`, `Nike Run Club Marathon Plan` | 16–20w | 28–40 mi/wk | [FIRST](https://www.furman.edu/first/) · [Jeff Galloway](https://www.jeffgalloway.com/) · [Nike Run Club](https://www.nike.com/nrc-app) |
+| **Apollo Coaching Lab** *(4)* | `Time-on-Feet Endurance (3h Cap)`, `Boston Qualifier (BQ) 18/60`, `Norwegian-Style Sub-Threshold`, `Canova-Style Specific Block 16/75` | 16–18w | 31–74 mi/wk | Designed by Apollo (no coach's book) |
+| **Base & Recovery Blocks** *(4)* | `8-Week Aerobic Base Builder`, `12-Week Performance Base (50 mpw)`, `4-Week Post-Marathon Reverse Taper`, `6-Week Off-Season Maintenance` | 4–12w | 29–50 mi/wk | Designed by Apollo |
 
-> Apollo is independent, free and not affiliated with any coach, author, publisher or brand. Coach and brand names say which published method a plan follows. They don't mean the coach or brand made, licensed or endorses Apollo's version. For the official plan and full coaching, use the coach's own website, book or app.
+> Apollo is independent, free and not affiliated with any coach, author, publisher or brand. Coach and brand names say which published method a plan follows. They don't mean the coach or brand made, licensed or endorses Apollo's version. Plans marked **Designed by Apollo** are Apollo's own; a name like "Norwegian-style" or "Canova-style" describes the training idea it borrows. For the official plan and full coaching, use the coach's own website, book or app.
 
-**Custom Plan Builder** generates progressive plans with cutback weeks every 4th week (86% volume), a two-week taper (72% then 45%), and varied workout types (easy, long, tempo, speed, cross training). Mileage builds from your current weekly volume to your target peak.
+**Custom Plan Builder & JSON Plans:** Generate progressive custom schedules with 4th-week cutbacks (86% volume), a two-week taper (72% then 45%), and safe long-run caps — or import/export any schedule in the open `.apollo-plan.json` (`apollo.training-plan.v1`) format.
 
 ---
 
@@ -845,8 +872,10 @@ Your training data is important. Apollo protects it at multiple levels.
 - **Automatic backups** — configurable interval (12 hours to 1 week), retention count (how many backups to keep), runs silently on app startup, kept in their own storage table
 - **SHA-256 integrity checksums** — every backup is read back and verified after it's written, and again on restore. Tampered backups are flagged immediately
 - **Damaged data set aside** — a corrupt activity store is quarantined instead of wiping your history; Settings › Data & Privacy shows what was set aside
-- **One-click export** — download everything as a single JSON file
-- **Safe import** — file size limits (10 MB), per-key size limits (1 MB), key allowlist validation, checksum verification, and a safety backup created before any restore
+- **One-click export** — download everything as a single JSON file, or your activities, splits, wellness and journal entries as `.csv`
+- **No incomplete files** — while storage is unavailable, backups, restores, downloads and CSV exports wait instead of producing something that could be missing data
+- **Desktop backup folder** *(optional)* — each verified backup is also mirrored as a compressed `.json.gz` snapshot to a folder you choose (iCloud Drive, OneDrive, a NAS). The desktop app checks every snapshot before writing it, never deletes the one it just wrote, and Settings shows if a copy failed. *Delete all data* disconnects the folder but leaves its files alone
+- **Safe import** — files up to 256 MB (also after decompressing `.json.gz`), Apollo keys only, each value checked against its expected shape, checksum verification, and a safety backup created before any import or restore
 - **Backup health monitoring** — Settings › Data & Privacy shows a status badge (Protected / Needs attention / At risk, or No backup yet) based on backup age and integrity
 - **Backup history** — every backup listed with date, size, key count, trigger type (auto/manual), and integrity status
 
@@ -968,7 +997,7 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 ### Data Privacy
 
 - **100% offline-capable** — all data lives in localStorage + IndexedDB on your machine
-- **No telemetry** — Apollo collects zero analytics, usage data, or crash reports
+- **No telemetry** — Apollo collects zero analytics, usage data, or crash reports, and its opt-in update checks carry no device ID
 - **No cloud accounts** — no login, no email, no phone number
 - **Every data connection is opt-in** — Garmin Connect, intervals.icu and Strava are optional; file import is parsed entirely on your device and works offline
 - **Health data stays local** — sleep, HRV, and resting-HR records synced from intervals.icu are stored only on your device (about the last 400 days) and are never sent anywhere else; switch the sync off any time in Settings
@@ -991,43 +1020,47 @@ Apollo is built with a security-first mindset. Every layer of the stack — from
 | `webSecurity` | ✅ Always enabled (production and development) |
 | `webviewTag` | ✅ Disabled |
 | `nodeIntegrationInWorker` | ✅ Disabled |
-| `will-navigate` guard | ✅ Only allows `localhost:5173` and `file:` origins |
-| `setWindowOpenHandler` | ✅ All new windows denied; allow-listed HTTPS URLs opened in OS browser |
+| Electron Fuses | ✅ Packaged builds disable `RunAsNode`, `NODE_OPTIONS`, and CLI inspect flags, enable cookie encryption, and enforce embedded `app.asar` integrity validation |
+| `will-navigate` & IPC sender guards | ✅ Navigation restricted to the exact packaged `dist/index.html` (or dev server in dev); every `ipcMain.handle` and `ipcMain.on` handler verifies the top-level trusted renderer frame |
+| Session `webRequest` egress & `file://` jail | ✅ One fail-closed `onBeforeRequest` keeps `file://` loads inside the packaged `dist/` bundle (encoded separators, `%00` and `.`/`..` segments are refused) and blocks every network request outside `intervals.icu` and `www.strava.com`, matching the CSP. Blocked requests are logged without query strings (first 20, then a summary) |
+| Spellcheck | ✅ On only on macOS (system dictionary). Off on Windows and Linux, where Chromium would download Hunspell dictionaries from a Google CDN |
+| Update checks | ✅ Opt-in. electron-updater's per-install `x-user-staging-id` header is removed from every update request on its own session; staged rollouts are still decided on the device |
+| `setWindowOpenHandler` & permissions | ✅ All new windows and Chromium permission requests/checks denied; allow-listed HTTPS URLs opened in OS browser |
 | `open-external` allowlist | ✅ HTTPS only, no credentials or custom ports; only activity platforms (`intervals.icu`, `strava.com`, `connect.garmin.com`), the official race and coach sites Apollo links to, and this project's GitHub releases page |
 | Garmin Connect proxy | ✅ The main process calls one fixed `https://` Garmin origin: the key-for-token exchange, then GET-only calls to an allow-list of read endpoints with numeric IDs, checked and encoded query values, JWT-shaped tokens, size caps and timeouts. Nothing is stored or logged there |
+| Synced backup folder safety | ✅ Folder picked in a main-process dialog; disk roots, network-share (UNC) roots and links that resolve to a root (`realpath`) refused. Each snapshot is rebuilt from validated parts (exact `metadata` + `data`, allow-listed metadata, `apollo_*` data keys only, never credentials or device state), written to an exclusive `0o600` temp file and renamed, with async I/O and a 3 s reachability timeout. Pruning touches only `apollo-auto-backup-*.json.gz` files, never the snapshot just written or future-dated ones. Errors reach the window without file paths |
 | DevTools | ✅ Only in development builds |
 
-### Web Security
+### Web & Bundle CSP
 
-- **Content Security Policy** — strict CSP in `staticwebapp.config.json`: `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`, `connect-src` limited to intervals.icu and Strava
-- **X-Frame-Options** — `DENY`
-- **X-Content-Type-Options** — `nosniff`
-- **Referrer-Policy** — `strict-origin-when-cross-origin`
-- **Permissions-Policy** — camera, microphone, and geolocation all disabled
+- **Content Security Policy** — a strict CSP is written into `dist/index.html` as a `<meta>` tag for both the desktop app (`vite.config.ts`) and GitHub Pages (`vite.config.web.ts`): `default-src 'self'`, `script-src 'self'`, `object-src 'none'`, and `connect-src` limited to `intervals.icu` and `www.strava.com`. A self-hosted Azure deployment also sends it as an HTTP header (`staticwebapp.config.json`), adding `frame-ancestors 'none'`, which browsers ignore in a `<meta>` tag.
+- **Azure response headers** (`staticwebapp.config.json`) — `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and a `Permissions-Policy` that disables camera, microphone, and geolocation
+- **GitHub Pages** can't send custom headers, so the free web version relies on the `<meta>` CSP and a `<meta>` referrer policy, and has no anti-framing header
 
 ### Application Security
 
 | Vector | Protection |
 |--------|-----------|
-| XSS | React JSX auto-escaping; zero `dangerouslySetInnerHTML`; dedicated `esc()` HTML encoder for race card; Blob URL pattern for print windows |
+| XSS | React JSX auto-escaping; zero `dangerouslySetInnerHTML`; dedicated `esc()` HTML encoder and inline `default-src 'none'` CSP for exported race cards |
 | Code injection | Zero `eval()`, `new Function()`, `setTimeout(string)`, or `child_process` usage |
-| SSRF | All external hosts hardcoded (`intervals.icu`, `strava.com`, `personal.connectapi.garmin.com`); Garmin request URLs are built in the main process from an allow-list of paths with numeric IDs and validated query values; no user-controlled hosts |
-| Prototype pollution | No `Object.assign` with unvalidated external data; no `__proto__` access |
-| OAuth CSRF | Cryptographic state parameter (32 random bytes) validated on callback; single-use |
+| SSRF | All external hosts hardcoded (`intervals.icu`, `www.strava.com`, `personal.connectapi.garmin.com`); Garmin request URLs are built in the main process from an allow-list of paths with numeric IDs and validated query values; no user-controlled hosts |
+| Prototype pollution | Imports write only allow-listed `apollo_*` keys, so `__proto__`, `constructor` and `prototype` can never be stored; `Object.prototype.hasOwnProperty` checks throughout |
+| OAuth CSRF & caching | Cryptographic 32-byte state parameter validated single-use on callback; optional Azure OAuth proxy sets `Cache-Control: no-store`, validates printable token characters, enforces 15 s upstream timeouts and answers timeouts with a `504` |
 | Token refresh | Mutex-protected to prevent concurrent refresh races |
 | API rate limiting | Strava rate limits tracked via response headers with configurable buffer; intervals.icu requests time out after 30 s and back off on 429/5xx; Garmin requests are spaced at least 0.5 s apart, time out (30 s, 90 s for files) and honour `Retry-After` on 429 |
 | Backup integrity | SHA-256 checksums with read-back verification; tamper detection on restore |
-| Backup restore | 10 MB file limit, 1 MB per-key limit, `apollo_*` key allowlist, credential keys excluded, safety backup before every import |
-| Activity file import | Parsed on-device by Apollo's own decoders (no third-party parsers); 512 MB per activity file, 1 GB per nested archive, at most 2 levels of nesting; decompression stops at each entry's declared size (zip-bomb guard) and every ZIP entry is CRC-32 verified |
-| Coordinate validation | Latitude/longitude bounds-checked before API calls |
-| ReDoS | No user-input regex patterns; all regex is simple literals |
+| Backup & JSON restore | 256 MB max file and streaming `.json.gz` decompression cap (gzip-bomb guard), per-key JSON shape validation, `apollo_*` key allowlist (excluding credentials, backups, quarantine, caches, and device state), and automatic safety backup before every import |
+| Activity, GPX & plan import | Parsed on-device by Apollo's own XXE-immune decoders (no DOM `DOMParser` or `<!ENTITY>` expansion); 512 MB per activity file, 1 GB per nested archive (max depth 2) with declared-size zip-bomb guard and CRC-32 verification; 15 MB / 250k trackpoint / 1,000 waypoint caps on course `.gpx` uploads; 512 KB cap and strict `apollo.training-plan.v1` schema validation on `.apollo-plan.json` imports |
+| CSV formula injection | Every text cell is quoted, and text that could start a formula (`=`, `+`, `-`, `@`, `\|`, tab, CR/LF, their full-width variants, and triggers hidden behind spaces or invisible characters) gets a leading `'`, both at the start of a cell and after a `;` or line break inside it, because spreadsheet apps that split on semicolons would treat that text as a new cell (OWASP CSV injection, CWE-1236) |
+| Coordinate validation | Latitude/longitude bounds-checked as routes are read from FIT/GPX/TCX files, activity streams, Garmin data, and course `.gpx` uploads; out-of-range and `0,0` points are dropped |
+| ReDoS | No user-input regex patterns; all regex is simple bounded literals |
 | Hardcoded secrets | Zero — all credentials from `process.env`, OS keychain, or user input at runtime |
 
 ---
 
 ## Your Training Playbook
 
-A guide to getting the most out of Apollo across your training block.
+A quick overview of getting the most out of Apollo across your training block. For full illustrated walkthroughs, plan-selection tables, workout pace matrices, and phase-by-phase physiological benchmarks, read the **[Illustrated Quick-Start Guide](docs/QUICK_START_GUIDE.md)** and the **[Training Program Guide](docs/TRAINING_PROGRAM_GUIDE.md)**.
 
 ### Week 1 — Getting Started
 
@@ -1047,7 +1080,7 @@ A guide to getting the most out of Apollo across your training block.
 
 - Review **Weekly Readiness** on the Progress page — identify strengths and areas to improve
 - Check your **race prediction** trend — is your projected time getting faster?
-- Look at **HR zone distribution** — are you following the 80/20 rule?
+- Look at **HR zone distribution** and **Long-Run `Pa:HR` durability** — are easy runs staying in Zone 2 and long runs staying coupled (`≤ 5%`)?
 - If Apollo surfaces an **adaptive recommendation**, review the reasoning and accept or dismiss
 
 ### Building Toward Race Day
@@ -1064,7 +1097,7 @@ A guide to getting the most out of Apollo across your training block.
 
 These modules exist in [`src/labs/`](src/labs/README.md) but **no screen uses them**, and several have known errors that must be fixed first. They aren't features yet, and their tests don't count toward the app total.
 
-Ghost runner · bonk risk · glycogen model · hydration calculator · what-if simulator · aerobic decoupling · running economy · fatigue resistance · pacing decay · race equivalence · post-race analysis · weather (Open-Meteo) · shoe tracking · an old Garmin partner-API stub (superseded: direct Garmin sync now ships through the [Personal API](#garmin-connect-direct--desktop-app)).
+Ghost runner · bonk risk · glycogen model · hydration calculator · what-if simulator · running economy · fatigue resistance · pacing decay · race equivalence · post-race analysis · weather (Open-Meteo) · an old Garmin partner-API stub (superseded: direct Garmin sync now ships through the [Personal API](#garmin-connect-direct--desktop-app)). *(Note: `aerobicDecoupling` and `shoeTracker` graduated to `src/services/` in v1.0.9 and power Progress › Heart Rate and Activities.)*
 
 See [src/labs/README.md](src/labs/README.md) for what each was meant to do and what must be fixed before it gets a screen.
 
@@ -1185,9 +1218,9 @@ npm run test:watch    # watch mode
 npm run test:coverage # with coverage report
 ```
 
-**About 2,000 app tests** across 102 test files, all passing (`npx vitest run --exclude 'src/labs/**'`). `npm test` also runs the tests for the experimental modules in `src/labs/`; those are reported separately and don't count toward the app total (see [src/labs/README.md](src/labs/README.md#tests)).
+**Over 2,400 app tests** across 116 test files, all passing (`npx vitest run --exclude 'src/labs/**'`). `npm test` also runs the tests for the experimental modules in `src/labs/`; those are reported separately and don't count toward the app total (see [src/labs/README.md](src/labs/README.md#tests)).
 
-The suites cover plans and the custom builder, VDOT paces and predictions, plan fidelity, sync (Garmin Connect, intervals.icu, Strava), the desktop security policies (external links, navigation, the Garmin request allow-list), file import (FIT/GPX/TCX/ZIP), de-duplication, backups and storage health, fitness & form, fueling, race strategy, race card, checklists, and the main screens.
+The suites cover plans and the custom builder, VDOT paces and predictions, plan fidelity, sync (Garmin Connect, intervals.icu, Strava), the desktop security policies (external links, navigation, the Garmin request allow-list), file import (FIT/GPX/TCX/ZIP), de-duplication, aerobic durability, shoe tracking, backups and storage health, fitness & form, fueling, race strategy, race card, checklists, and the main screens.
 
 ---
 
@@ -1201,7 +1234,7 @@ The suites cover plans and the custom builder, VDOT paces and predictions, plan 
 | **Persistence** | localStorage + IndexedDB via Dexie 4 — dual-write, auto-hydration |
 | **Web** | GitHub Pages (free web version); optional Azure Static Web Apps + Functions for Strava OAuth |
 | **Integrations** | Garmin Connect Personal API (desktop — read-only, through an allow-listed main-process proxy; original FIT files for routes and splits), intervals.icu REST API (free — activities, streams, wellness, sport settings, calendar events), Strava API v3 (optional — OAuth2, rate-limited, mutex-protected refresh), dependency-free FIT/GPX/TCX/ZIP parsing |
-| **Testing** | Vitest 4 with jsdom (about 2,000 app tests), Playwright Electron smoke test in CI, v8 coverage |
+| **Testing** | Vitest 4 with jsdom (over 2,000 app tests), Playwright Electron smoke test in CI, v8 coverage |
 | **Security** | CSP headers, navigation guards, IPC key allowlisting, allow-listed Garmin request proxy, SHA-256 backup verification |
 | **Design** | Art Deco system — navy `#0D1B2A` + gold `#D4A537`, Montserrat / Inter / JetBrains Mono |
 
@@ -1214,10 +1247,10 @@ src/
 ├── pages/                  Six sections + onboarding + auth callback + 404
 │   ├── Dashboard.tsx         Today — workout, form, recovery, this week, prediction, recommendations
 │   ├── Training.tsx          Plan — chooser, phase ribbon, calendar + checklist, day actions, export, auto-sync
-│   ├── Activities.tsx        Activity history — runs + cross-training, sport filters, file import, splits
+│   ├── Activities.tsx        Activity history — runs + cross-training, sport filters, shoes, journal, file import, splits
 │   ├── Progress.tsx          Progress tabs — Overview · Fitness & Form · Trends · Heart Rate · Recaps
 │   ├── Analytics.tsx         Trends tab — distance, pace, HR efficiency, consistency, PRs
-│   ├── Insights.tsx          Overview, Heart Rate and Recaps panels
+│   ├── Insights.tsx          Overview, Heart Rate (with Aerobic Durability) and Recaps panels
 │   ├── RaceDay.tsx           Race Day tabs — Strategy · Fuel · Race Week · Race Morning · Course
 │   ├── Settings.tsx          Settings tabs (settings/) — Connections, Sync, Athlete Profile, Coaching, Data & Privacy, About
 │   └── WelcomeFlow.tsx       Guided onboarding (units, plan, recent race, connect)
@@ -1235,7 +1268,7 @@ src/
 │   ├── PlanBuilder.tsx       Custom plan builder
 │   ├── StrategyBuilder.tsx    Target time + pacing strategy → mile-by-mile plan
 │   ├── MarathonBrowser.tsx   Filterable marathon card grid with course details
-│   ├── MarathonImport.tsx    Custom marathon import form
+│   ├── MarathonImport.tsx    Custom marathon & GPX course import form
 │   ├── ElevationChart.tsx    Interactive SVG elevation profile with landmarks
 │   ├── SaveStatusBanner.tsx  "Not saved" banner with retry
 │   ├── MultiTabNotice.tsx    Web: "Apollo is open in another tab"
@@ -1245,7 +1278,7 @@ src/
 │   └── LoadingScreen.tsx     Boot loading state
 │
 ├── data/
-│   ├── plans.ts              8 built-in plans + custom builder + recommendation engine
+│   ├── plans.ts              33 built-in plans (29 marathon + 4 base/recovery) + custom builder + recommendation engine
 │   └── worldMajors.ts        6 of the 7 World Marathon Majors (Sydney not yet) with course profiles
 │
 ├── services/
@@ -1275,13 +1308,15 @@ src/
 │   ├── effortService.ts      Route fingerprinting + effort ranking + insights
 │   ├── splitService.ts       Split/lap processing + consistency analysis
 │   ├── analyticsService.ts   Stats aggregation, charts data, PRs, streaks, merge-aware store
+│   ├── aerobicDecoupling.ts  Pa:HR decoupling + Minetti grade-adjusted Efficiency Factor
+│   ├── shoeTracker.ts        Shoe mileage tracking, default gear & race-day wear projections
 │   ├── racePrediction.ts     VDOT + Riegel race time predictions
 │   ├── weeklyReadiness.ts    5-factor readiness scoring
 │   ├── adaptiveTraining.ts   Training pattern detection + recommendations
 │   ├── dailyRecap.ts         Daily grade + coach messaging
 │   ├── heartRate.ts          HR zones, distribution, trends, efficiency
-│   ├── backupService.ts      Automatic backups with SHA-256 verification
-│   ├── raceStrategy.ts        Strategy building, pacing, custom imports, persistence
+│   ├── backupService.ts      Automatic backups with SHA-256 verification & desktop folder mirror
+│   ├── raceStrategy.ts        Strategy building, pacing, GPX course imports, persistence
 │   ├── carbLoading.ts         3-day carb loading protocol generator
 │   ├── fuelingCalculator.ts   In-race fueling, sweat test, fluid ceiling, caffeine card
 │   ├── raceDayTimeline.ts     Race morning schedule generator
@@ -1290,7 +1325,7 @@ src/
 │   ├── paceCalculator.ts      VDOT pace zone calculator
 │   ├── workoutTargets.ts      Structured workout generation
 │   ├── complianceAnalysis.ts  Workout compliance tracking
-│   ├── trainingJournal.ts     Journal store (read by daily recaps; no journal screen yet)
+│   ├── trainingJournal.ts     Journal store (RPE, feel tags & notes on Activities; read by recaps)
 │   ├── calendarExport.ts      .ics calendar export with VDOT paces
 │   ├── raceChecklist.ts       Race week checklist with course items
 │   ├── raceCard.ts            Printable one-page race day companion
@@ -1302,7 +1337,7 @@ src/
 │   ├── strava.ts             Strava API client (optional; rate-limited, mutex refresh)
 │   ├── stravaWeb.ts          Web-mode Strava OAuth helpers
 │   ├── storage.ts            Cross-platform token/credential management (OS keychain on desktop)
-│   ├── dataManager.ts        Export/import with validation
+│   ├── dataManager.ts        JSON & CSV export/import with validation
 │   ├── planProgress.ts       Plan state, completion tracking, sync metadata
 │   └── db/
 │       ├── apolloDB.ts         Dexie IndexedDB schema
@@ -1324,9 +1359,10 @@ src/
 │   ├── shoes.ts              Shoe, shoe status, usage types
 │   └── raceStrategy.ts       Marathon, strategy, pacing, elevation types
 │
-└── __tests__/                App tests (about 2,000 across 102 files)
+└── __tests__/                App tests (over 2,000 across 100+ files)
     └── setup.ts              Test harness with in-memory persistence mock
 
+docs/                         End-user documentation (QUICK_START_GUIDE.md, TRAINING_PROGRAM_GUIDE.md, INSTALL.md, SIGNING.md, images/)
 electron/                     Electron main process, secure preload, and the pure security + Garmin request policies (security.ts, garminProxy.ts)
 api/                          Azure Functions (Strava token exchange)
 public/                       Static assets, PWA manifest, SWA config

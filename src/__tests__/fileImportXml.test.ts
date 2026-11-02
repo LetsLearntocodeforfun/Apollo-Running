@@ -11,7 +11,14 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { decodeEntities, decodeXmlBytes, parseXmlNumber, parseXmlTime, scanXml } from '@/services/fileImport/xml';
+import {
+  decodeEntities,
+  decodeXmlBytes,
+  localName,
+  parseXmlNumber,
+  parseXmlTime,
+  scanXml,
+} from '@/services/fileImport/xml';
 import { parseGpx } from '@/services/fileImport/gpx';
 import { parseTcx } from '@/services/fileImport/tcx';
 
@@ -74,6 +81,129 @@ describe('scanXml', () => {
   it('decodes entities', () => {
     expect(decodeEntities('a &lt;b&gt; &quot;c&quot; &apos;d&apos; &#128512;')).toBe('a <b> "c" \'d\' 😀');
     expect(decodeEntities('no entities')).toBe('no entities');
+  });
+
+  it('never throws on surrogate or out-of-range numeric references, keeping invalid ones verbatim', () => {
+    for (const ref of [
+      '&#xD800;',
+      '&#55296;',
+      '&#xDFFF;',
+      '&#x110000;',
+      '&#1114112;',
+      '&#0;',
+      '&#99999999999999999999;',
+      `&#x${'f'.repeat(400)};`,
+    ]) {
+      expect(() => decodeEntities(`a${ref}b`)).not.toThrow();
+    }
+    expect(decodeEntities('&#x110000;')).toBe('&#x110000;');
+    expect(decodeEntities('&#1114112;')).toBe('&#1114112;');
+    expect(decodeEntities('&#0;')).toBe('&#0;');
+    expect(decodeEntities('&#x10FFFF;')).toBe(String.fromCodePoint(0x10ffff));
+    expect(() => scanXml('<name>x &#xD800; &#x110000; y</name>', { text: () => {} })).not.toThrow();
+  });
+
+  it('reads sloppy attributes: bare values, spaces around "=", no separators, junk and valueless names', () => {
+    const attrsOf = (tag: string) => {
+      let found: Record<string, string> = {};
+      scanXml(tag, { open: (_name, attrs) => (found = attrs) });
+      return found;
+    };
+    expect(attrsOf('<t lat=45.1 lon=-122.5 href=http://x/y>')).toEqual({
+      lat: '45.1',
+      lon: '-122.5',
+      href: 'http://x/y',
+    });
+    expect(attrsOf('<t a = "1"  b=\'2\'c="3">')).toEqual({ a: '1', b: '2', c: '3' });
+    expect(attrsOf('<t checked junk a/b="x" ="y" d="&amp;">')).toEqual({ b: 'x', d: '&' });
+    expect(attrsOf('<t xmlns:gpxtpx="http://ns" gpxtpx:hr="150"/>')).toEqual({ gpxtpx: 'http://ns', hr: '150' });
+    expect(attrsOf('<t a=\'x" b=2\' c="3">')).toEqual({ a: 'x" b=2', c: '3' });
+  });
+
+  it('parses a crafted 1 MB start tag in linear time (no regex backtracking)', () => {
+    const tag = `<trkpt ${'a'.repeat(1_000_000)} lat="1" lon="2">`;
+    let attrs: Record<string, string> = {};
+    const started = performance.now();
+    scanXml(tag, { open: (_name, a) => (attrs = a) });
+    expect(attrs).toEqual({ lat: '1', lon: '2' });
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  it('treats a no-break space (and other Unicode spaces) between attributes as whitespace', () => {
+    const attrsOf = (tag: string) => {
+      let found: Record<string, string> = {};
+      scanXml(tag, { open: (_name, attrs) => (found = attrs) });
+      return found;
+    };
+    expect(attrsOf('<trkpt lat="45.1"\u00A0lon="-122.3"/>')).toEqual({ lat: '45.1', lon: '-122.3' });
+    expect(attrsOf('<trkpt lat=45.2\u00A0lon=-122.4 />')).toEqual({ lat: '45.2', lon: '-122.4' });
+    expect(attrsOf('<trkpt lat\u00A0=\u00A0"1"\u2003lon="2"\u3000ele="3">')).toEqual({ lat: '1', lon: '2', ele: '3' });
+
+    const gpx =
+      '<gpx><trk><trkseg>' +
+      '<trkpt lat="45.1"\u00A0lon="-122.3"><time>2024-03-10T13:00:00Z</time></trkpt>' +
+      '<trkpt lat="45.1005"\u00A0lon="-122.3"><time>2024-03-10T13:00:05Z</time></trkpt>' +
+      '</trkseg></trk></gpx>';
+    const [a] = parseGpx(gpx);
+    expect(a.samples.map((s) => [s.lat, s.lng])).toEqual([
+      [45.1, -122.3],
+      [45.1005, -122.3],
+    ]);
+  });
+
+  it('reads attributes exactly as the v1.0.8 regex did, including junk and Unicode spaces', () => {
+    // The pre-v1.0.9 pattern: backtracks quadratically on crafted input, but defines "tolerant".
+    const legacyRe = /([^\s=/>]+)\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/g;
+    const legacyAttrs = (source: string) => {
+      const attrs: Record<string, string> = {};
+      if (source.indexOf('=') < 0) return attrs;
+      legacyRe.lastIndex = 0;
+      let m: RegExpExecArray | null;
+      while ((m = legacyRe.exec(source)) !== null) attrs[localName(m[1])] = decodeEntities(m[2] ?? m[3] ?? m[4] ?? '');
+      return attrs;
+    };
+    const tokens = [
+      'a',
+      'b',
+      ':',
+      '=',
+      '"',
+      "'",
+      ' ',
+      '\t',
+      '/',
+      'x',
+      '1',
+      '&amp;',
+      '-',
+      'lat',
+      'lon',
+      '\u00A0',
+      '\u2003',
+      '\uFEFF',
+    ];
+    let seed = 2024;
+    const rnd = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    let compared = 0;
+    for (let t = 0; t < 4000; t++) {
+      let src = ' ';
+      const len = 1 + Math.floor(rnd() * 14);
+      for (let k = 0; k < len; k++) src += tokens[Math.floor(rnd() * tokens.length)];
+      let got: Record<string, string> | null = null;
+      scanXml(`<e${src}>`, { open: (_name, attrs) => (got ??= attrs) });
+      if (!got) continue; // an unbalanced quote swallows the tag end: nothing to compare
+      compared++;
+      expect(got).toEqual(legacyAttrs(src.endsWith('/') ? src.slice(0, -1) : src));
+    }
+    expect(compared).toBeGreaterThan(2000);
+    // A junk case the linear parser once read differently (a stray '=' swallowed the next attribute):
+    expect(legacyAttrs(' =x=:ba-')).toEqual({ x: ':ba-' });
+    let junk: Record<string, string> = {};
+    scanXml('<e =x=:ba->', { open: (_name, attrs) => (junk = attrs) });
+    expect(junk).toEqual({ x: ':ba-' });
   });
 });
 

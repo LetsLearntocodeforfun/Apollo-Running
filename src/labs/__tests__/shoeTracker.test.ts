@@ -22,6 +22,7 @@ import {
   getShoesSummary,
 } from '@/labs/shoeTracker';
 import { persistence } from '@/services/db/persistence';
+import { addDays, todayKey } from '@/utils/localDate';
 
 // Clear storage between tests
 beforeEach(() => {
@@ -282,25 +283,23 @@ describe('Degradation Calculation', () => {
   it('detects race-day warning', () => {
     const shoe = addRacer(); // 300 mi limit
 
-    // Simulate recent weekly mileage: 4 weeks of ~50 mi/week on this shoe
-    const today = new Date();
+    // Simulate recent weekly mileage: 4 weeks of ~50 mi/week on this shoe (local calendar dates)
+    const today = todayKey();
     for (let w = 0; w < 4; w++) {
       for (let d = 0; d < 5; d++) {
-        const runDate = new Date(today);
-        runDate.setDate(today.getDate() - (w * 7 + d));
+        const runDate = addDays(today, -(w * 7 + d));
         assignShoeToActivity(
           `act_w${w}_d${d}`,
           10, // 10 mi per run × 5 runs × 4 weeks = 200 mi
-          runDate.toISOString().slice(0, 10),
+          runDate,
           shoe.id,
         );
       }
     }
     // shoe has 200 mi, at 50/week, 100 mi remaining = 2 weeks
     // Race in 4 weeks → will exceed (200 + 50*4 = 400 > 300)
-    const raceDate = new Date(today);
-    raceDate.setDate(raceDate.getDate() + 28);
-    const deg = calculateDegradation(shoe.id, raceDate.toISOString().slice(0, 10));
+    const raceDate = addDays(today, 28);
+    const deg = calculateDegradation(shoe.id, raceDate);
     expect(deg!.exceedsBeforeRace).toBe(true);
     expect(deg!.urgency).toBe('warning');
     expect(deg!.statusMessage).toContain('race day');

@@ -16,6 +16,7 @@ import {
   getLastBackupError,
   initBackupSystem,
   restoreFromBackup,
+  syncSnapshotToDesktopFolder,
 } from '@/services/backupService';
 import { deleteAllLocalData } from '@/services/dataManager';
 import { clearStorageDegraded, markStorageDegraded } from '@/services/storageHealth';
@@ -119,5 +120,140 @@ describe('PX-04: backups table', () => {
     expect((await listBackupPayloadIds()).length).toBe(1);
     await deleteAllLocalData();
     expect(await listBackupPayloadIds()).toEqual([]);
+  });
+});
+
+describe('v1.0.9: "Delete all my data" and the desktop synced backup folder', () => {
+  type FolderApi = NonNullable<NonNullable<Window['electronAPI']>['backupFolder']>;
+  const withFolderApi = (clearFolder: FolderApi['clearFolder']) => {
+    const original = window.electronAPI;
+    // A desktop build: the keychain store removes credentials, and the synced folder can be disconnected.
+    const secureStorage = {
+      set: vi.fn(async () => ({ success: true })),
+      get: vi.fn(async () => null),
+      remove: vi.fn(async () => ({ success: true })),
+      isAvailable: vi.fn(async () => true),
+    };
+    (window as { electronAPI?: unknown }).electronAPI = {
+      ...(original ?? {}),
+      secureStorage,
+      backupFolder: { clearFolder },
+    };
+    return () => {
+      (window as { electronAPI?: unknown }).electronAPI = original;
+    };
+  };
+
+  it('disconnects the folder (Apollo forgets it; the files in it are left alone)', async () => {
+    const clearFolder = vi.fn(() => Promise.resolve({ folderPath: null } as unknown as DesktopBackupFolderState));
+    const restore = withFolderApi(clearFolder);
+    try {
+      persistence.setItem('apollo_plan', '{"id":"half"}');
+      await deleteAllLocalData();
+      expect(clearFolder).toHaveBeenCalledTimes(1);
+      expect(persistence.getItem('apollo_plan')).toBeNull();
+    } finally {
+      restore();
+    }
+  });
+
+  it('still deletes everything if the folder cannot be disconnected', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const restore = withFolderApi(vi.fn(() => Promise.reject(new Error('main process unavailable'))));
+    try {
+      persistence.setItem('apollo_plan', '{"id":"half"}');
+      await expect(deleteAllLocalData()).resolves.toBeUndefined();
+      expect(persistence.getItem('apollo_plan')).toBeNull();
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe('v1.0.9: desktop synced-folder snapshots from the renderer', () => {
+  const folderState = {
+    folderPath: '/Users/ana/Backups/Apollo',
+    maxFiles: 10,
+    lastSyncedAt: null,
+    lastFileName: null,
+    lastError: null,
+    folderReachable: true,
+  } as DesktopBackupFolderState;
+  const withFolder = () => {
+    const writeSnapshot = vi.fn(async (_json: string, _max: number) => ({ ok: true, state: folderState }));
+    const original = window.electronAPI;
+    (window as { electronAPI?: unknown }).electronAPI = {
+      ...(original ?? {}),
+      backupFolder: { getState: vi.fn(async () => folderState), writeSnapshot },
+    };
+    return {
+      writeSnapshot,
+      restore: () => {
+        (window as { electronAPI?: unknown }).electronAPI = original;
+      },
+    };
+  };
+
+  it('an empty profile is reported as "nothing to back up yet", not sent to the desktop app', async () => {
+    persistence.clear();
+    const { writeSnapshot, restore } = withFolder();
+    try {
+      const res = await syncSnapshotToDesktopFolder();
+      expect(res).toMatchObject({ ok: false, empty: true });
+      expect(res.error).toMatch(/no Apollo data to back up yet/);
+      expect(writeSnapshot).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('writes a checksummed snapshot of the Apollo data when there is some', async () => {
+    persistence.setItem('apollo_plan', '{"id":"half"}');
+    const { writeSnapshot, restore } = withFolder();
+    try {
+      const res = await syncSnapshotToDesktopFolder();
+      expect(res.ok).toBe(true);
+      expect(writeSnapshot).toHaveBeenCalledTimes(1);
+      const payload = JSON.parse(writeSnapshot.mock.calls[0][0]) as {
+        metadata: { keyCount: number; checksum?: string; purpose?: string };
+        data: Record<string, string>;
+      };
+      expect(payload.metadata.keyCount).toBe(Object.keys(payload.data).length);
+      expect(payload.metadata.keyCount).toBeGreaterThan(0);
+      expect(payload.metadata.purpose).toBe('backup');
+      expect(payload.metadata.checksum).toMatch(/^[0-9a-f]{64}$/);
+    } finally {
+      restore();
+    }
+  });
+
+  it('refuses while storage is degraded (an incomplete snapshot must never rotate good copies out)', async () => {
+    persistence.setItem('apollo_plan', '{"id":"half"}');
+    markStorageDegraded('test');
+    const { writeSnapshot, restore } = withFolder();
+    try {
+      const res = await syncSnapshotToDesktopFolder();
+      expect(res.ok).toBe(false);
+      expect(res.error).toMatch(/Storage is unavailable/);
+      expect(writeSnapshot).not.toHaveBeenCalled();
+    } finally {
+      restore();
+    }
+  });
+
+  it('automatic backups of an empty profile are not mirrored to the folder', async () => {
+    persistence.clear();
+    const { writeSnapshot, restore } = withFolder();
+    try {
+      await createBackup('manual');
+      expect(writeSnapshot).not.toHaveBeenCalled();
+      // Positive control: with data, the same backup is mirrored.
+      persistence.setItem('apollo_plan', '{"id":"half"}');
+      await createBackup('manual');
+      await vi.waitFor(() => expect(writeSnapshot).toHaveBeenCalledTimes(1));
+    } finally {
+      restore();
+    }
   });
 });
