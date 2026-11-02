@@ -1,0 +1,117 @@
+{
+  "_readme": "Weekly feature spotlights for Bluesky and Mastodon (.github/workflows/social-spotlight.yml). One entry is posted each Tuesday, in order, then the list starts again. Post = text + link + hashtags; keep it under 300 characters and the image under 1,000,000 bytes. Check with: node scripts/social-post.mjs check",
+  "spotlights": [
+    {
+      "id": "plan-library",
+      "text": "33 marathon plans in one free app, based on Hal Higdon, Pfitzinger, Daniels, Hansons, FIRST and Galloway, plus Apollo's own. Each coach-based plan says how closely it follows the published schedule.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/05-plan-chooser.png",
+      "alt": "Apollo's plan chooser: a search box, filters such as First marathon, Classic build, High volume & doubles and BQ & threshold, and a list of plans including Hal Higdon's Novice 1, Novice 2, Intermediate 1 and Advanced 1, each showing weeks, peak mileage, run days and longest run."
+    },
+    {
+      "id": "today",
+      "text": "Open Apollo and Today shows what to run: the workout, your target pace and heart-rate zone, and an optional recovery check from your watch's sleep, resting HR and HRV. Free, and your data stays on your device.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/03-today-dashboard.png",
+      "alt": "Apollo's Today screen: today's workout is an 8.5-mile marathon-pace run at 7:34 to 7:44 per mile in heart-rate zone 3, with Mark done and Skip buttons. Below are a recovery card (well recovered: sleep 7:42, resting heart rate 48 bpm, HRV 69 ms) and this week's distance and plan progress."
+    },
+    {
+      "id": "garmin-direct",
+      "text": "Apollo's desktop app syncs straight from Garmin Connect with your own free personal API key: routes, splits and laps from your watch's files. No other account needed; the key stays encrypted on your computer.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "Garmin"],
+      "image": "docs/images/13-settings-connections.png",
+      "alt": "Apollo Settings, Connections tab: the Garmin Connect card shows Connected, a personal API key saved encrypted on this device, 31 activities from Garmin, and buttons to sync now, re-import history, replace the key or disconnect. Below it, the intervals.icu card is also connected."
+    },
+    {
+      "id": "race-strategy",
+      "text": "Race-day pacing for six World Marathon Majors or any course: choose a negative, even or effort-based split and Apollo builds grade-adjusted splits mile by mile. Upload a race's GPX file to use its real elevation.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/10-raceday-strategy.png",
+      "alt": "Apollo's Race Day strategy for the Boston Marathon on April 20, 2026: a 3:24:00 goal with a 1.5% negative split, pacing choices (negative split, even split, effort-based, positive split) and a summary showing a 7:47 per mile average, a 1:42:46 first half and a 1:41:14 second half."
+    },
+    {
+      "id": "durability",
+      "text": "Is your aerobic engine marathon-ready? Apollo tracks heart-rate drift (Pa:HR) between the two halves of your steady long runs, plus a grade-adjusted Efficiency Factor, with trends over the weeks.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/09-progress-heart-rate-durability.png",
+      "alt": "Apollo's Progress, Heart Rate tab: an estimated heart-rate zone distribution for the last 30 days, a 30-day heart-rate trend, and an Aerobic Durability card with a long-run Pa:HR of +0.1%, an Efficiency Factor of 1.30 m/min/bpm and a table of recent steady runs, each rated Excellent."
+    },
+    {
+      "id": "plan-calendar",
+      "text": "Your whole marathon build on one calendar: phases from base to taper, color-coded workouts, and runs from Garmin, intervals.icu or file imports matched to the plan and checked off automatically.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": ".github/social/images/plan-calendar.jpg",
+      "alt": "Apollo's Training Plan page for the Pfitzinger-inspired 18/55 plan: a phase ribbon (Base Building, Build, Peak Training marked 'You are here, week 12', Taper, Race Week) above a March 2026 calendar of easy, medium-long, recovery, marathon-pace and long runs, most marked Synced, with weekly mileage totals and a recovery run comparing planned and actual distance."
+    },
+    {
+      "id": "data-privacy",
+      "text": "No Apollo account, no Apollo servers. Your training data stays on your computer, with automatic backups checked by SHA-256, an optional backup folder you can keep in iCloud or OneDrive, and JSON or CSV export.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "privacy"],
+      "image": "docs/images/14-settings-data-privacy.png",
+      "alt": "Apollo Settings, Data & Privacy: a Backups card marked Protected with automatic backups every 24 hours, buttons to create a backup, download data or import a file, a backup folder in iCloud Drive, two recent backups marked Verified, and Export as CSV buttons for activities, splits, wellness and the training journal."
+    },
+    {
+      "id": "race-fuel",
+      "text": "A race fueling plan you can follow: set the carbs you handle per hour (20–90 g) and Apollo times each gel by clock and mile. Carb loading and a fluid plan from your sweat test are on the same tab.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/11-raceday-fuel.png",
+      "alt": "Apollo's Race Day Fuel tab for the Boston Marathon: a target of 60 g of carbs per hour, a gel every 23 minutes and 200 g during the race, and a table listing a pre-race gel and gels 1 to 8 by time, distance and nearby aid station, followed by optional caffeine and carb-loading sections."
+    },
+    {
+      "id": "shoe-garage",
+      "text": "Shoe garage: track the miles on every pair, set a retirement limit, and Apollo warns you if your race-day shoes will pass it before the start line. A run synced from two sources still counts once.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/06-activities-shoe-garage.png",
+      "alt": "Apollo's Activities page: a Shoe rotation & gear card with three shoes and their mileage bars, a wear alert that the default pair (415 of 450 miles) will pass its limit before race day, a form to add a shoe, and a list of runs with route outlines, distance, pace, elevation gain and heart rate."
+    },
+    {
+      "id": "fitness-form",
+      "text": "Fitness & form (CTL, ATL and TSB) with your plan projected forward, so you can see whether you'll reach race morning fresh. Apollo marks race day and a +15 to +25 race window on the chart.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/08-progress-fitness-form.png",
+      "alt": "Apollo's Fitness & Form chart over six months: fitness (CTL) and fatigue (ATL) lines, daily form bars, a dashed projection from today to race day on April 20 and a shaded race window from +15 to +25. A note says race-morning form projects to +17, inside the window."
+    },
+    {
+      "id": "web-version",
+      "text": "Try Apollo without installing anything: the web version runs in your browser, and your data stays in that browser. The desktop apps for Windows, macOS and Linux add direct Garmin Connect and Strava sync.",
+      "link": "https://letslearntocodeforfun.github.io/Apollo-Running/",
+      "tags": ["running", "OpenSource"],
+      "image": "docs/images/01-onboarding-welcome.png",
+      "alt": "Step 1 of 5 of Apollo's welcome flow: 'Welcome to Apollo. Apollo turns your marathon plan into a day-by-day checklist, syncs your runs and keeps you on track to race day.' with a choice of miles or kilometres and Continue and Skip setup buttons."
+    },
+    {
+      "id": "race-week",
+      "text": "Race week, sorted: a checklist for gear, nutrition, logistics, race morning, mental prep and post-race, plus a printable race card with your splits, fuel cues and mantras.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/12-raceday-checklist-card.png",
+      "alt": "Apollo's Race Week tab for the Boston Marathon: a race-week checklist with 6 of 50 items done, grouped into gear and equipment, nutrition and hydration, logistics, race morning, mental preparation and post-race, then a race card form with an emergency contact and mantras, Print and Download HTML buttons, and a preview of the printable card."
+    },
+    {
+      "id": "intervals-icu",
+      "text": "No Garmin? Connect a free intervals.icu account and Apollo syncs runs from COROS, Suunto, Polar, Wahoo, Zwift and more. It can also send your plan, with paces, back to your watch through intervals.icu.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "marathon"],
+      "image": "docs/images/13-settings-connections.png",
+      "alt": "Apollo Settings, Connections tab: Garmin Connect and intervals.icu cards, both connected. The intervals.icu card explains that it collects workouts from Garmin Connect, Zwift, Wahoo, COROS, Suunto, Polar and more, shows 57 activities on this device, and has Sync now, Re-import full history and Disconnect buttons."
+    },
+    {
+      "id": "file-import",
+      "text": "No account at all? Drag in FIT, GPX or TCX files, or your whole Garmin or Strava data export, and Apollo builds your training history from it, with route maps and splits.",
+      "link": "https://github.com/LetsLearntocodeforfun/Apollo-Running",
+      "tags": ["running", "OpenSource"],
+      "image": "docs/images/06-activities-shoe-garage.png",
+      "alt": "Apollo's Activities page with an Import files button at the top, a shoe rotation card, and a list of runs, each with a small gold route outline, the date, the shoe used, the source (Garmin Connect or intervals.icu), distance, pace, elevation gain and heart rate."
+    }
+  ]
+}

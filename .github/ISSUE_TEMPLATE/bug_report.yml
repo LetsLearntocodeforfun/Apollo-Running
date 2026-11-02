@@ -1,0 +1,72 @@
+name: Bug report
+description: Something in Apollo doesn't work as expected.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug.
+        **Please don't include API keys, tokens, backup files or other personal data.** Security problems: report them privately instead (see SECURITY.md).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What went wrong, and what did you expect to happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Go to Plan
+        2. Click "Change plan or race date"
+        3. ...
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: Apollo version
+      description: Shown in Settings › About (for example 1.0.9).
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where do you use Apollo?
+      multiple: true
+      options:
+        - Windows desktop app
+        - macOS desktop app
+        - Linux desktop app
+        - Web version (browser)
+    validations:
+      required: true
+  - type: dropdown
+    id: data-source
+    attributes:
+      label: Where do your runs come from? (if related)
+      multiple: true
+      options:
+        - Garmin Connect (direct)
+        - intervals.icu
+        - Strava
+        - File or export import (FIT/GPX/TCX/ZIP)
+        - Not related to sync or import
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots or other details
+      description: Screenshots help a lot. Blur names, routes or anything personal first.
+    validations:
+      required: false
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed API keys, tokens and personal data from this report.
+          required: true

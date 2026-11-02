@@ -3,13 +3,50 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Apollo — free, local-first marathon training. Proven plans, race-day planning, and coaching insights. Your data stays on your device." />
+    <meta name="description" content="Free, open-source marathon training for Windows, macOS, Linux and the web. 33 training plans, Garmin and intervals.icu sync, race-day pacing. No account needed." />
     <meta name="theme-color" content="#0D1B2A" />
     <link rel="icon" type="image/png" sizes="32x32" href="/assets/logo-32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/assets/logo-16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>Apollo — Marathon Training</title>
+    <!--
+      Link previews and search. Absolute URLs point at the free web version on
+      GitHub Pages; they are inert in the desktop app. The ld+json block is data
+      (never executed), so it does not need a CSP exception.
+    -->
+    <link rel="canonical" href="https://letslearntocodeforfun.github.io/Apollo-Running/" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Apollo" />
+    <meta property="og:title" content="Apollo — free, local-first marathon training" />
+    <meta property="og:description" content="33 training plans, Garmin Connect and intervals.icu sync, FIT/GPX/TCX import, and race-day pacing and fueling. Free and open source for Windows, macOS, Linux and the web. No account; your data stays on your device." />
+    <meta property="og:url" content="https://letslearntocodeforfun.github.io/Apollo-Running/" />
+    <meta property="og:image" content="https://letslearntocodeforfun.github.io/Apollo-Running/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Apollo's Today screen with a marathon-pace workout, recovery and weekly progress, beside the tagline: Free marathon training that stays on your device." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image:alt" content="Apollo's Today screen with a marathon-pace workout, recovery and weekly progress, beside the tagline: Free marathon training that stays on your device." />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "Apollo",
+        "alternateName": "Apollo Marathon Training",
+        "description": "Free, local-first marathon training app: 33 training plans, Garmin Connect and intervals.icu sync, FIT/GPX/TCX import, and race-day pacing and fueling. No account; your data stays on your device.",
+        "applicationCategory": "SportsApplication",
+        "operatingSystem": "Windows 10, Windows 11, macOS, Linux, web browser",
+        "url": "https://letslearntocodeforfun.github.io/Apollo-Running/",
+        "downloadUrl": "https://github.com/LetsLearntocodeforfun/Apollo-Running/releases/latest",
+        "image": "https://letslearntocodeforfun.github.io/Apollo-Running/og-image.png",
+        "screenshot": "https://letslearntocodeforfun.github.io/Apollo-Running/og-image.png",
+        "license": "https://opensource.org/licenses/MIT",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Marc Copeland", "url": "https://github.com/LetsLearntocodeforfun" }
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

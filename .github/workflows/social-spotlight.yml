@@ -1,0 +1,60 @@
+name: Weekly feature spotlight
+
+# Every Tuesday, posts one feature spotlight (text, link, screenshot with alt
+# text) from .github/social/spotlights.json to Bluesky and/or Mastodon, if
+# their secrets are set (BLUESKY_HANDLE + BLUESKY_APP_PASSWORD,
+# MASTODON_INSTANCE + MASTODON_TOKEN). Without them it only checks the list.
+# One spotlight per week, in order; after the last one the list starts again.
+#
+# Run it by hand to preview this week's post (dry run, the default) or to post a
+# specific spotlight number. Code: scripts/social-post.mjs.
+on:
+  schedule:
+    - cron: '0 15 * * 2' # Tuesdays 15:00 UTC (morning in the Americas, evening in Europe)
+  workflow_dispatch:
+    inputs:
+      index:
+        description: 'Spotlight number from spotlights.json, starting at 0 (empty = this week''s)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry run: show the post without publishing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: social-spotlight
+  cancel-in-progress: false
+
+jobs:
+  spotlight:
+    name: Spotlight
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Check the spotlight list
+        run: node scripts/social-post.mjs check
+
+      - name: Post this week's spotlight
+        env:
+          SPOTLIGHT_INDEX: ${{ github.event_name == 'workflow_dispatch' && inputs.index || '' }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '' }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+          MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
+        run: node scripts/social-post.mjs spotlight

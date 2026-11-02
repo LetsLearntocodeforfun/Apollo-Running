@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="public/assets/logo-1024.png" alt="Apollo" width="140" />
+  <img src="public/assets/logo-512.png" alt="Apollo" width="140" />
 </p>
 
 <h1 align="center">Apollo</h1>
@@ -11,11 +11,35 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/LetsLearntocodeforfun/Apollo-Running/releases/latest"><strong>Download for Windows, macOS &amp; Linux</strong></a>
+  &nbsp;·&nbsp;
+  <a href="https://letslearntocodeforfun.github.io/Apollo-Running/"><strong>Try it in your browser</strong></a>
+  &nbsp;·&nbsp;
+  <a href="docs/QUICK_START_GUIDE.md"><strong>Quick-Start Guide</strong></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/LetsLearntocodeforfun/Apollo-Running/releases/latest"><img src="https://img.shields.io/github/v/release/LetsLearntocodeforfun/Apollo-Running?label=release&amp;color=d4a537" alt="Latest release" /></a>
+  <a href="https://github.com/LetsLearntocodeforfun/Apollo-Running/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/LetsLearntocodeforfun/Apollo-Running/ci.yml?branch=main&amp;label=CI" alt="CI status" /></a>
   <img src="https://img.shields.io/badge/app%20tests-~2400%20passing-brightgreen" alt="About 2,400 app tests passing" />
   <img src="https://img.shields.io/badge/typescript-strict-blue" alt="TypeScript strict" />
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT License" />
-  <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop & Web" />
+  <img src="https://img.shields.io/badge/platform-desktop%20%7C%20web-gold" alt="Desktop &amp; Web" />
 </p>
+
+<p align="center">
+  <img src="docs/images/03-today-dashboard.png" alt="Apollo's Today screen: today's marathon-pace workout with its target pace and heart-rate zone, a recovery check from sleep, resting heart rate and HRV, and this week's distance and plan progress" width="880" />
+</p>
+
+<table>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/05-plan-chooser.png" alt="The plan chooser listing Hal Higdon, Hansons and Pfitzinger plans with search and category filters" /><br /><sub><b>33 plans</b>, with search and filters</sub></td>
+    <td align="center" width="33%"><img src="docs/images/10-raceday-strategy.png" alt="Race Day strategy for the Boston Marathon: a 3:24 negative-split plan with first-half and second-half times" /><br /><sub><b>Race-day pacing</b> for six Majors or any course</sub></td>
+    <td align="center" width="33%"><img src="docs/images/09-progress-heart-rate-durability.png" alt="Progress, Heart Rate tab: estimated zone distribution, a 30-day heart-rate trend and an aerobic durability table with Pa:HR and Efficiency Factor per run" /><br /><sub><b>Aerobic durability</b> (Pa:HR &amp; EF)</sub></td>
+  </tr>
+</table>
+
+<p align="center"><sub>More screens in the <a href="docs/QUICK_START_GUIDE.md">illustrated Quick-Start Guide</a>. Screenshots use sample data.</sub></p>
 
 ---
 
@@ -86,6 +110,7 @@ New to Apollo or planning your next marathon build? Start here:
 - [Running Tests](#running-tests)
 - [Tech Stack](#tech-stack)
 - [Project Structure](#project-structure)
+- [Community & Contributing](#community--contributing)
 - [License](#license)
 
 ---
@@ -125,7 +150,7 @@ What sets Apollo apart:
 | Linux (any distribution) | `Apollo-<version>.AppImage` |
 | Debian / Ubuntu | `apollo-marathon_<version>_amd64.deb` |
 
-**Don't want to install anything?** [Use it in your browser](docs/INSTALL.md#use-it-in-your-browser) at **https://letslearntocodeforfun.github.io/Apollo-Running/** (live after the first deploy). Your data stays in that browser, and Strava and Garmin Connect sync are desktop-only.
+**Don't want to install anything?** [Use it in your browser](docs/INSTALL.md#use-it-in-your-browser) at **https://letslearntocodeforfun.github.io/Apollo-Running/**. Your data stays in that browser, and Strava and Garmin Connect sync are desktop-only.
 
 The first time you open Apollo, your computer asks you to confirm once. That's because the installers aren't signed with a paid publisher certificate yet:
 
@@ -180,7 +205,7 @@ Sending your plan to your watch still goes through intervals.icu (Garmin's perso
 
 **Also from v1.0.7 / v1.0.8:**
 
-- **Use it in your browser** — a free web version on GitHub Pages (live after the first deploy). Your data stays in that browser; Strava and Garmin Connect sync are desktop-only. See [the install guide](docs/INSTALL.md#use-it-in-your-browser).
+- **Use it in your browser** — a free web version on [GitHub Pages](https://letslearntocodeforfun.github.io/Apollo-Running/). Your data stays in that browser; Strava and Garmin Connect sync are desktop-only. See [the install guide](docs/INSTALL.md#use-it-in-your-browser).
 - **Safer saving** — a **Not saved** banner with *Retry* if a write ever fails, backups checked after they're written, and damaged data set aside instead of lost.
 - **Plans that follow their coach** — every built-in plan says how closely it follows the published plan and links to the official source. Joining late? A fitness check compares the week you'd join with your recent running.
 - **Race Day › Fuel** — an optional caffeine card, a sweat test (and a "salty sweater" option) that sets your fluid and sodium guidance, and one carb ceiling of 20–90 g/h.
@@ -1367,6 +1392,15 @@ electron/                     Electron main process, secure preload, and the pur
 api/                          Azure Functions (Strava token exchange)
 public/                       Static assets, PWA manifest, SWA config
 ```
+
+---
+
+## Community & Contributing
+
+- **Questions, ideas and race reports:** [Discussions](https://github.com/LetsLearntocodeforfun/Apollo-Running/discussions) (Q&A, Ideas, Show and tell). New releases are announced there too.
+- **Bugs and feature requests:** [open an issue](https://github.com/LetsLearntocodeforfun/Apollo-Running/issues/new/choose).
+- **Want to help?** Read [CONTRIBUTING.md](CONTRIBUTING.md) and look for [`good first issue`](https://github.com/LetsLearntocodeforfun/Apollo-Running/labels/good%20first%20issue) labels.
+- **Security problems:** please report them privately; see [SECURITY.md](SECURITY.md).
 
 ---
 

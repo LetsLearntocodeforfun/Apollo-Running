@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Questions and help
+    url: https://github.com/LetsLearntocodeforfun/Apollo-Running/discussions/categories/q-a
+    about: Ask how to do something in Apollo or get help with setup.
+  - name: Ideas and feedback
+    url: https://github.com/LetsLearntocodeforfun/Apollo-Running/discussions/categories/ideas
+    about: Share an idea or talk a feature through before opening a request.
+  - name: Report a security problem
+    url: https://github.com/LetsLearntocodeforfun/Apollo-Running/security/advisories/new
+    about: Please report vulnerabilities privately, not in a public issue.

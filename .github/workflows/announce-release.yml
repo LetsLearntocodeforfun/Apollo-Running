@@ -1,0 +1,72 @@
+name: Announce release
+
+# Runs after "Build & Release Electron Installers" publishes a release for a v* tag:
+#   1. links a GitHub Discussions announcement (category "Announcements") to the release;
+#   2. posts the release to Bluesky and/or Mastodon, if their secrets are set
+#      (BLUESKY_HANDLE + BLUESKY_APP_PASSWORD, MASTODON_INSTANCE + MASTODON_TOKEN).
+#      Without them this step just prints the post.
+#
+# Run it by hand (Actions → Announce release → Run workflow) to preview a post
+# (dry run, the default) or to announce a release that was missed. Anything
+# already posted for that release is skipped, so a re-run never posts twice.
+# Optional: put <!-- social-post: your text {url} --> in the release notes to
+# write the post yourself. Code: scripts/social-post.mjs.
+on:
+  workflow_run:
+    workflows: ['Build & Release Electron Installers']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag, e.g. v1.0.10 (empty = latest release)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Dry run: show the post without publishing anything'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: announce-release
+  cancel-in-progress: false
+
+jobs:
+  announce:
+    name: Announce
+    # Only real releases: the release workflow succeeded for a pushed v* tag
+    # (its "Run workflow" dry runs publish nothing and are ignored).
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write # link the Discussions announcement to the release
+      discussions: write # create that announcement
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+
+      - name: Announce the release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event.workflow_run.head_branch }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && '1' || '' }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          MASTODON_INSTANCE: ${{ secrets.MASTODON_INSTANCE }}
+          MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
+        run: node scripts/social-post.mjs release

@@ -1,0 +1,30 @@
+name: Feature request
+description: Suggest an improvement or a new feature.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! For open-ended ideas, [Discussions › Ideas](https://github.com/LetsLearntocodeforfun/Apollo-Running/discussions/categories/ideas) is a good place to talk it through first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the training need or problem, not just the solution.
+      placeholder: When I ... I want to ... so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: What would help?
+      description: How you imagine it working in Apollo.
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Anything else?
+      description: Workarounds you use today, other apps that do this well, or sources (for plans and formulas, a link to the published source helps).
+    validations:
+      required: false
